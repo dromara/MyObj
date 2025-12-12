@@ -23,6 +23,8 @@ type RepositoryFactory struct {
 	virtualPathRepo  repository.VirtualPathRepository
 	recycledRepo     repository.RecycledRepository
 	downloadTaskRepo repository.DownloadTaskRepository
+	sysConfigRepo    repository.SysConfigRepository
+	uploadChunkRepo  repository.UploadChunkRepository
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -134,6 +136,22 @@ func (f *RepositoryFactory) DownloadTask() repository.DownloadTaskRepository {
 		f.downloadTaskRepo = NewDownloadTaskRepository(f.db)
 	}
 	return f.downloadTaskRepo
+}
+
+// SysConfig 获取系统配置仓储
+func (f *RepositoryFactory) SysConfig() repository.SysConfigRepository {
+	if f.sysConfigRepo == nil {
+		f.sysConfigRepo = NewSysConfigRepository(f.db)
+	}
+	return f.sysConfigRepo
+}
+
+// UploadChunk 获取上传分片信息仓储
+func (f *RepositoryFactory) UploadChunk() repository.UploadChunkRepository {
+	if f.uploadChunkRepo == nil {
+		f.uploadChunkRepo = NewUploadChunkRepository(f.db)
+	}
+	return f.uploadChunkRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

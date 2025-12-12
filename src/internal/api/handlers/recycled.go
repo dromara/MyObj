@@ -46,7 +46,18 @@ func (h *RecycledHandler) Router(c *gin.RouterGroup) {
 	logger.LOG.Info("[路由] 回收站路由注册完成✔️")
 }
 
-// GetRecycledList 获取回收站列表
+// GetRecycledList godoc
+// @Summary 获取回收站列表
+// @Description 获取当前用户回收站中的文件列表
+// @Tags 回收站
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int true "页码" minimum(1)
+// @Param pageSize query int true "每页数量" minimum(1) maximum(100)
+// @Success 200 {object} models.JsonResponse{data=object} "回收站列表"
+// @Failure 500 {object} models.JsonResponse "获取失败"
+// @Router /recycled/list [get]
 func (h *RecycledHandler) GetRecycledList(c *gin.Context) {
 	req := new(request.RecycledListRequest)
 	if err := c.ShouldBindQuery(req); err != nil {
@@ -64,7 +75,17 @@ func (h *RecycledHandler) GetRecycledList(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// RestoreFile 还原文件
+// RestoreFile godoc
+// @Summary 还原文件
+// @Description 从回收站还原文件到原位置
+// @Tags 回收站
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.RestoreFileRequest true "还原请求"
+// @Success 200 {object} models.JsonResponse "还原成功"
+// @Failure 500 {object} models.JsonResponse "还原失败"
+// @Router /recycled/restore [post]
 func (h *RecycledHandler) RestoreFile(c *gin.Context) {
 	req := new(request.RestoreFileRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -82,7 +103,17 @@ func (h *RecycledHandler) RestoreFile(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// DeletePermanently 永久删除文件
+// DeletePermanently godoc
+// @Summary 永久删除文件
+// @Description 从回收站永久删除文件，不可恢复
+// @Tags 回收站
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.DeleteRecycledRequest true "删除请求"
+// @Success 200 {object} models.JsonResponse "删除成功"
+// @Failure 500 {object} models.JsonResponse "删除失败"
+// @Router /recycled/delete [post]
 func (h *RecycledHandler) DeletePermanently(c *gin.Context) {
 	req := new(request.DeleteRecycledRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -100,7 +131,15 @@ func (h *RecycledHandler) DeletePermanently(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// EmptyRecycled 清空回收站
+// EmptyRecycled godoc
+// @Summary 清空回收站
+// @Description 清空当前用户回收站中的所有文件
+// @Tags 回收站
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse "清空成功"
+// @Failure 500 {object} models.JsonResponse "清空失败"
+// @Router /recycled/empty [post]
 func (h *RecycledHandler) EmptyRecycled(c *gin.Context) {
 	userID := c.GetString("userID")
 	result, err := h.service.EmptyRecycled(userID)

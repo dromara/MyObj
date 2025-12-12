@@ -13,6 +13,32 @@ import (
 	"syscall"
 )
 
+// @title MyObj 文件存储系统 API
+// @version 1.0
+// @description MyObj 是一个功能强大的文件存储系统，支持文件上传、下载、分享、回收站等功能
+// @description 支持大文件分片上传、秒传、文件加密等高级特性
+// @termsOfService https://github.com/yourusername/myobj
+
+// @contact.name API Support
+// @contact.url https://github.com/yourusername/myobj/issues
+// @contact.email support@myobj.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description 输入 "Bearer {token}" 进行身份验证
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
+// @description API Key 身份验证
+
 func main() {
 	// 1. 初始化配置系统
 	if err := initConfig(); err != nil {

@@ -97,3 +97,9 @@ type ShareListItem struct {
 	DownloadCount int                  `json:"download_count"`
 	CreatedAt     custom_type.JsonTime `json:"created_at"`
 }
+
+// FilePrecheckResponse 文件预检查响应结构体
+type FilePrecheckResponse struct {
+	PrecheckID string   `json:"precheck_id"`
+	Md5        []string `json:"md5"`
+}

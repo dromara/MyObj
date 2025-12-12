@@ -9,12 +9,10 @@ type UploadPrecheckRequest struct {
 	FileSize int64 `json:"file_size"`
 	// 文件hash签名
 	ChunkSignature string `json:"chunk_signature"`
-	// 文件分片hash 第一
-	FirstChunkHash string `json:"first_chunk_hash"`
-	// 文件分片hash 第二
-	SecondChunkHash string `json:"second_chunk_hash"`
-	// 文件分片hash 第三
-	ThirdChunkHash string `json:"third_chunk_hash"`
+	// 路径ID
+	PathID string `json:"path_id"`
+	// 文件分片的DM5列表
+	FilesMd5 []string `json:"files_md5"`
 }
 
 // FileSearchRequest 文件搜索请求
@@ -62,4 +60,18 @@ type MoveFileRequest struct {
 type DeleteFileRequest struct {
 	// 文件ID列表
 	FileIDs []string `json:"file_ids" binding:"required"`
+}
+
+// FileUploadRequest 文件上传请求
+type FileUploadRequest struct {
+	// 预检ID
+	PrecheckID string `form:"precheck_id" binding:"required"`
+	// 分片索引（分片上传时必须，从0开始）
+	ChunkIndex *int `form:"chunk_index"`
+	// 总分片数（分片上传时必须）
+	TotalChunks *int `form:"total_chunks"`
+	// 当前分片的MD5（分片上传时必须）
+	ChunkMD5 string `form:"chunk_md5"`
+	// 是否需要加密
+	IsEnc bool `form:"is_enc"`
 }

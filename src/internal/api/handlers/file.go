@@ -33,6 +33,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 	fileGroup := c.Group("/file")
 	{
 		fileGroup.Use(verify.Verify())
+		// 预检接口
+		fileGroup.POST("/upload/precheck", middleware.PowerVerify("file:upload"), f.Precheck)
+		// 文件上传接口
+		fileGroup.POST("/upload", middleware.PowerVerify("file:upload"), f.UploadFile)
 		// 获取文件列表
 		fileGroup.GET("/list", middleware.PowerVerify("file:preview"), f.GetFileList)
 		// 获取缩略图
@@ -53,7 +57,18 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 	logger.LOG.Info("[路由] 文件路由注册完成✔️")
 }
 
-// Precheck 预检查
+// Precheck godoc
+// @Summary 文件上传预检
+// @Description 上传前的预检查，检查空间、秒传可能性，返回预检ID
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.UploadPrecheckRequest true "预检请求"
+// @Success 200 {object} models.JsonResponse{data=string} "预检ID"
+// @Success 200 {object} models.JsonResponse{message=string} "秒传成功"
+// @Failure 400 {object} models.JsonResponse "预检失败"
+// @Router /file/upload/precheck [post]
 func (f *FileHandler) Precheck(c *gin.Context) {
 	req := new(request.UploadPrecheckRequest)
 	if err := c.ShouldBind(req); err != nil {
@@ -69,7 +84,19 @@ func (f *FileHandler) Precheck(c *gin.Context) {
 	c.JSON(200, precheck)
 }
 
-// SearchUserFiles 搜索当前用户文件
+// SearchUserFiles godoc
+// @Summary 搜索当前用户文件
+// @Description 根据关键词搜索当前用户的文件
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param keyword query string true "搜索关键词"
+// @Param page query int false "页码" default(1)
+// @Param pageSize query int false "每页数量" default(20)
+// @Success 200 {object} models.JsonResponse{data=object} "搜索结果"
+// @Failure 500 {object} models.JsonResponse "搜索失败"
+// @Router /file/search/user [get]
 func (f *FileHandler) SearchUserFiles(c *gin.Context) {
 	req := new(request.FileSearchRequest)
 	if err := c.ShouldBindQuery(req); err != nil {
@@ -100,7 +127,19 @@ func (f *FileHandler) SearchPublicFiles(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// GetFileList 获取文件列表
+// GetFileList godoc
+// @Summary 获取文件列表
+// @Description 获取当前用户指定目录下的文件列表
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param virtualPath query string false "虚拟路径"
+// @Param page query int true "页码" minimum(1)
+// @Param pageSize query int true "每页数量" minimum(1) maximum(100)
+// @Success 200 {object} models.JsonResponse{data=object} "文件列表"
+// @Failure 500 {object} models.JsonResponse "获取失败"
+// @Router /file/list [get]
 func (f *FileHandler) GetFileList(c *gin.Context) {
 	req := new(request.FileListRequest)
 	if err := c.ShouldBindQuery(req); err != nil {
@@ -197,7 +236,17 @@ func (f *FileHandler) GetVirtualPath(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// DeleteFile 删除文件
+// DeleteFile godoc
+// @Summary 删除文件
+// @Description 将文件移动到回收站（软删除）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.DeleteFileRequest true "删除请求"
+// @Success 200 {object} models.JsonResponse{data=object} "删除结果"
+// @Failure 500 {object} models.JsonResponse "删除失败"
+// @Router /file/delete [post]
 func (f *FileHandler) DeleteFile(c *gin.Context) {
 	req := new(request.DeleteFileRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -209,5 +258,48 @@ func (f *FileHandler) DeleteFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "删除文件失败", err.Error()))
 		return
 	}
+	c.JSON(200, result)
+}
+
+// UploadFile godoc
+// @Summary 文件上传
+// @Description 支持小文件直传和大文件分片上传
+// @Tags 文件管理
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param precheck_id formData string true "预检ID"
+// @Param file formData file true "文件数据"
+// @Param chunk_index formData int false "分片索引"
+// @Param total_chunks formData int false "总分片数"
+// @Param chunk_md5 formData string false "分片MD5"
+// @Param is_enc formData boolean false "是否加密"
+// @Success 200 {object} models.JsonResponse{data=object} "上传成功"
+// @Failure 400 {object} models.JsonResponse "上传失败"
+// @Router /file/upload [post]
+func (f *FileHandler) UploadFile(c *gin.Context) {
+	// 1. 解析请求参数
+	req := new(request.FileUploadRequest)
+	if err := c.ShouldBind(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	// 2. 获取上传的文件
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "获取上传文件失败", err.Error()))
+		return
+	}
+	defer file.Close()
+
+	// 3. 调用 Service 处理上传
+	userID := c.GetString("userID")
+	result, err := f.service.UploadFile(req, file, header, userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "上传失败", err.Error()))
+		return
+	}
+
 	c.JSON(200, result)
 }

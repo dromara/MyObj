@@ -174,3 +174,34 @@ type DownloadTaskRepository interface {
 	// CountByState 统计指定状态的任务数量
 	CountByState(ctx context.Context, userID string, state int) (int64, error)
 }
+
+// SysConfigRepository 系统配置仓储接口
+type SysConfigRepository interface {
+	Create(ctx context.Context, config *models.SysConfig) error
+	GetByID(ctx context.Context, id int) (*models.SysConfig, error)
+	GetByKey(ctx context.Context, key string) (*models.SysConfig, error)
+	Update(ctx context.Context, config *models.SysConfig) error
+	Delete(ctx context.Context, id int) error
+	List(ctx context.Context, offset, limit int) ([]*models.SysConfig, error)
+	Count(ctx context.Context) (int64, error)
+	// BatchUpdate 批量更新配置
+	BatchUpdate(ctx context.Context, configs []*models.SysConfig) error
+	// GetAllAsMap 获取所有配置并以 key-value 格式返回
+	GetAllAsMap(ctx context.Context) (map[string]string, error)
+}
+
+// UploadChunkRepository 上传分片信息仓储接口
+type UploadChunkRepository interface {
+	Create(ctx context.Context, chunk *models.UploadChunk) error
+	GetByID(ctx context.Context, chunkID int) (*models.UploadChunk, error)
+	Update(ctx context.Context, chunk *models.UploadChunk) error
+	Delete(ctx context.Context, chunkID int) error
+	ListByUserID(ctx context.Context, userID string, offset, limit int) ([]*models.UploadChunk, error)
+	Count(ctx context.Context, userID string) (int64, error)
+	// GetByUserIDAndFileName 根据用户ID和文件名获取分片信息
+	GetByUserIDAndFileName(ctx context.Context, userID, fileName string) ([]models.UploadChunk, error)
+	// DeleteByUserID 删除用户的所有上传分片记录
+	DeleteByUserID(ctx context.Context, userID string) error
+	// ListByPathID 根据路径ID获取分片列表
+	ListByPathID(ctx context.Context, pathID string, offset, limit int) ([]*models.UploadChunk, error)
+}

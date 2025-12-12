@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
+	"myobj/src/config"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
 	"myobj/src/internal/repository/impl"
@@ -11,6 +14,9 @@ import (
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"myobj/src/pkg/upload"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -50,16 +56,64 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		logger.LOG.Error("查询文件签名失败", "error", err, "chunkSignature", req.ChunkSignature)
 		return nil, err
 	}
-	if signature.FirstChunkHash == req.FirstChunkHash && signature.SecondChunkHash == req.SecondChunkHash && signature.ThirdChunkHash == req.ThirdChunkHash {
-		//TODO: 需要向数据库写入用户对应的文件信息
-		return models.NewJsonResponse(200, "秒传成功", nil), nil
+	if len(req.FilesMd5) >= 3 {
+		if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] {
+			userFile := &models.UserFiles{
+				UserID:      user.ID,
+				FileID:      signature.ID,
+				FileName:    req.FileName,
+				VirtualPath: req.PathID,
+				Public:      false,
+				CreatedAt:   custom_type.Now(),
+			}
+			err := f.factory.UserFiles().Create(context.Background(), userFile)
+			if err != nil {
+				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
+				return nil, err
+			}
+			return models.NewJsonResponse(200, "秒传成功", nil), nil
+		}
+	} else {
+		if signature.FileHash == req.FilesMd5[0] {
+			userFile := &models.UserFiles{
+				UserID:      user.ID,
+				FileID:      signature.ID,
+				FileName:    req.FileName,
+				VirtualPath: req.PathID,
+				Public:      false,
+				CreatedAt:   custom_type.Now(),
+			}
+			err := f.factory.UserFiles().Create(context.Background(), userFile)
+			if err != nil {
+				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
+				return nil, err
+			}
+			return models.NewJsonResponse(200, "秒传成功", nil), nil
+		}
 	}
 	//无法触发秒传，但可上传，返回校验ID
 	key := fmt.Sprintf("fileUpload:%s", user.ID)
 	uid := uuid.New().String()
-	err = c.Set(key, uid, 300) //五分钟内可用的校验
+	res := new(response.FilePrecheckResponse)
+	res.PrecheckID = uid
+	chunks, err := f.factory.UploadChunk().GetByUserIDAndFileName(ctx, user.ID, req.FileName)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.LOG.Error("获取文件分片失败", "error", err, "chunkSignature", req.ChunkSignature)
+		return nil, err
+	}
+	// chunks 是数组，需要遍历
+	for _, chunk := range chunks {
+		res.Md5 = append(res.Md5, chunk.Md5)
+	}
+	err = c.Set(key, res, 12*60*60) // 12小时内可用的校验
 	if err != nil {
 		logger.LOG.Error("缓存设置失败", "error", err, "key", key)
+		return nil, err
+	}
+	// 保存原始请求数据到缓存，供上传时使用
+	reqKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
+	if err := c.Set(reqKey, req, 12*60*60); err != nil {
+		logger.LOG.Error("保存上传请求失败", "error", err, "key", reqKey)
 		return nil, err
 	}
 	return models.NewJsonResponse(201, "预检通过", uid), nil
@@ -444,7 +498,7 @@ func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string)
 
 	successCount := 0
 	failedCount := 0
-	errors := []string{}
+	var errors []string
 
 	for _, fileID := range req.FileIDs {
 		// 验证用户是否拥有该文件
@@ -514,4 +568,212 @@ func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string)
 	}
 
 	return models.NewJsonResponse(200, message, result), nil
+}
+
+// UploadFile 文件上传处理
+func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.File, header *multipart.FileHeader, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 从缓存获取预检信息
+	cacheKey := fmt.Sprintf("fileUpload:%s", userID)
+	precheckData, err := f.cacheLocal.Get(cacheKey)
+	if err != nil {
+		logger.LOG.Error("获取预检信息失败", "error", err, "precheckID", req.PrecheckID)
+		return nil, fmt.Errorf("预检信息已过期或不存在")
+	}
+
+	precheckResp, ok := precheckData.(*response.FilePrecheckResponse)
+	if !ok || precheckResp.PrecheckID != req.PrecheckID {
+		return nil, fmt.Errorf("无效的预检ID")
+	}
+
+	// 2. 创建临时目录
+	tempBaseDir := filepath.Join(config.CONFIG.File.TempDir, userID, req.PrecheckID)
+	if err := os.MkdirAll(tempBaseDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+	}
+
+	// 3. 判断是否为分片上传
+	isChunkUpload := req.ChunkIndex != nil && req.TotalChunks != nil
+
+	if isChunkUpload {
+		// 分片上传处理
+		return f.handleChunkUpload(ctx, req, file, header, userID, tempBaseDir, precheckResp)
+	} else {
+		// 小文件直传处理
+		return f.handleSingleUpload(ctx, req, file, header, userID, tempBaseDir, precheckResp)
+	}
+}
+
+// handleChunkUpload 处理分片上传
+func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUploadRequest, file multipart.File, header *multipart.FileHeader, userID, tempBaseDir string, precheckResp *response.FilePrecheckResponse) (*models.JsonResponse, error) {
+	chunkIndex := *req.ChunkIndex
+	totalChunks := *req.TotalChunks
+
+	// 1. 保存分片文件
+	chunkPath := filepath.Join(tempBaseDir, fmt.Sprintf("%d.chunk.data", chunkIndex))
+	chunkFile, err := os.Create(chunkPath)
+	if err != nil {
+		return nil, fmt.Errorf("创建分片文件失败: %w", err)
+	}
+	defer chunkFile.Close()
+
+	if _, err := io.Copy(chunkFile, file); err != nil {
+		return nil, fmt.Errorf("保存分片文件失败: %w", err)
+	}
+
+	logger.LOG.Info("分片上传成功", "chunkIndex", chunkIndex, "totalChunks", totalChunks, "userID", userID)
+
+	// 2. 删除 UploadChunk 表中对应的 MD5 记录
+	if req.ChunkMD5 != "" {
+		// 查找匹配的 UploadChunk 记录
+		chunks, err := f.factory.UploadChunk().ListByUserID(ctx, userID, 0, 1000)
+		if err == nil {
+			for _, chunk := range chunks {
+				if chunk.Md5 == req.ChunkMD5 && chunk.FileName == header.Filename {
+					if err := f.factory.UploadChunk().Delete(ctx, chunk.ChunkID); err != nil {
+						logger.LOG.Warn("删除UploadChunk记录失败", "error", err, "chunkID", chunk.ChunkID)
+					} else {
+						logger.LOG.Info("删除UploadChunk记录成功", "chunkID", chunk.ChunkID, "md5", req.ChunkMD5)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// 3. 检查是否所有分片都已上传完成（检查该用户该文件名的剩余分片数）
+	remaining, err := f.factory.UploadChunk().Count(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("检查剩余分片失败", "error", err)
+		return nil, fmt.Errorf("检查上传进度失败: %w", err)
+	}
+
+	// 4. 如果还有分片未完成，返回成功响应
+	if remaining > 0 {
+		return models.NewJsonResponse(200, "分片上传成功", map[string]interface{}{
+			"chunk_index": chunkIndex,
+			"uploaded":    totalChunks - int(remaining),
+			"total":       totalChunks,
+			"is_complete": false,
+		}), nil
+	}
+
+	// 5. 所有分片上传完成，调用 ProcessUploadedFile
+	logger.LOG.Info("所有分片上传完成，开始处理文件", "userID", userID, "fileName", header.Filename)
+
+	// 获取预检请求中的原始数据
+	var precheckReq *request.UploadPrecheckRequest
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	if reqData, err := f.cacheLocal.Get(reqCacheKey); err == nil {
+		if req, ok := reqData.(*request.UploadPrecheckRequest); ok {
+			precheckReq = req
+		}
+	}
+
+	if precheckReq == nil {
+		return nil, fmt.Errorf("无法获取原始上传请求信息")
+	}
+
+	// 构造上传数据
+	uploadData := &upload.FileUploadData{
+		TempFilePath:    filepath.Join(tempBaseDir, "0.chunk.data"), // 第一个分片路径作为基础
+		FileName:        header.Filename,
+		FileSize:        precheckReq.FileSize,
+		ChunkSignature:  precheckReq.ChunkSignature,
+		FirstChunkHash:  precheckReq.FilesMd5[0],
+		SecondChunkHash: precheckReq.FilesMd5[1],
+		ThirdChunkHash:  precheckReq.FilesMd5[2],
+		IsEnc:           req.IsEnc,
+		IsChunk:         true,
+		ChunkCount:      totalChunks,
+		VirtualPath:     precheckReq.PathID,
+		UserID:          userID,
+	}
+
+	fileID, err := upload.ProcessUploadedFile(uploadData, f.factory)
+	if err != nil {
+		logger.LOG.Error("处理上传文件失败", "error", err)
+		return nil, fmt.Errorf("文件处理失败: %w", err)
+	}
+
+	// 6. 清除缓存
+	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", userID))
+	f.cacheLocal.Delete(reqCacheKey)
+
+	logger.LOG.Info("文件上传完成", "fileID", fileID, "fileName", header.Filename)
+	return models.NewJsonResponse(200, "上传成功", map[string]interface{}{
+		"file_id":     fileID,
+		"is_complete": true,
+	}), nil
+}
+
+// handleSingleUpload 处理小文件直传
+func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileUploadRequest, file multipart.File, header *multipart.FileHeader, userID, tempBaseDir string, precheckResp *response.FilePrecheckResponse) (*models.JsonResponse, error) {
+	// 1. 保存临时文件
+	tempFilePath := filepath.Join(tempBaseDir, "upload.tmp")
+	tempFile, err := os.Create(tempFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	defer tempFile.Close()
+
+	if _, err := io.Copy(tempFile, file); err != nil {
+		return nil, fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	logger.LOG.Info("小文件上传成功", "fileName", header.Filename, "size", header.Size, "userID", userID)
+
+	// 2. 获取预检请求中的原始数据
+	var precheckReq *request.UploadPrecheckRequest
+	cacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	if reqData, err := f.cacheLocal.Get(cacheKey); err == nil {
+		if req, ok := reqData.(*request.UploadPrecheckRequest); ok {
+			precheckReq = req
+		}
+	}
+
+	if precheckReq == nil {
+		return nil, fmt.Errorf("无法获取原始上传请求信息")
+	}
+
+	// 3. 构造上传数据
+	uploadData := &upload.FileUploadData{
+		TempFilePath:   tempFilePath,
+		FileName:       header.Filename,
+		FileSize:       header.Size,
+		ChunkSignature: precheckReq.ChunkSignature,
+		IsEnc:          req.IsEnc,
+		IsChunk:        false,
+		VirtualPath:    precheckReq.PathID,
+		UserID:         userID,
+	}
+
+	// 设置hash信息（如果有）
+	if len(precheckReq.FilesMd5) > 0 {
+		uploadData.FirstChunkHash = precheckReq.FilesMd5[0]
+		if len(precheckReq.FilesMd5) > 1 {
+			uploadData.SecondChunkHash = precheckReq.FilesMd5[1]
+		}
+		if len(precheckReq.FilesMd5) > 2 {
+			uploadData.ThirdChunkHash = precheckReq.FilesMd5[2]
+		}
+	}
+
+	// 4. 调用 ProcessUploadedFile
+	fileID, err := upload.ProcessUploadedFile(uploadData, f.factory)
+	if err != nil {
+		logger.LOG.Error("处理上传文件失败", "error", err)
+		return nil, fmt.Errorf("文件处理失败: %w", err)
+	}
+
+	// 5. 清除缓存
+	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", userID))
+	f.cacheLocal.Delete(cacheKey)
+
+	logger.LOG.Info("文件上传完成", "fileID", fileID, "fileName", header.Filename)
+	return models.NewJsonResponse(200, "上传成功", map[string]interface{}{
+		"file_id":     fileID,
+		"is_complete": true,
+	}), nil
 }

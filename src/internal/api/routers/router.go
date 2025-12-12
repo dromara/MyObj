@@ -14,6 +14,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "myobj/docs" // 引入 Swagger 文档
 )
 
 // Handler 路由处理器接口
@@ -46,6 +50,11 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 	// 注册路由组
 	logger.LOG.Info("[路由] 正在注册API路由...")
 	r.LoadHTMLGlob("templates/*")
+
+	// Swagger API 文档路由
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	logger.LOG.Info("[路由] Swagger 文档地址: http://" + config.CONFIG.Server.Host + fmt.Sprintf(":%d/swagger/index.html", config.CONFIG.Server.Port))
+
 	api := r.Group("/api")
 	{
 		// 用户相关路由

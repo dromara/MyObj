@@ -1,0 +1,675 @@
+basePath: /api
+definitions:
+  myobj_src_core_domain_request.DeleteFileRequest:
+    properties:
+      file_ids:
+        description: 文件ID列表
+        items:
+          type: string
+        type: array
+    required:
+    - file_ids
+    type: object
+  myobj_src_core_domain_request.DeleteRecycledRequest:
+    properties:
+      recycled_id:
+        type: string
+    required:
+    - recycled_id
+    type: object
+  myobj_src_core_domain_request.RestoreFileRequest:
+    properties:
+      recycled_id:
+        type: string
+    required:
+    - recycled_id
+    type: object
+  myobj_src_core_domain_request.UploadPrecheckRequest:
+    properties:
+      chunk_signature:
+        description: 文件hash签名
+        type: string
+      file_name:
+        description: 文件名
+        type: string
+      file_size:
+        description: 文件大小 字节
+        type: integer
+      files_md5:
+        description: 文件分片的DM5列表
+        items:
+          type: string
+        type: array
+      path_id:
+        description: 路径ID
+        type: string
+      user_id:
+        type: string
+    type: object
+  myobj_src_core_domain_request.UserLoginRequest:
+    properties:
+      challenge:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  myobj_src_core_domain_request.UserRegisterRequest:
+    properties:
+      challenge:
+        description: 挑战ID
+        type: string
+      email:
+        type: string
+      nickname:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  myobj_src_core_domain_request.UserUpdatePasswordRequest:
+    properties:
+      challenge:
+        description: 挑战ID
+        type: string
+      id:
+        type: string
+      new_passwd:
+        type: string
+      old_passwd:
+        type: string
+    type: object
+  myobj_src_core_domain_request.UserUpdateRequest:
+    properties:
+      email:
+        description: 用户邮箱
+        type: string
+      id:
+        type: string
+      nickname:
+        description: 用户昵称
+        type: string
+      phone:
+        description: 用户手机号
+        type: string
+      username:
+        description: 用户名
+        type: string
+    type: object
+  myobj_src_pkg_models.JsonResponse:
+    properties:
+      code:
+        description: 状态码
+        type: integer
+      data:
+        description: 数据
+      message:
+        description: 状态
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@myobj.com
+    name: API Support
+    url: https://github.com/yourusername/myobj/issues
+  description: |-
+    MyObj 是一个功能强大的文件存储系统，支持文件上传、下载、分享、回收站等功能
+    支持大文件分片上传、秒传、文件加密等高级特性
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/yourusername/myobj
+  title: MyObj 文件存储系统 API
+  version: "1.0"
+paths:
+  /file/delete:
+    post:
+      consumes:
+      - application/json
+      description: 将文件移动到回收站（软删除）
+      parameters:
+      - description: 删除请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.DeleteFileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除结果
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: 删除失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除文件
+      tags:
+      - 文件管理
+  /file/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户指定目录下的文件列表
+      parameters:
+      - description: 虚拟路径
+        in: query
+        name: virtualPath
+        type: string
+      - description: 页码
+        in: query
+        minimum: 1
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 文件列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取文件列表
+      tags:
+      - 文件管理
+  /file/search/user:
+    get:
+      consumes:
+      - application/json
+      description: 根据关键词搜索当前用户的文件
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        required: true
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 搜索结果
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: 搜索失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 搜索当前用户文件
+      tags:
+      - 文件管理
+  /file/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 支持小文件直传和大文件分片上传
+      parameters:
+      - description: 预检ID
+        in: formData
+        name: precheck_id
+        required: true
+        type: string
+      - description: 文件数据
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 分片索引
+        in: formData
+        name: chunk_index
+        type: integer
+      - description: 总分片数
+        in: formData
+        name: total_chunks
+        type: integer
+      - description: 分片MD5
+        in: formData
+        name: chunk_md5
+        type: string
+      - description: 是否加密
+        in: formData
+        name: is_enc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 上传成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 上传失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 文件上传
+      tags:
+      - 文件管理
+  /file/upload/precheck:
+    post:
+      consumes:
+      - application/json
+      description: 上传前的预检查，检查空间、秒传可能性，返回预检ID
+      parameters:
+      - description: 预检请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UploadPrecheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 秒传成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                message:
+                  type: string
+              type: object
+        "400":
+          description: 预检失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 文件上传预检
+      tags:
+      - 文件管理
+  /recycled/delete:
+    post:
+      consumes:
+      - application/json
+      description: 从回收站永久删除文件，不可恢复
+      parameters:
+      - description: 删除请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.DeleteRecycledRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "500":
+          description: 删除失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 永久删除文件
+      tags:
+      - 回收站
+  /recycled/empty:
+    post:
+      description: 清空当前用户回收站中的所有文件
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 清空成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "500":
+          description: 清空失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 清空回收站
+      tags:
+      - 回收站
+  /recycled/list:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户回收站中的文件列表
+      parameters:
+      - description: 页码
+        in: query
+        minimum: 1
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 回收站列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取回收站列表
+      tags:
+      - 回收站
+  /recycled/restore:
+    post:
+      consumes:
+      - application/json
+      description: 从回收站还原文件到原位置
+      parameters:
+      - description: 还原请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.RestoreFileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 还原成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "500":
+          description: 还原失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 还原文件
+      tags:
+      - 回收站
+  /user/challenge:
+    get:
+      description: 获取RSA公钥和挑战值，用于密码加密传输
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 挑战值信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      summary: 获取登录挑战值
+      tags:
+      - 用户管理
+  /user/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户通过用户名和密码登录系统，返回JWT Token
+      parameters:
+      - description: 登录请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: token
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: 参数错误或登录失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      summary: 用户登录
+      tags:
+      - 用户管理
+  /user/register:
+    post:
+      consumes:
+      - application/json
+      description: 注册新用户账号
+      parameters:
+      - description: 注册请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 参数错误或注册失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      summary: 用户注册
+      tags:
+      - 用户管理
+  /user/setFilePassword:
+    post:
+      consumes:
+      - application/json
+      description: 设置用户文件加密密码（首次设置）
+      parameters:
+      - description: 设置文件密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 设置成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 参数错误或设置失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 设置文件加密密码
+      tags:
+      - 用户管理
+  /user/sysInfo:
+    get:
+      description: 获取系统配置和初始化状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 系统信息
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      summary: 获取系统初始化信息
+      tags:
+      - 系统管理
+  /user/updateFilePassword:
+    post:
+      consumes:
+      - application/json
+      description: 修改用户文件加密密码
+      parameters:
+      - description: 修改文件密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 参数错误或修改失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 修改文件加密密码
+      tags:
+      - 用户管理
+  /user/updatePassword:
+    post:
+      consumes:
+      - application/json
+      description: 修改用户登录密码
+      parameters:
+      - description: 修改密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 参数错误或修改失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 修改登录密码
+      tags:
+      - 用户管理
+  /user/updateUser:
+    post:
+      consumes:
+      - application/json
+      description: 更新当前用户的基本信息
+      parameters:
+      - description: 更新请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+        "400":
+          description: 参数错误或更新失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新用户信息
+      tags:
+      - 用户管理
+securityDefinitions:
+  ApiKeyAuth:
+    description: API Key 身份验证
+    in: header
+    name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    description: 输入 "Bearer {token}" 进行身份验证
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
