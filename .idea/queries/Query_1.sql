@@ -1,0 +1,1 @@
+select id, user_files.file_name as name, random_name, size, mime, virtual_path, thumbnail_img, path, file_hash, file_enc_hash, chunk_signature, first_chunk_hash, second_chunk_hash, third_chunk_hash, has_full_hash, is_enc, is_chunk, chunk_count, enc_path, created_at, updated_at from file_info

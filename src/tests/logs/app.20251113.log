@@ -1,0 +1,159 @@
+{"time":"2025-11-13 22:20:45","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:20:45","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:20:45","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"./libs/my_obj.db"}
+{"time":"2025-11-13 22:20:45","level":"ERROR","msg":"failed to connect database","err":"unable to open database file: The system cannot find the path specified.","source":"sqlite.go","line":18,"func":"(*SQLite).InitDatabase"}
+{"time":"2025-11-13 22:21:57","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:21:57","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:21:57","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"./libs/my_obj.db"}
+{"time":"2025-11-13 22:22:09","level":"ERROR","msg":"failed to connect database","err":"unable to open database file: The system cannot find the path specified.","source":"sqlite.go","line":19,"func":"(*SQLite).InitDatabase"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:24:28","level":"INFO","msg":"图片解码成功","format":"png"}
+{"time":"2025-11-13 22:24:28","level":"DEBUG","msg":"计算缩略图尺寸","original_width":3840,"original_height":2160,"thumbnail_width":300,"thumbnail_height":168,"source":"image_preview.go","line":64,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:24:28","level":"DEBUG","msg":"图片缩略图生成成功","input_path":"E:\\codes\\myobj\\examples\\2.png","output_path":"E:\\codes\\myobj\\examples\\2.png.thumbnail.jpg","source":"image_preview.go","line":86,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:26:16","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:26:16","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:26:16","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:26:16","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:26:16","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"图片解码成功","format":"jpeg"}
+{"time":"2025-11-13 22:26:58","level":"DEBUG","msg":"计算缩略图尺寸","original_width":300,"original_height":168,"thumbnail_width":300,"thumbnail_height":168,"source":"image_preview.go","line":64,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:26:58","level":"DEBUG","msg":"图片缩略图生成成功","input_path":"E:\\codes\\myobj\\examples\\2.png","output_path":"E:\\codes\\myobj\\examples\\2.png.thumbnail.jpg","source":"image_preview.go","line":86,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"加密完成: E:\\codes\\myobj\\examples\\2.png.enc, 耗时: 28.0691ms"}
+{"time":"2025-11-13 22:26:58","level":"INFO","msg":"文件处理完成","fileID":"019a7d9c-c872-74fc-b618-ac0554f4cb89","fileName":"2.png","size":3069023}
+{"time":"2025-11-13 22:32:48","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:32:48","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:32:48","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:32:48","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:32:48","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:32:58","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\2.png","临时文件大小":3069023,"期望大小":3069023,"source":"file_upload.go","line":65,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"图片解码成功","format":"png"}
+{"time":"2025-11-13 22:32:58","level":"DEBUG","msg":"计算缩略图尺寸","original_width":3840,"original_height":2160,"thumbnail_width":300,"thumbnail_height":168,"source":"image_preview.go","line":64,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:32:58","level":"DEBUG","msg":"图片缩略图生成成功","input_path":"E:\\codes\\myobj\\examples\\2.png","output_path":"E:\\codes\\myobj\\examples\\2.png.thumbnail.jpg","source":"image_preview.go","line":86,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"加密完成: E:\\codes\\myobj\\examples\\2.png.enc, 耗时: 35.4829ms"}
+{"time":"2025-11-13 22:32:58","level":"DEBUG","msg":"准备复制文件","源文件":"E:\\codes\\myobj\\examples\\2.png.enc","目标文件":"E:\\obj_data\\data\\2\\1763044378272944900_4688.data","源文件大小":3069103,"source":"file_upload.go","line":208,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:32:58","level":"DEBUG","msg":"文件复制完成","目标文件大小":3069103,"source":"file_upload.go","line":219,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:32:58","level":"INFO","msg":"文件处理完成","fileID":"019a7da2-46a0-7e6b-926b-aa47df5f1a9e","fileName":"2.png","size":3069023}
+{"time":"2025-11-13 22:45:03","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:45:03","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:45:03","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:45:03","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:45:03","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:45:03","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","临时文件大小":3851953,"期望大小":3851953,"source":"file_upload.go","line":65,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:45:04","level":"INFO","msg":"图片解码成功","format":"jpeg"}
+{"time":"2025-11-13 22:45:04","level":"DEBUG","msg":"计算缩略图尺寸","original_width":4096,"original_height":2176,"thumbnail_width":300,"thumbnail_height":159,"source":"image_preview.go","line":64,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:45:04","level":"DEBUG","msg":"图片缩略图生成成功","input_path":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","output_path":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg.thumbnail.jpg","source":"image_preview.go","line":86,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:45:04","level":"DEBUG","msg":"准备复制文件","源文件":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","目标文件":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045104339436300_4923.data","源文件大小":3851953,"source":"file_upload.go","line":223,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:45:04","level":"DEBUG","msg":"文件复制完成","目标文件大小":3851953,"source":"file_upload.go","line":234,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:45:04","level":"DEBUG","msg":"写入.info文件成功","path":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045104339436300_4923.info","source":"file_upload.go","line":529,"func":"writeInfoFile"}
+{"time":"2025-11-13 22:48:44","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:48:44","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:48:44","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:48:44","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:48:44","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:48:58","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:48:58","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:48:58","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:48:58","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:48:58","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:48:58","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","临时文件大小":3851953,"期望大小":3851953,"source":"file_upload.go","line":65,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:48:59","level":"INFO","msg":"图片解码成功","format":"jpeg"}
+{"time":"2025-11-13 22:48:59","level":"DEBUG","msg":"计算缩略图尺寸","original_width":4096,"original_height":2176,"thumbnail_width":300,"thumbnail_height":159,"source":"image_preview.go","line":64,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:48:59","level":"DEBUG","msg":"图片缩略图生成成功","input_path":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","output_path":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg.thumbnail.jpg","source":"image_preview.go","line":86,"func":"GenerateImageThumbnail"}
+{"time":"2025-11-13 22:48:59","level":"DEBUG","msg":"准备复制文件","源文件":"E:\\codes\\myobj\\examples\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","目标文件":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045339164641800_6209.data","源文件大小":3851953,"source":"file_upload.go","line":223,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:48:59","level":"DEBUG","msg":"文件复制完成","目标文件大小":3851953,"source":"file_upload.go","line":234,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:48:59","level":"DEBUG","msg":"写入.info文件成功","path":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045339164641800_6209.info","source":"file_upload.go","line":540,"func":"writeInfoFile"}
+{"time":"2025-11-13 22:48:59","level":"INFO","msg":"文件处理完成","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","fileName":"天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg","size":3851953}
+{"time":"2025-11-13 22:55:19","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 22:55:19","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 22:55:19","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 22:55:19","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 22:55:19","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 22:55:19","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\Docker Desktop Installer.exe","临时文件大小":588387760,"期望大小":588387760,"source":"file_upload.go","line":66,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:55:21","level":"DEBUG","msg":"准备复制文件","源文件":"E:\\codes\\myobj\\examples\\Docker Desktop Installer.exe","目标文件":"E:\\obj_data\\data\\Docker Desktop Installer\\1763045721556725900_3733.data","源文件大小":588387760,"source":"file_upload.go","line":224,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:55:24","level":"DEBUG","msg":"文件复制完成","目标文件大小":588387760,"source":"file_upload.go","line":235,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 22:55:24","level":"DEBUG","msg":"写入.info文件成功","path":"E:\\obj_data\\data\\Docker Desktop Installer\\1763045721556725900_3733.info","source":"file_upload.go","line":546,"func":"writeInfoFile"}
+{"time":"2025-11-13 22:55:24","level":"INFO","msg":"文件处理完成","fileID":"019a7db6-c5d4-7b13-abfc-89e5083905db","fileName":"Docker Desktop Installer.exe","size":588387760}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:21:11","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\phpvirtualbox-master (1).zip","临时文件大小":4724336,"期望大小":4724336,"source":"file_upload.go","line":66,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"加密完成: E:\\codes\\myobj\\examples\\phpvirtualbox-master (1).zip.enc, 耗时: 38.4722ms"}
+{"time":"2025-11-13 23:21:11","level":"DEBUG","msg":"加密文件hash计算完成","fileEncHash":"b55de506af01a4ef1f00b599ae5bc4ef2752b710e03b03d4bd7a3f58405d07e2","source":"file_upload.go","line":191,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:21:11","level":"DEBUG","msg":"准备复制文件","源文件":"E:\\codes\\myobj\\examples\\phpvirtualbox-master (1).zip.enc","目标文件":"E:\\obj_data\\data\\phpvirtualbox-master (1)\\1763047271610090400_7663.data","源文件大小":4724416,"source":"file_upload.go","line":224,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:21:11","level":"DEBUG","msg":"文件复制完成","目标文件大小":4724416,"source":"file_upload.go","line":235,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:21:11","level":"DEBUG","msg":"写入.info文件成功","path":"E:\\obj_data\\data\\phpvirtualbox-master (1)\\1763047271610090400_7663.info","source":"file_upload.go","line":546,"func":"writeInfoFile"}
+{"time":"2025-11-13 23:21:11","level":"INFO","msg":"文件处理完成","fileID":"019a7dce-6cba-7161-82b0-4a8a379314e8","fileName":"phpvirtualbox-master (1).zip","size":4724416}
+{"time":"2025-11-13 23:25:21","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:25:21","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:25:21","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:25:21","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:25:21","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:25:21","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\proxmox-ve_9.0-1.iso","临时文件大小":1641615360,"期望大小":1641615360,"source":"file_upload.go","line":66,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:25:26","level":"DEBUG","msg":"系统内存信息","总计MB":32657,"可用MB":14065,"阈值MB":4219,"文件大小MB":1565,"source":"file_enc_util.go","line":164,"func":"(*FileCrypto).selectEncryptionMethod"}
+{"time":"2025-11-13 23:25:28","level":"INFO","msg":"加密完成: E:\\codes\\myobj\\examples\\proxmox-ve_9.0-1.iso.enc, 耗时: 2.3446247s"}
+{"time":"2025-11-13 23:25:30","level":"DEBUG","msg":"加密文件hash计算完成","fileEncHash":"70db3b09e3a6a279165f4d62874a70f5ec17e331a4d8de136a977bb9db11899b","source":"file_upload.go","line":191,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:25:39","level":"INFO","msg":"已清理处理失败的文件","mainFilePath":"E:\\obj_data\\data\\proxmox-ve_9.0-1\\1763047526634499600_6336_0.data"}
+{"time":"2025-11-13 23:27:09","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:27:09","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:27:09","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:27:09","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:27:09","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:27:09","level":"DEBUG","msg":"开始处理文件","TempFilePath":"E:\\codes\\myobj\\examples\\proxmox-ve_9.0-1.iso","临时文件大小":1641615360,"期望大小":1641615360,"source":"file_upload.go","line":66,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:27:13","level":"DEBUG","msg":"系统内存信息","总计MB":32657,"可用MB":13179,"阈值MB":3953,"文件大小MB":1565,"source":"file_enc_util.go","line":164,"func":"(*FileCrypto).selectEncryptionMethod"}
+{"time":"2025-11-13 23:27:15","level":"INFO","msg":"加密完成: E:\\codes\\myobj\\examples\\proxmox-ve_9.0-1.iso.enc, 耗时: 1.7034522s"}
+{"time":"2025-11-13 23:27:16","level":"DEBUG","msg":"加密文件hash计算完成","fileEncHash":"42f25f2badbe3a7d677f9bde91bdb580edc5c3ed90559e268e4f02cb276d25bf","source":"file_upload.go","line":191,"func":"ProcessUploadedFile"}
+{"time":"2025-11-13 23:27:25","level":"DEBUG","msg":"写入.info文件成功","path":"E:\\obj_data\\data\\proxmox-ve_9.0-1\\1763047633996110100_1674_0.info","source":"file_upload.go","line":546,"func":"writeInfoFile"}
+{"time":"2025-11-13 23:27:25","level":"INFO","msg":"文件处理完成","fileID":"019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb","fileName":"proxmox-ve_9.0-1.iso","size":1641615440}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:47:22","level":"DEBUG","msg":"原始文件hash校验通过","hash":"de8fde452168e6b1c46b164e8162c35bb08b6b30ba5e0797e7c1d514c70b33d0","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:47:22","level":"DEBUG","msg":".info文件校验通过","path":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045339164641800_6209.info","source":"file_download.go","line":313,"func":"verifyInfoFile"}
+{"time":"2025-11-13 23:47:22","level":"INFO","msg":"文件准备完成","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","path":"E:\\obj_data\\data\\天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网\\1763045339164641800_6209.data"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:48:10","level":"DEBUG","msg":"原始文件hash校验通过","hash":"d961aa3667d18f6697f0232c434bd33fdefaa785c08716543da7465aaec8a5c8","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:48:10","level":"DEBUG","msg":".info文件校验通过","path":"E:\\obj_data\\data\\Docker Desktop Installer\\1763045721556725900_3733.info","source":"file_download.go","line":313,"func":"verifyInfoFile"}
+{"time":"2025-11-13 23:48:10","level":"INFO","msg":"文件准备完成","fileID":"019a7db6-c5d4-7b13-abfc-89e5083905db","path":"E:\\obj_data\\data\\Docker Desktop Installer\\1763045721556725900_3733.data"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:48:40","level":"DEBUG","msg":"加密文件hash校验通过","hash":"b55de506af01a4ef1f00b599ae5bc4ef2752b710e03b03d4bd7a3f58405d07e2","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"解密完成: E:\\obj_data\\temp\\019a7dce-6cba-7161-82b0-4a8a379314e8_decrypted, 耗时: 34.5214ms"}
+{"time":"2025-11-13 23:48:40","level":"DEBUG","msg":"解密后文件hash校验通过","hash":"f0aed6f8cd6dd958c416c886bd733863ddc67d049f87bc29075f6dfe917a0dbf","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:48:40","level":"DEBUG","msg":".info文件校验通过","path":"E:\\obj_data\\data\\phpvirtualbox-master (1)\\1763047271610090400_7663.info","source":"file_download.go","line":313,"func":"verifyInfoFile"}
+{"time":"2025-11-13 23:48:40","level":"DEBUG","msg":"加密文件处理完成","path":"E:\\obj_data\\temp\\019a7dce-6cba-7161-82b0-4a8a379314e8_decrypted","source":"file_download.go","line":232,"func":"handleEncryptedFile"}
+{"time":"2025-11-13 23:48:40","level":"INFO","msg":"文件准备完成","fileID":"019a7dce-6cba-7161-82b0-4a8a379314e8","path":"E:\\obj_data\\temp\\019a7dce-6cba-7161-82b0-4a8a379314e8_decrypted"}
+{"time":"2025-11-13 23:49:49","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-11-13 23:49:49","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-11-13 23:49:49","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-11-13 23:49:49","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-11-13 23:49:49","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-11-13 23:49:52","level":"DEBUG","msg":"加密文件hash校验通过","hash":"42f25f2badbe3a7d677f9bde91bdb580edc5c3ed90559e268e4f02cb276d25bf","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:49:57","level":"INFO","msg":"解密完成: E:\\obj_data\\temp\\019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb_decrypted, 耗时: 4.8495317s"}
+{"time":"2025-11-13 23:49:58","level":"DEBUG","msg":"解密后文件hash校验通过","hash":"ab58dfd0d351be33bd8032b196e026c683519dd095cb7e187b589454dc5a66af","source":"file_download.go","line":279,"func":"verifyFileHash"}
+{"time":"2025-11-13 23:49:58","level":"DEBUG","msg":"分片+加密文件处理完成","path":"E:\\obj_data\\temp\\019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb_decrypted","source":"file_download.go","line":151,"func":"handleChunkedEncryptedFile"}
+{"time":"2025-11-13 23:49:58","level":"INFO","msg":"文件准备完成","fileID":"019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb","path":"E:\\obj_data\\temp\\019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb_decrypted"}

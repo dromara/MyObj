@@ -1,0 +1,412 @@
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 18:38:25","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 18:38:47","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:38:49","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:38:49","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:38:49","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:38:54","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=6&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:38:56","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=1&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:38:57","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:38:57","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:38:57","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:38:58","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=1&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:38:59","level":"INFO","msg":"method: GET path:/api/share/list status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:05","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 18:39:06","level":"INFO","msg":"method: GET path:/api/share/list status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:07","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 18:39:10","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 18:39:12","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:12","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:15","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:15","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:18","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:18","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:21","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:21","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:24","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:24","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:27","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:27","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:30","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:30","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:33","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:33","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:36","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:36","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:39","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:39","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:42","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:42","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:45","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:45","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:48","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:48","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:51","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:51","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:39:51","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:40:48","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:40:48","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:504.9µs","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:54:33","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:54:33","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:56:26","level":"INFO","msg":"method: GET path:/api/recycled/list status:404 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:56:34","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 18:56:34","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 18:56:34","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 18:56:34","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 18:56:40","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 18:57:08","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:57:08","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:09","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:09","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:09","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:57:11","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:57:19","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:20","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:26","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:26","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:26","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:57:28","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:57:31","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:57:31","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:58:06","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:58:06","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:58:06","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:508.2µs","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:58:23","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:59:02","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:59:03","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:59:07","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:07","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:12","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:12","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:12","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:59:13","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 18:59:13","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:13","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:18","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 18:59:19","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:31","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:31","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:31","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:02:32","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:02:32","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:32","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:35","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:02:35","level":"ERROR","msg":"创建回收站记录失败","error":"no such table: recycleds","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","source":"file_service.go","line":477,"func":"(*FileService).DeleteFiles"}
+{"time":"2025-12-11 19:02:35","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:02:42","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=1&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:02:43","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:08:23","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 19:08:23","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 19:08:23","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 19:08:23","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 19:08:30","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:08:31","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 19:08:35","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:08:36","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:08:37","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:08:37","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:08:37","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:08:37","level":"ERROR","msg":"查询文件列表失败","error":"no such column: user_files","userID":"cloaihdnlaishcweoc","virtualPath":"1","source":"file_service.go","line":267,"func":"(*FileService).GetFileList"}
+{"time":"2025-12-11 19:09:06","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 19:09:06","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 19:09:06","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 19:09:06","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:09:13","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 19:09:54","level":"INFO","msg":"method: GET path:/api/share/list status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:09:55","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:09:58","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:09:58","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:09:58","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:10:00","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:11:04","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 19:11:04","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 19:11:04","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 19:11:04","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:11:12","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 19:11:30","level":"INFO","msg":"method: GET path:/api/share/list status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:31","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:32","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:32","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:32","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:11:33","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:11:33","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:33","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:11:36","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:11:36","level":"ERROR","msg":"查询回收站列表失败","error":"no such table: recycleds","userID":"cloaihdnlaishcweoc","source":"recycled_service.go","line":45,"func":"(*RecycledService).GetRecycledList"}
+{"time":"2025-12-11 19:13:07","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 19:13:07","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 19:13:07","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 19:13:07","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:13:15","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 19:13:19","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:20","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:21","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:21","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:22","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:27","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:37","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:39","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:39","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:39","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:41","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:41","level":"INFO","msg":"文件已移动到回收站","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","userID":"cloaihdnlaishcweoc"}
+{"time":"2025-12-11 19:13:41","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:55","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:57","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:58","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:13:58","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:13:58","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:17:48","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 19:17:48","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 19:17:48","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 19:17:48","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"日志系统初始化完成🧩🧩🧩🧩🧩🧩"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[成功] 日志系统初始化完成"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"========== MyObj 服务器启动中 =========="}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"服务器配置","host":"0.0.0.0","port":8080}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"数据库类型","type":"sqlite"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"日志级别","level":"debug"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[初始化] 正在连接数据库...","type":"sqlite"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[数据库] 开始初始化数据库连接","type":"sqlite"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[数据库] 正在连接SQLite数据库...","path":"E:\\codes\\myobj\\libs\\my_obj.db"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[数据库] SQLite连接成功"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[数据库] 数据库连接池初始化成功 ✓"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[成功] 数据库连接已建立"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"使用 Redis 缓存"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[初始化] 正在启动HTTP服务器..."}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"服务器监听地址","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"========== HTTP服务器启动 =========="}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"启动回收站定时清理任务","retention_days":30,"interval":86400000000000}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 开始初始化路由..."}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] Gin运行模式","mode":"debug"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 正在注册全局中间件..."}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 中间件注册完成✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 正在注册API路由..."}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 用户路由注册完成✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 文件路由注册完成✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 下载路由注册完成✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 回收站路由注册完成✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"[路由] 路由初始化完成 ✔️"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"服务器将在以下地址启动","address":"0.0.0.0:8080"}
+{"time":"2025-12-11 19:17:56","level":"INFO","msg":"服务器正在启动，按 Ctrl+C 停止..."}
+{"time":"2025-12-11 19:18:04","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:18:05","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:06","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:06","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:06","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:11","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:21","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:21","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:21","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:22","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:23","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:23","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:23","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:29","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:29","level":"INFO","msg":"文件已移动到回收站","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","userID":"cloaihdnlaishcweoc","fileName":"天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg"}
+{"time":"2025-12-11 19:18:29","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:30","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:34","level":"INFO","msg":"method: POST path:/api/recycled/restore status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:34","level":"INFO","msg":"文件已还原","recycledID":"019b0d22-47e0-7e65-93c5-586aeefb1004","userID":"cloaihdnlaishcweoc","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2"}
+{"time":"2025-12-11 19:18:34","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:35","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:36","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:36","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7db0-f01c-79cb-9e03-5dede047c4a2 status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:36","level":"INFO","msg":"method: GET path:/api/file/thumbnail/019a7da2-46a0-7e6b-926b-aa47df5f1a9e status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:39","level":"INFO","msg":"method: POST path:/api/file/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:39","level":"INFO","msg":"文件已移动到回收站","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","userID":"cloaihdnlaishcweoc","fileName":"天空小姐姐 黑色唯美裙子 厚涂画风 4k动漫壁纸_彼岸图网.jpg"}
+{"time":"2025-12-11 19:18:39","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=4&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:41","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:18:46","level":"INFO","msg":"method: POST path:/api/recycled/delete status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:18:46","level":"INFO","msg":"文件已永久删除","recycledID":"019b0d22-71ae-73f9-b09a-479263c87115","userID":"cloaihdnlaishcweoc","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2"}
+{"time":"2025-12-11 19:18:46","level":"INFO","msg":"method: GET path:/api/recycled/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:21:49","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:21:52","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:21:55","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:21:58","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:22:01","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 19:22:01","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:22:01","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:22:04","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:22:04","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:22:07","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 19:24:08","level":"INFO","msg":"method: GET path:/api/share/list status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 19:24:08","level":"ERROR","msg":"获取用户文件失败","error":"record not found","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","source":"shares_service.go","line":135,"func":"(*SharesService).GetShareList"}
+{"time":"2025-12-11 19:24:08","level":"ERROR","msg":"获取用户文件失败","error":"record not found","fileID":"019a7db0-f01c-79cb-9e03-5dede047c4a2","source":"shares_service.go","line":135,"func":"(*SharesService).GetShareList"}
+{"time":"2025-12-11 21:30:13","level":"INFO","msg":"method: GET path:/api/download/list status:200 latency:0s","!BADKEY":{"query":"page=1&pageSize=100&state=-1","ip":"::1"}}
+{"time":"2025-12-11 21:30:13","level":"INFO","msg":"method: GET path:/api/user/sysInfo status:200 latency:498µs","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 21:30:15","level":"INFO","msg":"method: GET path:/api/user/challenge status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 21:30:15","level":"INFO","msg":"method: POST path:/api/user/login status:200 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 21:30:15","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 21:30:16","level":"INFO","msg":"method: GET path:/api/task/upload/list status:404 latency:0s","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 21:30:16","level":"INFO","msg":"method: GET path:/api/task/download/list status:404 latency:504.6µs","!BADKEY":{"query":"","ip":"::1"}}
+{"time":"2025-12-11 21:30:17","level":"INFO","msg":"method: GET path:/api/file/list status:200 latency:0s","!BADKEY":{"query":"virtualPath=&page=1&pageSize=20","ip":"::1"}}
+{"time":"2025-12-11 22:44:40","level":"WARN","msg":"收到关闭信号，系统即将关闭","signal":"interrupt","source":"main.go","line":113,"func":"setupGracefulShutdown.func1"}
+{"time":"2025-12-11 22:44:40","level":"INFO","msg":"数据库连接已关闭"}
+{"time":"2025-12-11 22:44:40","level":"INFO","msg":"缓存清理完成"}
+{"time":"2025-12-11 22:44:40","level":"INFO","msg":"========== MyObj 服务器已停止 =========="}

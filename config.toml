@@ -1,0 +1,65 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+ssl = false
+api_key = true
+
+[log]
+level = "debug"
+log_path = "./logs/"
+max_size = 10
+max_age = 7
+
+[database]
+type = "sqlite"
+# host = "./libs/my_obj.db"
+host = "E:\\codes\\myobj\\libs\\my_obj.db"
+# port = 3306
+# user = "root"
+# password = "password"
+# database = "database"
+# db_name = "my_obj"
+max_open = 10
+max_idle = 5
+max_life = 60
+max_idle_life = 360
+
+[auth]
+secret = "yI1NiW4bmcMyApSL5jg0cnWGc8QdBRgCubdN3DkvwqcAYRU"
+api_key = true
+# 令牌有效期 小时
+jwt_expire = 2
+
+[file]
+# 是否生成缩略图
+thumbnail = true
+# 大文件分片阈值GB
+big_file_threshold = 1
+# 大文件分片大小GB
+big_chunk_size = 1
+# 文件存储目录
+data_dir = "obj_data"
+# 临时文件目录
+temp_dir = "obj_temp"
+
+[cors]
+# 跨域开启
+enable = true
+# 跨域域名配置 , 多个用,隔开
+allow_origin = "*"
+# 跨域请求方法 , 多个用,隔开
+allow_methods = "*"
+# 跨域请求头 , 多个用,隔开
+allow_headers = "*"
+# 允许发送凭证(cookies)
+allow_credentials = true
+# 跨域响应头 , 多个用,隔开
+expose_headers = "*"
+
+[cache]
+type = "redis"
+host = "127.0.0.1"
+port = 6379
+password = ""
+db = 0
+pool_size = 10
