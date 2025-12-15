@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
@@ -373,7 +374,14 @@ func mergeChunks(data *FileUploadData) (string, error) {
 
 // detectMimeType 检测文件MIME类型
 func detectMimeType(filePath string) (string, error) {
-	mime, err := mimetype.DetectFile(filePath)
+	// 确保文件句柄立即释放 手动管理文件打开和关闭
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("打开文件失败: %w", err)
+	}
+	defer file.Close()
+
+	mime, err := mimetype.DetectReader(file)
 	if err != nil {
 		return "", fmt.Errorf("检测MIME类型失败: %w", err)
 	}
@@ -497,11 +505,27 @@ func copyFile(src, dst string) error {
 
 // cleanupTempFiles 清理临时文件
 func cleanupTempFiles(data *FileUploadData) {
+	// Windows系统下文件句柄释放有延迟，需要重试 再次吐槽
+	cleanupWithRetry := func(filePath string, maxRetries int) {
+		for i := 0; i < maxRetries; i++ {
+			err := os.Remove(filePath)
+			if err == nil || os.IsNotExist(err) {
+				// 成功删除或文件不存在
+				return
+			}
+			// 如果是文件被占用错误，等待一下再重试
+			if i < maxRetries-1 {
+				time.Sleep(time.Millisecond * 100) // 等待100ms
+			} else {
+				// 最后一次尝试失败，记录警告
+				logger.LOG.Warn("清理临时文件失败", "path", filePath, "error", err, "retries", maxRetries)
+			}
+		}
+	}
+
 	// 清理主临时文件
 	if data.TempFilePath != "" {
-		if err := os.Remove(data.TempFilePath); err != nil && !os.IsNotExist(err) {
-			logger.LOG.Warn("清理临时文件失败", "path", data.TempFilePath, "error", err)
-		}
+		cleanupWithRetry(data.TempFilePath, 3)
 	}
 
 	// 如果是分片上传，清理所有分片文件
@@ -509,18 +533,14 @@ func cleanupTempFiles(data *FileUploadData) {
 		tempDir := filepath.Dir(data.TempFilePath)
 		for i := 0; i < data.ChunkCount; i++ {
 			chunkPath := filepath.Join(tempDir, fmt.Sprintf("%d.chunk.data", i))
-			if err := os.Remove(chunkPath); err != nil && !os.IsNotExist(err) {
-				logger.LOG.Warn("清理分片文件失败", "path", chunkPath, "error", err)
-			}
+			cleanupWithRetry(chunkPath, 3)
 		}
 
 		// 清理合并后的临时文件
 		mergedPattern := filepath.Join(tempDir, "merged_*")
 		matches, _ := filepath.Glob(mergedPattern)
 		for _, match := range matches {
-			if err := os.Remove(match); err != nil && !os.IsNotExist(err) {
-				logger.LOG.Warn("清理合并文件失败", "path", match, "error", err)
-			}
+			cleanupWithRetry(match, 3)
 		}
 	}
 }
