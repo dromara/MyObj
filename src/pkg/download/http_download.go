@@ -264,6 +264,7 @@ func DownloadHTTP(
 	task.Progress = 100
 	task.UpdateTime = custom_type.Now()
 	task.FinishTime = custom_type.Now()
+	task.DownloadedSize = task.FileSize
 	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
 		logger.LOG.Error("更新任务完成状态失败", "taskID", taskID, "error", err)
 	}

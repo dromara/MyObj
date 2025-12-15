@@ -83,6 +83,8 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 		_, err := download.DownloadHTTP(taskID, req.URL, userID, d.tempDir, d.factory, opts)
 		if err != nil {
 			logger.LOG.Error("离线下载失败", "taskID", taskID, "error", err)
+		} else {
+
 		}
 	}()
 
