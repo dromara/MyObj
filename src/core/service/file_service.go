@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -105,14 +106,25 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	for _, chunk := range chunks {
 		res.Md5 = append(res.Md5, chunk.Md5)
 	}
-	err = c.Set(key, res, 12*60*60) // 12小时内可用的校验
+	// 序列化为JSON字符串存储到Redis
+	resJSON, err := json.Marshal(res)
+	if err != nil {
+		logger.LOG.Error("序列化预检响应失败", "error", err)
+		return nil, err
+	}
+	err = c.Set(key, string(resJSON), 12*60*60) // 12小时内可用的校验
 	if err != nil {
 		logger.LOG.Error("缓存设置失败", "error", err, "key", key)
 		return nil, err
 	}
 	// 保存原始请求数据到缓存，供上传时使用
 	reqKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
-	if err := c.Set(reqKey, req, 12*60*60); err != nil {
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		logger.LOG.Error("序列化预检请求失败", "error", err)
+		return nil, err
+	}
+	if err := c.Set(reqKey, string(reqJSON), 12*60*60); err != nil {
 		logger.LOG.Error("保存上传请求失败", "error", err, "key", reqKey)
 		return nil, err
 	}
@@ -582,12 +594,29 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 		return nil, fmt.Errorf("预检信息已过期或不存在")
 	}
 
-	precheckResp, ok := precheckData.(*response.FilePrecheckResponse)
-	if !ok || precheckResp.PrecheckID != req.PrecheckID {
+	// 2. 反序列化预检响应数据
+	var precheckResp response.FilePrecheckResponse
+	// 统一处理：Redis和LocalCache都可能返回string或对象
+	switch v := precheckData.(type) {
+	case *response.FilePrecheckResponse:
+		// LocalCache直接返回对象指针
+		precheckResp = *v
+	case string:
+		// Redis返回JSON字符串，需要反序列化
+		if err := json.Unmarshal([]byte(v), &precheckResp); err != nil {
+			logger.LOG.Error("反序列化预检信息失败", "error", err, "data", v)
+			return nil, fmt.Errorf("预检信息格式错误")
+		}
+	default:
+		logger.LOG.Error("预检信息类型错误", "type", fmt.Sprintf("%T", v))
+		return nil, fmt.Errorf("预检信息类型错误")
+	}
+
+	if precheckResp.PrecheckID != req.PrecheckID {
 		return nil, fmt.Errorf("无效的预检ID")
 	}
 
-	// 2. 创建临时目录
+	// 3. 创建临时目录
 	tempBaseDir := filepath.Join(config.CONFIG.File.TempDir, userID, req.PrecheckID)
 	if err := os.MkdirAll(tempBaseDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
@@ -598,10 +627,10 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 
 	if isChunkUpload {
 		// 分片上传处理
-		return f.handleChunkUpload(ctx, req, file, header, userID, tempBaseDir, precheckResp)
+		return f.handleChunkUpload(ctx, req, file, header, userID, tempBaseDir, &precheckResp)
 	} else {
 		// 小文件直传处理
-		return f.handleSingleUpload(ctx, req, file, header, userID, tempBaseDir, precheckResp)
+		return f.handleSingleUpload(ctx, req, file, header, userID, tempBaseDir, &precheckResp)
 	}
 }
 
@@ -663,16 +692,28 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	logger.LOG.Info("所有分片上传完成，开始处理文件", "userID", userID, "fileName", header.Filename)
 
 	// 获取预检请求中的原始数据
-	var precheckReq *request.UploadPrecheckRequest
+	var precheckReq request.UploadPrecheckRequest
 	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
-	if reqData, err := f.cacheLocal.Get(reqCacheKey); err == nil {
-		if req, ok := reqData.(*request.UploadPrecheckRequest); ok {
-			precheckReq = req
-		}
+	reqData, err := f.cacheLocal.Get(reqCacheKey)
+	if err != nil {
+		logger.LOG.Error("获取预检请求失败", "error", err)
+		return nil, fmt.Errorf("无法获取原始上传请求信息")
 	}
 
-	if precheckReq == nil {
-		return nil, fmt.Errorf("无法获取原始上传请求信息")
+	// 反序列化预检请求数据
+	switch v := reqData.(type) {
+	case *request.UploadPrecheckRequest:
+		// LocalCache直接返回对象指针
+		precheckReq = *v
+	case string:
+		// Redis返回JSON字符串，需要反序列化
+		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
+			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
+			return nil, fmt.Errorf("预检请求信息格式错误")
+		}
+	default:
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
 	// 构造上传数据
@@ -725,16 +766,28 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 	logger.LOG.Info("小文件上传成功", "fileName", header.Filename, "size", header.Size, "userID", userID)
 
 	// 2. 获取预检请求中的原始数据
-	var precheckReq *request.UploadPrecheckRequest
+	var precheckReq request.UploadPrecheckRequest
 	cacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
-	if reqData, err := f.cacheLocal.Get(cacheKey); err == nil {
-		if req, ok := reqData.(*request.UploadPrecheckRequest); ok {
-			precheckReq = req
-		}
+	reqData, err := f.cacheLocal.Get(cacheKey)
+	if err != nil {
+		logger.LOG.Error("获取预检请求失败", "error", err)
+		return nil, fmt.Errorf("无法获取原始上传请求信息")
 	}
 
-	if precheckReq == nil {
-		return nil, fmt.Errorf("无法获取原始上传请求信息")
+	// 反序列化预检请求数据
+	switch v := reqData.(type) {
+	case *request.UploadPrecheckRequest:
+		// LocalCache直接返回对象指针
+		precheckReq = *v
+	case string:
+		// Redis返回JSON字符串，需要反序列化
+		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
+			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
+			return nil, fmt.Errorf("预检请求信息格式错误")
+		}
+	default:
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
 	// 3. 构造上传数据

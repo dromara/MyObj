@@ -33,7 +33,13 @@ func NewRedisCache(cfg *config.Cache) *RedisCache {
 }
 
 func (r *RedisCache) Get(key string) (any, error) {
-	val := r.red.Get(context.Background(), key).Val()
+	val, err := r.red.Get(context.Background(), key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, fmt.Errorf("key %s not found", key)
+		}
+		return nil, err
+	}
 	return val, nil
 }
 

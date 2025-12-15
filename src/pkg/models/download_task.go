@@ -4,6 +4,7 @@ import (
 	"myobj/src/pkg/custom_type"
 )
 
+// DownloadTask 下载任务表
 type DownloadTask struct {
 	// 任务 ID
 	ID string `gorm:"column:id;type:text;primaryKey"`
