@@ -557,6 +557,7 @@ const handleUpload = async () => {
         //秒传成功代码
         if (precheckResponse.code === 200) {
           ElMessage.success(`文件 ${file.name} 秒传成功`)
+          loadFileList()
           continue
         }
         
@@ -574,17 +575,22 @@ const handleUpload = async () => {
             chunk_md5: fileMD5, // 使用文件MD5作为分片MD5
             is_enc: false, // 默认不加密，可根据用户设置调整
           }
-          
-          const uploadResponse = await uploadFile(uploadParams)
-          console.log('上传接口响应:', uploadResponse)
-          
-          // 6. 处理上传结果
-          if (uploadResponse.code === 200) {
-            ElMessage.success(`文件 ${file.name} 上传成功`)
-            // 刷新文件列表
+          try {
+            const uploadResponse = await uploadFile(uploadParams)
+            console.log('上传接口响应:', uploadResponse)
+            
+            // 6. 处理上传结果
+            if (uploadResponse.code === 200) {
+              ElMessage.success(`文件 ${file.name} 上传成功`)
+              loadFileList()
+            } else {
+              ElMessage.error(`文件 ${file.name} 上传失败: ${uploadResponse.message}`)
+            }
+          } catch (error: any) {
+            console.error(`上传文件 ${file.name} 时出错:`, error)
+            ElMessage.error(`上传文件 ${file.name} 时出错: ${error.message}`)
+          } finally {
             loadFileList()
-          } else {
-            ElMessage.error(`文件 ${file.name} 上传失败: ${uploadResponse.message}`)
           }
         } else {
           ElMessage.error(`文件 ${file.name} 预检失败: ${precheckResponse.message}`)
