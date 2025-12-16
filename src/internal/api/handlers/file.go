@@ -72,13 +72,13 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 func (f *FileHandler) Precheck(c *gin.Context) {
 	req := new(request.UploadPrecheckRequest)
 	if err := c.ShouldBind(req); err != nil {
-		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
 	req.UserID = c.GetString("userID")
 	precheck, err := f.service.Precheck(req, f.cache)
 	if err != nil {
-		c.JSON(200, models.NewJsonResponse(400, "预检查失败", err.Error()))
+		c.JSON(400, models.NewJsonResponse(400, "预检查失败", err.Error()))
 		return
 	}
 	c.JSON(200, precheck)
