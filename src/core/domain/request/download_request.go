@@ -31,3 +31,11 @@ type DeleteTaskRequest struct {
 	// 任务ID
 	TaskID string `json:"task_id" binding:"required"`
 }
+
+// CreateLocalFileDownloadRequest 创建网盘文件下载任务请求
+type CreateLocalFileDownloadRequest struct {
+	// 文件ID
+	FileID string `json:"file_id" binding:"required"`
+	// 文件解密密码（加密文件必需）
+	FilePassword string `json:"file_password"`
+}

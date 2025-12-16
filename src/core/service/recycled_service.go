@@ -11,6 +11,8 @@ import (
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -275,29 +277,42 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 	return r.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := r.factory.WithTx(tx)
 
-		// 5.1 删除用户文件关联
+		// 5.1 删除物理文件（普通文件或加密文件）
+		if err := r.deletePhysicalFile(fileInfo); err != nil {
+			logger.LOG.Warn("删除物理文件失败", "error", err)
+			// 物理文件删除失败不阻塞事务，继续执行
+		}
+
+		// 5.2 删除缩略图
+		if fileInfo.ThumbnailImg != "" {
+			if err := r.deleteThumbnail(fileInfo.ThumbnailImg); err != nil {
+				logger.LOG.Warn("删除缩略图失败", "error", err)
+			}
+		}
+
+		// 5.3 删除用户文件关联
 		if err := txFactory.UserFiles().Delete(ctx, recycled.UserID, recycled.FileID); err != nil {
 			return fmt.Errorf("删除用户文件关联失败: %w", err)
 		}
 
-		// 5.2 如果是分片文件，删除所有分片记录
+		// 5.4 如果是分片文件，删除所有分片记录
 		if fileInfo.IsChunk {
 			if err := txFactory.FileChunk().DeleteByFileID(ctx, recycled.FileID); err != nil {
 				return fmt.Errorf("删除文件分片记录失败: %w", err)
 			}
 		}
 
-		// 5.3 删除FileInfo记录
+		// 5.5 删除FileInfo记录
 		if err := txFactory.FileInfo().Delete(ctx, recycled.FileID); err != nil {
 			return fmt.Errorf("删除文件信息记录失败: %w", err)
 		}
 
-		// 5.4 删除回收站记录
+		// 5.6 删除回收站记录
 		if err := txFactory.Recycled().Delete(ctx, recycled.ID); err != nil {
 			return fmt.Errorf("删除回收站记录失败: %w", err)
 		}
 
-		// 5.5 归还用户空间（只对非无限空间用户）
+		// 5.7 归还用户空间（只对非无限空间用户）
 		if user.Space > 0 {
 			user.FreeSpace += int64(fileInfo.Size)
 			if err := txFactory.User().Update(ctx, user); err != nil {
@@ -311,4 +326,81 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 
 		return nil
 	})
+}
+
+// deletePhysicalFile 删除物理文件
+func (r *RecycledService) deletePhysicalFile(fileInfo *models.FileInfo) error {
+	// 如果有加密文件，优先删除加密文件
+	if fileInfo.IsEnc && fileInfo.EncPath != "" {
+		if err := r.deleteFile(fileInfo.EncPath); err != nil {
+			logger.LOG.Warn("删除加密文件失败", "path", fileInfo.EncPath, "error", err)
+		}
+		// 删除.info文件
+		infoPath := fileInfo.EncPath + ".info"
+		if err := r.deleteFile(infoPath); err != nil {
+			logger.LOG.Warn("删除.info文件失败", "path", infoPath, "error", err)
+		}
+	}
+
+	// 删除普通文件
+	if fileInfo.Path != "" {
+		if err := r.deleteFile(fileInfo.Path); err != nil {
+			return fmt.Errorf("删除普通文件失败: %w", err)
+		}
+	}
+
+	// 如果是分片文件，删除分片目录
+	if fileInfo.IsChunk && fileInfo.Path != "" {
+		// 文件路径格式: {DataPath}/data/{原文件名不带后缀}/{虚拟文件名}.data
+		// 分片目录为: {DataPath}/data/{原文件名不带后缀}/{虚拟文件名}
+		chunkDir := strings.TrimSuffix(fileInfo.Path, ".data")
+		if err := r.deleteDirectory(chunkDir); err != nil {
+			logger.LOG.Warn("删除分片目录失败", "path", chunkDir, "error", err)
+		}
+	}
+
+	return nil
+}
+
+// deleteThumbnail 删除缩略图
+func (r *RecycledService) deleteThumbnail(thumbnailPath string) error {
+	return r.deleteFile(thumbnailPath)
+}
+
+// deleteFile 删除文件
+func (r *RecycledService) deleteFile(filePath string) error {
+	if filePath == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		logger.LOG.Debug("文件不存在，跳过删除", "path", filePath)
+		return nil
+	}
+
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("删除文件失败 %s: %w", filePath, err)
+	}
+
+	logger.LOG.Debug("成功删除文件", "path", filePath)
+	return nil
+}
+
+// deleteDirectory 删除目录
+func (r *RecycledService) deleteDirectory(dirPath string) error {
+	if dirPath == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		logger.LOG.Debug("目录不存在，跳过删除", "path", dirPath)
+		return nil
+	}
+
+	if err := os.RemoveAll(dirPath); err != nil {
+		return fmt.Errorf("删除目录失败 %s: %w", dirPath, err)
+	}
+
+	logger.LOG.Debug("成功删除目录", "path", dirPath)
+	return nil
 }

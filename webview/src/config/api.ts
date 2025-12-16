@@ -89,6 +89,8 @@ export const API_ENDPOINTS = {
     DELETE: '/download/delete',
     PAUSE: '/download/pause',
     RESUME: '/download/resume',
+    LOCAL_CREATE: '/download/local/create',
+    LOCAL_FILE: '/download/local/file',
   },
   
   // 上传/下载任务

@@ -252,6 +252,7 @@ func (d *DownloadService) DeleteTask(req *request.DeleteTaskRequest, userID stri
 // convertTaskToResponse 转换任务模型为响应格式
 func (d *DownloadService) convertTaskToResponse(task *models.DownloadTask) *response.DownloadTaskResponse {
 	stateText := d.getStateText(task.State)
+	typeText := d.getTypeText(task.Type)
 
 	return &response.DownloadTaskResponse{
 		ID:             task.ID,
@@ -262,6 +263,7 @@ func (d *DownloadService) convertTaskToResponse(task *models.DownloadTask) *resp
 		Progress:       task.Progress,
 		Speed:          task.Speed,
 		Type:           task.Type,
+		TypeText:       typeText,
 		State:          task.State,
 		StateText:      stateText,
 		VirtualPath:    task.VirtualPath,
@@ -290,4 +292,120 @@ func (d *DownloadService) getStateText(state int) string {
 	default:
 		return "未知"
 	}
+}
+
+// getTypeText 获取类型文本
+func (d *DownloadService) getTypeText(taskType int) string {
+	switch taskType {
+	case enum.DownloadTaskTypeHttp.Value():
+		return "HTTP"
+	case enum.DownloadTaskTypeFTP.Value():
+		return "FTP"
+	case enum.DownloadTaskTypeSFTP.Value():
+		return "SFTP"
+	case enum.DownloadTaskTypeS3.Value():
+		return "S3"
+	case enum.DownloadTaskTypeBtp.Value():
+		return "种子"
+	case enum.DownloadTaskTypeMagnet.Value():
+		return "磁力链接"
+	case enum.DownloadTaskTypeLocal.Value():
+		return "本地文件"
+	case enum.DownloadTaskTypeLocalFile.Value():
+		return "网盘下载"
+	default:
+		return "未知"
+	}
+}
+
+// CreateLocalFileDownload 创建网盘文件下载任务
+func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDownloadRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 验证用户是否存在
+	_, err := d.factory.User().GetByID(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("获取用户信息失败", "error", err, "userID", userID)
+		return nil, fmt.Errorf("用户不存在")
+	}
+
+	// 2. 验证文件是否存在
+	fileInfo, err := d.factory.FileInfo().GetByID(ctx, req.FileID)
+	if err != nil {
+		logger.LOG.Error("文件不存在", "error", err, "fileID", req.FileID)
+		return nil, fmt.Errorf("文件不存在")
+	}
+
+	// 3. 创建下载任务记录
+	taskID := uuid.Must(uuid.NewV7()).String()
+	task := &models.DownloadTask{
+		ID:               taskID,
+		UserID:           userID,
+		Type:             enum.DownloadTaskTypeLocalFile.Value(),
+		URL:              req.FileID, // 存储FileID在URL字段
+		FileName:         fileInfo.Name,
+		FileSize:         int64(fileInfo.Size),
+		VirtualPath:      "",    // 网盘下载不需要虚拟路径
+		EnableEncryption: false, // 网盘文件下载不加密存储（文件本身可能已加密）
+		State:            enum.DownloadTaskStateInit.Value(),
+		TargetDir:        d.tempDir,
+		CreateTime:       custom_type.Now(),
+		UpdateTime:       custom_type.Now(),
+	}
+
+	if err := d.factory.DownloadTask().Create(ctx, task); err != nil {
+		logger.LOG.Error("创建下载任务失败", "error", err, "userID", userID, "fileID", req.FileID)
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	// 4. 异步准备下载文件（解密+合并）
+	go func() {
+		// 更新任务状态为准备中
+		task.State = enum.DownloadTaskStateDownloading.Value()
+		task.UpdateTime = custom_type.Now()
+		d.factory.DownloadTask().Update(context.Background(), task)
+
+		opts := &download.LocalFileDownloadOptions{
+			FilePassword: req.FilePassword,
+		}
+
+		result, err := download.PrepareLocalFileDownload(
+			context.Background(),
+			req.FileID,
+			userID,
+			d.tempDir,
+			d.factory,
+			opts,
+		)
+
+		if err != nil {
+			// 准备失败
+			task.State = enum.DownloadTaskStateFailed.Value()
+			task.ErrorMsg = err.Error()
+			task.UpdateTime = custom_type.Now()
+			d.factory.DownloadTask().Update(context.Background(), task)
+			logger.LOG.Error("准备下载文件失败", "taskID", taskID, "error", err)
+			return
+		}
+
+		// 准备完成，更新任务状态为已完成（网盘文件下载准备完成即可下载）
+		task.State = enum.DownloadTaskStateFinished.Value() // state=3 表示准备完成，可下载
+		task.Progress = 100
+		task.DownloadedSize = result.FileSize
+		task.Path = result.TempFilePath // 存储临时文件路径
+		task.UpdateTime = custom_type.Now()
+		task.FinishTime = custom_type.Now()
+		d.factory.DownloadTask().Update(context.Background(), task)
+
+		logger.LOG.Info("网盘文件下载准备完成", "taskID", taskID, "fileID", req.FileID, "tempPath", result.TempFilePath)
+	}()
+
+	logger.LOG.Info("网盘文件下载任务已创建", "taskID", taskID, "userID", userID, "fileID", req.FileID)
+
+	// 返回任务信息
+	return models.NewJsonResponse(200, "任务创建成功", map[string]interface{}{
+		"task_id":   taskID,
+		"file_name": fileInfo.Name,
+		"file_size": fileInfo.Size,
+	}), nil
 }

@@ -199,7 +199,8 @@ const loadTaskList = async () => {
       state: -1 // 查询所有状态
     })
     if (res.code === 200 && res.data) {
-      taskList.value = res.data.tasks || []
+      // 过滤掉网盘下载任务（type=7），只显示离线下载
+      taskList.value = (res.data.tasks || []).filter((task: any) => task.type !== 7)
     }
   } catch (error: any) {
     ElMessage.error(error.message || '加载任务列表失败')

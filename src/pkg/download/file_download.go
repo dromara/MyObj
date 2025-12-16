@@ -2,335 +2,298 @@ package download
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"myobj/src/internal/repository/impl"
-	"myobj/src/pkg/hash"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/util"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
-// PrepareFileForDownload 准备文件用于下载
-//
-// 处理流程:
-//  1. 检查文件是否存在（数据库记录和磁盘文件）
-//  2. 如果是分片文件，检查所有分片是否完整
-//  3. 根据文件状态进行处理:
-//     - 分片+加密: 合并分片 → 解密 → 校验原始hash → 返回临时文件路径
-//     - 仅分片:   合并分片 → 校验原始hash → 返回临时文件路径
-//     - 仅加密:   解密 → 校验原始hash → 返回临时文件路径
-//     - 普通文件: 校验原始hash → 直接返回原始路径（不复制）
-//  4. 通过.info文件和数据库进行双重hash校验
-//
-// 参数:
-//   - fileID: 文件ID
-//   - tempDir: 临时目录路径（用于存放处理后的文件）
-//   - repoFactory: 数据库仓储工厂
-//
-// 返回:
-//   - filePath: 可以直接读取的文件路径
-//   - fileInfo: 文件信息（供调用方使用）
-//   - err: 错误信息
-//
-// 注意:
-//   - 临时目录中生成的文件由调用方负责清理
-//   - 如果文件未加密未分片，返回的是原始文件路径，不会复制到临时目录
-func PrepareFileForDownload(fileID string, tempDir string, repoFactory *impl.RepositoryFactory) (filePath string, fileInfo *models.FileInfo, err error) {
-	ctx := context.Background()
+// LocalFileDownloadOptions 本地文件下载配置
+type LocalFileDownloadOptions struct {
+	FilePassword string // 文件解密密码（加密文件必需）
+}
 
-	// 1. 查询数据库中的文件信息
-	fileInfo, err = repoFactory.FileInfo().GetByID(ctx, fileID)
+// LocalFileDownloadResult 本地文件下载结果
+type LocalFileDownloadResult struct {
+	TempFilePath string // 临时文件路径（已解密、已合并）
+	FileName     string // 文件名
+	FileSize     int64  // 文件大小
+	ContentType  string // MIME类型
+	IsEncrypted  bool   // 是否加密
+	IsChunked    bool   // 是否分片
+	Error        string // 错误信息
+}
+
+// PrepareLocalFileDownload 准备本地文件下载（解密+合并）
+// 返回临时文件路径，调用者负责清理
+func PrepareLocalFileDownload(
+	ctx context.Context,
+	fileID string,
+	userID string,
+	tempDir string,
+	repoFactory *impl.RepositoryFactory,
+	opts *LocalFileDownloadOptions,
+) (*LocalFileDownloadResult, error) {
+	result := &LocalFileDownloadResult{}
+
+	// 1. 查询文件信息
+	fileInfo, err := repoFactory.FileInfo().GetByID(ctx, fileID)
 	if err != nil {
-		return "", nil, fmt.Errorf("文件记录不存在: %w", err)
+		return nil, fmt.Errorf("文件不存在: %w", err)
 	}
 
-	// 2. 检查主文件是否存在
-	if _, err := os.Stat(fileInfo.Path); os.IsNotExist(err) {
-		return "", nil, fmt.Errorf("文件不存在: %s", fileInfo.Path)
+	result.FileName = fileInfo.Name
+	result.FileSize = int64(fileInfo.Size)
+	result.ContentType = fileInfo.Mime
+	result.IsEncrypted = fileInfo.IsEnc
+	result.IsChunked = fileInfo.IsChunk
+
+	// 2. 验证文件权限（公开文件或用户自己的文件）
+	if err := validateFilePermission(ctx, fileID, userID, repoFactory); err != nil {
+		return nil, err
 	}
 
-	// 3. 根据文件类型选择处理策略
-	var processedPath string
+	// 3. 创建唯一临时目录
+	sessionID := uuid.New().String()[:8]
+	sessionTempDir := filepath.Join(tempDir, fmt.Sprintf("download_%s", sessionID))
+	if err := os.MkdirAll(sessionTempDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+	}
 
-	if fileInfo.IsChunk && fileInfo.IsEnc {
-		// 场景1: 分片+加密 → 合并分片 → 解密 → 校验
-		processedPath, err = handleChunkedEncryptedFile(ctx, fileInfo, tempDir, repoFactory)
-		if err != nil {
-			return "", nil, err
+	tempFilePath := filepath.Join(sessionTempDir, fileInfo.Name)
+
+	// 4. 处理加密文件
+	if fileInfo.IsEnc {
+		if opts == nil || opts.FilePassword == "" {
+			// 清理临时目录
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("加密文件需要提供解密密码")
 		}
+
+		// 验证密码
+		user, err := repoFactory.User().GetByID(ctx, userID)
+		if err != nil {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("查询用户信息失败: %w", err)
+		}
+
+		// 验证密码（使用bcrypt比对哈希值）
+		if !util.CheckPassword(user.FilePassword, opts.FilePassword) {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("密码错误")
+		}
+
+		// 获取加密文件路径：优先使用EncPath，如果为空则使用Path
+		// 根据设计，加密文件存储为.data文件，Path和EncPath应该都指向同一个文件
+		encryptedPath := fileInfo.EncPath
+		if encryptedPath == "" {
+			encryptedPath = fileInfo.Path
+		}
+
+		logger.LOG.Info("开始解密文件",
+			"fileID", fileID,
+			"encPath", encryptedPath,
+			"fileInfo.EncPath", fileInfo.EncPath,
+			"fileInfo.Path", fileInfo.Path,
+			"fileInfo.Name", fileInfo.Name)
+
+		// 检查加密文件是否存在
+		if _, err := os.Stat(encryptedPath); os.IsNotExist(err) {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("加密文件不存在: %s", encryptedPath)
+		}
+
+		// 使用PBKDF2从明文密码和用户ID派生加密密钥
+		// 这与上传时的逻辑完全一致
+		encryptionKey := util.DeriveEncryptionKey(opts.FilePassword, userID)
+		logger.LOG.Debug("派生解密密钥", "userID", userID, "keyLength", len(encryptionKey))
+
+		crypto := util.NewFileCrypto(encryptionKey)
+		if err := crypto.DecryptFile(encryptedPath, tempFilePath); err != nil {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("文件解密失败: %w", err)
+		}
+
+		logger.LOG.Info("文件解密完成", "fileID", fileID, "tempPath", tempFilePath)
 	} else if fileInfo.IsChunk {
-		// 场景2: 仅分片 → 合并分片 → 校验
-		processedPath, err = handleChunkedFile(ctx, fileInfo, tempDir, repoFactory)
-		if err != nil {
-			return "", nil, err
+		// 5. 处理分片文件（合并）
+		logger.LOG.Info("开始合并分片文件", "fileID", fileID, "chunkCount", fileInfo.ChunkCount)
+
+		if err := mergeChunkedFile(ctx, fileInfo, tempFilePath, repoFactory); err != nil {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("合并分片文件失败: %w", err)
 		}
-	} else if fileInfo.IsEnc {
-		// 场景3: 仅加密 → 解密 → 校验
-		processedPath, err = handleEncryptedFile(ctx, fileInfo, tempDir, repoFactory)
-		if err != nil {
-			return "", nil, err
-		}
+
+		logger.LOG.Info("分片文件合并完成", "fileID", fileID, "tempPath", tempFilePath)
 	} else {
-		// 场景4: 普通文件 → 直接校验 → 返回原始路径
-		if err := verifyFileHash(fileInfo.Path, fileInfo.FileHash, "原始文件"); err != nil {
-			return "", nil, err
+		// 6. 普通文件，直接复制
+		if err := copyFile(fileInfo.Path, tempFilePath); err != nil {
+			os.RemoveAll(sessionTempDir)
+			return nil, fmt.Errorf("复制文件失败: %w", err)
 		}
-		// 二次校验：通过.info文件
-		if err := verifyInfoFile(fileInfo.Path, fileInfo.FileHash, fileInfo.FileEncHash); err != nil {
-			logger.LOG.Warn(".info文件校验失败", "error", err)
-			// .info文件校验失败不影响主流程（可能文件是老数据）
-		}
-		processedPath = fileInfo.Path // 不复制，直接返回原始路径
+
+		logger.LOG.Info("文件准备完成", "fileID", fileID, "tempPath", tempFilePath)
 	}
 
-	logger.LOG.Info("文件准备完成", "fileID", fileID, "path", processedPath)
-	return processedPath, fileInfo, nil
+	result.TempFilePath = tempFilePath
+	return result, nil
 }
 
-// handleChunkedEncryptedFile 处理分片+加密的文件
-// 流程: 合并分片 → 解密 → 校验原始hash
-func handleChunkedEncryptedFile(ctx context.Context, fileInfo *models.FileInfo, tempDir string, repoFactory *impl.RepositoryFactory) (string, error) {
-	// 1. 查询所有分片信息
+// validateFilePermission 验证文件下载权限
+func validateFilePermission(ctx context.Context, fileID string, userID string, repoFactory *impl.RepositoryFactory) error {
+	// 查询用户文件关联
+	userFile, err := repoFactory.UserFiles().GetByUserIDAndFileID(ctx, userID, fileID)
+	if err == nil && userFile != nil {
+		// 用户自己的文件，允许下载
+		return nil
+	}
+
+	// 检查是否为公开文件（查询所有公开文件）
+	allPublicFiles, err := repoFactory.UserFiles().ListPublicFiles(ctx, 0, 1000)
+	if err != nil {
+		return fmt.Errorf("查询文件失败: %w", err)
+	}
+
+	for _, uf := range allPublicFiles {
+		if uf.FileID == fileID && uf.Public {
+			// 公开文件，允许下载
+			logger.LOG.Info("下载公开文件", "fileID", fileID, "ownerID", uf.UserID, "downloaderID", userID)
+			return nil
+		}
+	}
+
+	// 既不是自己的文件，也不是公开文件
+	return fmt.Errorf("无权限下载此文件")
+}
+
+// mergeChunkedFile 合并分片文件
+func mergeChunkedFile(ctx context.Context, fileInfo *models.FileInfo, outputPath string, repoFactory *impl.RepositoryFactory) error {
+	// 1. 查询所有分片
 	chunks, err := repoFactory.FileChunk().GetByFileID(ctx, fileInfo.ID)
 	if err != nil {
-		return "", fmt.Errorf("查询分片信息失败: %w", err)
+		return fmt.Errorf("查询分片信息失败: %w", err)
 	}
 
 	if len(chunks) == 0 {
-		return "", fmt.Errorf("分片信息为空")
+		return fmt.Errorf("未找到分片文件")
 	}
 
-	if len(chunks) != fileInfo.ChunkCount {
-		return "", fmt.Errorf("分片数量不匹配: 期望%d个，实际%d个", fileInfo.ChunkCount, len(chunks))
-	}
-
-	// 2. 检查所有分片文件是否存在
-	for _, chunk := range chunks {
-		if _, err := os.Stat(chunk.ChunkPath); os.IsNotExist(err) {
-			return "", fmt.Errorf("分片文件不存在: %s", chunk.ChunkPath)
-		}
-	}
-
-	// 3. 合并分片到临时文件（加密状态）
-	mergedEncPath := filepath.Join(tempDir, fmt.Sprintf("%s_merged.enc", fileInfo.ID))
-	if err := mergeChunkFiles(chunks, mergedEncPath); err != nil {
-		return "", fmt.Errorf("合并分片失败: %w", err)
-	}
-	defer os.Remove(mergedEncPath) // 清理中间文件
-
-	// 4. 校验加密文件的hash（如果有记录）
-	if fileInfo.FileEncHash != "" {
-		if err := verifyFileHash(mergedEncPath, fileInfo.FileEncHash, "加密文件"); err != nil {
-			return "", err
-		}
-	}
-
-	// 5. 解密文件
-	user, err := getUserByFileID(ctx, fileInfo.ID, repoFactory)
-	if err != nil {
-		return "", err
-	}
-
-	decryptedPath := filepath.Join(tempDir, fmt.Sprintf("%s_decrypted", fileInfo.ID))
-	crypto := util.NewFileCrypto(user.FilePassword)
-	if err := crypto.DecryptFile(mergedEncPath, decryptedPath); err != nil {
-		return "", fmt.Errorf("文件解密失败: %w", err)
-	}
-
-	// 6. 校验解密后的原始文件hash
-	if err := verifyFileHash(decryptedPath, fileInfo.FileHash, "解密后文件"); err != nil {
-		return "", err
-	}
-
-	logger.LOG.Debug("分片+加密文件处理完成", "path", decryptedPath)
-	return decryptedPath, nil
-}
-
-// handleChunkedFile 处理仅分片的文件
-// 流程: 合并分片 → 校验原始hash
-func handleChunkedFile(ctx context.Context, fileInfo *models.FileInfo, tempDir string, repoFactory *impl.RepositoryFactory) (string, error) {
-	// 1. 查询所有分片信息
-	chunks, err := repoFactory.FileChunk().GetByFileID(ctx, fileInfo.ID)
-	if err != nil {
-		return "", fmt.Errorf("查询分片信息失败: %w", err)
-	}
-
-	if len(chunks) == 0 {
-		return "", fmt.Errorf("分片信息为空")
-	}
-
-	if len(chunks) != fileInfo.ChunkCount {
-		return "", fmt.Errorf("分片数量不匹配: 期望%d个，实际%d个", fileInfo.ChunkCount, len(chunks))
-	}
-
-	// 2. 检查所有分片文件是否存在
-	for _, chunk := range chunks {
-		if _, err := os.Stat(chunk.ChunkPath); os.IsNotExist(err) {
-			return "", fmt.Errorf("分片文件不存在: %s", chunk.ChunkPath)
-		}
-	}
-
-	// 3. 合并分片到临时文件
-	mergedPath := filepath.Join(tempDir, fmt.Sprintf("%s_merged", fileInfo.ID))
-	if err := mergeChunkFiles(chunks, mergedPath); err != nil {
-		return "", fmt.Errorf("合并分片失败: %w", err)
-	}
-
-	// 4. 校验合并后的文件hash
-	if err := verifyFileHash(mergedPath, fileInfo.FileHash, "合并后文件"); err != nil {
-		return "", err
-	}
-
-	// 5. 二次校验：通过.info文件（使用主文件路径）
-	if err := verifyInfoFile(fileInfo.Path, fileInfo.FileHash, fileInfo.FileEncHash); err != nil {
-		logger.LOG.Warn(".info文件校验失败", "error", err)
-	}
-
-	logger.LOG.Debug("分片文件处理完成", "path", mergedPath)
-	return mergedPath, nil
-}
-
-// handleEncryptedFile 处理仅加密的文件
-// 流程: 解密 → 校验原始hash
-func handleEncryptedFile(ctx context.Context, fileInfo *models.FileInfo, tempDir string, repoFactory *impl.RepositoryFactory) (string, error) {
-	// 1. 校验加密文件的hash（如果有记录）
-	if fileInfo.FileEncHash != "" {
-		if err := verifyFileHash(fileInfo.EncPath, fileInfo.FileEncHash, "加密文件"); err != nil {
-			return "", err
-		}
-	}
-
-	// 2. 查询用户加密密码
-	user, err := getUserByFileID(ctx, fileInfo.ID, repoFactory)
-	if err != nil {
-		return "", err
-	}
-
-	// 3. 解密文件到临时目录
-	decryptedPath := filepath.Join(tempDir, fmt.Sprintf("%s_decrypted", fileInfo.ID))
-	crypto := util.NewFileCrypto(user.FilePassword)
-	if err := crypto.DecryptFile(fileInfo.EncPath, decryptedPath); err != nil {
-		return "", fmt.Errorf("文件解密失败: %w", err)
-	}
-
-	// 4. 校验解密后的原始文件hash
-	if err := verifyFileHash(decryptedPath, fileInfo.FileHash, "解密后文件"); err != nil {
-		return "", err
-	}
-
-	// 5. 二次校验：通过.info文件
-	if err := verifyInfoFile(fileInfo.Path, fileInfo.FileHash, fileInfo.FileEncHash); err != nil {
-		logger.LOG.Warn(".info文件校验失败", "error", err)
-	}
-
-	logger.LOG.Debug("加密文件处理完成", "path", decryptedPath)
-	return decryptedPath, nil
-}
-
-// mergeChunkFiles 合并分片文件
-func mergeChunkFiles(chunks []*models.FileChunk, outputPath string) error {
-	// 按分片索引排序
+	// 2. 按分片索引排序
 	sort.Slice(chunks, func(i, j int) bool {
 		return chunks[i].ChunkIndex < chunks[j].ChunkIndex
 	})
 
-	// 创建输出文件
-	outputFile, err := os.Create(outputPath)
+	// 3. 创建输出文件
+	outFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("创建输出文件失败: %w", err)
 	}
-	defer outputFile.Close()
+	defer outFile.Close()
 
-	// 按顺序合并分片
+	// 4. 逐个读取分片并写入
 	for _, chunk := range chunks {
 		chunkFile, err := os.Open(chunk.ChunkPath)
 		if err != nil {
-			return fmt.Errorf("打开分片文件失败 [%d]: %w", chunk.ChunkIndex, err)
+			return fmt.Errorf("打开分片文件失败 [索引=%d]: %w", chunk.ChunkIndex, err)
 		}
 
-		if _, err := io.Copy(outputFile, chunkFile); err != nil {
+		if _, err := io.Copy(outFile, chunkFile); err != nil {
 			chunkFile.Close()
-			return fmt.Errorf("复制分片数据失败 [%d]: %w", chunk.ChunkIndex, err)
+			return fmt.Errorf("复制分片数据失败 [索引=%d]: %w", chunk.ChunkIndex, err)
 		}
+
 		chunkFile.Close()
+		logger.LOG.Debug("分片合并进度", "chunk", chunk.ChunkIndex+1, "total", len(chunks))
 	}
 
 	return nil
 }
 
-// verifyFileHash 校验文件hash值
-func verifyFileHash(filePath, expectedHash, fileDesc string) error {
-	hasher := hash.NewFastBlake3Hasher()
-	actualHash, _, err := hasher.ComputeFileHash(filePath)
+// copyFile 复制文件
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("计算%shash失败: %w", fileDesc, err)
+		return err
 	}
+	defer srcFile.Close()
 
-	if actualHash != expectedHash {
-		return fmt.Errorf("%shash校验失败: 期望=%s, 实际=%s", fileDesc, expectedHash, actualHash)
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
 	}
+	defer dstFile.Close()
 
-	logger.LOG.Debug(fmt.Sprintf("%shash校验通过", fileDesc), "hash", actualHash)
-	return nil
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }
 
-// verifyInfoFile 通过.info文件进行二次hash校验
-func verifyInfoFile(dataFilePath, expectedFileHash, expectedFileEncHash string) error {
-	// 生成.info文件路径
-	infoFilePath := strings.TrimSuffix(dataFilePath, ".data") + ".info"
-
-	// 读取.info文件
-	infoData, err := os.ReadFile(infoFilePath)
-	if err != nil {
-		return fmt.Errorf("读取.info文件失败: %w", err)
-	}
-
-	// 解析JSON
-	var hashInfo struct {
-		FileHash    string `json:"file_hash"`
-		FileEncHash string `json:"file_enc_hash"`
-	}
-	if err := json.Unmarshal(infoData, &hashInfo); err != nil {
-		return fmt.Errorf("解析.info文件失败: %w", err)
-	}
-
-	// 校验原始文件hash
-	if hashInfo.FileHash != expectedFileHash {
-		return fmt.Errorf(".info文件中file_hash不匹配: info=%s, db=%s", hashInfo.FileHash, expectedFileHash)
-	}
-
-	// 校验加密文件hash（如果有）
-	if expectedFileEncHash != "" && hashInfo.FileEncHash != expectedFileEncHash {
-		return fmt.Errorf(".info文件中file_enc_hash不匹配: info=%s, db=%s", hashInfo.FileEncHash, expectedFileEncHash)
-	}
-
-	logger.LOG.Debug(".info文件校验通过", "path", infoFilePath)
-	return nil
+// ServeFileWithRange 支持HTTP Range请求的文件服务
+type FileRangeInfo struct {
+	Start      int64
+	End        int64
+	TotalSize  int64
+	IsRanged   bool
+	StatusCode int
 }
 
-// getUserByFileID 通过文件ID查询文件所属用户（用于获取解密密码）
-func getUserByFileID(ctx context.Context, fileID string, repoFactory *impl.RepositoryFactory) (*models.UserInfo, error) {
-	// 直接查询user_files表
-	var userFile models.UserFiles
-	if err := repoFactory.DB().Where("file_id = ?", fileID).First(&userFile).Error; err != nil {
-		return nil, fmt.Errorf("查询文件所属用户失败: %w", err)
+// ParseRangeHeader 解析HTTP Range头
+func ParseRangeHeader(rangeHeader string, fileSize int64) (*FileRangeInfo, error) {
+	info := &FileRangeInfo{
+		Start:      0,
+		End:        fileSize - 1,
+		TotalSize:  fileSize,
+		IsRanged:   false,
+		StatusCode: 200,
 	}
 
-	// 查询用户信息
-	user, err := repoFactory.User().GetByID(ctx, userFile.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("查询用户信息失败: %w", err)
+	if rangeHeader == "" {
+		return info, nil
 	}
 
-	if user.FilePassword == "" {
-		return nil, fmt.Errorf("用户未设置文件加密密码")
+	// 解析 Range: bytes=start-end
+	if !strings.HasPrefix(rangeHeader, "bytes=") {
+		return nil, fmt.Errorf("不支持的Range格式")
 	}
 
-	return user, nil
+	rangeStr := strings.TrimPrefix(rangeHeader, "bytes=")
+	parts := strings.Split(rangeStr, "-")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("无效的Range格式")
+	}
+
+	// 解析起始位置
+	if parts[0] != "" {
+		start, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("无效的起始位置: %w", err)
+		}
+		info.Start = start
+	}
+
+	// 解析结束位置
+	if parts[1] != "" {
+		end, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("无效的结束位置: %w", err)
+		}
+		info.End = end
+	}
+
+	// 验证范围
+	if info.Start < 0 || info.End >= fileSize || info.Start > info.End {
+		return nil, fmt.Errorf("Range超出文件范围")
+	}
+
+	info.IsRanged = true
+	info.StatusCode = 206 // Partial Content
+	return info, nil
 }

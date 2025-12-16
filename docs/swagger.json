@@ -18,6 +18,128 @@
     "host": "localhost:8080",
     "basePath": "/api",
     "paths": {
+        "/download/local/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "创建网盘文件下载任务，支持加密文件和分片文件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "下载管理"
+                ],
+                "summary": "创建网盘文件下载任务",
+                "parameters": [
+                    {
+                        "description": "下载请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.CreateLocalFileDownloadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "创建失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/local/file/{taskID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "下载已准备完成的网盘文件，支持HTTP Range断点续传",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "下载管理"
+                ],
+                "summary": "下载网盘文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "任务ID",
+                        "name": "taskID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range请求头（例：bytes=0-1023）",
+                        "name": "Range",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文件流",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "206": {
+                        "description": "部分文件流（Range请求）",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "任务不存在或未准备完成",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "下载失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/file/delete": {
             "post": {
                 "security": [
@@ -882,6 +1004,22 @@
         }
     },
     "definitions": {
+        "myobj_src_core_domain_request.CreateLocalFileDownloadRequest": {
+            "type": "object",
+            "required": [
+                "file_id"
+            ],
+            "properties": {
+                "file_id": {
+                    "description": "文件ID",
+                    "type": "string"
+                },
+                "file_password": {
+                    "description": "文件解密密码（加密文件必需）",
+                    "type": "string"
+                }
+            }
+        },
         "myobj_src_core_domain_request.DeleteFileRequest": {
             "type": "object",
             "required": [

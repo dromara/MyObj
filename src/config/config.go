@@ -37,6 +37,8 @@ type Server struct {
 	SSLKey string `toml:"ssl_key"`
 	// SSLCert SSL证书文件路径
 	SSLCert string `toml:"ssl_cert"`
+	// Swagger 启用Swagger API文档
+	Swagger bool `toml:"swagger"`
 }
 
 // Auth 认证配置

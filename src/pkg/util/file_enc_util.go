@@ -65,6 +65,21 @@ func NewFileCrypto(password string) *FileCrypto {
 	}
 }
 
+// DeriveEncryptionKey 从明文密码和用户盐派生加密密钥
+// 使用PBKDF2确保从相同的密码和盐总是派生出相同的密钥
+func DeriveEncryptionKey(password string, userSalt string) string {
+	// 将用户ID或其他唯一标识作为盐
+	// 这样每个用户的密钥都不同，但对同一用户总是相同
+	salt := []byte(userSalt)
+
+	// 使用PBKDF2派生32字节密钥
+	// 注意：这里使用较少的迭代次数(10000)，因为我们还会在加密时再次使用PBKDF2
+	derivedKey := pbkdf2.Key([]byte(password), salt, 10000, 32, sha256.New)
+
+	// 返回base64编码的密钥，便于存储和使用
+	return string(derivedKey)
+}
+
 // EncryptFile 加密文件
 func (fc *FileCrypto) EncryptFile(inputPath, outputPath string) error {
 	if err := fc.maxConcurrent.Acquire(context.Background(), 1); err != nil {

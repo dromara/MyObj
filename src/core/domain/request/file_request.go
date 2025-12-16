@@ -74,4 +74,6 @@ type FileUploadRequest struct {
 	ChunkMD5 string `form:"chunk_md5"`
 	// 是否需要加密
 	IsEnc bool `form:"is_enc"`
+	// 文件加密密码（加密文件必须）
+	FilePassword string `form:"file_password"`
 }

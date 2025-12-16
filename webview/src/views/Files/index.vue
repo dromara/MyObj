@@ -29,9 +29,9 @@
         
         <div class="toolbar-right" v-if="selectedCount > 0">
           <el-tag type="info">已选择 {{ selectedCount }} 项</el-tag>
-          <el-button :icon="Download" @click="handleDownload">下载</el-button>
-          <el-button :icon="Share" @click="handleShare">分享</el-button>
-          <el-button :icon="Delete" type="danger" @click="handleDelete">删除</el-button>
+          <el-button :icon="Download" @click="handleToolbarDownload">下载</el-button>
+          <el-button :icon="Share" @click="handleToolbarShare">分享</el-button>
+          <el-button :icon="Delete" type="danger" @click="handleToolbarDelete">删除</el-button>
         </div>
       </div>
     </el-card>
@@ -260,6 +260,33 @@
         <el-button type="primary" :loading="sharing" @click="handleConfirmShare">确定分享</el-button>
       </template>
     </el-dialog>
+    
+    <!-- 下载密码对话框 -->
+    <el-dialog 
+      v-model="showDownloadPasswordDialog" 
+      title="输入文件密码" 
+      width="450px"
+    >
+      <el-form label-width="100px">
+        <el-form-item label="文件名称">
+          <el-text>{{ downloadPasswordForm.file_name }}</el-text>
+        </el-form-item>
+        <el-form-item label="文件密码">
+          <el-input 
+            v-model="downloadPasswordForm.file_password" 
+            type="password"
+            placeholder="请输入文件加密密码"
+            show-password
+            @keyup.enter="confirmDownloadPassword"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="showDownloadPasswordDialog = false">取消</el-button>
+        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -280,6 +307,7 @@ import {
 import { getFileList, getThumbnail, moveFile, getVirtualPathTree } from '@/api/file'
 import { createShare } from '@/api/share'
 import { createFolder } from '@/api/folder'
+import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
 import FileIcon from '@/components/FileIcon.vue'
 import type { FileListResponse, FolderItem, FileItem } from '@/types'
 
@@ -309,6 +337,15 @@ const shareForm = reactive({
   expire_days: 7,
   password: ''
 })
+
+// 下载密码对话框
+const showDownloadPasswordDialog = ref(false)
+const downloadPasswordForm = reactive({
+  file_id: '',
+  file_name: '',
+  file_password: ''
+})
+const downloadingFile = ref(false)
 
 // 预设有效期选项
 const expireOptions = [
@@ -502,12 +539,27 @@ const handleCreateFolder = async () => {
   })
 }
 
-// 批量操作
-const handleDownload = () => {
-  ElMessage.success(`下载 ${selectedCount.value} 个文件`)
+// 工具栏批量操作
+const handleToolbarDownload = async () => {
+  if (selectedFileIds.value.length === 0) {
+    ElMessage.warning('请先选择要下载的文件')
+    return
+  }
+  
+  // 如果只选择了一个文件，调用单文件下载逻辑
+  if (selectedFileIds.value.length === 1) {
+    const fileId = selectedFileIds.value[0]
+    const file = fileListData.value.files.find(f => f.file_id === fileId)
+    if (file) {
+      await handleDownloadFile(file)
+    }
+  } else {
+    // 多个文件下载
+    ElMessage.info('批量下载功能开发中')
+  }
 }
 
-const handleShare = () => {
+const handleToolbarShare = () => {
   if (selectedFileIds.value.length === 0) {
     ElMessage.warning('请先选择要分享的文件')
     return
@@ -525,14 +577,10 @@ const handleShare = () => {
   }
   
   // 打开分享对话框
-  shareForm.file_id = fileId
-  shareForm.file_name = file.file_name
-  shareForm.expire_days = 7
-  shareForm.password = generateRandomPassword()
-  showShareDialog.value = true
+  handleShareFile(file)
 }
 
-const handleDelete = async () => {
+const handleToolbarDelete = async () => {
   const totalCount = selectedFileIds.value.length + selectedFolderIds.value.length
   
   if (totalCount === 0) {
@@ -579,8 +627,114 @@ const handleDelete = async () => {
 }
 
 // 单个文件操作
-const handleDownloadFile = (file: FileItem) => {
-  ElMessage.success(`下载: ${file.file_name}`)
+const handleDownloadFile = async (file: FileItem) => {
+  // 检查是否加密文件
+  if (file.is_enc) {
+    // 加密文件，弹窗输入密码
+    downloadPasswordForm.file_id = file.file_id
+    downloadPasswordForm.file_name = file.file_name
+    downloadPasswordForm.file_password = ''
+    showDownloadPasswordDialog.value = true
+  } else {
+    // 非加密文件，直接下载
+    await executeDownload(file.file_id, '')
+  }
+}
+
+// 执行下载
+const executeDownload = async (fileId: string, password: string) => {
+  try {
+    downloadingFile.value = true
+    const res = await createLocalFileDownload({
+      file_id: fileId,
+      file_password: password
+    })
+    
+    if (res.code === 200) {
+      const taskId = res.data?.task_id
+      if (!taskId) {
+        ElMessage.error('任务创建失败')
+        return
+      }
+      
+      ElMessage.success('准备下载中，请稍候...')
+      showDownloadPasswordDialog.value = false
+      
+      // 轮询任务状态，等待准备完成
+      let retryCount = 0
+      const maxRetries = 30 // 最多轮询30次，每次1秒，共30秒
+      
+      const checkTaskStatus = async () => {
+        try {
+          const taskRes = await getDownloadTaskList({ page: 1, pageSize: 100, state: -1 })
+          if (taskRes.code === 200 && taskRes.data) {
+            const task = taskRes.data.tasks?.find((t: any) => t.id === taskId)
+            
+            if (task) {
+              if (task.state === 3) {
+                // 准备完成，触发下载
+                const downloadUrl = getLocalFileDownloadUrl(taskId)
+                const link = document.createElement('a')
+                link.href = downloadUrl
+                link.download = task.file_name || 'download'
+                link.style.display = 'none'
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                
+                ElMessage.success('下载已开始')
+                downloadingFile.value = false
+                return
+              } else if (task.state === 4) {
+                // 失败
+                ElMessage.error(task.error_msg || '下载准备失败')
+                downloadingFile.value = false
+                return
+              }
+            }
+            
+            // 继续轮询
+            retryCount++
+            if (retryCount < maxRetries) {
+              setTimeout(checkTaskStatus, 1000)
+            } else {
+              ElMessage.warning('准备超时，请到任务中心查看')
+              downloadingFile.value = false
+            }
+          }
+        } catch (error: any) {
+          console.error('查询任务状态失败:', error)
+          retryCount++
+          if (retryCount < maxRetries) {
+            setTimeout(checkTaskStatus, 1000)
+          } else {
+            downloadingFile.value = false
+          }
+        }
+      }
+      
+      // 开始轮询
+      setTimeout(checkTaskStatus, 1000)
+    } else {
+      ElMessage.error(res.msg || '创建下载任务失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '创建下载任务失败')
+  } finally {
+    // 注意：轮询过程中不关闭 loading，由轮询逼辑关闭
+    if (!downloadingFile.value) {
+      downloadingFile.value = false
+    }
+  }
+}
+
+// 确认密码并下载
+const confirmDownloadPassword = async () => {
+  if (!downloadPasswordForm.file_password) {
+    ElMessage.warning('请输入文件密码')
+    return
+  }
+  await executeDownload(downloadPasswordForm.file_id, downloadPasswordForm.file_password)
 }
 
 const handleShareFile = (file: FileItem) => {
@@ -606,6 +760,9 @@ const handleDeleteFile = async (file: FileItem) => {
       const result = await deleteFiles({ file_ids: [file.file_id] })
       if (result.code === 200) {
         ElMessage.success('删除成功')
+        // 清空选中状态
+        selectedFileIds.value = []
+        selectedFolderIds.value = []
         await loadFileList()
       } else {
         ElMessage.error(result.message || '删除失败')
@@ -891,6 +1048,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.3s;
   border: 2px solid transparent;
+  position: relative;
 }
 
 .file-card.selected {

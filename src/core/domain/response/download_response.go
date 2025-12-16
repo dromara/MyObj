@@ -18,8 +18,10 @@ type DownloadTaskResponse struct {
 	Progress int `json:"progress"`
 	// 下载速度（字节/秒）
 	Speed int64 `json:"speed"`
-	// 任务类型（0=HTTP）
+	// 任务类型（0=HTTP, 1=FTP, 2=SFTP, 3=S3, 4=BT, 5=磁力, 6=本地）
 	Type int `json:"type"`
+	// 类型文本
+	TypeText string `json:"type_text"`
 	// 任务状态（0=初始化,1=下载中,2=暂停,3=完成,4=失败）
 	State int `json:"state"`
 	// 状态文本

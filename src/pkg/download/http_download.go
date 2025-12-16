@@ -706,7 +706,7 @@ func ResumeDownload(taskID string, userID string, tempDir string, repoFactory *i
 	// 重新启动下载（异步）
 	go func() {
 		opts := &HTTPDownloadOptions{
-			EnableEncryption: task.EnableEncryption,
+			EnableEncryption: false, // HTTP离线下载不加密
 			VirtualPath:      task.VirtualPath,
 			MaxRetries:       3,
 			ChunkSize:        10 * 1024 * 1024,

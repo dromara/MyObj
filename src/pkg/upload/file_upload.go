@@ -49,6 +49,8 @@ type FileUploadData struct {
 	VirtualPath string `json:"virtual_path"`
 	// 上传用户ID
 	UserID string `json:"user_id"`
+	// 文件加密密码（明文）
+	FilePassword string `json:"file_password"`
 }
 
 // ProcessUploadedFile 处理已上传的文件
@@ -167,7 +169,12 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 	var finalFilePath string
 	var fileEncHash string
 	if data.IsEnc {
-		// 查询用户加密密码
+		// 验证用户是否提供了加密密码
+		if data.FilePassword == "" {
+			return "", fmt.Errorf("加密文件必须提供密码")
+		}
+
+		// 查询用户信息（用于验证密码和获取用户ID作为盐）
 		user, err := repoFactory.User().GetByID(ctx, data.UserID)
 		if err != nil {
 			return "", fmt.Errorf("查询用户信息失败: %w", err)
@@ -176,9 +183,19 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 			return "", fmt.Errorf("用户未设置文件加密密码")
 		}
 
+		// 验证用户输入的密码是否正确
+		if !util.CheckPassword(user.FilePassword, data.FilePassword) {
+			return "", fmt.Errorf("文件密码错误")
+		}
+
+		// 使用PBKDF2从明文密码和用户ID派生加密密钥
+		// 这确保相同的密码+用户ID总是生成相同的密钥
+		encryptionKey := util.DeriveEncryptionKey(data.FilePassword, data.UserID)
+		logger.LOG.Debug("派生加密密钥", "userID", data.UserID, "keyLength", len(encryptionKey))
+
 		// 加密文件
 		encryptedPath := mergedFilePath + ".enc"
-		crypto := util.NewFileCrypto(user.FilePassword)
+		crypto := util.NewFileCrypto(encryptionKey)
 		if err := crypto.EncryptFile(mergedFilePath, encryptedPath); err != nil {
 			return "", fmt.Errorf("文件加密失败: %w", err)
 		}

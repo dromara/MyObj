@@ -36,6 +36,8 @@ const (
 	DownloadTaskTypeMagnet
 	// DownloadTaskTypeLocal 本地下载
 	DownloadTaskTypeLocal
+	// DownloadTaskTypeLocalFile 网盘文件下载
+	DownloadTaskTypeLocalFile
 )
 
 func (t DownloadTaskType) Value() int {

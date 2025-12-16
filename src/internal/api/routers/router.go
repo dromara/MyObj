@@ -51,9 +51,13 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 	logger.LOG.Info("[路由] 正在注册API路由...")
 	r.LoadHTMLGlob("templates/*")
 
-	// Swagger API 文档路由
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	logger.LOG.Info("[路由] Swagger 文档地址: http://" + config.CONFIG.Server.Host + fmt.Sprintf(":%d/swagger/index.html", config.CONFIG.Server.Port))
+	// Swagger API 文档路由（根据配置决定是否启用）
+	if config.CONFIG.Server.Swagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		logger.LOG.Info("[路由] Swagger 文档已启用", "url", "http://"+config.CONFIG.Server.Host+fmt.Sprintf(":%d/swagger/index.html", config.CONFIG.Server.Port))
+	} else {
+		logger.LOG.Info("[路由] Swagger 文档已禁用（可在config.toml中设置 server.swagger=true 启用）")
+	}
 
 	api := r.Group("/api")
 	{

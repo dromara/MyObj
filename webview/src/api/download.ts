@@ -12,6 +12,7 @@ export interface OfflineDownloadTask {
   progress: number
   speed: number
   type: number
+  type_text: string
   state: number
   state_text: string
   virtual_path: string
@@ -83,9 +84,38 @@ export const cancelDownload = (taskId: string) => {
   return post<ApiResponse>(API_ENDPOINTS.DOWNLOAD.CANCEL, { task_id: taskId })
 }
 
+// 删除下载任务请求
+export interface DeleteDownloadRequest {
+  task_id: string
+}
+
 /**
  * 删除下载任务
  */
 export const deleteDownload = (taskId: string) => {
   return post<ApiResponse>(API_ENDPOINTS.DOWNLOAD.DELETE, { task_id: taskId })
+}
+
+// 创建网盘文件下载任务请求
+export interface CreateLocalFileDownloadRequest {
+  file_id: string
+  file_password?: string
+}
+
+/**
+ * 创建网盘文件下载任务
+ */
+export const createLocalFileDownload = (data: CreateLocalFileDownloadRequest) => {
+  return post<ApiResponse<{ task_id: string; file_name: string; file_size: number }>>(
+    API_ENDPOINTS.DOWNLOAD.LOCAL_CREATE,
+    data
+  )
+}
+
+/**
+ * 获取网盘文件下载链接
+ */
+export const getLocalFileDownloadUrl = (taskId: string) => {
+  const token = localStorage.getItem('token')
+  return `${import.meta.env.VITE_API_BASE_URL}/download/local/file/${taskId}?token=${token}`
 }

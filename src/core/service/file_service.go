@@ -730,6 +730,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 		ChunkCount:      totalChunks,
 		VirtualPath:     precheckReq.PathID,
 		UserID:          userID,
+		FilePassword:    req.FilePassword, // 添加加密密码
 	}
 
 	fileID, err := upload.ProcessUploadedFile(uploadData, f.factory)
@@ -800,6 +801,7 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 		IsChunk:        false,
 		VirtualPath:    precheckReq.PathID,
 		UserID:         userID,
+		FilePassword:   req.FilePassword, // 添加加密密码
 	}
 
 	// 设置hash信息（如果有）
