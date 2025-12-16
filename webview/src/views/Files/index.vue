@@ -18,6 +18,9 @@
     <el-card shadow="never" class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-left">
+          <el-tooltip content="上传文件" placement="bottom">
+            <el-button type="primary" :icon="Upload" @click="handleUpload">上传</el-button>
+          </el-tooltip>
           <el-button :icon="FolderAdd" @click="handleNewFolder">新建文件夹</el-button>
           <el-button :icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0">移动文件</el-button>
           <el-divider direction="vertical" />
@@ -302,14 +305,17 @@ import {
   Folder,
   FolderAdd,
   FolderOpened,
-  Lock
+  Lock,
+  Upload
 } from '@element-plus/icons-vue'
-import { getFileList, getThumbnail, moveFile, getVirtualPathTree } from '@/api/file'
+import { getFileList, getThumbnail, moveFile, getVirtualPathTree, uploadFile, uploadPrecheck } from '@/api/file'
 import { createShare } from '@/api/share'
 import { createFolder } from '@/api/folder'
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
 import FileIcon from '@/components/FileIcon.vue'
 import type { FileListResponse, FolderItem, FileItem } from '@/types'
+import { useRoute, useRouter } from 'vue-router'
+import { calculateFileMD5 } from '@/utils/crypto'
 
 const viewMode = ref<'grid' | 'list'>('grid')
 const selectedFolderIds = ref<number[]>([])
@@ -428,12 +434,20 @@ const loadFileList = async () => {
   }
 }
 
+let router = useRouter();
+let route = useRoute();
 // 导航到指定路径
 const navigateToPath = (path: string) => {
   currentPath.value = path
   currentPage.value = 1
   selectedFolderIds.value = []
   selectedFileIds.value = []
+ router.push({
+  path: route.path,
+  query: {
+    virtualPath: path
+  }
+ })
   loadFileList()
 }
 
@@ -501,6 +515,91 @@ const handleNewFolder = () => {
   showNewFolderDialog.value = true
   folderForm.dir_path = ''
 }
+
+const handleUpload = async () => {
+  // 创建文件选择输入框
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.multiple = true // 允许选择多个文件
+  
+  // 监听文件选择事件
+  input.onchange = async (e) => {
+    const target = e.target as HTMLInputElement
+    const files = target.files
+    
+    if (!files || files.length === 0) {
+      return
+    }
+    
+    // 显示上传提示
+    ElMessage.info(`开始上传 ${files.length} 个文件`)
+    
+    // 遍历处理每个文件
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      
+      try {
+        // 1. 计算文件MD5
+        const fileMD5 = await calculateFileMD5(file)
+        
+        // 2. 准备上传预检参数
+        const precheckParams = {
+          chunk_signature: fileMD5, // 使用文件MD5作为分片签名
+          file_name: file.name,
+          file_size: file.size,
+          files_md5: [fileMD5,fileMD5,fileMD5],
+          path_id: currentPath.value
+        }
+        
+        // 3. 调用上传预检接口
+        const precheckResponse = await uploadPrecheck(precheckParams)
+        console.log('上传预检接口响应:', precheckResponse)
+        //秒传成功代码
+        if (precheckResponse.code === 200) {
+          ElMessage.success(`文件 ${file.name} 秒传成功`)
+          continue
+        }
+        
+        // 4. 处理接口返回结果
+        if (precheckResponse.code === 201) {
+          ElMessage.success(`文件 ${file.name} 预检成功`)
+          console.log('上传预检结果:', precheckResponse.data)
+          
+          // 5. 调用上传API（不分片上传）
+          const uploadParams = {
+            precheck_id: precheckResponse.data,
+            file: file,
+            chunk_index: 0, // 小文件只有一个分片，索引为0
+            total_chunks: 1, // 小文件总分片数为1
+            chunk_md5: fileMD5, // 使用文件MD5作为分片MD5
+            is_enc: false, // 默认不加密，可根据用户设置调整
+          }
+          
+          const uploadResponse = await uploadFile(uploadParams)
+          console.log('上传接口响应:', uploadResponse)
+          
+          // 6. 处理上传结果
+          if (uploadResponse.code === 200) {
+            ElMessage.success(`文件 ${file.name} 上传成功`)
+            // 刷新文件列表
+            loadFileList()
+          } else {
+            ElMessage.error(`文件 ${file.name} 上传失败: ${uploadResponse.message}`)
+          }
+        } else {
+          ElMessage.error(`文件 ${file.name} 预检失败: ${precheckResponse.message}`)
+        }
+      } catch (error: any) {
+        console.error(`处理文件 ${file.name} 时出错:`, error)
+        ElMessage.error(`处理文件 ${file.name} 时出错: ${error.message}`)
+      }
+    }
+  }
+  
+  // 触发文件选择对话框
+  input.click()
+}
+
 
 // 关闭对话框
 const handleDialogClose = () => {

@@ -1,5 +1,6 @@
 // RSA加密工具函数
 import JSEncrypt from 'jsencrypt'
+import md5 from 'js-md5'
 
 /**
  * 使用RSA公钥加密数据（PKCS1填充）
@@ -45,4 +46,22 @@ export const rsaDecrypt = (privateKey: string, encryptedData: string): string =>
     console.error('RSA解密错误:', error)
     throw new Error('RSA解密失败')
   }
+}
+
+/**
+ * 计算文件的MD5哈希值
+ * @param file 要计算MD5的文件对象
+ * @returns Promise<string> MD5哈希值（十六进制字符串）
+ */
+export const calculateFileMD5 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const arrayBuffer = e.target?.result as ArrayBuffer
+      const hash = md5(new Uint8Array(arrayBuffer))
+      resolve(hash)
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
 }

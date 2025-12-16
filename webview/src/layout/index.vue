@@ -20,9 +20,6 @@
         </div>
         
         <div class="header-right">
-          <el-tooltip content="上传文件" placement="bottom">
-            <el-button type="primary" :icon="Upload" @click="handleUpload">上传</el-button>
-          </el-tooltip>
           
           <el-dropdown @command="handleCommand">
             <div class="user-avatar">
@@ -226,9 +223,6 @@ const handleSearch = () => {
   }
 }
 
-const handleUpload = () => {
-  ElMessage.info('上传功能')
-}
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {

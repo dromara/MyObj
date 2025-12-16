@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
     INFO: '/file/info',
     PREVIEW: '/file/preview',
     THUMBNAIL: '/file/thumbnail',
+    PRECHECK: '/file/upload/precheck',
     // 分片上传
     CHUNK_UPLOAD: '/file/chunk/upload',
     CHUNK_MERGE: '/file/chunk/merge',

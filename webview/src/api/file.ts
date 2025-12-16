@@ -1,4 +1,4 @@
-import { get, post } from '@/utils/request'
+import { get, post, upload } from '@/utils/request'
 import { API_ENDPOINTS, getBaseURL, API_VERSION } from '@/config/api'
 import type { FileListRequest, FileListResponse, ApiResponse } from '@/types'
 
@@ -135,3 +135,43 @@ export interface DeleteFileRequest {
 export const deleteFiles = (data: DeleteFileRequest) => {
   return post<ApiResponse>(API_ENDPOINTS.FILE.DELETE, data)
 }
+
+// 上传文件请求参数
+export interface uploadPrecheckParams {
+  chunk_signature: string,
+  file_name: string,
+  file_size: number,
+  files_md5: string[],
+  path_id: string
+}
+
+/**
+ * 上传文件预检
+ */
+export const uploadPrecheck = (data: uploadPrecheckParams) => {
+  return post<ApiResponse>(API_ENDPOINTS.FILE.PRECHECK, data)
+}
+
+// 上传请求参数
+export interface uploadParams {
+  precheck_id: string,
+  file: File,
+  chunk_index: number,
+  total_chunks: number,
+  chunk_md5: string,
+  is_enc: boolean,
+}
+
+/**
+ * 上传
+ */
+export const uploadFile = (data: uploadParams) => {
+  const formData = new FormData();
+  formData.append('precheck_id', data.precheck_id);
+  formData.append('chunk_index', data.chunk_index.toString());
+  formData.append('total_chunks', data.total_chunks.toString());
+  formData.append('chunk_md5', data.chunk_md5);
+  formData.append('is_enc', data.is_enc.toString());
+  return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData)
+}
+

@@ -48,7 +48,7 @@ const responseInterceptor = async <T = any>(response: Response): Promise<T> => {
       window.location.href = '/login'
       throw new Error(data.message || '登录已过期，请重新登录')
     }
-    throw new Error(data.message || '操作失败')
+    return data
   }
   
   return data
@@ -123,10 +123,11 @@ export const del = <T = any>(url: string, options: RequestConfig = {}): Promise<
 export const upload = <T = any>(
   url: string,
   file: File,
+  outerParams: FormData,
   onProgress?: (percent: number) => void,
   options: { onCancel?: (cancel: () => void) => void } = {}
 ): Promise<T> => {
-  const formData = new FormData()
+  const formData = outerParams;
   formData.append('file', file)
   
   const token = localStorage.getItem('token')
