@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/service"
@@ -298,13 +299,8 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 			return
 		}
 
-		// 检查是否下载了完整文件（从0到文件末尾）
-		if rangeInfo.Start == 0 && rangeInfo.End == fileSize-1 {
-			// 完整下载完成，更新任务状态
-			task.State = 3 // 3=完成
-			task.FinishTime = custom_type.Now()
-			h.service.GetRepository().DownloadTask().Update(c.Request.Context(), task)
-		}
+		// Range请求不清理文件，等待完整请求或超时清理
+		logger.LOG.Info("Range请求完成", "taskID", taskID, "range", rangeHeader)
 	} else {
 		// 完整文件请求
 		c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
@@ -317,11 +313,23 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 			return
 		}
 
-		// 完整下载完成，更新任务状态为完成
-		task.State = 3 // 3=完成
-		task.FinishTime = custom_type.Now()
-		h.service.GetRepository().DownloadTask().Update(c.Request.Context(), task)
-	}
+		logger.LOG.Info("完整文件传输完成", "taskID", taskID, "fileName", task.FileName, "fileSize", fileSize)
 
-	logger.LOG.Info("文件下载完成", "taskID", taskID, "fileName", task.FileName, "isRange", rangeInfo.IsRanged)
+		// 使用goroutine异步清理临时文件，避免阻塞响应
+		go func() {
+			// 更新任务状态为完成
+			task.State = 3 // 3=完成
+			task.FinishTime = custom_type.Now()
+			h.service.GetRepository().DownloadTask().Update(context.Background(), task)
+
+			// 如果是临时文件，则清理
+			if download.IsTempPath(tempFilePath) {
+				logger.LOG.Info("清理临时文件", "path", tempFilePath)
+				os.RemoveAll(tempFilePath)
+			} else {
+				logger.LOG.Info("保留data文件，不清理", "path", tempFilePath)
+			}
+		}()
+	}
+	logger.LOG.Info("文件下载处理完成", "taskID", taskID, "fileName", task.FileName, "isRange", rangeInfo.IsRanged)
 }

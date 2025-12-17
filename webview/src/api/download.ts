@@ -1,5 +1,5 @@
 import { get, post } from '@/utils/request'
-import { API_ENDPOINTS } from '@/config/api'
+import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
 // 离线下载任务类型
@@ -117,5 +117,5 @@ export const createLocalFileDownload = (data: CreateLocalFileDownloadRequest) =>
  */
 export const getLocalFileDownloadUrl = (taskId: string) => {
   const token = localStorage.getItem('token')
-  return `${import.meta.env.VITE_API_BASE_URL}/download/local/file/${taskId}?token=${token}`
+  return `${API_BASE_URL}/download/local/file/${taskId}?token=${token}`
 }

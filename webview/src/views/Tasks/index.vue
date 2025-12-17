@@ -274,16 +274,42 @@ const deleteDownloadTask = async (taskId: string) => {
 }
 
 // 下载网盘文件
-const downloadLocalFile = (taskId: string) => {
-  const downloadUrl = getLocalFileDownloadUrl(taskId)
-  // 创建隐藏的a标签触发下载
-  const link = document.createElement('a')
-  link.href = downloadUrl
-  link.style.display = 'none'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  ElMessage.success('下载已开始')
+const downloadLocalFile = async (taskId: string) => {
+  try {
+    const token = localStorage.getItem('token')
+    const downloadUrl = getLocalFileDownloadUrl(taskId)
+    
+    ElMessage.info('下载中，请稍候...')
+    
+    const response = await fetch(downloadUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('下载失败')
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    // 从任务信息中获取文件名
+    const task = downloadTasks.value.find(t => t.id === taskId)
+    link.download = task?.file_name || 'download'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('下载完成')
+  } catch (error: any) {
+    console.error('下载文件失败:', error)
+    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+  }
 }
 
 // 获取上传任务状态类型

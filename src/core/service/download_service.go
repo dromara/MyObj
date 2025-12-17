@@ -11,6 +11,7 @@ import (
 	"myobj/src/pkg/enum"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"os"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ type DownloadService struct {
 func NewDownloadService(factory *impl.RepositoryFactory) *DownloadService {
 	return &DownloadService{
 		factory: factory,
-		tempDir: "./temp/downloads", // 可以从配置文件读取
+		tempDir: "./obj_temp/downloads", // 可以从配置文件读取
 	}
 }
 
@@ -238,6 +239,15 @@ func (d *DownloadService) DeleteTask(req *request.DeleteTaskRequest, userID stri
 	// 只能删除已完成或失败的任务
 	if task.State != enum.DownloadTaskStateFinished.Value() && task.State != enum.DownloadTaskStateFailed.Value() {
 		return nil, fmt.Errorf("只能删除已完成或失败的任务")
+	}
+
+	// 删除任务前，先清理临时文件（如果存在）
+	if task.Path != "" && download.IsTempPath(task.Path) {
+		logger.LOG.Info("删除任务时清理临时文件", "taskID", req.TaskID, "path", task.Path)
+		if err := os.RemoveAll(task.Path); err != nil {
+			logger.LOG.Warn("清理临时文件失败", "error", err, "path", task.Path)
+			// 清理失败不影响删除任务
+		}
 	}
 
 	if err := d.factory.DownloadTask().Delete(ctx, req.TaskID); err != nil {

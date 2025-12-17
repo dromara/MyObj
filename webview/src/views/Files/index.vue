@@ -312,6 +312,7 @@ import { getFileList, getThumbnail, moveFile, getVirtualPathTree, uploadFile, up
 import { createShare } from '@/api/share'
 import { createFolder } from '@/api/folder'
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
+import { API_BASE_URL } from '@/config/api'
 import FileIcon from '@/components/FileIcon.vue'
 import type { FileListResponse, FolderItem, FileItem } from '@/types'
 import { useRoute, useRouter } from 'vue-router'
@@ -766,6 +767,7 @@ const executeDownload = async (fileId: string, password: string) => {
       const taskId = res.data?.task_id
       if (!taskId) {
         ElMessage.error('任务创建失败')
+        downloadingFile.value = false
         return
       }
       
@@ -782,30 +784,69 @@ const executeDownload = async (fileId: string, password: string) => {
           if (taskRes.code === 200 && taskRes.data) {
             const task = taskRes.data.tasks?.find((t: any) => t.id === taskId)
             
-            if (task) {
-              if (task.state === 3) {
-                // 准备完成，触发下载
-                const downloadUrl = getLocalFileDownloadUrl(taskId)
+            if (!task) {
+              console.error('未找到任务:', taskId)
+              retryCount++
+              if (retryCount < maxRetries) {
+                setTimeout(checkTaskStatus, 1000)
+              } else {
+                ElMessage.error('未找到下载任务')
+                downloadingFile.value = false
+              }
+              return // 重要: 找不到任务时也要return
+            }
+            
+            console.log('任务状态:', task.state, '任务信息:', task)
+            
+            if (task.state === 3) {
+              // 准备完成，使用fetch下载避免Range问题
+              const token = localStorage.getItem('token')
+              const downloadUrl = getLocalFileDownloadUrl(taskId)
+              
+              console.log('开始下载文件:', downloadUrl)
+              
+              try {
+                const response = await fetch(downloadUrl, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': token ? `Bearer ${token}` : ''
+                  }
+                })
+                
+                if (!response.ok) {
+                  throw new Error('下载失败: ' + response.status)
+                }
+                
+                const blob = await response.blob()
+                console.log('下载完成，文件大小:', blob.size)
+                
+                const url = window.URL.createObjectURL(blob)
                 const link = document.createElement('a')
-                link.href = downloadUrl
+                link.href = url
                 link.download = task.file_name || 'download'
                 link.style.display = 'none'
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
+                window.URL.revokeObjectURL(url)
                 
-                ElMessage.success('下载已开始')
-                downloadingFile.value = false
-                return
-              } else if (task.state === 4) {
-                // 失败
-                ElMessage.error(task.error_msg || '下载准备失败')
-                downloadingFile.value = false
-                return
+                ElMessage.success('下载完成')
+              } catch (error: any) {
+                console.error('下载文件失败:', error)
+                ElMessage.error('下载失败: ' + (error.message || '未知错误'))
               }
+              
+              downloadingFile.value = false
+              return // 重要: 成功后return，停止轮询
+            } else if (task.state === 4) {
+              // 失败
+              console.error('任务失败:', task.error_msg)
+              ElMessage.error(task.error_msg || '下载准备失败')
+              downloadingFile.value = false
+              return // 重要: 失败后return，停止轮询
             }
             
-            // 继续轮询
+            // 任务还在处理中(state=0,1,2)，继续轮询
             retryCount++
             if (retryCount < maxRetries) {
               setTimeout(checkTaskStatus, 1000)
@@ -813,13 +854,24 @@ const executeDownload = async (fileId: string, password: string) => {
               ElMessage.warning('准备超时，请到任务中心查看')
               downloadingFile.value = false
             }
+          } else {
+            // API调用失败
+            console.error('获取任务列表失败:', taskRes)
+            retryCount++
+            if (retryCount < maxRetries) {
+              setTimeout(checkTaskStatus, 1000)
+            } else {
+              ElMessage.error('获取任务状态失败')
+              downloadingFile.value = false
+            }
           }
         } catch (error: any) {
-          console.error('查询任务状态失败:', error)
+          console.error('查询任务状态异常:', error)
           retryCount++
           if (retryCount < maxRetries) {
             setTimeout(checkTaskStatus, 1000)
           } else {
+            ElMessage.error('查询任务状态失败')
             downloadingFile.value = false
           }
         }
@@ -829,14 +881,12 @@ const executeDownload = async (fileId: string, password: string) => {
       setTimeout(checkTaskStatus, 1000)
     } else {
       ElMessage.error(res.msg || '创建下载任务失败')
-    }
-  } catch (error: any) {
-    ElMessage.error(error.message || '创建下载任务失败')
-  } finally {
-    // 注意：轮询过程中不关闭 loading，由轮询逼辑关闭
-    if (!downloadingFile.value) {
       downloadingFile.value = false
     }
+  } catch (error: any) {
+    console.error('创建下载任务异常:', error)
+    ElMessage.error(error.message || '创建下载任务失败')
+    downloadingFile.value = false
   }
 }
 

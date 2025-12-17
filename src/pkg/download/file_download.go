@@ -62,14 +62,33 @@ func PrepareLocalFileDownload(
 		return nil, err
 	}
 
-	// 3. 创建唯一临时目录
+	// 3. 判断是否需要临时文件（加密或分片）
+	needTempFile := fileInfo.IsEnc || fileInfo.IsChunk
+
+	var tempFilePath string
+	var sessionTempDir string
+
+	if !needTempFile {
+		// 不需要临时文件，直接返回data路径
+		result.TempFilePath = fileInfo.Path
+		logger.LOG.Info("文件无需处理，直接使用data路径", "fileID", fileID, "path", fileInfo.Path)
+		return result, nil
+	}
+
+	// 4. 需要临时文件，在文件所在磁盘的temp目录下创建
+	diskPath := extractDiskPathFromFilePath(fileInfo.Path)
+	if diskPath == "" {
+		return nil, fmt.Errorf("无法提取磁盘路径: %s", fileInfo.Path)
+	}
+
+	// 创建临时目录：{磁盘路径}/temp/download_{sessionID}/
 	sessionID := uuid.New().String()[:8]
-	sessionTempDir := filepath.Join(tempDir, fmt.Sprintf("download_%s", sessionID))
+	sessionTempDir = filepath.Join(diskPath, "temp", fmt.Sprintf("download_%s", sessionID))
 	if err := os.MkdirAll(sessionTempDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
 	}
 
-	tempFilePath := filepath.Join(sessionTempDir, fileInfo.Name)
+	tempFilePath = filepath.Join(sessionTempDir, fileInfo.Name)
 
 	// 4. 处理加密文件
 	if fileInfo.IsEnc {
@@ -134,14 +153,6 @@ func PrepareLocalFileDownload(
 		}
 
 		logger.LOG.Info("分片文件合并完成", "fileID", fileID, "tempPath", tempFilePath)
-	} else {
-		// 6. 普通文件，直接复制
-		if err := copyFile(fileInfo.Path, tempFilePath); err != nil {
-			os.RemoveAll(sessionTempDir)
-			return nil, fmt.Errorf("复制文件失败: %w", err)
-		}
-
-		logger.LOG.Info("文件准备完成", "fileID", fileID, "tempPath", tempFilePath)
 	}
 
 	result.TempFilePath = tempFilePath
@@ -234,6 +245,30 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
+}
+
+// extractDiskPathFromFilePath 从文件路径中提取磁盘路径
+// 文件路径格式: {DiskPath}/data/{原文件名不带后缀}/{文件}
+// 返回: {DiskPath}
+func extractDiskPathFromFilePath(filePath string) string {
+	// 规范化路径
+	filePath = filepath.Clean(filePath)
+
+	// 查找 "/data/" 或 "\\data\\" 的位置
+	dataIndex := strings.Index(strings.ToLower(filePath), string(filepath.Separator)+"data"+string(filepath.Separator))
+	if dataIndex == -1 {
+		return ""
+	}
+
+	// 返回data之前的路径
+	return filePath[:dataIndex]
+}
+
+// IsTempPath 判断路径是否为临时路径（导出函数）
+// 临时路径格式: {DiskPath}/temp/...
+func IsTempPath(path string) bool {
+	path = filepath.Clean(path)
+	return strings.Contains(strings.ToLower(path), string(filepath.Separator)+"temp"+string(filepath.Separator))
 }
 
 // ServeFileWithRange 支持HTTP Range请求的文件服务
