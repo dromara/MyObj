@@ -1,6 +1,6 @@
 <template>
   <div class="shares-page">
-    <el-card shadow="never" class="header-card">
+    <div class="header-card glass-panel">
       <div class="header">
         <div class="title-section">
           <el-icon :size="24" class="title-icon"><Share /></el-icon>
@@ -8,9 +8,9 @@
         </div>
         <el-button type="primary" :icon="Refresh" @click="loadShareList">刷新</el-button>
       </div>
-    </el-card>
+    </div>
 
-    <el-card shadow="never" class="table-card">
+    <div class="table-card glass-panel">
       <el-table :data="shareList" v-loading="loading" style="width: 100%" empty-text="暂无分享记录">
         <el-table-column label="文件名" min-width="200">
           <template #default="{ row }">
@@ -81,7 +81,7 @@
       </el-table>
 
       <el-empty v-if="shareList.length === 0 && !loading" description="暂无分享记录" />
-    </el-card>
+    </div>
     
     <!-- 修改密码对话框 -->
     <el-dialog 
@@ -271,21 +271,22 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  background: #f5f7fa;
+  gap: 20px;
+  padding: 4px;
 }
 
 .header-card {
-  border-radius: 12px;
-  border: none;
+  padding: 16px 24px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  width: 100%;
 }
 
 .title-section {
@@ -295,63 +296,60 @@ onMounted(() => {
 }
 
 .title-icon {
-  color: #667eea;
+  color: var(--primary-color);
+  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
 }
 
 .title-section h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #2d3748;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .table-card {
   flex: 1;
-  border-radius: 12px;
-  border: none;
+  border-radius: 16px;
+  padding: 8px; /* Inner padding for glass effect */
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.el-table) {
+  background: transparent !important;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+}
+
+:deep(.el-table th.el-table__cell) {
+  background: transparent !important;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+:deep(.el-table tr) {
+  background: transparent !important;
+  transition: all 0.2s;
+}
+
+:deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background: rgba(99, 102, 241, 0.05) !important;
 }
 
 .file-name-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .file-name {
   font-weight: 500;
-  color: #2d3748;
-}
-
-.link-cell {
-  width: 100%;
-}
-
-.time-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: #718096;
-  font-size: 13px;
-}
-
-:deep(.el-table) {
-  border-radius: 8px;
-}
-
-:deep(.el-table th) {
-  background: #f7fafc !important;
-  color: #4a5568;
-  font-weight: 600;
-}
-
-:deep(.el-table tr) {
-  transition: all 0.3s;
-}
-
-:deep(.el-table tbody tr:hover) {
-  background: #f7fafc;
+  color: var(--text-primary);
 }
 
 :deep(.el-button-group) {
