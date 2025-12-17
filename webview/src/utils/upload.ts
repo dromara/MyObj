@@ -14,7 +14,7 @@ export interface UploadConfig {
 // 默认配置
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   chunkSize: UPLOAD_CONFIG.CHUNK_SIZE || 5 * 1024 * 1024, // 默认5MB
-  maxConcurrentChunks: 1, // 默认并发上传3个分片
+  maxConcurrentChunks: 3, // 默认并发上传3个分片
   maxFileSize: UPLOAD_CONFIG.MAX_FILE_SIZE || 10 * 1024 * 1024 * 1024 // 默认10GB
 }
 
