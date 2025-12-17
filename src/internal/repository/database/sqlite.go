@@ -4,7 +4,7 @@ import (
 	"myobj/src/config"
 	"myobj/src/pkg/logger"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
