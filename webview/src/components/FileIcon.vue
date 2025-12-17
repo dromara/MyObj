@@ -98,15 +98,15 @@ const handleImageError = () => {
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  border: 2px solid var(--el-border-color-lighter);
+  /* Removed border for cleaner look in parent card */
   transition: all 0.3s ease;
   overflow: hidden;
 }
 
 .file-icon-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: var(--el-color-primary);
+  /* Parent card handles hover interaction */
+  transform: none;
+  box-shadow: none;
 }
 
 .file-type-badge {

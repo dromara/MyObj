@@ -1,7 +1,7 @@
 <template>
   <div class="files-page">
-    <!-- 面包屑导航 -->
-    <el-card shadow="never" class="breadcrumb-card">
+    <!-- Breadcrumb with Glass effect -->
+    <div class="breadcrumb-container glass-panel-sm">
       <el-breadcrumb separator="/">
         <el-breadcrumb-item 
           v-for="item in breadcrumbs" 
@@ -12,43 +12,43 @@
           {{ item.name }}
         </el-breadcrumb-item>
       </el-breadcrumb>
-    </el-card>
+    </div>
 
-    <!-- 工具栏 -->
-    <el-card shadow="never" class="toolbar-card">
+    <!-- Toolbar with Glass effect -->
+    <div class="toolbar-container glass-panel">
       <div class="toolbar">
         <div class="toolbar-left">
           <el-tooltip content="上传文件" placement="bottom">
-            <el-button type="primary" :icon="Upload" @click="handleUpload">上传</el-button>
+            <el-button type="primary" :icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
           </el-tooltip>
-          <el-button :icon="FolderAdd" @click="handleNewFolder">新建文件夹</el-button>
-          <el-button :icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0">移动文件</el-button>
-          <el-divider direction="vertical" />
-          <el-button-group>
-            <el-button :icon="Grid" :type="viewMode === 'grid' ? 'primary' : ''" @click="viewMode = 'grid'" />
-            <el-button :icon="List" :type="viewMode === 'list' ? 'primary' : ''" @click="viewMode = 'list'" />
-          </el-button-group>
+          <el-button :icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
+          <el-button :icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
+          <div class="divider-vertical"></div>
+          <div class="view-switch glass-toggle">
+            <el-button :icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
+            <el-button :icon="List" :class="{ 'is-active': viewMode === 'list' }" @click="viewMode = 'list'" text />
+          </div>
         </div>
         
         <div class="toolbar-right" v-if="selectedCount > 0">
-          <el-tag type="info">已选择 {{ selectedCount }} 项</el-tag>
-          <el-button :icon="Download" @click="handleToolbarDownload">下载</el-button>
-          <el-button :icon="Share" @click="handleToolbarShare">分享</el-button>
-          <el-button :icon="Delete" type="danger" @click="handleToolbarDelete">删除</el-button>
+          <span class="selection-info">已选 {{ selectedCount }} 项</span>
+          <el-button :icon="Download" @click="handleToolbarDownload" plain circle />
+          <el-button :icon="Share" @click="handleToolbarShare" plain circle />
+          <el-button :icon="Delete" type="danger" @click="handleToolbarDelete" plain circle />
         </div>
       </div>
-    </el-card>
+    </div>
     
     <!-- 网格视图 -->
     <div v-if="viewMode === 'grid'" class="file-grid">
       <!-- 文件夹 -->
-      <el-card
+      <div
         v-for="folder in fileListData.folders"
         :key="'folder-' + folder.id"
-        shadow="hover"
-        :class="['file-card', { selected: isSelectedFolder(folder.id) }]"
+        class="file-card scale-up"
+        :class="{ selected: isSelectedFolder(folder.id) }"
         @click="toggleSelectFolder(folder.id)"
-        @dblclick="navigateToPath(folder.path)"
+        @dblclick="enterFolder(folder)"
       >
         <div class="file-icon">
           <el-icon :size="64" color="#409EFF">
@@ -57,16 +57,16 @@
         </div>
         <div class="file-name">{{ folder.name }}</div>
         <div class="file-info">{{ formatDate(folder.created_time) }}</div>
-      </el-card>
+      </div>
 
       <!-- 文件 -->
-      <el-card
+      <div
         v-for="file in fileListData.files"
         :key="'file-' + file.file_id"
-        shadow="hover"
-        :class="['file-card', { selected: isSelectedFile(file.file_id) }]"
+        class="file-card scale-up"
+        :class="{ selected: isSelectedFile(file.file_id) }"
         @click="toggleSelectFile(file.file_id)"
-        @dblclick="handleFilePreview(file)"
+        @contextmenu.prevent="handleContextMenu($event, file)"
       >
         <div class="file-icon">
           <FileIcon
@@ -85,7 +85,7 @@
             <el-icon><Lock /></el-icon>
           </el-tag>
         </div>
-      </el-card>
+      </div>
     </div>
     
     <!-- 列表视图 -->
@@ -508,6 +508,13 @@ const handleSelectionChange = (selection: any[]) => {
 // 文件预览
 const handleFilePreview = (file: FileItem) => {
   ElMessage.info(`预览文件: ${file.file_name}`)
+}
+
+// 进入文件夹
+const enterFolder = (folder: any) => {
+  if (folder.path) {
+    navigateToPath(folder.path)
+  }
 }
 
 // 新建文件夹
@@ -1118,8 +1125,22 @@ onMounted(() => {
   gap: 16px;
 }
 
-.toolbar-card {
-  flex-shrink: 0;
+.breadcrumb-container {
+  margin-bottom: 20px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+
+.breadcrumb-item {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toolbar-container {
+  padding: 16px;
+  border-radius: 16px;
+  margin-bottom: 20px;
 }
 
 .toolbar {
@@ -1128,66 +1149,126 @@ onMounted(() => {
   align-items: center;
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.selection-info {
+  margin-right: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
-.toolbar-right {
+.action-btn {
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.action-btn-secondary {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: white;
+  color: var(--text-regular);
+}
+
+.action-btn-secondary:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: white;
+}
+
+.divider-vertical {
+  width: 1px;
+  height: 24px;
+  background: var(--border-light);
+  margin: 0 16px;
+}
+
+.glass-toggle {
+  background: rgba(0,0,0,0.03);
+  padding: 4px;
+  border-radius: 8px;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 2px;
+}
+
+.glass-toggle .el-button {
+  border-radius: 6px;
+  padding: 8px;
+  height: 32px;
+  width: 32px;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.glass-toggle .el-button.is-active {
+  background: white;
+  color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .file-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 16px;
-  flex: 1;
-  overflow-y: auto;
-  align-content: start;
+  gap: 20px;
+  padding: 4px;
 }
 
 .file-card {
+  background: white;
+  border-radius: 16px;
+  padding: 12px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   border: 2px solid transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
   position: relative;
+  overflow: hidden;
+}
+
+.file-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 24px -8px rgba(0,0,0,0.08);
+  z-index: 10;
 }
 
 .file-card.selected {
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  border-color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.04);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 .file-icon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 0;
   height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s;
+}
+
+.file-card:hover .file-icon {
+  transform: scale(1.1);
 }
 
 .file-name {
-  text-align: center;
   font-size: 13px;
-  margin-bottom: 4px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: center;
+  margin-top: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 8px;
 }
 
 .file-info {
+  font-size: 11px;
+  color: var(--text-placeholder);
   text-align: center;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  margin-top: 4px;
 }
+
 
 .enc-tag {
   border: none;
