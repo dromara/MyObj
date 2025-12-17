@@ -93,7 +93,7 @@ export const searchPublicFiles = (params: FileSearchParams) => {
 /**
  * 下载文件
  */
-export const downloadFile = (fileId: string, fileName: string) => {
+export const downloadFile = (fileId: string) => {
   return get(`${API_ENDPOINTS.FILE.DOWNLOAD}/${fileId}`).then(() => {
     // 处理下载逻辑
   })
