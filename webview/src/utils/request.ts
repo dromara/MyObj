@@ -1,6 +1,5 @@
 // HTTP请求工具
 import { API_BASE_URL } from '@/config/api'
-import type { ApiResponse } from '@/types'
 
 interface RequestConfig extends RequestInit {
   params?: Record<string, any>

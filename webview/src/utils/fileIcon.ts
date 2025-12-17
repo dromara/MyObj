@@ -4,7 +4,6 @@ import {
   Picture,
   VideoPlay,
   Headset,
-  Files,
   Reading,
   DocumentCopy,
   PictureFilled,

@@ -101,7 +101,7 @@
             <div class="storage-detail">
               {{ formatStorageSize(storageInfo.used) }} / {{ storageInfo.isUnlimited ? '∞' : formatStorageSize(storageInfo.total) }}
             </div>
-            <el-button type="primary" link class="upgrade-btn">升级扩容</el-button>
+            <el-button v-if="!storageInfo.isUnlimited" type="primary" link class="upgrade-btn">升级扩容</el-button>
           </div>
         </el-aside>
         
@@ -174,41 +174,57 @@ interface UserInfo {
 // Keeping original logic structure
 const initUserInfo = async () => {
   try {
-    const res = await request.get('/user/info')
-    if (res.code === 200) {
-      userInfo.value = res.data
-      updateStorageInfo(res.data)
+    const cachedUser = localStorage.getItem('userInfo')
+    if (cachedUser) {
+      const user = JSON.parse(cachedUser)
+      // 更新用户信息
+      userInfo.value = user
+      updateStorageInfo(user)
     }
   } catch (error) {
     console.error('获取用户信息失败', error)
   }
 }
 
-const updateStorageInfo = (userInfo: any) => {
-  if (userInfo.capacity) {
-     storageInfo.value.total = userInfo.capacity
-     storageInfo.value.used = userInfo.used || 0
-     storageInfo.value.isUnlimited = userInfo.capacity === -1
-     
-     if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-       storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
-     } else {
-       storageInfo.value.percentage = 0
-     }
-  } else if (userInfo.storage_limit !== undefined) {
-    // Backwards compatibility with previous code structure if needed
-    if (userInfo.storage_limit === -1) {
-      storageInfo.value.isUnlimited = true
-      storageInfo.value.total = 0
-    } else {
-      storageInfo.value.isUnlimited = false
-      storageInfo.value.total = userInfo.storage_limit
+const updateStorageInfo = (info: any) => {
+  
+  // 基于 UserInfo 接口映射: space (总容量), free_space (剩余空间)
+  if (info.space !== undefined) {
+    const total = Number(info.space)
+    const free = Number(info.free_space || 0)
+    let used = 0
+    
+    // 如果有总容量和剩余空间，计算已用空间
+    if (info.free_space !== undefined) {
+      used = total - free
+    } else if (info.used !== undefined) {
+      used = Number(info.used)
     }
-    storageInfo.value.used = userInfo.used_storage || 0
+
+    // 将 0 或 -1 视为无限容量
+    storageInfo.value.isUnlimited = total === 0 || total === -1
+    storageInfo.value.total = total
+    storageInfo.value.used = used > 0 ? used : 0
+    
+    // 重新计算百分比
     if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-      storageInfo.value.percentage = Math.floor((storageInfo.value.used / storageInfo.value.total) * 100)
+      storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
     } else {
       storageInfo.value.percentage = 0
+    }
+  } else {
+    const capacity = info.capacity || info.storage_limit
+    if (capacity !== undefined) {
+       const capNum = Number(capacity)
+       storageInfo.value.isUnlimited = capNum === 0 || capNum === -1
+       storageInfo.value.total = capNum
+       storageInfo.value.used = Number(info.used || info.used_storage || 0)
+       
+       if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
+         storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
+       } else {
+         storageInfo.value.percentage = 0
+       }
     }
   }
 }
@@ -431,12 +447,13 @@ onMounted(() => {
   font-size: 12px;
   color: var(--text-secondary, #666);
   text-align: right;
-  margin-bottom: 16px;
-  font-family: var(--font-family-mono, monospace); /* Optional: distinct font for numbers */
+  margin-bottom: 0px; 
+  font-family: var(--font-family-mono, monospace);
 }
 
 .upgrade-btn {
   width: 100%;
+  margin-top: 16px;
   border-radius: 8px;
   height: 36px;
   font-size: 13px;
@@ -460,7 +477,7 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* Transitions */
+
 .fade-scale-enter-active,
 .fade-scale-leave-active {
   transition: opacity 0.3s ease, transform 0.3s ease;

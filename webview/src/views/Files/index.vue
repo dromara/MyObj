@@ -316,7 +316,6 @@ import { API_BASE_URL } from '@/config/api'
 import FileIcon from '@/components/FileIcon.vue'
 import type { FileListResponse, FolderItem, FileItem } from '@/types'
 import { useRoute, useRouter } from 'vue-router'
-import { calculateFileMD5 } from '@/utils/crypto'
 
 const viewMode = ref<'grid' | 'list'>('grid')
 const selectedFolderIds = ref<number[]>([])
@@ -511,6 +510,9 @@ const handleFilePreview = (file: FileItem) => {
   ElMessage.info(`预览文件: ${file.file_name}`)
 }
 
+// 导入上传工具
+import { handleFileUpload } from '@/utils/upload'
+
 // 进入文件夹
 const enterFolder = (folder: any) => {
   if (folder.path) {
@@ -525,93 +527,23 @@ const handleNewFolder = () => {
 }
 
 const handleUpload = async () => {
-  // 创建文件选择输入框
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.multiple = true // 允许选择多个文件
-  
-  // 监听文件选择事件
-  input.onchange = async (e) => {
-    const target = e.target as HTMLInputElement
-    const files = target.files
-    
-    if (!files || files.length === 0) {
-      return
-    }
-    
-    // 显示上传提示
-    ElMessage.info(`开始上传 ${files.length} 个文件`)
-    
-    // 遍历处理每个文件
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      
-      try {
-        // 1. 计算文件MD5
-        const fileMD5 = await calculateFileMD5(file)
-        
-        // 2. 准备上传预检参数
-        const precheckParams = {
-          chunk_signature: fileMD5, // 使用文件MD5作为分片签名
-          file_name: file.name,
-          file_size: file.size,
-          files_md5: [fileMD5,fileMD5,fileMD5],
-          path_id: currentPath.value
-        }
-        
-        // 3. 调用上传预检接口
-        const precheckResponse = await uploadPrecheck(precheckParams)
-        console.log('上传预检接口响应:', precheckResponse)
-        //秒传成功代码
-        if (precheckResponse.code === 200) {
-          ElMessage.success(`文件 ${file.name} 秒传成功`)
-          loadFileList()
-          continue
-        }
-        
-        // 4. 处理接口返回结果
-        if (precheckResponse.code === 201) {
-          ElMessage.success(`文件 ${file.name} 预检成功`)
-          console.log('上传预检结果:', precheckResponse.data)
-          
-          // 5. 调用上传API（不分片上传）
-          const uploadParams = {
-            precheck_id: precheckResponse.data,
-            file: file,
-            chunk_index: 0, // 小文件只有一个分片，索引为0
-            total_chunks: 1, // 小文件总分片数为1
-            chunk_md5: fileMD5, // 使用文件MD5作为分片MD5
-            is_enc: false, // 默认不加密，可根据用户设置调整
-          }
-          try {
-            const uploadResponse = await uploadFile(uploadParams)
-            console.log('上传接口响应:', uploadResponse)
-            
-            // 6. 处理上传结果
-            if (uploadResponse.code === 200) {
-              ElMessage.success(`文件 ${file.name} 上传成功`)
-              loadFileList()
-            } else {
-              ElMessage.error(`文件 ${file.name} 上传失败: ${uploadResponse.message}`)
-            }
-          } catch (error: any) {
-            console.error(`上传文件 ${file.name} 时出错:`, error)
-            ElMessage.error(`上传文件 ${file.name} 时出错: ${error.message}`)
-          } finally {
-            loadFileList()
-          }
-        } else {
-          ElMessage.error(`文件 ${file.name} 预检失败: ${precheckResponse.message}`)
-        }
-      } catch (error: any) {
-        console.error(`处理文件 ${file.name} 时出错:`, error)
-        ElMessage.error(`处理文件 ${file.name} 时出错: ${error.message}`)
-      }
-    }
-  }
-  
-  // 触发文件选择对话框
-  input.click()
+  await handleFileUpload(
+    currentPath.value,
+    { chunkSize: 10 * 1024 * 1024 }, // 自定义分片大小为10MB
+    (progress, fileName) => {
+      console.log(`文件 ${fileName} 上传进度: ${progress}%`)
+      // 可以在这里更新UI进度条
+    },
+    (fileName) => {
+      ElMessage.success(`文件 ${fileName} 上传成功`)
+      loadFileList()
+    },
+    (error, fileName) => {
+      console.error(`文件 ${fileName} 上传失败:`, error)
+      ElMessage.error(`文件 ${fileName} 上传失败: ${error.message}`)
+    },
+    true // 允许选择多个文件
+  )
 }
 
 
