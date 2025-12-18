@@ -61,7 +61,6 @@ MyObj 是一个基于 Go 语言开发的开源家庭网盘系统，旨在为个�
 - **配置**: TOML (配置文件格式)
 - **文件类型识别**: Mimetype
 - **哈希算法**: BLAKE3 (高性能哈希)
-- **异步任务**: 自研任务调度器
 
 ## 📋 环境要求
 
@@ -69,12 +68,18 @@ MyObj 是一个基于 Go 语言开发的开源家庭网盘系统，旨在为个�
 - MySQL 5.7+ 或 SQLite 3
 - 磁盘空间根据存储需求而定
 
+## 🎛️ 配置需求
+### windows7以上或macOS或Linux
+- 2核CPU或更高性能
+- 2GB 内存或更高
+- 磁盘空间根据存储需求而定
+
 ## 🚀 快速开始
 
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://gitee.com/MR-wind/my-obj.git
 cd myobj
 ```
 
@@ -141,7 +146,7 @@ go build -o bin/server.exe src/cmd/server/main.go
 - ✅ 路由注册信息
 - ✅ 服务器监听地址
 
-访问 `http://localhost:8080` 即可使用系统。
+访问 `http://localhost:8080` 或 `http://您的IP地址:8080` 即可使用系统。
 
 ## 📚 使用指南
 

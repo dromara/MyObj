@@ -66,6 +66,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 				VirtualPath: req.PathID,
 				Public:      false,
 				CreatedAt:   custom_type.Now(),
+				UfID:        uuid.NewString(),
 			}
 			err := f.factory.UserFiles().Create(context.Background(), userFile)
 			if err != nil {
@@ -83,6 +84,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 				VirtualPath: req.PathID,
 				Public:      false,
 				CreatedAt:   custom_type.Now(),
+				UfID:        uuid.NewString(),
 			}
 			err := f.factory.UserFiles().Create(context.Background(), userFile)
 			if err != nil {
@@ -374,6 +376,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 
 	// 转换文件数据
 	for _, file := range files {
+		uf, _ := f.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, file.ID)
 		resp.Files = append(resp.Files, &response.FileItem{
 			FileID:       file.ID,
 			FileName:     file.Name,
@@ -382,6 +385,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 			IsEnc:        file.IsEnc,
 			HasThumbnail: file.ThumbnailImg != "",
 			CreatedAt:    file.CreatedAt,
+			UfID:         uf.UfID,
 		})
 	}
 

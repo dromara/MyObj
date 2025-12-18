@@ -305,6 +305,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		VirtualPath: data.VirtualPath,
 		FileName:    data.FileName,
 		CreatedAt:   custom_type.Now(),
+		UfID:        uuid.NewString(),
 	}
 
 	// 开启数据库事务，确保所有数据库操作的原子性

@@ -38,6 +38,7 @@ type FolderItem struct {
 // FileItem 文件项
 type FileItem struct {
 	FileID       string               `json:"file_id"`
+	UfID         string               `json:"uf_id"` // 用户文件ID
 	FileName     string               `json:"file_name"`
 	FileSize     int                  `json:"file_size"`
 	MimeType     string               `json:"mime_type"`
