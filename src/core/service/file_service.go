@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"myobj/src/config"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
 	"myobj/src/internal/repository/impl"
@@ -18,11 +17,17 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/goccy/go-json"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// 全局上传锁，用于防止同一文件的并发处理
+var uploadLocks sync.Map     // key: userID+fileName, value: *sync.Mutex
+var processingFiles sync.Map // key: userID+fileName, value: bool (标记文件是否正在处理)
 
 // FileService 文件服务
 type FileService struct {
@@ -620,11 +625,70 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 		return nil, fmt.Errorf("无效的预检ID")
 	}
 
-	// 3. 创建临时目录
-	tempBaseDir := filepath.Join(config.CONFIG.File.TempDir, userID, req.PrecheckID)
+	// 3. 选择合适的磁盘（按剩余空间最大原则）
+	// 获取预检请求中的文件大小
+	var fileSize int64
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	reqData, err := f.cacheLocal.Get(reqCacheKey)
+	if err != nil {
+		logger.LOG.Error("获取预检请求失败", "error", err)
+		return nil, fmt.Errorf("无法获取原始上传请求信息")
+	}
+
+	// 反序列化预检请求数据以获取文件大小
+	var precheckReq request.UploadPrecheckRequest
+	switch v := reqData.(type) {
+	case *request.UploadPrecheckRequest:
+		precheckReq = *v
+	case string:
+		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
+			logger.LOG.Error("反序列化预检请求失败", "error", err)
+			return nil, fmt.Errorf("预检请求信息格式错误")
+		}
+	default:
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		return nil, fmt.Errorf("预检请求信息类型错误")
+	}
+	fileSize = precheckReq.FileSize
+
+	// 选择最佳磁盘
+	disks, err := f.factory.Disk().List(ctx, 0, 1000)
+	if err != nil {
+		logger.LOG.Error("查询磁盘列表失败", "error", err)
+		return nil, fmt.Errorf("查询磁盘列表失败: %w", err)
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("没有可用的存储磁盘")
+	}
+
+	// 选择剩余空间最大且能容纳文件的磁盘
+	var bestDisk *models.Disk
+	var maxFreeSpace int64 = -1
+	for _, disk := range disks {
+		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024 // GB转字节
+		if freeSpaceBytes >= fileSize && freeSpaceBytes > maxFreeSpace {
+			maxFreeSpace = freeSpaceBytes
+			bestDisk = disk
+		}
+	}
+	if bestDisk == nil {
+		return nil, fmt.Errorf("没有足够空间的磁盘")
+	}
+
+	// 4. 在选中磁盘的temp目录下创建临时目录：{DiskPath}/temp/{fileName}_{sessionID}/
+	// 参考下载时的临时目录管理方式
+	sessionID := req.PrecheckID[:8] // 使用预检ID的前8位作为会话ID
+	// 使用文件名（去除扩展名）+ sessionID作为子目录名
+	fileNameWithoutExt := precheckReq.FileName
+	if idx := strings.LastIndex(precheckReq.FileName, "."); idx != -1 {
+		fileNameWithoutExt = precheckReq.FileName[:idx]
+	}
+	tempBaseDir := filepath.Join(bestDisk.DataPath, "temp", fmt.Sprintf("%s_%s", fileNameWithoutExt, sessionID))
 	if err := os.MkdirAll(tempBaseDir, 0755); err != nil {
+		logger.LOG.Error("创建临时目录失败", "error", err, "path", tempBaseDir)
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
 	}
+	logger.LOG.Info("创建临时目录", "path", tempBaseDir, "diskPath", bestDisk.DataPath)
 
 	// 3. 判断是否为分片上传
 	isChunkUpload := req.ChunkIndex != nil && req.TotalChunks != nil
@@ -657,7 +721,16 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 
 	logger.LOG.Info("分片上传成功", "chunkIndex", chunkIndex, "totalChunks", totalChunks, "userID", userID)
 
-	// 2. 删除 UploadChunk 表中对应的 MD5 记录
+	// 2. 使用锁保护分片计数和删除操作，防止并发竞争
+	lockKey := userID + ":" + header.Filename
+	mutexVal, _ := uploadLocks.LoadOrStore(lockKey, &sync.Mutex{})
+	mutex := mutexVal.(*sync.Mutex)
+
+	mutex.Lock()
+	// 注意：不使用defer，因为我们需要在文件处理前手动释放锁
+
+	// 3. 删除 UploadChunk 表中对应的 MD5 记录（在锁保护下）
+	// 注意：这里删除只是为了清理数据，不用于统计进度
 	if req.ChunkMD5 != "" {
 		// 查找匹配的 UploadChunk 记录
 		chunks, err := f.factory.UploadChunk().ListByUserID(ctx, userID, 0, 1000)
@@ -667,7 +740,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 					if err := f.factory.UploadChunk().Delete(ctx, chunk.ChunkID); err != nil {
 						logger.LOG.Warn("删除UploadChunk记录失败", "error", err, "chunkID", chunk.ChunkID)
 					} else {
-						logger.LOG.Info("删除UploadChunk记录成功", "chunkID", chunk.ChunkID, "md5", req.ChunkMD5)
+						logger.LOG.Debug("删除UploadChunk记录成功", "chunkID", chunk.ChunkID, "md5", req.ChunkMD5)
 					}
 					break
 				}
@@ -675,15 +748,22 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 		}
 	}
 
-	// 3. 检查是否所有分片都已上传完成（检查该用户该文件名的剩余分片数）
-	remaining, err := f.factory.UploadChunk().Count(ctx, userID)
-	if err != nil {
-		logger.LOG.Error("检查剩余分片失败", "error", err)
-		return nil, fmt.Errorf("检查上传进度失败: %w", err)
+	// 4. 检查是否所有分片都已上传完成（通过检查临时目录中的文件数量）
+	// 重要：不依赖UploadChunk表，而是直接检查磁盘上的分片文件
+	uploadedChunkCount := 0
+	for i := 0; i < totalChunks; i++ {
+		chunkPath := filepath.Join(tempBaseDir, fmt.Sprintf("%d.chunk.data", i))
+		if _, err := os.Stat(chunkPath); err == nil {
+			uploadedChunkCount++
+		}
 	}
 
-	// 4. 如果还有分片未完成，返回成功响应
+	remaining := int64(totalChunks - uploadedChunkCount)
+	logger.LOG.Debug("分片上传进度", "chunkIndex", chunkIndex, "uploadedChunkCount", uploadedChunkCount, "totalChunks", totalChunks, "remaining", remaining, "fileName", header.Filename)
+
+	// 5. 如果还有分片未完成，释放锁并返回成功响应
 	if remaining > 0 {
+		mutex.Unlock() // 释放锁
 		return models.NewJsonResponse(200, "分片上传成功", map[string]interface{}{
 			"chunk_index": chunkIndex,
 			"uploaded":    totalChunks - int(remaining),
@@ -692,7 +772,24 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 		}), nil
 	}
 
-	// 5. 所有分片上传完成，调用 ProcessUploadedFile
+	// 6. 所有分片上传完成，检查是否已经有其他请求在处理
+	if _, isProcessing := processingFiles.LoadOrStore(lockKey, true); isProcessing {
+		// 已经有其他请求在处理此文件
+		mutex.Unlock()
+		logger.LOG.Info("文件已被其他请求处理", "fileName", header.Filename)
+		return models.NewJsonResponse(200, "文件处理中", map[string]interface{}{
+			"is_complete": false,
+			"message":     "文件正在处理中",
+		}), nil
+	}
+
+	// 7. 标记为正在处理，现在可以释放锁了
+	mutex.Unlock()
+	uploadLocks.Delete(lockKey)
+
+	// 确保处理完成后删除处理标记
+	defer processingFiles.Delete(lockKey)
+
 	logger.LOG.Info("所有分片上传完成，开始处理文件", "userID", userID, "fileName", header.Filename)
 
 	// 获取预检请求中的原始数据

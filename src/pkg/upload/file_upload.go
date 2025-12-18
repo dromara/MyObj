@@ -209,7 +209,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		logger.LOG.Debug("加密文件hash计算完成", "fileEncHash", fileEncHash)
 
 		finalFilePath = encryptedPath
-		defer os.Remove(encryptedPath) // 加密后的临时文件也要清理
+		// 加密后的临时文件会在cleanupTempFiles中一并清理（整个临时目录）
 	} else {
 		finalFilePath = mergedFilePath
 	}
@@ -265,7 +265,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 			logger.LOG.Warn("存储缩略图失败", "error", err)
 			thumbnailPath = "" // 缩略图失败不影响主流程
 		}
-		defer os.Remove(tempThumbnailPath) // 清理临时缩略图
+		// 临时缩略图会在cleanupTempFiles中一并清理（整个临时目录）
 	}
 
 	// 10. 使用数据库事务保证数据一致性
@@ -363,8 +363,9 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 
 // mergeChunks 合并分片文件
 func mergeChunks(data *FileUploadData) (string, error) {
+	// 获取临时目录（应该是磁盘temp目录下的文件名子目录）
 	tempDir := filepath.Dir(data.TempFilePath)
-	mergedPath := filepath.Join(tempDir, "merged_"+util.GenerateUniqueFilename())
+	mergedPath := filepath.Join(tempDir, "merged_"+filepath.Base(data.FileName))
 
 	mergedFile, err := os.Create(mergedPath)
 	if err != nil {
@@ -521,46 +522,35 @@ func copyFile(src, dst string) error {
 	return destFile.Sync()
 }
 
-// cleanupTempFiles 清理临时文件
+// cleanupTempFiles 清理临时文件和临时目录
 func cleanupTempFiles(data *FileUploadData) {
-	// Windows系统下文件句柄释放有延迟，需要重试 再次吐槽
-	cleanupWithRetry := func(filePath string, maxRetries int) {
+	if data.TempFilePath == "" {
+		return
+	}
+
+	// 获取临时目录（应该是磁盘temp目录下的文件名子目录）
+	tempDir := filepath.Dir(data.TempFilePath)
+
+	// Windows系统下文件句柄释放有延迟，需要重试删除整个临时目录
+	cleanupDirWithRetry := func(dirPath string, maxRetries int) {
 		for i := 0; i < maxRetries; i++ {
-			err := os.Remove(filePath)
+			err := os.RemoveAll(dirPath)
 			if err == nil || os.IsNotExist(err) {
-				// 成功删除或文件不存在
+				logger.LOG.Info("清理临时目录成功", "path", dirPath)
 				return
 			}
 			// 如果是文件被占用错误，等待一下再重试
 			if i < maxRetries-1 {
-				time.Sleep(time.Millisecond * 100) // 等待100ms
+				time.Sleep(time.Millisecond * 200) // 等待200ms
 			} else {
 				// 最后一次尝试失败，记录警告
-				logger.LOG.Warn("清理临时文件失败", "path", filePath, "error", err, "retries", maxRetries)
+				logger.LOG.Warn("清理临时目录失败", "path", dirPath, "error", err, "retries", maxRetries)
 			}
 		}
 	}
 
-	// 清理主临时文件
-	if data.TempFilePath != "" {
-		cleanupWithRetry(data.TempFilePath, 3)
-	}
-
-	// 如果是分片上传，清理所有分片文件
-	if data.IsChunk {
-		tempDir := filepath.Dir(data.TempFilePath)
-		for i := 0; i < data.ChunkCount; i++ {
-			chunkPath := filepath.Join(tempDir, fmt.Sprintf("%d.chunk.data", i))
-			cleanupWithRetry(chunkPath, 3)
-		}
-
-		// 清理合并后的临时文件
-		mergedPattern := filepath.Join(tempDir, "merged_*")
-		matches, _ := filepath.Glob(mergedPattern)
-		for _, match := range matches {
-			cleanupWithRetry(match, 3)
-		}
-	}
+	// 清理整个临时目录（包含所有分片、合并文件、加密临时文件等）
+	cleanupDirWithRetry(tempDir, 5)
 }
 
 // FileHashInfo 文件hash信息JSON结构
