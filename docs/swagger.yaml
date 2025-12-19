@@ -1,6 +1,17 @@
 basePath: /api
 definitions:
-  myobj_src_core_domain_request.CreateLocalFileDownloadRequest:
+  models.JsonResponse:
+    properties:
+      code:
+        description: 状态码
+        type: integer
+      data:
+        description: 数据
+      message:
+        description: 状态
+        type: string
+    type: object
+  request.CreateLocalFileDownloadRequest:
     properties:
       file_id:
         description: 文件ID
@@ -11,7 +22,7 @@ definitions:
     required:
     - file_id
     type: object
-  myobj_src_core_domain_request.DeleteFileRequest:
+  request.DeleteFileRequest:
     properties:
       file_ids:
         description: 文件ID列表
@@ -21,21 +32,21 @@ definitions:
     required:
     - file_ids
     type: object
-  myobj_src_core_domain_request.DeleteRecycledRequest:
+  request.DeleteRecycledRequest:
     properties:
       recycled_id:
         type: string
     required:
     - recycled_id
     type: object
-  myobj_src_core_domain_request.RestoreFileRequest:
+  request.RestoreFileRequest:
     properties:
       recycled_id:
         type: string
     required:
     - recycled_id
     type: object
-  myobj_src_core_domain_request.UploadPrecheckRequest:
+  request.UploadPrecheckRequest:
     properties:
       chunk_signature:
         description: 文件hash签名
@@ -57,7 +68,7 @@ definitions:
       user_id:
         type: string
     type: object
-  myobj_src_core_domain_request.UserLoginRequest:
+  request.UserLoginRequest:
     properties:
       challenge:
         type: string
@@ -69,7 +80,7 @@ definitions:
     - password
     - username
     type: object
-  myobj_src_core_domain_request.UserRegisterRequest:
+  request.UserRegisterRequest:
     properties:
       challenge:
         description: 挑战ID
@@ -88,7 +99,7 @@ definitions:
     - password
     - username
     type: object
-  myobj_src_core_domain_request.UserUpdatePasswordRequest:
+  request.UserUpdatePasswordRequest:
     properties:
       challenge:
         description: 挑战ID
@@ -100,7 +111,7 @@ definitions:
       old_passwd:
         type: string
     type: object
-  myobj_src_core_domain_request.UserUpdateRequest:
+  request.UserUpdateRequest:
     properties:
       email:
         description: 用户邮箱
@@ -117,15 +128,43 @@ definitions:
         description: 用户名
         type: string
     type: object
-  myobj_src_pkg_models.JsonResponse:
+  request.VideoPlayPrecheckRequest:
     properties:
-      code:
-        description: 状态码
+      file_id:
+        description: 文件ID
+        type: string
+      share_password:
+        description: 分享密码（如果是分享链接访问）
+        type: string
+    required:
+    - file_id
+    type: object
+  response.VideoFileInfo:
+    properties:
+      file_id:
+        description: 文件ID
+        type: string
+      file_name:
+        description: 文件名
+        type: string
+      file_size:
+        description: 文件大小（字节）
         type: integer
-      data:
-        description: 数据
-      message:
-        description: 状态
+      is_enc:
+        description: 是否加密
+        type: boolean
+      mime_type:
+        description: MIME 类型
+        type: string
+    type: object
+  response.VideoPlayTokenResponse:
+    properties:
+      file_info:
+        allOf:
+        - $ref: '#/definitions/response.VideoFileInfo'
+        description: 文件信息
+      play_token:
+        description: 播放 Token（24小时有效）
         type: string
     type: object
 host: localhost:8080
@@ -133,14 +172,14 @@ info:
   contact:
     email: support@myobj.com
     name: API Support
-    url: https://github.com/yourusername/myobj/issues
+    url: https://gitee.com/MR-wind/my-obj.git/issues
   description: |-
     MyObj 是一个功能强大的文件存储系统，支持文件上传、下载、分享、回收站等功能
     支持大文件分片上传、秒传、文件加密等高级特性
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-  termsOfService: https://github.com/yourusername/myobj
+    name: Apache-2.0
+    url: https://opensource.org/licenses/Apache-2.0
+  termsOfService: https://gitee.com/MR-wind/my-obj.git
   title: MyObj 文件存储系统 API
   version: "1.0"
 paths:
@@ -155,7 +194,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.CreateLocalFileDownloadRequest'
+          $ref: '#/definitions/request.CreateLocalFileDownloadRequest'
       produces:
       - application/json
       responses:
@@ -163,7 +202,7 @@ paths:
           description: 任务创建成功
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   additionalProperties: true
@@ -172,11 +211,11 @@ paths:
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "500":
           description: 创建失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 创建网盘文件下载任务
@@ -209,11 +248,11 @@ paths:
         "400":
           description: 任务不存在或未准备完成
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "500":
           description: 下载失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 下载网盘文件
@@ -230,7 +269,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.DeleteFileRequest'
+          $ref: '#/definitions/request.DeleteFileRequest'
       produces:
       - application/json
       responses:
@@ -238,7 +277,7 @@ paths:
           description: 删除结果
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -246,7 +285,7 @@ paths:
         "500":
           description: 删除失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 删除文件
@@ -282,7 +321,7 @@ paths:
           description: 文件列表
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -290,7 +329,7 @@ paths:
         "500":
           description: 获取失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 获取文件列表
@@ -324,7 +363,7 @@ paths:
           description: 搜索结果
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -332,7 +371,7 @@ paths:
         "500":
           description: 搜索失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 搜索当前用户文件
@@ -377,7 +416,7 @@ paths:
           description: 上传成功
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -385,7 +424,7 @@ paths:
         "400":
           description: 上传失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 文件上传
@@ -402,7 +441,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UploadPrecheckRequest'
+          $ref: '#/definitions/request.UploadPrecheckRequest'
       produces:
       - application/json
       responses:
@@ -410,7 +449,7 @@ paths:
           description: 秒传成功
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 message:
                   type: string
@@ -418,7 +457,7 @@ paths:
         "400":
           description: 预检失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 文件上传预检
@@ -435,18 +474,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.DeleteRecycledRequest'
+          $ref: '#/definitions/request.DeleteRecycledRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 删除成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "500":
           description: 删除失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 永久删除文件
@@ -461,11 +500,11 @@ paths:
         "200":
           description: 清空成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "500":
           description: 清空失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 清空回收站
@@ -497,7 +536,7 @@ paths:
           description: 回收站列表
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -505,7 +544,7 @@ paths:
         "500":
           description: 获取失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 获取回收站列表
@@ -522,18 +561,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.RestoreFileRequest'
+          $ref: '#/definitions/request.RestoreFileRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 还原成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "500":
           description: 还原失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 还原文件
@@ -549,7 +588,7 @@ paths:
           description: 挑战值信息
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: object
@@ -557,7 +596,7 @@ paths:
         "400":
           description: 获取失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       summary: 获取登录挑战值
       tags:
       - 用户管理
@@ -572,7 +611,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserLoginRequest'
+          $ref: '#/definitions/request.UserLoginRequest'
       produces:
       - application/json
       responses:
@@ -580,7 +619,7 @@ paths:
           description: token
           schema:
             allOf:
-            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - $ref: '#/definitions/models.JsonResponse'
             - properties:
                 data:
                   type: string
@@ -588,7 +627,7 @@ paths:
         "400":
           description: 参数错误或登录失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       summary: 用户登录
       tags:
       - 用户管理
@@ -603,18 +642,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserRegisterRequest'
+          $ref: '#/definitions/request.UserRegisterRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 注册成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 参数错误或注册失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       summary: 用户注册
       tags:
       - 用户管理
@@ -629,18 +668,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+          $ref: '#/definitions/request.UserUpdatePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 设置成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 参数错误或设置失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 设置文件加密密码
@@ -655,11 +694,11 @@ paths:
         "200":
           description: 系统信息
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 获取失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       summary: 获取系统初始化信息
       tags:
       - 系统管理
@@ -674,18 +713,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+          $ref: '#/definitions/request.UserUpdatePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 修改成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 参数错误或修改失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 修改文件加密密码
@@ -702,18 +741,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest'
+          $ref: '#/definitions/request.UserUpdatePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 修改成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 参数错误或修改失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 修改登录密码
@@ -730,23 +769,98 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/myobj_src_core_domain_request.UserUpdateRequest'
+          $ref: '#/definitions/request.UserUpdateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 更新成功
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
         "400":
           description: 参数错误或更新失败
           schema:
-            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            $ref: '#/definitions/models.JsonResponse'
       security:
       - BearerAuth: []
       summary: 更新用户信息
       tags:
       - 用户管理
+  /video/play/precheck:
+    post:
+      consumes:
+      - application/json
+      description: 验证权限并生成24小时有效的播放 Token
+      parameters:
+      - description: 预检请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.VideoPlayPrecheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 播放 Token
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.JsonResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.VideoPlayTokenResponse'
+              type: object
+        "400":
+          description: 请求失败
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+        "404":
+          description: 文件不存在
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建视频播放预检
+      tags:
+      - 视频播放
+  /video/stream:
+    get:
+      description: 基于播放 Token 流式传输视频，支持 Range 请求
+      parameters:
+      - description: 播放 Token
+        in: query
+        name: token
+        required: true
+        type: string
+      - default: bytes=0-
+        description: Range 请求头
+        in: header
+        name: Range
+        type: string
+      produces:
+      - video/mp4
+      responses:
+        "206":
+          description: 视频流数据
+        "400":
+          description: 请求失败
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+        "403":
+          description: Token 无效或已过期
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+        "404":
+          description: 文件不存在
+          schema:
+            $ref: '#/definitions/models.JsonResponse'
+      summary: 视频流播放
+      tags:
+      - 视频播放
 securityDefinitions:
   ApiKeyAuth:
     description: API Key 身份验证

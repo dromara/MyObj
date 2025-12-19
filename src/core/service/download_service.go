@@ -340,7 +340,12 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 	}
 
 	// 2. 验证文件是否存在
-	fileInfo, err := d.factory.FileInfo().GetByID(ctx, req.FileID)
+	userFile, err := d.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+	if err != nil {
+		logger.LOG.Error("获取用户文件信息失败", "error", err, "fileID", req.FileID)
+		return nil, err
+	}
+	fileInfo, err := d.factory.FileInfo().GetByID(ctx, userFile.FileID)
 	if err != nil {
 		logger.LOG.Error("文件不存在", "error", err, "fileID", req.FileID)
 		return nil, fmt.Errorf("文件不存在")

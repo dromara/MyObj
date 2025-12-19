@@ -104,3 +104,25 @@ type FilePrecheckResponse struct {
 	PrecheckID string   `json:"precheck_id"`
 	Md5        []string `json:"md5"`
 }
+
+// VideoPlayTokenResponse 视频播放 Token 响应
+type VideoPlayTokenResponse struct {
+	// 播放 Token（24小时有效）
+	PlayToken string `json:"play_token"`
+	// 文件信息
+	FileInfo VideoFileInfo `json:"file_info"`
+}
+
+// VideoFileInfo 视频文件信息
+type VideoFileInfo struct {
+	// 文件ID
+	FileID string `json:"file_id"`
+	// 文件名
+	FileName string `json:"file_name"`
+	// 文件大小（字节）
+	FileSize int64 `json:"file_size"`
+	// 是否加密
+	IsEnc bool `json:"is_enc"`
+	// MIME 类型
+	MimeType string `json:"mime_type"`
+}

@@ -77,3 +77,11 @@ type FileUploadRequest struct {
 	// 文件加密密码（加密文件必须）
 	FilePassword string `form:"file_password"`
 }
+
+// VideoPlayPrecheckRequest 视频播放预检请求
+type VideoPlayPrecheckRequest struct {
+	// 文件ID
+	FileID string `json:"file_id" binding:"required"`
+	// 分享密码（如果是分享链接访问）
+	SharePassword string `json:"share_password"`
+}

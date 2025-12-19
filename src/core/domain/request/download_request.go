@@ -39,3 +39,11 @@ type CreateLocalFileDownloadRequest struct {
 	// 文件解密密码（加密文件必需）
 	FilePassword string `json:"file_password"`
 }
+
+// CreateVideoPlayRequest 创建视频播放任务请求
+type CreateVideoPlayRequest struct {
+	// 视频文件ID
+	FileID string `json:"file_id" binding:"required"`
+	// 视频文件解密密码（加密文件必需）
+	FilePassword string `json:"file_password"`
+}
