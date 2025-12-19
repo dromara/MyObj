@@ -7,6 +7,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -183,17 +184,37 @@ func (t *RecycledTask) deletePhysicalFile(fileInfo *models.FileInfo) error {
 	// 删除普通文件
 	if fileInfo.Path != "" {
 		if err := t.deleteFile(fileInfo.Path); err != nil {
-			return fmt.Errorf("删除普通文件失败: %w", err)
+			logger.LOG.Warn("删除普通文件失败", "path", fileInfo.Path, "error", err)
+		}
+		// 删除.info文件（对于非加密文件）
+		if !fileInfo.IsEnc {
+			infoPath := fileInfo.Path + ".info"
+			if err := t.deleteFile(infoPath); err != nil {
+				logger.LOG.Warn("删除.info文件失败", "path", infoPath, "error", err)
+			}
 		}
 	}
 
 	// 如果是分片文件，删除分片目录
 	if fileInfo.IsChunk && fileInfo.Path != "" {
-		// 文件路径格式: {DataPath}/data/{原文件名不带后缀}/{虚拟文件名}.data
-		// 分片目录为: {DataPath}/data/{原文件名不带后缀}/{虚拟文件名}
+		// 文件路径格式: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}.data
+		// 分片目录为: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}
 		chunkDir := strings.TrimSuffix(fileInfo.Path, ".data")
 		if err := t.deleteDirectory(chunkDir); err != nil {
 			logger.LOG.Warn("删除分片目录失败", "path", chunkDir, "error", err)
+		}
+		// 删除父目录（如果为空）
+		// 路径格式: {DataPath}/data/{\u539f文件名不带后缀}
+		parentDir := filepath.Dir(fileInfo.Path)
+		if err := t.deleteDirectoryIfEmpty(parentDir); err != nil {
+			logger.LOG.Warn("删除父目录失败", "path", parentDir, "error", err)
+		}
+	} else if fileInfo.Path != "" {
+		// 对于非分片文件，删除 .data 文件所在的文件夹（如果为空）
+		// 路径格式: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}.data
+		parentDir := filepath.Dir(fileInfo.Path)
+		if err := t.deleteDirectoryIfEmpty(parentDir); err != nil {
+			logger.LOG.Warn("删除文件夹失败", "path", parentDir, "error", err)
 		}
 	}
 
@@ -240,6 +261,39 @@ func (t *RecycledTask) deleteDirectory(dirPath string) error {
 	}
 
 	logger.LOG.Debug("成功删除目录", "path", dirPath)
+	return nil
+}
+
+// deleteDirectoryIfEmpty 删除空目录（如果目录为空）
+func (t *RecycledTask) deleteDirectoryIfEmpty(dirPath string) error {
+	if dirPath == "" {
+		return nil
+	}
+
+	// 检查目录是否存在
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		logger.LOG.Debug("目录不存在，跳过删除", "path", dirPath)
+		return nil
+	}
+
+	// 读取目录内容
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return fmt.Errorf("读取目录失败 %s: %w", dirPath, err)
+	}
+
+	// 如果目录不为空，不删除
+	if len(entries) > 0 {
+		logger.LOG.Debug("目录不为空，跳过删除", "path", dirPath, "file_count", len(entries))
+		return nil
+	}
+
+	// 删除空目录
+	if err := os.Remove(dirPath); err != nil {
+		return fmt.Errorf("删除空目录失败 %s: %w", dirPath, err)
+	}
+
+	logger.LOG.Debug("成功删除空目录", "path", dirPath)
 	return nil
 }
 

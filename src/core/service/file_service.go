@@ -545,7 +545,7 @@ func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string)
 			txFactory := f.factory.WithTx(tx)
 
 			// 软删除 user_files 记录
-			if err := tx.Where("user_id = ? AND file_id = ?", userID, fileID).Delete(&models.UserFiles{}).Error; err != nil {
+			if err := tx.Where("user_id = ? AND uf_id = ?", userID, fileID).Delete(&models.UserFiles{}).Error; err != nil {
 				return fmt.Errorf("软删除用户文件失败: %w", err)
 			}
 
