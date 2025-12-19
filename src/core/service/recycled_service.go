@@ -176,7 +176,7 @@ func (r *RecycledService) EmptyRecycled(userID string) (*models.JsonResponse, er
 	ctx := context.Background()
 
 	// 获取该用户的所有回收站记录
-	recycleds, err := r.factory.Recycled().ListByUserID(ctx, userID, 0, 10000) // 假设最多10000条
+	recycleds, err := r.factory.Recycled().ListByUserID(ctx, userID, 0, 10000) // 每次清除10000个文件
 	if err != nil {
 		logger.LOG.Error("查询回收站列表失败", "error", err, "userID", userID)
 		return nil, fmt.Errorf("查询回收站列表失败: %w", err)
@@ -244,7 +244,16 @@ func (r *RecycledService) MoveToRecycled(fileID, userID string) error {
 // deleteSingleFile 删除单个文件（参考定时任务的逻辑）
 func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models.Recycled) error {
 	// 1. 检查文件引用数
-	refCount, err := r.factory.Recycled().CountFileReferences(ctx, recycled.FileID)
+	userFile, err := r.factory.UserFiles().GetByUserIDAndUfID(ctx, recycled.UserID, recycled.FileID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.LOG.Warn("用户文件记录不存在，直接删除回收站记录", "file_id", recycled.FileID)
+			return r.factory.Recycled().Delete(ctx, recycled.ID)
+		}
+		logger.LOG.Error("获取用户文件记录失败", "error", err, "file_id", recycled.FileID)
+		return err
+	}
+	refCount, err := r.factory.Recycled().CountFileReferences(ctx, userFile.FileID)
 	if err != nil {
 		return fmt.Errorf("统计文件引用失败: %w", err)
 	}
@@ -258,7 +267,7 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 	}
 
 	// 3. 获取文件信息
-	fileInfo, err := r.factory.FileInfo().GetByID(ctx, recycled.FileID)
+	fileInfo, err := r.factory.FileInfo().GetByID(ctx, userFile.FileID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.LOG.Warn("文件信息不存在，直接删除回收站记录", "file_id", recycled.FileID)

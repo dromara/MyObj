@@ -132,7 +132,14 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 	// 转换为响应格式
 	taskResponses := make([]*response.DownloadTaskResponse, 0, len(tasks))
 	for _, task := range tasks {
-		taskResponses = append(taskResponses, d.convertTaskToResponse(task))
+		userFile, err := d.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, task.FileID)
+		if err != nil {
+			logger.LOG.Error("获取用户文件信息失败", "error", err, "fileID", task.FileID, "userID", userID)
+			return nil, err
+		}
+		t := d.convertTaskToResponse(task)
+		t.FileID = userFile.UfID
+		taskResponses = append(taskResponses, t)
 	}
 
 	result := &response.DownloadTaskListResponse{

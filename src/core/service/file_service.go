@@ -383,14 +383,14 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 	for _, file := range files {
 		uf, _ := f.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, file.ID)
 		resp.Files = append(resp.Files, &response.FileItem{
-			FileID:       file.ID,
-			FileName:     file.Name,
+			FileID:       uf.UfID,
+			FileName:     uf.FileName,
 			FileSize:     file.Size,
 			MimeType:     file.Mime,
 			IsEnc:        file.IsEnc,
 			HasThumbnail: file.ThumbnailImg != "",
 			CreatedAt:    file.CreatedAt,
-			UfID:         uf.UfID,
+			//UfID:         uf.UfID,
 		})
 	}
 
