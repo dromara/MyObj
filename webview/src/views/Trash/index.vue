@@ -5,14 +5,14 @@
       <div class="toolbar">
         <div class="toolbar-left">
           <el-button 
-            :icon="RefreshRight" 
+            icon="RefreshRight" 
             :disabled="selectedIds.length === 0"
             @click="handleRestore"
           >
             还原
           </el-button>
           <el-button 
-            :icon="Delete" 
+            icon="Delete" 
             type="danger"
             :disabled="selectedIds.length === 0"
             @click="handleDeletePermanently"
@@ -21,7 +21,7 @@
           </el-button>
           <el-divider direction="vertical" />
           <el-button 
-            :icon="Delete" 
+            icon="Delete" 
             type="danger"
             @click="handleEmptyTrash"
           >
@@ -44,7 +44,7 @@
       <el-table-column type="selection" width="55" />
       <el-table-column label="名称" min-width="300">
         <template #default="{ row }">
-          <div class="file-name-cell">
+          <div class="file-name-cell" @dblclick="handleFilePreview(row)">
             <div class="list-file-icon">
               <FileIcon
                 :mime-type="row.mime_type"
@@ -76,8 +76,8 @@
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button link :icon="RefreshRight" @click.stop="handleRestoreFile(row)">还原</el-button>
-          <el-button link :icon="Delete" type="danger" @click.stop="handleDeleteFilepermanently(row)">永久删除</el-button>
+          <el-button link icon="RefreshRight" @click.stop="handleRestoreFile(row)">还原</el-button>
+          <el-button link icon="Delete" type="danger" @click.stop="handleDeleteFilepermanently(row)">永久删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -97,14 +97,13 @@
       @current-change="handlePageChange"
       class="pagination"
     />
+
+    <!-- 文件预览组件 -->
+    <Preview v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, RefreshRight, Lock } from '@element-plus/icons-vue'
-import FileIcon from '@/components/FileIcon.vue'
 import { 
   getRecycledList, 
   restoreFile, 
@@ -113,6 +112,11 @@ import {
   type RecycledItem 
 } from '@/api/recycled'
 import { getThumbnailUrl } from '@/api/file'
+import { formatSize, formatDate } from '@/utils'
+import Preview from '@/components/Preview/index.vue'
+import type { FileItem } from '@/types'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 // 数据
 const loading = ref(false)
@@ -135,35 +139,13 @@ const loadRecycledList = async () => {
       fileList.value = res.data.items || []
       total.value = res.data.total || 0
     } else {
-      ElMessage.error(res.message || '获取回收站列表失败')
+      proxy?.$modal.msgError(res.message || '获取回收站列表失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '获取回收站列表失败')
+    proxy?.$modal.msgError(error.message || '获取回收站列表失败')
   } finally {
     loading.value = false
   }
-}
-
-// 格式化文件大小
-const formatSize = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }
 
 // 选择变化
@@ -171,22 +153,33 @@ const handleSelectionChange = (selection: RecycledItem[]) => {
   selectedIds.value = selection.map(item => item.recycled_id)
 }
 
+// 文件预览
+const previewVisible = ref(false)
+const previewFile = ref<FileItem | null>(null)
+
+const handleFilePreview = (item: RecycledItem) => {
+  // 将 RecycledItem 转换为 FileItem 格式
+  previewFile.value = {
+    file_id: item.file_id,
+    file_name: item.file_name,
+    file_size: item.file_size,
+    mime_type: item.mime_type,
+    is_enc: item.is_enc,
+    has_thumbnail: item.has_thumbnail,
+    created_at: item.deleted_at
+  }
+  previewVisible.value = true
+}
+
 // 还原文件（批量）
 const handleRestore = async () => {
   if (selectedIds.value.length === 0) {
-    ElMessage.warning('请先选择要还原的文件')
+    proxy?.$modal.msgWarning('请先选择要还原的文件')
     return
   }
   
-  ElMessageBox.confirm(
-    `确定要还原 ${selectedIds.value.length} 个文件吗？`,
-    '提示',
-    {
-      type: 'info',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-    }
-  ).then(async () => {
+  try {
+    await proxy?.$modal.confirm(`确定要还原 ${selectedIds.value.length} 个文件吗？`)
     let successCount = 0
     let failedCount = 0
     
@@ -204,62 +197,48 @@ const handleRestore = async () => {
     }
     
     if (successCount > 0) {
-      ElMessage.success(`成功还原 ${successCount} 个文件`)
+      proxy?.$modal.msgSuccess(`成功还原 ${successCount} 个文件`)
     }
     if (failedCount > 0) {
-      ElMessage.warning(`${failedCount} 个文件还原失败`)
+      proxy?.$modal.msgWarning(`${failedCount} 个文件还原失败`)
     }
     
     selectedIds.value = []
     await loadRecycledList()
-  }).catch(() => {
-    // 用户取消
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      // 用户取消操作
+    }
+  }
 }
 
 // 还原单个文件
 const handleRestoreFile = async (item: RecycledItem) => {
-  ElMessageBox.confirm(
-    `确定要还原 "${item.file_name}" 吗？`,
-    '提示',
-    {
-      type: 'info',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+  try {
+    await proxy?.$modal.confirm(`确定要还原 "${item.file_name}" 吗？`)
+    const res = await restoreFile(item.recycled_id)
+    if (res.code === 200) {
+      proxy?.$modal.msgSuccess('还原成功')
+      await loadRecycledList()
+    } else {
+      proxy?.$modal.msgError(res.message || '还原失败')
     }
-  ).then(async () => {
-    try {
-      const res = await restoreFile(item.recycled_id)
-      if (res.code === 200) {
-        ElMessage.success('还原成功')
-        await loadRecycledList()
-      } else {
-        ElMessage.error(res.message || '还原失败')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '还原失败')
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      proxy?.$modal.msgError(error.message || '还原失败')
     }
-  }).catch(() => {
-    // 用户取消
-  })
+  }
 }
 
 // 永久删除（批量）
 const handleDeletePermanently = async () => {
   if (selectedIds.value.length === 0) {
-    ElMessage.warning('请先选择要删除的文件')
+    proxy?.$modal.msgWarning('请先选择要删除的文件')
     return
   }
   
-  ElMessageBox.confirm(
-    `确定要永久删除 ${selectedIds.value.length} 个文件吗？此操作不可恢复！`,
-    '警告',
-    {
-      type: 'error',
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-    }
-  ).then(async () => {
+  try {
+    await proxy?.$modal.confirm(`确定要永久删除 ${selectedIds.value.length} 个文件吗？此操作不可恢复！`)
     let successCount = 0
     let failedCount = 0
     
@@ -277,79 +256,67 @@ const handleDeletePermanently = async () => {
     }
     
     if (successCount > 0) {
-      ElMessage.success(`成功删除 ${successCount} 个文件`)
+      proxy?.$modal.msgSuccess(`成功删除 ${successCount} 个文件`)
     }
     if (failedCount > 0) {
-      ElMessage.warning(`${failedCount} 个文件删除失败`)
+      proxy?.$modal.msgWarning(`${failedCount} 个文件删除失败`)
     }
     
     selectedIds.value = []
     await loadRecycledList()
-  }).catch(() => {
-    // 用户取消
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      // 用户取消操作
+    }
+  }
 }
 
 // 永久删除单个文件
 const handleDeleteFilepermanently = async (item: RecycledItem) => {
-  ElMessageBox.confirm(
-    `确定要永久删除 "${item.file_name}" 吗？此操作不可恢复！`,
-    '警告',
-    {
-      type: 'error',
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
+  try {
+    await proxy?.$modal.confirm(`确定要永久删除 "${item.file_name}" 吗？此操作不可恢复！`)
+    const res = await deleteFilePermanently(item.recycled_id)
+    if (res.code === 200) {
+      proxy?.$modal.msgSuccess('删除成功')
+      await loadRecycledList()
+    } else {
+      proxy?.$modal.msgError(res.message || '删除失败')
     }
-  ).then(async () => {
-    try {
-      const res = await deleteFilePermanently(item.recycled_id)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        await loadRecycledList()
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '删除失败')
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      proxy?.$modal.msgError(error.message || '删除失败')
     }
-  }).catch(() => {
-    // 用户取消
-  })
+  }
 }
 
 // 清空回收站
 const handleEmptyTrash = async () => {
   if (total.value === 0) {
-    ElMessage.info('回收站已经是空的')
+    proxy?.$modal.msg('回收站已经是空的')
     return
   }
   
-  ElMessageBox.confirm(
-    `确定要清空回收站吗？将永久删除所有 ${total.value} 个文件，此操作不可恢复！`,
-    '警告',
-    {
-      type: 'error',
-      confirmButtonText: '确定清空',
-      cancelButtonText: '取消',
-    }
-  ).then(async () => {
+  try {
+    await proxy?.$modal.confirm(`确定要清空回收站吗？将永久删除所有 ${total.value} 个文件，此操作不可恢复！`)
     loading.value = true
     try {
       const res = await emptyRecycled()
       if (res.code === 200) {
-        ElMessage.success(res.message || '清空成功')
+        proxy?.$modal.msgSuccess(res.message || '清空成功')
         await loadRecycledList()
       } else {
-        ElMessage.error(res.message || '清空失败')
+        proxy?.$modal.msgError(res.message || '清空失败')
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '清空失败')
+      proxy?.$modal.msgError(error.message || '清空失败')
     } finally {
       loading.value = false
     }
-  }).catch(() => {
-    // 用户取消
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      // 用户取消操作
+    }
+  }
 }
 
 // 分页

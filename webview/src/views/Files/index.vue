@@ -19,22 +19,22 @@
       <div class="toolbar">
         <div class="toolbar-left">
           <el-tooltip content="上传文件" placement="bottom">
-            <el-button type="primary" :icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
+            <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
           </el-tooltip>
-          <el-button :icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
-          <el-button :icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
+          <el-button icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
+          <el-button icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
           <div class="divider-vertical"></div>
           <div class="view-switch glass-toggle">
-            <el-button :icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
-            <el-button :icon="List" :class="{ 'is-active': viewMode === 'list' }" @click="viewMode = 'list'" text />
+            <el-button icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
+            <el-button icon="List" :class="{ 'is-active': viewMode === 'list' }" @click="viewMode = 'list'" text />
           </div>
         </div>
         
         <div class="toolbar-right" v-if="selectedCount > 0">
           <span class="selection-info">已选 {{ selectedCount }} 项</span>
-          <el-button :icon="Download" @click="handleToolbarDownload" plain circle />
-          <el-button :icon="Share" @click="handleToolbarShare" plain circle />
-          <el-button :icon="Delete" type="danger" @click="handleToolbarDelete" plain circle />
+          <el-button icon="Download" @click="handleToolbarDownload" plain circle />
+          <el-button icon="Share" @click="handleToolbarShare" plain circle />
+          <el-button icon="Delete" type="danger" @click="handleToolbarDelete" plain circle />
         </div>
       </div>
     </div>
@@ -66,7 +66,7 @@
         class="file-card scale-up"
         :class="{ selected: isSelectedFile(file.file_id) }"
         @click="toggleSelectFile(file.file_id)"
-        @contextmenu.prevent="handleContextMenu($event, file)"
+        @dblclick="handleFilePreview(file)"
       >
         <div class="file-icon">
           <FileIcon
@@ -91,7 +91,7 @@
     <!-- 列表视图 -->
     <el-table
       v-else
-      :data="[...fileListData.folders.map(f => ({ ...f, isFolder: true })), ...fileListData.files.map(f => ({ ...f, isFolder: false }))]"
+      :data="[...fileListData.folders.map((f: any) => ({ ...f, isFolder: true })), ...fileListData.files.map((f: any) => ({ ...f, isFolder: false }))]"
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" />
@@ -135,9 +135,9 @@
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <template v-if="!row.isFolder">
-            <el-button link :icon="Download" @click.stop="handleDownloadFile(row)">下载</el-button>
-            <el-button link :icon="Share" @click.stop="handleShareFile(row)">分享</el-button>
-            <el-button link :icon="Delete" type="danger" @click.stop="handleDeleteFile(row)">删除</el-button>
+            <el-button link icon="Download" @click.stop="handleDownloadFile(row)">下载</el-button>
+            <el-button link icon="Share" @click.stop="handleShareFile(row)">分享</el-button>
+            <el-button link icon="Delete" type="danger" @click.stop="handleDeleteFile(row)">删除</el-button>
           </template>
         </template>
       </el-table-column>
@@ -290,32 +290,22 @@
         <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 文件预览组件 -->
+    <Preview v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from 'vue'
-import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
-import {
-  Grid,
-  List,
-  Download,
-  Share,
-  Delete,
-  Folder,
-  FolderAdd,
-  FolderOpened,
-  Lock,
-  Upload
-} from '@element-plus/icons-vue'
-import { getFileList, getThumbnail, moveFile, getVirtualPathTree, uploadFile, uploadPrecheck } from '@/api/file'
+import { getFileList, getThumbnail, moveFile, getVirtualPathTree } from '@/api/file'
 import { createShare } from '@/api/share'
 import { createFolder } from '@/api/folder'
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
-import { API_BASE_URL } from '@/config/api'
-import FileIcon from '@/components/FileIcon.vue'
-import type { FileListResponse, FolderItem, FileItem } from '@/types'
-import { useRoute, useRouter } from 'vue-router'
+import type { FileListResponse, FileItem } from '@/types'
+import { formatSize, formatDate, copyToClipboard, generateRandomPassword } from '@/utils'
+import Preview from '@/components/Preview/index.vue'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const viewMode = ref<'grid' | 'list'>('grid')
 const selectedFolderIds = ref<number[]>([])
@@ -426,11 +416,11 @@ const loadFileList = async () => {
         }
       })
     } else {
-      ElMessage.error(res.message || '加载失败')
+      proxy?.$modal.msgError(res.message || '加载失败')
     }
   } catch (error) {
-    ElMessage.error('加载文件列表失败')
-    console.error(error)
+    proxy?.$modal.msgError('加载文件列表失败')
+    proxy?.$log.error(error)
   }
 }
 
@@ -454,27 +444,6 @@ const navigateToPath = (path: string) => {
 // 获取缩略图URL
 const getThumbnailUrl = (fileId: string) => {
   return thumbnailCache.value.get(fileId) || ''
-}
-
-// 图片加载失败处理
-const handleImageError = (event: Event) => {
-  const img = event.target as HTMLImageElement
-  img.style.display = 'none'
-}
-
-// 格式化文件大小
-const formatSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化日期
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
 }
 
 // 文件夹选择
@@ -506,8 +475,12 @@ const handleSelectionChange = (selection: any[]) => {
 }
 
 // 文件预览
+const previewVisible = ref(false)
+const previewFile = ref<FileItem | null>(null)
+
 const handleFilePreview = (file: FileItem) => {
-  ElMessage.info(`预览文件: ${file.file_name}`)
+  previewFile.value = file
+  previewVisible.value = true
 }
 
 // 导入上传工具
@@ -531,16 +504,16 @@ const handleUpload = async () => {
     currentPath.value,
     { chunkSize: 10 * 1024 * 1024 }, // 自定义分片大小为10MB
     (progress, fileName) => {
-      console.log(`文件 ${fileName} 上传进度: ${progress}%`)
+      proxy?.$log.debug(`文件 ${fileName} 上传进度: ${progress}%`)
       // 可以在这里更新UI进度条
     },
     (fileName) => {
-      ElMessage.success(`文件 ${fileName} 上传成功`)
+      proxy?.$modal.msgSuccess(`文件 ${fileName} 上传成功`)
       loadFileList()
     },
     (error, fileName) => {
-      console.error(`文件 ${fileName} 上传失败:`, error)
-      ElMessage.error(`文件 ${fileName} 上传失败: ${error.message}`)
+      proxy?.$log.error(`文件 ${fileName} 上传失败:`, error)
+      proxy?.$modal.msgError(`文件 ${fileName} 上传失败: ${error.message}`)
     },
     true // 允许选择多个文件
   )
@@ -556,7 +529,7 @@ const handleDialogClose = () => {
 const handleCreateFolder = async () => {
   if (!folderFormRef.value) return
   
-  await folderFormRef.value.validate(async (valid) => {
+  await folderFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       creating.value = true
       try {
@@ -567,16 +540,16 @@ const handleCreateFolder = async () => {
         })
         
         if (res.code === 200) {
-          ElMessage.success('文件夹创建成功')
+          proxy?.$modal.msgSuccess('文件夹创建成功')
           showNewFolderDialog.value = false
           folderForm.dir_path = ''
           // 刷新文件列表
           loadFileList()
         } else {
-          ElMessage.error(res.message || '创建文件夹失败')
+          proxy?.$modal.msgError(res.message || '创建文件夹失败')
         }
       } catch (error: any) {
-        ElMessage.error(error.message || '创建文件夹失败')
+        proxy?.$modal.msgError(error.message || '创建文件夹失败')
       } finally {
         creating.value = false
       }
@@ -587,7 +560,7 @@ const handleCreateFolder = async () => {
 // 工具栏批量操作
 const handleToolbarDownload = async () => {
   if (selectedFileIds.value.length === 0) {
-    ElMessage.warning('请先选择要下载的文件')
+    proxy?.$modal.msgWarning('请先选择要下载的文件')
     return
   }
   
@@ -600,24 +573,24 @@ const handleToolbarDownload = async () => {
     }
   } else {
     // 多个文件下载
-    ElMessage.info('批量下载功能开发中')
+    proxy?.$modal.msg('批量下载功能开发中')
   }
 }
 
 const handleToolbarShare = () => {
   if (selectedFileIds.value.length === 0) {
-    ElMessage.warning('请先选择要分享的文件')
+    proxy?.$modal.msgWarning('请先选择要分享的文件')
     return
   }
   if (selectedFileIds.value.length > 1) {
-    ElMessage.warning('一次只能分享一个文件')
+    proxy?.$modal.msgWarning('一次只能分享一个文件')
     return
   }
   
   const fileId = selectedFileIds.value[0]
   const file = fileListData.value.files.find(f => f.file_id === fileId)
   if (!file) {
-    ElMessage.error('文件不存在')
+    proxy?.$modal.msgError('文件不存在')
     return
   }
   
@@ -629,34 +602,27 @@ const handleToolbarDelete = async () => {
   const totalCount = selectedFileIds.value.length + selectedFolderIds.value.length
   
   if (totalCount === 0) {
-    ElMessage.warning('请先选择要删除的文件')
+    proxy?.$modal.msgWarning('请先选择要删除的文件')
     return
   }
   
-  ElMessageBox.confirm(
-    `确定要删除 ${totalCount} 个文件吗？删除后将移动到回收站。`,
-    '提示',
-    {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-    }
-  ).then(async () => {
+  try {
+    await proxy?.$modal.confirm(`确定要删除 ${totalCount} 个文件吗？删除后将移动到回收站。`)
     try {
       // 删除文件
       if (selectedFileIds.value.length > 0) {
         const { deleteFiles } = await import('@/api/file')
         const result = await deleteFiles({ file_ids: selectedFileIds.value })
         if (result.code === 200) {
-          ElMessage.success(result.message || '删除成功')
+          proxy?.$modal.msgSuccess(result.message || '删除成功')
         } else {
-          ElMessage.error(result.message || '删除失败')
+          proxy?.$modal.msgError(result.message || '删除失败')
         }
       }
       
       // TODO: 处理文件夹删除
       if (selectedFolderIds.value.length > 0) {
-        ElMessage.warning('文件夹删除功能待开发')
+        proxy?.$modal.msgWarning('文件夹删除功能待开发')
       }
       
       // 清空选中并刷新列表
@@ -664,11 +630,15 @@ const handleToolbarDelete = async () => {
       selectedFolderIds.value = []
       await loadFileList()
     } catch (error: any) {
-      ElMessage.error(error.message || '删除失败')
+      if (error !== 'cancel') {
+        proxy?.$modal.msgError(error.message || '删除失败')
+      }
     }
-  }).catch(() => {
-    // 用户取消
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      // 用户取消操作
+    }
+  }
 }
 
 // 单个文件操作
@@ -698,12 +668,12 @@ const executeDownload = async (fileId: string, password: string) => {
     if (res.code === 200) {
       const taskId = res.data?.task_id
       if (!taskId) {
-        ElMessage.error('任务创建失败')
+        proxy?.$modal.msgError('任务创建失败')
         downloadingFile.value = false
         return
       }
       
-      ElMessage.success('准备下载中，请稍候...')
+      proxy?.$modal.msgSuccess('准备下载中，请稍候...')
       showDownloadPasswordDialog.value = false
       
       // 轮询任务状态，等待准备完成
@@ -717,25 +687,25 @@ const executeDownload = async (fileId: string, password: string) => {
             const task = taskRes.data.tasks?.find((t: any) => t.id === taskId)
             
             if (!task) {
-              console.error('未找到任务:', taskId)
+              proxy?.$log.error('未找到任务:', taskId)
               retryCount++
               if (retryCount < maxRetries) {
                 setTimeout(checkTaskStatus, 1000)
               } else {
-                ElMessage.error('未找到下载任务')
+                proxy?.$modal.msgError('未找到下载任务')
                 downloadingFile.value = false
               }
               return // 重要: 找不到任务时也要return
             }
             
-            console.log('任务状态:', task.state, '任务信息:', task)
+            proxy?.$log.debug('任务状态:', task.state, '任务信息:', task)
             
             if (task.state === 3) {
               // 准备完成，使用fetch下载避免Range问题
-              const token = localStorage.getItem('token')
+              const token = proxy?.$cache.local.get('token')
               const downloadUrl = getLocalFileDownloadUrl(taskId)
               
-              console.log('开始下载文件:', downloadUrl)
+              proxy?.$log.debug('开始下载文件:', downloadUrl)
               
               try {
                 const response = await fetch(downloadUrl, {
@@ -750,7 +720,7 @@ const executeDownload = async (fileId: string, password: string) => {
                 }
                 
                 const blob = await response.blob()
-                console.log('下载完成，文件大小:', blob.size)
+                proxy?.$log.debug('下载完成，文件大小:', blob.size)
                 
                 const url = window.URL.createObjectURL(blob)
                 const link = document.createElement('a')
@@ -762,18 +732,18 @@ const executeDownload = async (fileId: string, password: string) => {
                 document.body.removeChild(link)
                 window.URL.revokeObjectURL(url)
                 
-                ElMessage.success('下载完成')
+                proxy?.$modal.msgSuccess('下载完成')
               } catch (error: any) {
-                console.error('下载文件失败:', error)
-                ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+                proxy?.$log.error('下载文件失败:', error)
+                proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))
               }
               
               downloadingFile.value = false
               return // 重要: 成功后return，停止轮询
             } else if (task.state === 4) {
               // 失败
-              console.error('任务失败:', task.error_msg)
-              ElMessage.error(task.error_msg || '下载准备失败')
+              proxy?.$log.error('任务失败:', task.error_msg)
+              proxy?.$modal.msgError(task.error_msg || '下载准备失败')
               downloadingFile.value = false
               return // 重要: 失败后return，停止轮询
             }
@@ -783,27 +753,27 @@ const executeDownload = async (fileId: string, password: string) => {
             if (retryCount < maxRetries) {
               setTimeout(checkTaskStatus, 1000)
             } else {
-              ElMessage.warning('准备超时，请到任务中心查看')
+              proxy?.$modal.msgWarning('准备超时，请到任务中心查看')
               downloadingFile.value = false
             }
           } else {
             // API调用失败
-            console.error('获取任务列表失败:', taskRes)
+            proxy?.$log.error('获取任务列表失败:', taskRes)
             retryCount++
             if (retryCount < maxRetries) {
               setTimeout(checkTaskStatus, 1000)
             } else {
-              ElMessage.error('获取任务状态失败')
+              proxy?.$modal.msgError('获取任务状态失败')
               downloadingFile.value = false
             }
           }
         } catch (error: any) {
-          console.error('查询任务状态异常:', error)
+          proxy?.$log.error('查询任务状态异常:', error)
           retryCount++
           if (retryCount < maxRetries) {
             setTimeout(checkTaskStatus, 1000)
           } else {
-            ElMessage.error('查询任务状态失败')
+            proxy?.$modal.msgError('查询任务状态失败')
             downloadingFile.value = false
           }
         }
@@ -812,12 +782,12 @@ const executeDownload = async (fileId: string, password: string) => {
       // 开始轮询
       setTimeout(checkTaskStatus, 1000)
     } else {
-      ElMessage.error(res.msg || '创建下载任务失败')
+      proxy?.$modal.msgError(res.message || '创建下载任务失败')
       downloadingFile.value = false
     }
   } catch (error: any) {
-    console.error('创建下载任务异常:', error)
-    ElMessage.error(error.message || '创建下载任务失败')
+    proxy?.$log.error('创建下载任务异常:', error)
+    proxy?.$modal.msgError(error.message || '创建下载任务失败')
     downloadingFile.value = false
   }
 }
@@ -825,7 +795,7 @@ const executeDownload = async (fileId: string, password: string) => {
 // 确认密码并下载
 const confirmDownloadPassword = async () => {
   if (!downloadPasswordForm.file_password) {
-    ElMessage.warning('请输入文件密码')
+    proxy?.$modal.msgWarning('请输入文件密码')
     return
   }
   await executeDownload(downloadPasswordForm.file_id, downloadPasswordForm.file_password)
@@ -840,33 +810,30 @@ const handleShareFile = (file: FileItem) => {
 }
 
 const handleDeleteFile = async (file: FileItem) => {
-  ElMessageBox.confirm(
-    `确定要删除 "${file.file_name}" 吗？删除后将移动到回收站。`,
-    '提示',
-    {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-    }
-  ).then(async () => {
+  try {
+    await proxy?.$modal.confirm(`确定要删除 "${file.file_name}" 吗？删除后将移动到回收站。`)
     try {
       const { deleteFiles } = await import('@/api/file')
       const result = await deleteFiles({ file_ids: [file.file_id] })
       if (result.code === 200) {
-        ElMessage.success('删除成功')
+        proxy?.$modal.msgSuccess('删除成功')
         // 清空选中状态
         selectedFileIds.value = []
         selectedFolderIds.value = []
         await loadFileList()
       } else {
-        ElMessage.error(result.message || '删除失败')
+        proxy?.$modal.msgError(result.message || '删除失败')
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '删除失败')
+      if (error !== 'cancel') {
+        proxy?.$modal.msgError(error.message || '删除失败')
+      }
     }
-  }).catch(() => {
-    // 用户取消
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      // 用户取消操作
+    }
+  }
 }
 
 // 分页处理
@@ -881,30 +848,20 @@ const handleSizeChange = (size: number) => {
   loadFileList()
 }
 
-// 生成随机密码
-const generateRandomPassword = () => {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let password = ''
-  for (let i = 0; i < 6; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return password
-}
-
-// 复制到剪贴板
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    ElMessage.success('已复制到剪贴板')
-  } catch (err) {
-    ElMessage.error('复制失败')
+// 包装 copyToClipboard 以显示消息提示
+const handleCopyToClipboard = async (text: string) => {
+  const success = await copyToClipboard(text)
+  if (success) {
+    proxy?.$modal.msgSuccess('已复制到剪贴板')
+  } else {
+    proxy?.$modal.msgError('复制失败')
   }
 }
 
 // 确认分享
 const handleConfirmShare = async () => {
   if (!shareForm.password) {
-    ElMessage.warning('请设置访问密码')
+    proxy?.$modal.msgWarning('请设置访问密码')
     return
   }
   
@@ -926,31 +883,16 @@ const handleConfirmShare = async () => {
       const token = res.data.split('/').pop()
       const shareUrl = `${window.location.origin}/api/share/download?token=${token}`
       
-      ElMessageBox.alert(
-        `<div style="line-height: 2;">
-          <p><strong>分享链接：</strong></p>
-          <p style="word-break: break-all; background: #f5f7fa; padding: 8px; border-radius: 4px;">${shareUrl}</p>
-          <p style="color: #e6a23c; margin-top: 8px;"><strong>访问密码：</strong>${shareForm.password}</p>
-          <p style="color: #909399; font-size: 13px;">提示：访问链接时需要输入此密码</p>
-          <p><strong>有效期：</strong>${shareForm.expire_days}天</p>
-        </div>`,
-        '分享成功',
-        {
-          confirmButtonText: '复制链接',
-          dangerouslyUseHTMLString: true,
-          callback: () => {
-            copyToClipboard(shareUrl)
-          }
-        }
-      )
+      proxy?.$modal.alert(`分享链接：${shareUrl}\n访问密码：${shareForm.password}\n有效期：${shareForm.expire_days}天`)
+      handleCopyToClipboard(shareUrl)
       
       showShareDialog.value = false
       selectedFileIds.value = []
     } else {
-      ElMessage.error(res.message || '分享失败')
+      proxy?.$modal.msgError(res.message || '分享失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '分享失败')
+    proxy?.$modal.msgError(error.message || '分享失败')
   } finally {
     sharing.value = false
   }
@@ -963,7 +905,7 @@ const buildFolderTree = async () => {
     const res = await getVirtualPathTree()
     
     if (res.code !== 200 || !res.data) {
-      ElMessage.error('获取目录树失败')
+      proxy?.$modal.msgError('获取目录树失败')
       return
     }
     
@@ -1026,7 +968,7 @@ const buildFolderTree = async () => {
     
     folderTreeData.value = rootNodes
   } catch (error: any) {
-    ElMessage.error(error.message || '获取目录树失败')
+    proxy?.$modal.msgError(error.message || '获取目录树失败')
   } finally {
     loadingTree.value = false
   }
@@ -1041,7 +983,7 @@ const getFileName = (fileId: string): string => {
 // 打开移动文件对话框
 const handleMoveFile = async () => {
   if (selectedFileIds.value.length === 0) {
-    ElMessage.warning('请先选择要移动的文件')
+    proxy?.$modal.msgWarning('请先选择要移动的文件')
     return
   }
   
@@ -1055,12 +997,12 @@ const handleMoveFile = async () => {
 // 确认移动
 const handleConfirmMove = async () => {
   if (!targetFolderId.value) {
-    ElMessage.warning('请选择目标目录')
+    proxy?.$modal.msgWarning('请选择目标目录')
     return
   }
   
   if (targetFolderId.value === currentPath.value) {
-    ElMessage.warning('目标目录与当前目录相同')
+    proxy?.$modal.msgWarning('目标目录与当前目录相同')
     return
   }
   
@@ -1075,19 +1017,19 @@ const handleConfirmMove = async () => {
       })
       
       if (res.code !== 200) {
-        ElMessage.error(`移动文件失败: ${res.message}`)
+        proxy?.$modal.msgError(`移动文件失败: ${res.message}`)
         return
       }
     }
     
-    ElMessage.success(`成功移动 ${selectedFileIds.value.length} 个文件`)
+    proxy?.$modal.msgSuccess(`成功移动 ${selectedFileIds.value.length} 个文件`)
     showMoveDialog.value = false
     selectedFileIds.value = []
     
     // 刷新文件列表
     loadFileList()
   } catch (error: any) {
-    ElMessage.error(error.message || '移动文件失败')
+    proxy?.$modal.msgError(error.message || '移动文件失败')
   } finally {
     moving.value = false
   }

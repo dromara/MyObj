@@ -6,7 +6,7 @@
           <el-icon :size="24" class="title-icon"><Share /></el-icon>
           <h2>我的分享</h2>
         </div>
-        <el-button type="primary" :icon="Refresh" @click="loadShareList">刷新</el-button>
+        <el-button type="primary" icon="Refresh" @click="loadShareList">刷新</el-button>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
                 size="small"
               >
                 <template #append>
-                  <el-button :icon="CopyDocument" @click="copyShareLink(row)">复制</el-button>
+                  <el-button icon="CopyDocument" @click="copyShareLink(row)">复制</el-button>
                 </template>
               </el-input>
             </div>
@@ -73,8 +73,8 @@
         <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{ row }">
             <el-button-group>
-              <el-button link type="primary" :icon="Edit" @click="handleUpdatePassword(row)">修改密码</el-button>
-              <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
+              <el-button link type="primary" icon="Edit" @click="handleUpdatePassword(row)">修改密码</el-button>
+              <el-button link type="danger" icon="Delete" @click="handleDelete(row)">删除</el-button>
             </el-button-group>
           </template>
         </el-table-column>
@@ -103,7 +103,7 @@
             clearable
           >
             <template #append>
-              <el-button @click="generateRandomPassword">随机生成</el-button>
+              <el-button @click="handleGenerateRandomPassword">随机生成</el-button>
             </template>
           </el-input>
         </el-form-item>
@@ -118,21 +118,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Refresh, 
-  CopyDocument, 
-  Delete,
-  Share,
-  Document,
-  Lock,
-  Clock,
-  Calendar,
-  Edit
-} from '@element-plus/icons-vue'
 import { getShareList, deleteShare, updateSharePassword } from '@/api/share'
 import type { ShareInfo } from '@/types'
+import { formatDate, getShareUrl, generateRandomPassword } from '@/utils'
+import { copyToClipboard } from '@/utils'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const loading = ref(false)
 const shareList = ref<ShareInfo[]>([])
@@ -149,49 +140,43 @@ const loadShareList = async () => {
     if (res.code === 200) {
       shareList.value = res.data || []
     } else {
-      ElMessage.error(res.message || '加载失败')
+      proxy?.$modal.msgError(res.message || '加载失败')
     }
   } catch (error) {
-    ElMessage.error('加载分享列表失败')
-    console.error(error)
+    proxy?.$modal.msgError('加载分享列表失败')
+    proxy?.$log.error(error)
   } finally {
     loading.value = false
   }
 }
 
-// 获取分享链接（不包含密码）
-const getShareUrl = (token: string) => {
-  return `${window.location.origin}/api/share/download?token=${token}`
-}
-
 // 复制分享链接
 const copyShareLink = async (share: ShareInfo) => {
   const shareUrl = getShareUrl(share.token)
-  try {
-    await navigator.clipboard.writeText(shareUrl)
-    ElMessage.success('已复制到剪贴板')
-  } catch (err) {
-    ElMessage.error('复制失败')
+  const success = await copyToClipboard(shareUrl)
+  if (success) {
+    proxy?.$modal.msgSuccess('已复制到剪贴板')
+  } else {
+    proxy?.$modal.msgError('复制失败')
   }
 }
 
 // 删除分享
-const handleDelete = (share: ShareInfo) => {
-  ElMessageBox.confirm('确定要删除该分享吗？', '提示', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      const res = await deleteShare(share.id)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        loadShareList()
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '删除失败')
+const handleDelete = async (share: ShareInfo) => {
+  try {
+    await proxy?.$modal.confirm('确定要删除该分享吗？')
+    const res = await deleteShare(share.id)
+    if (res.code === 200) {
+      proxy?.$modal.msgSuccess('删除成功')
+      loadShareList()
+    } else {
+      proxy?.$modal.msgError(res.message || '删除失败')
     }
-  })
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      proxy?.$modal.msgError(error.message || '删除失败')
+    }
+  }
 }
 
 // 打开修改密码对话框
@@ -202,19 +187,14 @@ const handleUpdatePassword = (share: ShareInfo) => {
 }
 
 // 生成随机密码
-const generateRandomPassword = () => {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let password = ''
-  for (let i = 0; i < 6; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  newPassword.value = password
+const handleGenerateRandomPassword = () => {
+  newPassword.value = generateRandomPassword(6)
 }
 
 // 确认修改密码
 const handleConfirmUpdatePassword = async () => {
   if (!newPassword.value) {
-    ElMessage.warning('请输入新密码')
+    proxy?.$modal.msgWarning('请输入新密码')
     return
   }
   
@@ -222,43 +202,17 @@ const handleConfirmUpdatePassword = async () => {
   try {
     const res = await updateSharePassword(currentShare.id!, newPassword.value)
     if (res.code === 200) {
-      ElMessage.success('修改密码成功')
+      proxy?.$modal.msgSuccess('修改密码成功')
       showPasswordDialog.value = false
       loadShareList()
     } else {
-      ElMessage.error(res.message || '修改密码失败')
+      proxy?.$modal.msgError(res.message || '修改密码失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '修改密码失败')
+    proxy?.$modal.msgError(error.message || '修改密码失败')
   } finally {
     updating.value = false
   }
-}
-
-// 格式化日期
-const formatDate = (dateStr: string): string => {
-  if (!dateStr || dateStr === '') {
-    return '-'
-  }
-  
-  // 处理 "2006-01-02 15:04:05" 格式
-  // 将空格替换为 T 以符合 ISO 8601 格式
-  const isoDateStr = dateStr.replace(' ', 'T')
-  const date = new Date(isoDateStr)
-  
-  if (isNaN(date.getTime())) {
-    return dateStr // 如果解析失败，返回原始字符串
-  }
-  
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  })
 }
 
 onMounted(() => {
@@ -307,6 +261,7 @@ onMounted(() => {
   color: var(--text-primary);
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

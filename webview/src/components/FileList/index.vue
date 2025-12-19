@@ -1,25 +1,31 @@
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
-const props = defineProps({
-  currentPath: {
-    type: String,
-    default: '我的文件'
-  },
-  currentType: {
-    type: String,
-    default: 'files'
-  },
-  searchKeyword: {
-    type: String,
-    default: ''
-  }
+interface Props {
+  currentPath?: string
+  currentType?: string
+  searchKeyword?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  currentPath: '我的文件',
+  currentType: 'files',
+  searchKeyword: ''
 })
 
-const viewMode = ref('grid') // grid or list
-const selectedFiles = ref([])
+const viewMode = ref<'grid' | 'list'>('grid')
+const selectedFiles = ref<FileItem[]>([])
 
-const files = ref([
+interface FileItem {
+  id: number
+  name: string
+  type: string
+  size: string
+  modified: string
+  icon: string
+}
+
+const files = ref<FileItem[]>([
   { id: 1, name: '工作文档', type: 'folder', size: '-', modified: '2024-11-10', icon: 'folder' },
   { id: 2, name: '个人照片', type: 'folder', size: '-', modified: '2024-11-08', icon: 'folder' },
   { id: 3, name: '项目资料.pdf', type: 'pdf', size: '2.5 MB', modified: '2024-11-12', icon: 'pdf' },
@@ -32,13 +38,13 @@ const files = ref([
 
 const filteredFiles = computed(() => {
   if (!props.searchKeyword) return files.value
-  return files.value.filter(file => 
+  return files.value.filter((file: FileItem) => 
     file.name.toLowerCase().includes(props.searchKeyword.toLowerCase())
   )
 })
 
-const selectFile = (file) => {
-  const index = selectedFiles.value.findIndex(f => f.id === file.id)
+const selectFile = (file: FileItem) => {
+  const index = selectedFiles.value.findIndex((f: FileItem) => f.id === file.id)
   if (index > -1) {
     selectedFiles.value.splice(index, 1)
   } else {
@@ -46,12 +52,12 @@ const selectFile = (file) => {
   }
 }
 
-const isSelected = (file) => {
-  return selectedFiles.value.some(f => f.id === file.id)
+const isSelected = (file: FileItem) => {
+  return selectedFiles.value.some((f: FileItem) => f.id === file.id)
 }
 
-const getFileIcon = (iconType) => {
-  const icons = {
+const getFileIcon = (iconType: string) => {
+  const icons: Record<string, { path: string; color: string }> = {
     folder: { path: 'M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z', color: '#409eff' },
     pdf: { path: 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z', color: '#f56c6c' },
     image: { path: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z', color: '#67c23a' },
@@ -63,39 +69,42 @@ const getFileIcon = (iconType) => {
   return icons[iconType] || icons.folder
 }
 
-const handleFileClick = (file) => {
+const handleFileClick = (file: FileItem) => {
   if (file.type === 'folder') {
-    alert(`打开文件夹: ${file.name}`)
+    proxy?.$modal.msg(`打开文件夹: ${file.name}`)
   } else {
-    alert(`预览文件: ${file.name}`)
+    proxy?.$modal.msg(`预览文件: ${file.name}`)
   }
 }
 
-const handleDownload = () => {
+const handleDownload = async () => {
   if (selectedFiles.value.length === 0) {
-    alert('请选择要下载的文件')
-  } else {
-    alert(`下载 ${selectedFiles.value.length} 个文件`)
+    proxy?.$modal.msgWarning('请选择要下载的文件')
+    return
   }
+  proxy?.$modal.msg(`下载 ${selectedFiles.value.length} 个文件`)
 }
 
-const handleDelete = () => {
+const handleDelete = async () => {
   if (selectedFiles.value.length === 0) {
-    alert('请选择要删除的文件')
-  } else {
-    if (confirm(`确定要删除 ${selectedFiles.value.length} 个文件吗?`)) {
-      alert('已删除')
-      selectedFiles.value = []
-    }
+    proxy?.$modal.msgWarning('请选择要删除的文件')
+    return
+  }
+  try {
+    await proxy?.$modal.confirm(`确定要删除 ${selectedFiles.value.length} 个文件吗?`)
+    proxy?.$modal.msgSuccess('已删除')
+    selectedFiles.value = []
+  } catch (error) {
+    // 用户取消操作
   }
 }
 
 const handleShare = () => {
   if (selectedFiles.value.length === 0) {
-    alert('请选择要分享的文件')
-  } else {
-    alert(`分享 ${selectedFiles.value.length} 个文件`)
+    proxy?.$modal.msgWarning('请选择要分享的文件')
+    return
   }
+  proxy?.$modal.msg(`分享 ${selectedFiles.value.length} 个文件`)
 }
 </script>
 
@@ -107,46 +116,41 @@ const handleShare = () => {
       </div>
       
       <div class="toolbar-actions">
-        <div class="view-mode">
-          <button 
-            :class="{ active: viewMode === 'grid' }"
+        <el-button-group>
+          <el-button
+            :type="viewMode === 'grid' ? 'primary' : 'default'"
+            icon="Grid"
             @click="viewMode = 'grid'"
             title="网格视图"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path fill="currentColor" d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/>
-            </svg>
-          </button>
-          <button 
-            :class="{ active: viewMode === 'list' }"
+          />
+          <el-button
+            :type="viewMode === 'list' ? 'primary' : 'default'"
+            icon="List"
             @click="viewMode = 'list'"
             title="列表视图"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <path fill="currentColor" d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-            </svg>
-          </button>
-        </div>
+          />
+        </el-button-group>
         
         <div class="action-buttons" v-if="selectedFiles.length > 0">
-          <button @click="handleDownload" class="action-btn">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-            </svg>
+          <el-button
+            icon="Download"
+            @click="handleDownload"
+          >
             下载
-          </button>
-          <button @click="handleShare" class="action-btn">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-            </svg>
+          </el-button>
+          <el-button
+            icon="Share"
+            @click="handleShare"
+          >
             分享
-          </button>
-          <button @click="handleDelete" class="action-btn danger">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
+          </el-button>
+          <el-button
+            type="danger"
+            icon="Delete"
+            @click="handleDelete"
+          >
             删除
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -252,65 +256,9 @@ const handleShare = () => {
   gap: 16px;
 }
 
-.view-mode {
-  display: flex;
-  gap: 4px;
-  background: var(--bg-color);
-  border-radius: 6px;
-  padding: 4px;
-}
-
-.view-mode button {
-  padding: 6px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-}
-
-.view-mode button:hover {
-  color: var(--primary-color);
-}
-
-.view-mode button.active {
-  background: white;
-  color: var(--primary-color);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
 .action-buttons {
   display: flex;
   gap: 8px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.action-btn:hover {
-  background: var(--bg-color);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.action-btn.danger:hover {
-  border-color: var(--danger-color);
-  color: var(--danger-color);
 }
 
 .file-grid {
@@ -360,6 +308,7 @@ const handleShare = () => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

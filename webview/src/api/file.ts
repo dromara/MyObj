@@ -1,6 +1,7 @@
 import { get, post, upload } from '@/utils/request'
-import { API_ENDPOINTS, getBaseURL, API_VERSION } from '@/config/api'
+import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { FileListRequest, FileListResponse, ApiResponse } from '@/types'
+import logger from '@/plugins/logger'
 
 // 文件搜索请求参数
 export interface FileSearchParams {
@@ -47,8 +48,7 @@ export const getFileList = (params: FileListRequest) => {
  */
 export const getThumbnail = async (fileId: string): Promise<string> => {
   try {
-    const baseURL = getBaseURL()
-    const url = `${baseURL}${API_VERSION}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
+    const url = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
     
     const response = await fetch(url, {
       method: 'GET',
@@ -64,7 +64,7 @@ export const getThumbnail = async (fileId: string): Promise<string> => {
     const blob = await response.blob()
     return URL.createObjectURL(blob)
   } catch (error) {
-    console.error('Error fetching thumbnail:', error)
+    logger.error('Error fetching thumbnail:', error)
     return '' // 返回空字符串表示加载失败
   }
 }

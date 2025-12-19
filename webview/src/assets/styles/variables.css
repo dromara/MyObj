@@ -1,0 +1,47 @@
+/* CSS 变量定义 */
+:root {
+  /* Premium Palette: Electric Blue/Indigo Theme */
+  --primary-color: #2563eb;
+  /* Blue 600 */
+  --primary-hover: #1d4ed8;
+  /* Blue 700 */
+  --secondary-color: #4f46e5;
+  /* Indigo 600 */
+
+  --success-color: #10b981;
+  /* Emerald 500 */
+  --warning-color: #f59e0b;
+  /* Amber 500 */
+  --danger-color: #ef4444;
+  /* Red 500 */
+  --info-color: #3b82f6;
+  /* Blue 500 */
+
+  /* Neutrals & Backgrounds */
+  --text-primary: #111827;
+  /* Gray 900 */
+  --text-regular: #374151;
+  /* Gray 700 */
+  --text-secondary: #6b7280;
+  /* Gray 500 */
+  --text-placeholder: #9ca3af;
+  /* Gray 400 */
+
+  --border-color: #e5e7eb;
+  /* Gray 200 */
+  --border-light: #f3f4f6;
+  /* Gray 100 */
+
+  --bg-color: #f8fafc;
+  /* Slate 50 */
+  --bg-color-glass: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+
+  /* Element Plus Overrides Variables */
+  --el-color-primary: var(--primary-color);
+  --el-color-success: var(--success-color);
+  --el-color-warning: var(--warning-color);
+  --el-color-danger: var(--danger-color);
+  --el-color-info: var(--info-color);
+}
+

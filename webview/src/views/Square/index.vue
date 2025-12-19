@@ -13,7 +13,7 @@
         <el-input
           v-model="searchKeyword"
           placeholder="搜索广场文件..."
-          :prefix-icon="Search"
+          prefix-icon="Search"
           clearable
           @input="handleSearch"
           style="width: 300px"
@@ -22,8 +22,8 @@
         <!-- 视图切换 -->
         <div class="view-mode">
           <el-button-group>
-            <el-button :type="viewMode === 'grid' ? 'primary' : ''" :icon="Grid" @click="viewMode = 'grid'" />
-            <el-button :type="viewMode === 'list' ? 'primary' : ''" :icon="List" @click="viewMode = 'list'" />
+            <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
+            <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
           </el-button-group>
         </div>
       </div>
@@ -57,6 +57,7 @@
         shadow="hover"
         class="file-card"
         @click="handleFileClick(file)"
+        @dblclick="handleFileClick(file)"
       >
         <div class="file-icon">
           <el-icon :size="64" :color="getFileColor(file.type)">
@@ -78,7 +79,7 @@
           </div>
         </div>
         <div class="file-actions">
-          <el-button type="primary" size="small" :icon="Download" @click.stop="handleDownload(file)">
+          <el-button type="primary" size="small" icon="Download" @click.stop="handleDownload(file)">
             下载
           </el-button>
         </div>
@@ -131,7 +132,7 @@
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" :icon="Download" @click.stop="handleDownload(row)">
+          <el-button type="primary" size="small" icon="Download" @click.stop="handleDownload(row)">
             下载
           </el-button>
         </template>
@@ -150,26 +151,17 @@
         @size-change="handleSizeChange"
       />
     </div>
+
+    <!-- 文件预览组件 -->
+    <Preview v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import {
-  Grid,
-  List,
-  Search,
-  Download,
-  View,
-  Document,
-  Picture,
-  VideoCamera,
-  Headset,
-  Files,
-  FolderOpened
-} from '@element-plus/icons-vue'
+import { formatSize, formatDate, getMimeTypeFromFileType } from '@/utils'
+import Preview from '@/components/Preview/index.vue'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const route = useRoute()
 
@@ -277,15 +269,15 @@ const filteredFiles = computed(() => {
 
 // 获取文件图标
 const getFileIcon = (type: string) => {
-  const iconMap: Record<string, any> = {
-    doc: Document,
-    image: Picture,
-    video: VideoCamera,
-    audio: Headset,
-    archive: Files,
-    other: FolderOpened
+  const iconMap: Record<string, string> = {
+    doc: 'Document',
+    image: 'Picture',
+    video: 'VideoCamera',
+    audio: 'Headset',
+    archive: 'Files',
+    other: 'FolderOpened'
   }
-  return iconMap[type] || Document
+  return iconMap[type] || 'Document'
 }
 
 // 获取文件颜色
@@ -301,18 +293,10 @@ const getFileColor = (type: string) => {
   return colorMap[type] || '#909399'
 }
 
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
+const formatFileSize = formatSize
 
-// 格式化时间
 const formatTime = (time: string): string => {
-  return time
+  return formatDate(time, { showTime: true })
 }
 
 // 搜索处理
@@ -330,14 +314,29 @@ const handleSortChange = () => {
   currentPage.value = 1
 }
 
+// 文件预览
+const previewVisible = ref(false)
+const previewFile = ref<any>(null)
+
 // 点击文件
 const handleFileClick = (file: any) => {
-  ElMessage.info(`预览文件: ${file.name}`)
+  // 将 Square 的文件格式转换为 Preview 组件需要的格式
+  previewFile.value = {
+    file_id: file.id,
+    file_name: file.name,
+    file_size: file.size,
+    mime_type: getMimeTypeFromFileType(file.type),
+    is_enc: false,
+    has_thumbnail: file.type === 'image',
+    created_at: file.createdAt
+  }
+  previewVisible.value = true
 }
+
 
 // 下载文件
 const handleDownload = (file: any) => {
-  ElMessage.success(`开始下载: ${file.name}`)
+  proxy?.$modal.msgSuccess(`开始下载: ${file.name}`)
   // TODO: 调用下载API
 }
 
@@ -371,7 +370,7 @@ const loadPublicFiles = async () => {
     // 模拟加载延迟
     await new Promise(resolve => setTimeout(resolve, 500))
   } catch (error) {
-    ElMessage.error('加载失败')
+    proxy?.$modal.msgError('加载失败')
   } finally {
     loading.value = false
   }
@@ -492,6 +491,7 @@ watch(() => route.query.keyword, (newKeyword) => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

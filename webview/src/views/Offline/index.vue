@@ -8,8 +8,8 @@
           <el-tag type="info">{{ taskList.length }} 个任务</el-tag>
         </div>
         <div class="header-right">
-          <el-button type="primary" :icon="Link" @click="showUrlDialog = true">新建 URL 下载</el-button>
-          <el-button :icon="Refresh" @click="refreshTaskList" circle />
+          <el-button type="primary" icon="Link" @click="showUrlDialog = true">新建 URL 下载</el-button>
+          <el-button icon="Refresh" @click="refreshTaskList" circle />
         </div>
       </div>
     </el-card>
@@ -66,7 +66,7 @@
               <el-button 
                 v-if="row.state === 1"
                 link 
-                :icon="VideoPause" 
+                icon="VideoPause" 
                 @click="pauseTask(row.id)"
               >
                 暂停
@@ -74,7 +74,7 @@
               <el-button 
                 v-if="row.state === 2"
                 link 
-                :icon="VideoPlay" 
+                icon="VideoPlay" 
                 type="success"
                 @click="resumeTask(row.id)"
               >
@@ -83,7 +83,7 @@
               <el-button 
                 v-if="row.state === 0 || row.state === 1"
                 link 
-                :icon="Close" 
+                icon="Close" 
                 type="warning"
                 @click="cancelTask(row.id)"
               >
@@ -92,7 +92,7 @@
               <el-button 
                 v-if="row.state === 3 || row.state === 4"
                 link 
-                :icon="Delete" 
+                icon="Delete" 
                 type="danger"
                 @click="deleteTask(row.id)"
               >
@@ -144,17 +144,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
-import {
-  Link,
-  Refresh,
-  Document,
-  VideoPause,
-  VideoPlay,
-  Close,
-  Delete
-} from '@element-plus/icons-vue'
 import {
   getDownloadTaskList,
   createOfflineDownload,
@@ -165,6 +154,9 @@ import {
   type OfflineDownloadTask
 } from '@/api/download'
 import { getVirtualPathTree } from '@/api/file'
+import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const loading = ref(false)
 const creating = ref(false)
@@ -203,7 +195,7 @@ const loadTaskList = async () => {
       taskList.value = (res.data.tasks || []).filter((task: any) => task.type !== 7)
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '加载任务列表失败')
+    proxy?.$modal.msgError(error.message || '加载任务列表失败')
   } finally {
     loading.value = false
   }
@@ -221,7 +213,7 @@ const buildFolderTree = async () => {
     const res = await getVirtualPathTree()
     
     if (res.code !== 200 || !res.data) {
-      ElMessage.error('获取目录树失败')
+      proxy?.$modal.msgError('获取目录树失败')
       return
     }
     
@@ -288,7 +280,7 @@ const buildFolderTree = async () => {
     
     folderTreeData.value = rootNodes
   } catch (error: any) {
-    ElMessage.error(error.message || '获取目录树失败')
+    proxy?.$modal.msgError(error.message || '获取目录树失败')
   } finally {
     loadingTree.value = false
   }
@@ -298,7 +290,7 @@ const buildFolderTree = async () => {
 const handleCreateUrlDownload = async () => {
   if (!urlFormRef.value) return
   
-  await urlFormRef.value.validate(async (valid) => {
+  await urlFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       creating.value = true
       try {
@@ -309,7 +301,7 @@ const handleCreateUrlDownload = async () => {
         })
         
         if (res.code === 200) {
-          ElMessage.success('任务创建成功')
+          proxy?.$modal.msgSuccess('任务创建成功')
           showUrlDialog.value = false
           urlForm.url = ''
           urlForm.virtual_path = ''
@@ -317,7 +309,7 @@ const handleCreateUrlDownload = async () => {
           loadTaskList()
         }
       } catch (error: any) {
-        ElMessage.error(error.message || '创建任务失败')
+        proxy?.$modal.msgError(error.message || '创建任务失败')
       } finally {
         creating.value = false
       }
@@ -329,10 +321,10 @@ const handleCreateUrlDownload = async () => {
 const pauseTask = async (taskId: string) => {
   try {
     await pauseDownload(taskId)
-    ElMessage.success('已暂停')
+    proxy?.$modal.msgSuccess('已暂停')
     loadTaskList()
   } catch (error: any) {
-    ElMessage.error(error.message || '暂停失败')
+    proxy?.$modal.msgError(error.message || '暂停失败')
   }
 }
 
@@ -340,26 +332,24 @@ const pauseTask = async (taskId: string) => {
 const resumeTask = async (taskId: string) => {
   try {
     await resumeDownload(taskId)
-    ElMessage.success('已恢复')
+    proxy?.$modal.msgSuccess('已恢复')
     loadTaskList()
   } catch (error: any) {
-    ElMessage.error(error.message || '恢复失败')
+    proxy?.$modal.msgError(error.message || '恢复失败')
   }
 }
 
 // 取消任务
 const cancelTask = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认取消该任务？', '提示', {
-      type: 'warning'
-    })
+    await proxy?.$modal.confirm('确认取消该任务？')
     
     await cancelDownload(taskId)
-    ElMessage.success('已取消')
+    proxy?.$modal.msgSuccess('已取消')
     loadTaskList()
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '取消失败')
+      proxy?.$modal.msgError(error.message || '取消失败')
     }
   }
 }
@@ -367,64 +357,20 @@ const cancelTask = async (taskId: string) => {
 // 删除任务
 const deleteTask = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认删除该任务？', '提示', {
-      type: 'warning'
-    })
+    await proxy?.$modal.confirm('确认删除该任务？')
     
     await deleteDownload(taskId)
-    ElMessage.success('已删除')
+    proxy?.$modal.msgSuccess('已删除')
     loadTaskList()
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败')
+      proxy?.$modal.msgError(error.message || '删除失败')
     }
   }
 }
 
-// 截断 URL 显示
-const truncateUrl = (url: string) => {
-  if (url.length > 50) {
-    return url.substring(0, 50) + '...'
-  }
-  return url
-}
-
-// 获取状态类型
-const getStatusType = (state: number) => {
-  const typeMap: Record<number, any> = {
-    0: 'info',      // 初始化
-    1: 'primary',   // 下载中
-    2: 'warning',   // 已暂停
-    3: 'success',   // 已完成
-    4: 'danger'     // 失败
-  }
-  return typeMap[state] || 'info'
-}
-
-// 格式化速度
-const formatSpeed = (bytesPerSecond: number): string => {
-  if (!bytesPerSecond || bytesPerSecond === 0) return '0 B/s'
-  const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k))
-  return (bytesPerSecond / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化文件大小
-const formatSize = (bytes: number): string => {
-  if (!bytes || bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化日期
-const formatDate = (dateStr: string): string => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
-}
+// 使用 getTaskStatusType 作为 getStatusType 的别名
+const getStatusType = getTaskStatusType
 
 // 页面加载时获取任务列表
 onMounted(() => {

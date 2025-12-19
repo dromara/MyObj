@@ -1,23 +1,8 @@
 // API配置文件
-const isDevelopment = import.meta.env.MODE === 'development'
-
-// 获取API基础URL
-export const getBaseURL = (): string => {
-  if (isDevelopment) {
-    // 开发环境默认使用localhost:8080
-    return 'http://localhost:8080'
-  } else {
-    // 生产环境从HTTP头读取配置
-    const metaApiUrl = document.querySelector('meta[name="api-url"]')?.getAttribute('content')
-    return metaApiUrl || window.location.origin
-  }
-}
-
-// API版本
-export const API_VERSION = '/api'
-
-// 完整的API基础路径
-export const API_BASE_URL = getBaseURL() + API_VERSION
+// 使用环境变量配置的代理路径（如 /dev-api 或 /prod-api）
+// 开发环境：/dev-api -> 代理到后端 /api
+// 生产环境：/prod-api -> 代理到后端 /api
+export const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || '/dev-api'
 
 // API端点
 export const API_ENDPOINTS = {

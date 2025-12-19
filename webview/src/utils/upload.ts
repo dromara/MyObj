@@ -3,6 +3,7 @@ import { uploadPrecheck, uploadFile } from '@/api/file'
 import { ElMessage } from 'element-plus'
 import { UPLOAD_CONFIG } from '@/config/api'
 import type { ApiResponse } from '@/types'
+import logger from '@/plugins/logger'
 
 // 配置项接口
 export interface UploadConfig {
@@ -195,7 +196,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
       // 4. 调用上传预检接口
       const precheckResponse = await uploadPrecheck(precheckParams)
-    console.log('上传预检接口响应:', precheckResponse)
+    logger.debug('上传预检接口响应:', precheckResponse)
 
     // 秒传成功
     if (precheckResponse.code === 200) {
@@ -231,7 +232,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         }
 
         const uploadResponse = await uploadFile(uploadParams)
-        console.log('上传接口响应:', uploadResponse)
+        logger.debug('上传接口响应:', uploadResponse)
 
         if (uploadResponse.code === 200) {
           // 更新上传进度
@@ -302,7 +303,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       throw new Error(precheckResponse.message)
     }
   } catch (error: any) {
-    console.error(`处理文件 ${file.name} 时出错:`, error)
+    logger.error(`处理文件 ${file.name} 时出错:`, error)
     ElMessage.error(`处理文件 ${file.name} 时出错: ${error.message}`)
     onError?.(error, file.name)
   }
@@ -385,7 +386,7 @@ export const handleFileUpload = async (
     // 3. 上传文件
     await uploadMultipleFiles(files, pathId, config, onProgress, onSuccess, onError)
   } catch (error: any) {
-    console.error('处理文件上传时出错:', error)
+    logger.error('处理文件上传时出错:', error)
     ElMessage.error(`处理文件上传时出错: ${error.message}`)
   }
 }

@@ -30,8 +30,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Lock } from '@element-plus/icons-vue'
 import { getFileIcon } from '@/utils/fileIcon'
 import type { FileIconConfig } from '@/utils/fileIcon'
 
