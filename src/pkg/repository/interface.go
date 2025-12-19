@@ -126,6 +126,7 @@ type UserFilesRepository interface {
 	CountPublicFilesByKeyword(ctx context.Context, keyword string) (int64, error)
 	SearchUserFiles(ctx context.Context, userID, keyword string, offset, limit int) ([]*models.UserFiles, error)
 	CountUserFilesByKeyword(ctx context.Context, userID, keyword string) (int64, error)
+	GetByUserIDAndUfID(ctx context.Context, userID, ufID string) (*models.UserFiles, error)
 }
 
 // VirtualPathRepository 虚拟路径仓储接口

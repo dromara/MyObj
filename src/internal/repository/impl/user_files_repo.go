@@ -110,3 +110,13 @@ func (r *userFilesRepository) CountUserFilesByKeyword(ctx context.Context, userI
 		Count(&count).Error
 	return count, err
 }
+
+// GetByUserIDAndUfID 获取用户文件关联
+func (r *userFilesRepository) GetByUserIDAndUfID(ctx context.Context, userID, ufID string) (*models.UserFiles, error) {
+	var userFile models.UserFiles
+	err := r.db.WithContext(ctx).Where("user_id = ? AND uf_id = ?", userID, ufID).First(&userFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userFile, nil
+}

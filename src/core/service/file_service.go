@@ -523,7 +523,7 @@ func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string)
 
 	for _, fileID := range req.FileIDs {
 		// 验证用户是否拥有该文件
-		userFile, err := f.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, fileID)
+		userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
 		if err != nil {
 			logger.LOG.Warn("用户不拥有该文件", "userID", userID, "fileID", fileID)
 			errors = append(errors, fmt.Sprintf("文件 %s 不存在或无权访问", fileID))
