@@ -22,9 +22,13 @@ type RangeInfo struct {
 	Total int64
 }
 
+// MaxRangeSize 单次 Range 请求的最大大小（2MB）
+const MaxRangeSize = 2 * 1024 * 1024
+
 // ParseRange 解析 HTTP Range 请求头
 // 支持格式: "bytes=start-end" 或 "bytes=start-"
 // 返回解析后的 Range 信息
+// 限制：单次请求不能超过 2MB
 func ParseRange(rangeHeader string, fileSize int64) (*RangeInfo, error) {
 	if rangeHeader == "" {
 		return &RangeInfo{
@@ -68,6 +72,14 @@ func ParseRange(rangeHeader string, fileSize int64) (*RangeInfo, error) {
 	// 验证范围
 	if start < 0 || end >= fileSize || start > end {
 		return nil, fmt.Errorf("Range 超出文件范围")
+	}
+
+	// 计算请求的数据大小
+	requestSize := end - start + 1
+
+	// 限制单次请求不能超过 2MB
+	if requestSize > MaxRangeSize {
+		return nil, fmt.Errorf("Range 请求过大: 请求了 %d 字节，最大允许 %d 字节 (2MB)", requestSize, MaxRangeSize)
 	}
 
 	return &RangeInfo{
@@ -155,48 +167,37 @@ func StreamDecryptRange(w http.ResponseWriter, encFilePath string, password stri
 		return fmt.Errorf("定位文件位置失败: %w", err)
 	}
 
-	// 流式解密并写入响应（每次最多 2MB）
-	const MaxChunkSize = 2 * 1024 * 1024 // 2MB
+	// 流式解密并写入响应（已通过 ParseRange 限制在 2MB 内）
 	remaining := rangeInfo.End - rangeInfo.Start + 1
-	buffer := make([]byte, MaxChunkSize)
+	buffer := make([]byte, remaining)
 
 	// HMAC 验证（可选，只验证请求的块）
 	hmacHash := hmac.New(sha256.New, hmacKey)
 
 	firstBlock := true
-	for remaining > 0 {
-		toRead := remaining
-		if toRead > int64(len(buffer)) {
-			toRead = int64(len(buffer))
-		}
+	n, err := encFile.Read(buffer)
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("读取文件失败: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("读取到空数据")
+	}
 
-		n, err := encFile.Read(buffer[:toRead])
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("读取文件失败: %w", err)
-		}
-		if n == 0 {
-			break
-		}
+	// 更新 HMAC
+	hmacHash.Write(buffer[:n])
 
-		// 更新 HMAC
-		hmacHash.Write(buffer[:n])
+	// 解密数据
+	plaintext := make([]byte, n)
+	stream.XORKeyStream(plaintext, buffer[:n])
 
-		// 解密数据
-		plaintext := make([]byte, n)
-		stream.XORKeyStream(plaintext, buffer[:n])
+	// 如果是第一个块且有字节偏移，跳过前面的字节
+	if firstBlock && byteOffset > 0 {
+		plaintext = plaintext[byteOffset:]
+	}
 
-		// 如果是第一个块且有字节偏移，跳过前面的字节
-		if firstBlock && byteOffset > 0 {
-			plaintext = plaintext[byteOffset:]
-			firstBlock = false
-		}
-
-		// 写入响应
-		if _, err := w.Write(plaintext); err != nil {
-			return fmt.Errorf("写入响应失败: %w", err)
-		}
-
-		remaining -= int64(n)
+	// 写入响应
+	if _, err := w.Write(plaintext); err != nil {
+		return fmt.Errorf("写入响应失败: %w", err)
 	}
 
 	return nil
@@ -215,30 +216,20 @@ func StreamPlainRange(w http.ResponseWriter, filePath string, rangeInfo *RangeIn
 		return fmt.Errorf("定位文件位置失败: %w", err)
 	}
 
-	// 流式传输（每次最多 2MB）
-	const MaxChunkSize = 2 * 1024 * 1024
+	// 流式传输（已通过 ParseRange 限制在 2MB 内）
 	remaining := rangeInfo.End - rangeInfo.Start + 1
-	buffer := make([]byte, MaxChunkSize)
+	buffer := make([]byte, remaining)
 
-	for remaining > 0 {
-		toRead := remaining
-		if toRead > int64(len(buffer)) {
-			toRead = int64(len(buffer))
-		}
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("读取文件失败: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("读取到空数据")
+	}
 
-		n, err := file.Read(buffer[:toRead])
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("读取文件失败: %w", err)
-		}
-		if n == 0 {
-			break
-		}
-
-		if _, err := w.Write(buffer[:n]); err != nil {
-			return fmt.Errorf("写入响应失败: %w", err)
-		}
-
-		remaining -= int64(n)
+	if _, err := w.Write(buffer[:n]); err != nil {
+		return fmt.Errorf("写入响应失败: %w", err)
 	}
 
 	return nil
