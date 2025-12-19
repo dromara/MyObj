@@ -488,7 +488,7 @@ func (f *FileService) MakeDir(req *request.MakeDirRequest, userID string) (*mode
 // MoveFile 移动文件
 func (f *FileService) MoveFile(req *request.MoveFileRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
-	userFile, err := f.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, req.FileID)
+	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
 		return nil, err
