@@ -42,7 +42,7 @@
                 <el-button 
                   v-if="row.status === 'uploading' || row.status === 'pending'"
                   link 
-                  :icon="Close" 
+                  icon="Close" 
                   type="danger"
                   @click="cancelUpload(row.id)"
                 >
@@ -51,7 +51,7 @@
                 <el-button 
                   v-if="row.status === 'completed' || row.status === 'failed'"
                   link 
-                  :icon="Delete" 
+                  icon="Delete" 
                   type="danger"
                   @click="deleteUpload(row.id)"
                 >
@@ -113,7 +113,7 @@
                 <el-button 
                   v-if="row.type !== 7 && row.state === 1"
                   link 
-                  :icon="VideoPause" 
+                  icon="VideoPause" 
                   type="warning"
                   @click="pauseDownloadTask(row.id)"
                 >
@@ -122,7 +122,7 @@
                 <el-button 
                   v-if="row.type !== 7 && row.state === 2"
                   link 
-                  :icon="VideoPlay" 
+                  icon="VideoPlay" 
                   type="primary"
                   @click="resumeDownloadTask(row.id)"
                 >
@@ -132,7 +132,7 @@
                 <el-button 
                   v-if="row.state === 0 || row.state === 1 || row.state === 2"
                   link 
-                  :icon="Close" 
+                  icon="Close" 
                   type="danger"
                   @click="cancelDownload(row.id)"
                 >
@@ -142,7 +142,7 @@
                 <el-button 
                   v-if="row.state === 3 || row.state === 4"
                   link 
-                  :icon="Delete" 
+                  icon="Delete" 
                   type="danger"
                   @click="deleteDownloadTask(row.id)"
                 >
@@ -160,9 +160,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Close, Delete, VideoPause, VideoPlay, Download } from '@element-plus/icons-vue'
 import { get } from '@/utils/request'
 import { API_ENDPOINTS } from '@/config/api'
 import { 
@@ -170,10 +167,12 @@ import {
   cancelDownload as cancelDownloadApi, 
   deleteDownload as deleteDownloadApi,
   pauseDownload,
-  resumeDownload,
-  getLocalFileDownloadUrl
+  resumeDownload
 } from '@/api/download'
 import type { OfflineDownloadTask } from '@/api/download'
+import { formatSize, formatDate, formatSpeed, getUploadStatusType, getUploadStatusText, getDownloadStatusType } from '@/utils'
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const activeTab = ref('upload')
 const uploadLoading = ref(false)
@@ -191,7 +190,7 @@ const loadUploadTasks = async () => {
       uploadTasks.value = res.data.tasks || []
     }
   } catch (error: any) {
-    console.error('加载上传任务失败:', error)
+    proxy?.$log.error('加载上传任务失败:', error)
   } finally {
     uploadLoading.value = false
   }
@@ -206,8 +205,8 @@ const loadDownloadTasks = async () => {
       downloadTasks.value = res.data.tasks || []
     }
   } catch (error: any) {
-    console.error('加载下载任务失败:', error)
-    ElMessage.error('加载下载任务失败')
+    proxy?.$log.error('加载下载任务失败:', error)
+    proxy?.$modal.msgError('加载下载任务失败')
   } finally {
     downloadLoading.value = false
   }
@@ -216,9 +215,9 @@ const loadDownloadTasks = async () => {
 // 取消上传任务
 const cancelUpload = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认取消该上传任务?', '提示', { type: 'warning' })
+    await proxy?.$modal.confirm('确认取消该上传任务?')
     // TODO: 调用取消上传API
-    ElMessage.success('已取消')
+    proxy?.$modal.msgSuccess('已取消')
     loadUploadTasks()
   } catch (error) {
     // 用户取消操作
@@ -228,9 +227,9 @@ const cancelUpload = async (taskId: string) => {
 // 删除上传任务
 const deleteUpload = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认删除该任务记录?', '提示', { type: 'warning' })
+    await proxy?.$modal.confirm('确认删除该任务记录?')
     // TODO: 调用删除任务API
-    ElMessage.success('已删除')
+    proxy?.$modal.msgSuccess('已删除')
     loadUploadTasks()
   } catch (error) {
     // 用户取消操作
@@ -240,17 +239,17 @@ const deleteUpload = async (taskId: string) => {
 // 取消下载任务
 const cancelDownload = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认取消该下载任务?', '提示', { type: 'warning' })
+    await proxy?.$modal.confirm('确认取消该下载任务?')
     const res = await cancelDownloadApi(taskId)
     if (res.code === 200) {
-      ElMessage.success('已取消')
+      proxy?.$modal.msgSuccess('已取消')
       loadDownloadTasks()
     } else {
-      ElMessage.error(res.msg || '取消失败')
+      proxy?.$modal.msgError(res.message || '取消失败')
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('取消失败')
+      proxy?.$modal.msgError('取消失败')
     }
   }
 }
@@ -258,80 +257,19 @@ const cancelDownload = async (taskId: string) => {
 // 删除下载任务
 const deleteDownloadTask = async (taskId: string) => {
   try {
-    await ElMessageBox.confirm('确认删除该任务记录?', '提示', { type: 'warning' })
+    await proxy?.$modal.confirm('确认删除该任务记录?')
     const res = await deleteDownloadApi(taskId)
     if (res.code === 200) {
-      ElMessage.success('已删除')
+      proxy?.$modal.msgSuccess('已删除')
       loadDownloadTasks()
     } else {
-      ElMessage.error(res.msg || '删除失败')
+      proxy?.$modal.msgError(res.message || '删除失败')
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      proxy?.$modal.msgError('删除失败')
     }
   }
-}
-
-// 下载网盘文件
-const downloadLocalFile = async (taskId: string) => {
-  try {
-    const token = localStorage.getItem('token')
-    const downloadUrl = getLocalFileDownloadUrl(taskId)
-    
-    ElMessage.info('下载中，请稍候...')
-    
-    const response = await fetch(downloadUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : ''
-      }
-    })
-    
-    if (!response.ok) {
-      throw new Error('下载失败')
-    }
-    
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    // 从任务信息中获取文件名
-    const task = downloadTasks.value.find(t => t.id === taskId)
-    link.download = task?.file_name || 'download'
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    
-    ElMessage.success('下载完成')
-  } catch (error: any) {
-    console.error('下载文件失败:', error)
-    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
-  }
-}
-
-// 获取上传任务状态类型
-const getUploadStatusType = (status: string) => {
-  const typeMap: Record<string, any> = {
-    pending: 'info',
-    uploading: 'primary',
-    completed: 'success',
-    failed: 'danger'
-  }
-  return typeMap[status] || 'info'
-}
-
-// 获取上传任务状态文本
-const getUploadStatusText = (status: string) => {
-  const textMap: Record<string, string> = {
-    pending: '等待中',
-    uploading: '上传中',
-    completed: '已完成',
-    failed: '失败'
-  }
-  return textMap[status] || '未知'
 }
 
 // 暂停下载任务
@@ -339,13 +277,13 @@ const pauseDownloadTask = async (taskId: string) => {
   try {
     const res = await pauseDownload(taskId)
     if (res.code === 200) {
-      ElMessage.success('已暂停')
+      proxy?.$modal.msgSuccess('已暂停')
       loadDownloadTasks()
     } else {
-      ElMessage.error(res.msg || '暂停失败')
+      proxy?.$modal.msgError(res.message || '暂停失败')
     }
   } catch (error: any) {
-    ElMessage.error('暂停失败')
+    proxy?.$modal.msgError('暂停失败')
   }
 }
 
@@ -354,13 +292,13 @@ const resumeDownloadTask = async (taskId: string) => {
   try {
     const res = await resumeDownload(taskId)
     if (res.code === 200) {
-      ElMessage.success('已恢复')
+      proxy?.$modal.msgSuccess('已恢复')
       loadDownloadTasks()
     } else {
-      ElMessage.error(res.msg || '恢复失败')
+      proxy?.$modal.msgError(res.message || '恢复失败')
     }
   } catch (error: any) {
-    ElMessage.error('恢复失败')
+    proxy?.$modal.msgError('恢复失败')
   }
 }
 
@@ -388,31 +326,6 @@ const getDownloadStatusType = (state: number) => {
     4: 'danger'     // 失败
   }
   return typeMap[state] || 'info'
-}
-
-// 格式化速度
-const formatSpeed = (speed: number): string => {
-  if (!speed || speed === 0) return '0 B/s'
-  const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(speed) / Math.log(k))
-  return (speed / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化文件大小
-const formatSize = (bytes: number): string => {
-  if (!bytes || bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i]
-}
-
-// 格式化日期
-const formatDate = (dateStr: string): string => {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
 }
 
 // 页面加载时获取任务列表

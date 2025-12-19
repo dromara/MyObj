@@ -120,14 +120,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, FormInstance, FormRules } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
 import { login, register, getChallenge, getSysInfo } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
-import type { LoginRequest, RegisterRequest } from '@/types'
 
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const router = useRouter()
 const activeTab = ref('login')
 const loading = ref(false)
@@ -158,13 +154,13 @@ const toggleMode = () => {
 
 const handleLogin = async () => {
   if (!loginFormRef.value) return
-  await loginFormRef.value.validate(async (valid) => {
+  await loginFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       loading.value = true
       try {
         const challengeRes = await getChallenge()
         if (!challengeRes.data?.publicKey || !challengeRes.data.id) {
-          ElMessage.error('连接失败')
+          proxy?.$modal.msgError('连接失败')
           return
         }
         const encryptedPassword = rsaEncrypt(challengeRes.data.publicKey, loginForm.password)
@@ -174,14 +170,14 @@ const handleLogin = async () => {
           challenge: challengeRes.data.id
         })
         if (res.data?.token) {
-          localStorage.setItem('token', res.data.token)
-          localStorage.setItem('userInfo', JSON.stringify(res.data.user_info))
-          localStorage.setItem('username', loginForm.username)
-          ElMessage.success('登录成功')
+          proxy?.$cache.local.set('token', res.data.token)
+          proxy?.$cache.local.setJSON('userInfo', res.data.user_info)
+          proxy?.$cache.local.set('username', loginForm.username)
+          proxy?.$modal.msgSuccess('登录成功')
           router.push('/files')
         }
       } catch (error: any) {
-        ElMessage.error(error.message || '登录失败')
+        proxy?.$modal.msgError(error.message || '登录失败')
       } finally {
         loading.value = false
       }
@@ -191,7 +187,7 @@ const handleLogin = async () => {
 
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  await registerFormRef.value.validate(async (valid) => {
+  await registerFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       loading.value = true
       try {
@@ -204,7 +200,7 @@ const handleRegister = async () => {
           email: registerForm.email,
           challenge: challengeRes.data.id
         })
-        ElMessage.success('注册成功')
+        proxy?.$modal.msgSuccess('注册成功')
         if (isFirstUse.value) {
           loginForm.username = registerForm.username
           loginForm.password = registerForm.password
@@ -213,7 +209,7 @@ const handleRegister = async () => {
           activeTab.value = 'login'
         }
       } catch (error: any) {
-        ElMessage.error(error.message || '注册失败')
+        proxy?.$modal.msgError(error.message || '注册失败')
       } finally {
         loading.value = false
       }

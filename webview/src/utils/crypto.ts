@@ -1,5 +1,6 @@
 // RSA加密工具函数
 import JSEncrypt from 'jsencrypt'
+import logger from '@/plugins/logger'
 
 /**
  * 使用RSA公钥加密数据（PKCS1填充）
@@ -19,7 +20,7 @@ export const rsaEncrypt = (publicKey: string, data: string): string => {
     
     return encrypted
   } catch (error) {
-    console.error('RSA加密错误:', error)
+    logger.error('RSA加密错误:', error)
     throw new Error('RSA加密失败')
   }
 }
@@ -42,7 +43,7 @@ export const rsaDecrypt = (privateKey: string, encryptedData: string): string =>
     
     return decrypted
   } catch (error) {
-    console.error('RSA解密错误:', error)
+    logger.error('RSA解密错误:', error)
     throw new Error('RSA解密失败')
   }
 }

@@ -1,0 +1,18 @@
+/* 全局样式入口文件 */
+/* 导入顺序很重要：变量 -> 重置 -> 组件样式 -> 工具类 */
+
+/* CSS 变量 */
+@import './variables.css';
+
+/* 全局重置样式 */
+@import './reset.css';
+
+/* 滚动条样式 */
+@import './scrollbar.css';
+
+/* Element Plus 样式覆盖 */
+@import './element-plus.css';
+
+/* 工具类和动画 */
+@import './utilities.css';
+

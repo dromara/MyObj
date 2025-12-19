@@ -818,14 +818,26 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	}
 
 	// 构造上传数据
+	// 安全地获取分片 MD5，避免数组越界
+	var firstChunkHash, secondChunkHash, thirdChunkHash string
+	if len(precheckReq.FilesMd5) > 0 {
+		firstChunkHash = precheckReq.FilesMd5[0]
+	}
+	if len(precheckReq.FilesMd5) > 1 {
+		secondChunkHash = precheckReq.FilesMd5[1]
+	}
+	if len(precheckReq.FilesMd5) > 2 {
+		thirdChunkHash = precheckReq.FilesMd5[2]
+	}
+
 	uploadData := &upload.FileUploadData{
 		TempFilePath:    filepath.Join(tempBaseDir, "0.chunk.data"), // 第一个分片路径作为基础
 		FileName:        header.Filename,
 		FileSize:        precheckReq.FileSize,
 		ChunkSignature:  precheckReq.ChunkSignature,
-		FirstChunkHash:  precheckReq.FilesMd5[0],
-		SecondChunkHash: precheckReq.FilesMd5[1],
-		ThirdChunkHash:  precheckReq.FilesMd5[2],
+		FirstChunkHash:  firstChunkHash,
+		SecondChunkHash: secondChunkHash,
+		ThirdChunkHash:  thirdChunkHash,
 		IsEnc:           req.IsEnc,
 		IsChunk:         true,
 		ChunkCount:      totalChunks,
