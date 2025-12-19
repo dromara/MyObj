@@ -42,9 +42,14 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 		logger.LOG.Error("生成密码失败", "error", err)
 		return nil, err
 	}
+	userFile, err := s.factory.UserFiles().GetByUserIDAndUfID(context.Background(), userID, req.FileID)
+	if err != nil {
+		logger.LOG.Error("获取文件失败", "error", err)
+		return nil, err
+	}
 	data := &models.Share{
 		UserID:        userID,
-		FileID:        req.FileID,
+		FileID:        userFile.FileID,
 		Token:         uid,
 		ExpiresAt:     req.Expire,
 		PasswordHash:  password,
