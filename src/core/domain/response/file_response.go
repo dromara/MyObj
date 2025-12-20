@@ -126,3 +126,33 @@ type VideoFileInfo struct {
 	// MIME 类型
 	MimeType string `json:"mime_type"`
 }
+
+// PublicFileItem 公开文件列表项
+type PublicFileItem struct {
+	// 用户文件ID
+	UfID string `json:"uf_id"`
+	// 文件名
+	FileName string `json:"file_name"`
+	// 文件大小
+	FileSize int `json:"file_size"`
+	// MIME 类型
+	MimeType string `json:"mime_type"`
+	// 所属用户名
+	OwnerName string `json:"owner_name"`
+	// 是否有缩略图
+	HasThumbnail bool `json:"has_thumbnail"`
+	// 创建时间
+	CreatedAt custom_type.JsonTime `json:"created_at"`
+}
+
+// PublicFileListResponse 公开文件列表响应
+type PublicFileListResponse struct {
+	// 文件列表
+	Files []PublicFileItem `json:"files"`
+	// 总数
+	Total int64 `json:"total"`
+	// 当前页
+	Page int `json:"page"`
+	// 每页数量
+	PageSize int `json:"page_size"`
+}

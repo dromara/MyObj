@@ -175,3 +175,37 @@ export const uploadFile = (data: uploadParams) => {
   return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData)
 }
 
+// 公开文件列表请求参数
+export interface PublicFileListParams {
+  type?: string
+  sortBy?: string
+  page: number
+  pageSize: number
+}
+
+// 公开文件列表项
+export interface PublicFileItem {
+  uf_id: string
+  file_name: string
+  file_size: number
+  mime_type: string
+  owner_name: string
+  has_thumbnail: boolean
+  created_at: string
+}
+
+// 公开文件列表响应
+export interface PublicFileListResponse {
+  files: PublicFileItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/**
+ * 获取公开文件列表（文件广场）
+ */
+export const getPublicFileList = (params: PublicFileListParams) => {
+  return get<ApiResponse<PublicFileListResponse>>(API_ENDPOINTS.FILE.PUBLIC_LIST, params)
+}
+

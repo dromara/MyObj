@@ -46,6 +46,8 @@ export const API_ENDPOINTS = {
     // 搜索
     SEARCH_USER: '/file/search/user',
     SEARCH_PUBLIC: '/file/search/public',
+    // 公开文件列表
+    PUBLIC_LIST: '/file/public/list',
   },
   
   // 文件夹相关

@@ -85,3 +85,15 @@ type VideoPlayPrecheckRequest struct {
 	// 分享密码（如果是分享链接访问）
 	SharePassword string `json:"share_password"`
 }
+
+// PublicFileListRequest 公开文件列表请求
+type PublicFileListRequest struct {
+	// 文件类型
+	Type string `form:"type"`
+	// 排序字段（name, size, time）
+	SortBy string `form:"sortBy"`
+	// 页码（从1开始）
+	Page int `form:"page" binding:"required,min=1"`
+	// 每页数量
+	PageSize int `form:"pageSize" binding:"required,min=1,max=100"`
+}

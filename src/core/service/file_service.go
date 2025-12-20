@@ -16,6 +16,7 @@ import (
 	"myobj/src/pkg/upload"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -944,4 +945,121 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 		"file_id":     fileID,
 		"is_complete": true,
 	}), nil
+}
+
+// PublicFileList 获取公开文件列表
+func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 默认分页参数
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	// 获取所有公开文件
+	userFiles, err := f.factory.UserFiles().ListPublicFiles(ctx, offset, pageSize)
+	if err != nil {
+		logger.LOG.Error("获取公开文件列表失败", "error", err)
+		return nil, err
+	}
+
+	// 统计公开文件数量
+	total, err := f.factory.UserFiles().CountPublicFiles(ctx)
+	if err != nil {
+		logger.LOG.Error("统计公开文件数量失败", "error", err)
+		return nil, err
+	}
+
+	// 构建响应数据
+	var fileList []response.PublicFileItem
+	for _, uf := range userFiles {
+		// 获取文件详情
+		fileInfo, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
+		if err != nil {
+			logger.LOG.Warn("获取文件信息失败", "fileID", uf.FileID, "error", err)
+			continue
+		}
+
+		// 获取文件所属用户信息
+		user, err := f.factory.User().GetByID(ctx, uf.UserID)
+		if err != nil {
+			logger.LOG.Warn("获取用户信息失败", "userID", uf.UserID, "error", err)
+			continue
+		}
+
+		// 根据文件类型过滤
+		if req.Type != "" && req.Type != "all" {
+			// 获取文件主类型（如 image、video、audio 等）
+			mainType := ""
+			if len(fileInfo.Mime) > 0 {
+				parts := strings.Split(fileInfo.Mime, "/")
+				if len(parts) > 0 {
+					mainType = parts[0]
+				}
+			}
+
+			// 特殊处理压缩文件
+			if req.Type == "archive" {
+				if !strings.Contains(fileInfo.Mime, "zip") && !strings.Contains(fileInfo.Mime, "rar") &&
+					!strings.Contains(fileInfo.Mime, "7z") && !strings.Contains(fileInfo.Mime, "tar") &&
+					!strings.Contains(fileInfo.Mime, "gzip") {
+					continue
+				}
+			} else if req.Type == "doc" {
+				// 文档类型：pdf、word、excel、ppt等
+				if !strings.Contains(fileInfo.Mime, "pdf") && !strings.Contains(fileInfo.Mime, "word") &&
+					!strings.Contains(fileInfo.Mime, "document") && !strings.Contains(fileInfo.Mime, "excel") &&
+					!strings.Contains(fileInfo.Mime, "spreadsheet") && !strings.Contains(fileInfo.Mime, "powerpoint") &&
+					!strings.Contains(fileInfo.Mime, "presentation") {
+					continue
+				}
+			} else if mainType != req.Type {
+				// 其他类型直接匹配主类型（image、video、audio）
+				continue
+			}
+		}
+
+		fileList = append(fileList, response.PublicFileItem{
+			UfID:         uf.UfID,
+			FileName:     uf.FileName,
+			FileSize:     fileInfo.Size,
+			MimeType:     fileInfo.Mime,
+			OwnerName:    user.Name,
+			HasThumbnail: fileInfo.ThumbnailImg != "",
+			CreatedAt:    uf.CreatedAt,
+		})
+	}
+
+	// 排序
+	if req.SortBy != "" {
+		switch req.SortBy {
+		case "name":
+			sort.Slice(fileList, func(i, j int) bool {
+				return fileList[i].FileName < fileList[j].FileName
+			})
+		case "size":
+			sort.Slice(fileList, func(i, j int) bool {
+				return fileList[i].FileSize > fileList[j].FileSize
+			})
+		case "time":
+			sort.Slice(fileList, func(i, j int) bool {
+				return fileList[i].CreatedAt.After(fileList[j].CreatedAt)
+			})
+		}
+	}
+
+	resp := response.PublicFileListResponse{
+		Files:    fileList,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	return models.NewJsonResponse(200, "获取成功", resp), nil
 }

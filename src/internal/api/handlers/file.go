@@ -30,6 +30,15 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		f.service.GetRepository().User(),
 		f.service.GetRepository().GroupPower(),
 		f.service.GetRepository().Power())
+
+	// 公开路由（不需要验证）
+	publicGroup := c.Group("/file")
+	{
+		// 公开文件列表
+		publicGroup.GET("/public/list", f.PublicFileList)
+	}
+
+	// 需要验证的路由
 	fileGroup := c.Group("/file")
 	{
 		fileGroup.Use(verify.Verify())
@@ -43,6 +52,7 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.GET("/thumbnail/:fileId", middleware.PowerVerify("file:preview"), f.GetThumbnail)
 		// 搜索当前用户文件
 		fileGroup.GET("/search/user", middleware.PowerVerify("file:preview"), f.SearchUserFiles)
+		// 搜索公开文件
 		fileGroup.GET("/file/search/public", middleware.PowerVerify("file:preview"), f.SearchPublicFiles)
 		// 创建目录
 		fileGroup.POST("/makeDir", middleware.PowerVerify("dir:create"), f.MakeDir)
@@ -301,5 +311,29 @@ func (f *FileHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
+	c.JSON(200, result)
+}
+
+// PublicFileList 广场公开文件列表
+// @Summary 获取广场公开文件列表
+// @Description 获取广场公开文件列表
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param request body request.PublicFileListRequest true "请求参数"
+// @Success 200 {object} models.JsonResponse{data=object} "成功"
+// @Failure 500 {object} models.JsonResponse "失败"
+// @Router /file/public/list [get]
+func (f *FileHandler) PublicFileList(c *gin.Context) {
+	req := new(request.PublicFileListRequest)
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.PublicFileList(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "获取文件列表失败", err.Error()))
+		return
+	}
 	c.JSON(200, result)
 }

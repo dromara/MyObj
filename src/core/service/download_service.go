@@ -132,13 +132,23 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 	// 转换为响应格式
 	taskResponses := make([]*response.DownloadTaskResponse, 0, len(tasks))
 	for _, task := range tasks {
-		userFile, err := d.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, task.FileID)
-		if err != nil {
-			logger.LOG.Error("获取用户文件信息失败", "error", err, "fileID", task.FileID, "userID", userID)
-			return nil, err
-		}
 		t := d.convertTaskToResponse(task)
-		t.FileID = userFile.UfID
+
+		// 只有已完成的任务才有 FileID，需要查询 user_files 获取 uf_id
+		if task.State == enum.DownloadTaskStateFinished.Value() && task.FileID != "" {
+			userFile, err := d.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, task.FileID)
+			if err != nil {
+				logger.LOG.Warn("获取用户文件信息失败", "error", err, "fileID", task.FileID, "userID", userID)
+				// 不阻断整个列表，继续处理下一个任务
+				t.FileID = task.FileID // 使用原始 FileID
+			} else {
+				t.FileID = userFile.UfID // 返回 uf_id
+			}
+		} else {
+			// 未完成的任务，返回空字符串
+			t.FileID = ""
+		}
+
 		taskResponses = append(taskResponses, t)
 	}
 
@@ -364,7 +374,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 		ID:               taskID,
 		UserID:           userID,
 		Type:             enum.DownloadTaskTypeLocalFile.Value(),
-		URL:              req.FileID, // 存储FileID在URL字段
+		URL:              req.FileID, // 存储 uf_id 在URL字段
 		FileName:         fileInfo.Name,
 		FileSize:         int64(fileInfo.Size),
 		VirtualPath:      "",    // 网盘下载不需要虚拟路径
@@ -380,6 +390,9 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 		return nil, fmt.Errorf("创建任务失败: %w", err)
 	}
 
+	// 保存真实的 file_id，用于异步任务
+	realFileID := userFile.FileID
+
 	// 4. 异步准备下载文件（解密+合并）
 	go func() {
 		// 更新任务状态为准备中
@@ -393,7 +406,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 
 		result, err := download.PrepareLocalFileDownload(
 			context.Background(),
-			req.FileID,
+			realFileID, // 使用真实的 file_id
 			userID,
 			d.tempDir,
 			d.factory,
@@ -419,10 +432,10 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 		task.FinishTime = custom_type.Now()
 		d.factory.DownloadTask().Update(context.Background(), task)
 
-		logger.LOG.Info("网盘文件下载准备完成", "taskID", taskID, "fileID", req.FileID, "tempPath", result.TempFilePath)
+		logger.LOG.Info("网盘文件下载准备完成", "taskID", taskID, "realFileID", realFileID, "ufID", req.FileID, "tempPath", result.TempFilePath)
 	}()
 
-	logger.LOG.Info("网盘文件下载任务已创建", "taskID", taskID, "userID", userID, "fileID", req.FileID)
+	logger.LOG.Info("网盘文件下载任务已创建", "taskID", taskID, "userID", userID, "ufID", req.FileID, "realFileID", realFileID)
 
 	// 返回任务信息
 	return models.NewJsonResponse(200, "任务创建成功", map[string]interface{}{

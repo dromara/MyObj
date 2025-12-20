@@ -42,8 +42,7 @@
       </el-radio-group>
       
       <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px" @change="handleSortChange">
-        <el-option label="最新上传" value="newest" />
-        <el-option label="最多下载" value="downloads" />
+        <el-option label="最新上传" value="time" />
         <el-option label="文件大小" value="size" />
         <el-option label="文件名称" value="name" />
       </el-select>
@@ -53,29 +52,26 @@
     <div v-if="viewMode === 'grid'" class="file-grid" v-loading="loading">
       <el-card
         v-for="file in filteredFiles"
-        :key="file.id"
+        :key="file.uf_id"
         shadow="hover"
         class="file-card"
         @click="handleFileClick(file)"
         @dblclick="handleFileClick(file)"
       >
         <div class="file-icon">
-          <el-icon :size="64" :color="getFileColor(file.type)">
-            <component :is="getFileIcon(file.type)" />
+          <el-icon :size="64" :color="getFileIconColor(file.mime_type)">
+            <component :is="getFileIconName(file.mime_type)" />
           </el-icon>
         </div>
-        <div class="file-name" :title="file.name">{{ file.name }}</div>
+        <div class="file-name" :title="file.file_name">{{ file.file_name }}</div>
         <div class="file-meta">
           <div class="file-info">
-            <span>{{ formatFileSize(file.size) }}</span>
+            <span>{{ formatFileSize(file.file_size) }}</span>
             <span>·</span>
-            <span>{{ file.ownerName }}</span>
+            <span>{{ file.owner_name }}</span>
           </div>
           <div class="file-stats">
-            <el-icon><View /></el-icon>
-            <span>{{ file.viewCount }}</span>
-            <el-icon><Download /></el-icon>
-            <span>{{ file.downloadCount }}</span>
+            <span>{{ formatTime(file.created_at) }}</span>
           </div>
         </div>
         <div class="file-actions">
@@ -102,32 +98,22 @@
       <el-table-column label="文件名" min-width="300">
         <template #default="{ row }">
           <div class="file-name-cell">
-            <el-icon :size="24" :color="getFileColor(row.type)">
-              <component :is="getFileIcon(row.type)" />
+            <el-icon :size="24" :color="getFileIconColor(row.mime_type)">
+              <component :is="getFileIconName(row.mime_type)" />
             </el-icon>
-            <span>{{ row.name }}</span>
+            <span>{{ row.file_name }}</span>
           </div>
         </template>
       </el-table-column>
       <el-table-column label="大小" width="120">
         <template #default="{ row }">
-          {{ formatFileSize(row.size) }}
+          {{ formatFileSize(row.file_size) }}
         </template>
       </el-table-column>
-      <el-table-column label="上传者" width="150" prop="ownerName" />
-      <el-table-column label="浏览" width="100">
-        <template #default="{ row }">
-          <span>{{ row.viewCount }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="下载" width="100">
-        <template #default="{ row }">
-          <span>{{ row.downloadCount }}</span>
-        </template>
-      </el-table-column>
+      <el-table-column label="上传者" width="150" prop="owner_name" />
       <el-table-column label="上传时间" width="180">
         <template #default="{ row }">
-          {{ formatTime(row.createdAt) }}
+          {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
@@ -160,6 +146,9 @@
 <script setup lang="ts">
 import { formatSize, formatDate, getMimeTypeFromFileType } from '@/utils'
 import Preview from '@/components/Preview/index.vue'
+import { getPublicFileList, type PublicFileItem } from '@/api/file'
+import type { ComponentInternalInstance } from 'vue'
+import { getFileIcon } from '@/utils/fileIcon'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
@@ -169,128 +158,39 @@ const route = useRoute()
 const viewMode = ref<'grid' | 'list'>('grid')
 const searchKeyword = ref('')
 const fileTypeFilter = ref('all')
-const sortBy = ref('newest')
+const sortBy = ref('time')
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
-// 模拟数据 - 实际应从后端API获取
-const publicFiles = ref([
-  {
-    id: '1',
-    name: 'Vue3开发指南.pdf',
-    type: 'doc',
-    size: 2560000,
-    ownerName: '张三',
-    viewCount: 128,
-    downloadCount: 56,
-    createdAt: '2024-11-10 15:30:00'
-  },
-  {
-    id: '2',
-    name: '风景照片.jpg',
-    type: 'image',
-    size: 1800000,
-    ownerName: '李四',
-    viewCount: 256,
-    downloadCount: 89,
-    createdAt: '2024-11-11 10:20:00'
-  },
-  {
-    id: '3',
-    name: '教学视频.mp4',
-    type: 'video',
-    size: 125000000,
-    ownerName: '王五',
-    viewCount: 512,
-    downloadCount: 234,
-    createdAt: '2024-11-12 09:15:00'
-  },
-  {
-    id: '4',
-    name: '项目源码.zip',
-    type: 'archive',
-    size: 4500000,
-    ownerName: '赵六',
-    viewCount: 345,
-    downloadCount: 167,
-    createdAt: '2024-11-09 14:45:00'
-  },
-  {
-    id: '5',
-    name: '音乐专辑.mp3',
-    type: 'audio',
-    size: 3200000,
-    ownerName: '孙七',
-    viewCount: 678,
-    downloadCount: 432,
-    createdAt: '2024-11-08 16:00:00'
-  }
-])
+// 公开文件列表
+const publicFiles = ref<PublicFileItem[]>([])
 
-// 筛选后的文件列表
+// 筛选后的文件列表（仅用于前端搜索）
 const filteredFiles = computed(() => {
   let files = publicFiles.value
 
-  // 根据文件类型筛选
-  if (fileTypeFilter.value !== 'all') {
-    files = files.filter(file => file.type === fileTypeFilter.value)
-  }
-
-  // 根据搜索关键词筛选
+  // 根据搜索关键词筛选（前端过滤）
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
     files = files.filter(file => 
-      file.name.toLowerCase().includes(keyword) ||
-      file.ownerName.toLowerCase().includes(keyword)
+      file.file_name.toLowerCase().includes(keyword) ||
+      file.owner_name.toLowerCase().includes(keyword)
     )
   }
 
-  // 排序
-  files = [...files].sort((a, b) => {
-    switch (sortBy.value) {
-      case 'newest':
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      case 'downloads':
-        return b.downloadCount - a.downloadCount
-      case 'size':
-        return b.size - a.size
-      case 'name':
-        return a.name.localeCompare(b.name, 'zh-CN')
-      default:
-        return 0
-    }
-  })
-
-  total.value = files.length
   return files
 })
 
-// 获取文件图标
-const getFileIcon = (type: string) => {
-  const iconMap: Record<string, string> = {
-    doc: 'Document',
-    image: 'Picture',
-    video: 'VideoCamera',
-    audio: 'Headset',
-    archive: 'Files',
-    other: 'FolderOpened'
-  }
-  return iconMap[type] || 'Document'
+// 获取文件图标名称
+const getFileIconName = (mimeType: string) => {
+  return getFileIcon(mimeType).icon
 }
 
-// 获取文件颜色
-const getFileColor = (type: string) => {
-  const colorMap: Record<string, string> = {
-    doc: '#409EFF',
-    image: '#67C23A',
-    video: '#E6A23C',
-    audio: '#F56C6C',
-    archive: '#909399',
-    other: '#909399'
-  }
-  return colorMap[type] || '#909399'
+// 获取文件图标颜色
+const getFileIconColor = (mimeType: string) => {
+  return getFileIcon(mimeType).color
 }
 
 const formatFileSize = formatSize
@@ -302,16 +202,19 @@ const formatTime = (time: string): string => {
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
+  loadPublicFiles()
 }
 
 // 筛选处理
 const handleFilterChange = () => {
   currentPage.value = 1
+  loadPublicFiles()
 }
 
 // 排序处理
 const handleSortChange = () => {
   currentPage.value = 1
+  loadPublicFiles()
 }
 
 // 文件预览
@@ -319,57 +222,58 @@ const previewVisible = ref(false)
 const previewFile = ref<any>(null)
 
 // 点击文件
-const handleFileClick = (file: any) => {
+const handleFileClick = (file: PublicFileItem) => {
   // 将 Square 的文件格式转换为 Preview 组件需要的格式
   previewFile.value = {
-    file_id: file.id,
-    file_name: file.name,
-    file_size: file.size,
-    mime_type: getMimeTypeFromFileType(file.type),
+    file_id: file.uf_id,
+    file_name: file.file_name,
+    file_size: file.file_size,
+    mime_type: file.mime_type,
     is_enc: false,
-    has_thumbnail: file.type === 'image',
-    created_at: file.createdAt
+    has_thumbnail: file.has_thumbnail,
+    created_at: file.created_at
   }
   previewVisible.value = true
 }
 
 
 // 下载文件
-const handleDownload = (file: any) => {
-  proxy?.$modal.msgSuccess(`开始下载: ${file.name}`)
+const handleDownload = (file: PublicFileItem) => {
+  proxy?.$modal.msgSuccess(`开始下载: ${file.file_name}`)
   // TODO: 调用下载API
 }
 
 // 分页处理
 const handlePageChange = (page: number) => {
   currentPage.value = page
-  // TODO: 加载对应页的数据
+  loadPublicFiles()
 }
 
 const handleSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
-  // TODO: 重新加载数据
+  loadPublicFiles()
 }
 
 // 加载公开文件列表
 const loadPublicFiles = async () => {
   loading.value = true
   try {
-    // TODO: 调用后端API获取公开文件列表
-    // const response = await searchPublicFiles({
-    //   keyword: searchKeyword.value,
-    //   type: fileTypeFilter.value,
-    //   sortBy: sortBy.value,
-    //   page: currentPage.value,
-    //   pageSize: pageSize.value
-    // })
-    // publicFiles.value = response.data.files
-    // total.value = response.data.total
+    const response = await getPublicFileList({
+      type: fileTypeFilter.value === 'all' ? undefined : fileTypeFilter.value,
+      sortBy: sortBy.value,
+      page: currentPage.value,
+      pageSize: pageSize.value
+    })
     
-    // 模拟加载延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
+    if (response.code === 200 && response.data) {
+      publicFiles.value = response.data.files
+      total.value = response.data.total
+    } else {
+      proxy?.$modal.msgError(response.msg || '加载失败')
+    }
   } catch (error) {
+    console.error('加载公开文件列表失败:', error)
     proxy?.$modal.msgError('加载失败')
   } finally {
     loading.value = false
