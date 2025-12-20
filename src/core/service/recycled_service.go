@@ -322,7 +322,6 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 				"returned_size", fileInfo.Size,
 				"new_free_space", user.FreeSpace)
 		}
-
 		return nil
 	})
 }

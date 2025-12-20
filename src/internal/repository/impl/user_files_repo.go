@@ -35,7 +35,7 @@ func (r *userFilesRepository) Update(ctx context.Context, userFile *models.UserF
 }
 
 func (r *userFilesRepository) Delete(ctx context.Context, userID, fileID string) error {
-	return r.db.WithContext(ctx).Where("user_id = ? AND file_id = ?", userID, fileID).
+	return r.db.WithContext(ctx).Where("user_id = ? AND uf_id = ?", userID, fileID).
 		Delete(&models.UserFiles{}).Error
 }
 
