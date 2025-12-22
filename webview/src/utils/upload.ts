@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { UPLOAD_CONFIG } from '@/config/api'
 import type { ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
+import { uploadTaskManager } from './uploadTaskManager'
 
 // 配置项接口
 export interface UploadConfig {
@@ -27,6 +28,7 @@ export interface UploadParams {
   onProgress?: (progress: number, fileName: string) => void
   onSuccess?: (fileName: string) => void
   onError?: (error: Error, fileName: string) => void
+  taskId?: string | null // 可选：已创建的任务ID
 }
 
 /**
@@ -109,26 +111,61 @@ class ConcurrentUploader {
   private maxConcurrent: number
   private runningChunks: number = 0
   private chunkQueue: (() => Promise<void>)[] = []
+  private isPaused: boolean = false
+  private taskId: string | null = null
 
-  constructor(maxConcurrent: number) {
+  constructor(maxConcurrent: number, taskId?: string) {
     this.maxConcurrent = maxConcurrent
+    this.taskId = taskId || null
+  }
+
+  // 暂停
+  public pause() {
+    this.isPaused = true
+  }
+
+  // 继续
+  public resume() {
+    this.isPaused = false
+    this.processQueue()
+  }
+
+  // 检查是否暂停
+  private checkPaused(): boolean {
+    if (this.taskId) {
+      const task = uploadTaskManager.getTask(this.taskId)
+      if (task && task.status === 'paused') {
+        this.isPaused = true
+      } else if (task && task.status === 'uploading') {
+        this.isPaused = false
+      }
+    }
+    return this.isPaused
   }
 
   // 添加分片到队列
   public addChunk(chunkUploadFn: () => Promise<void>): void {
     this.chunkQueue.push(chunkUploadFn)
-    this.processQueue()
+    if (!this.checkPaused()) {
+      this.processQueue()
+    }
   }
 
   // 处理队列
   private processQueue(): void {
-    while (this.runningChunks < this.maxConcurrent && this.chunkQueue.length > 0) {
+    if (this.checkPaused()) {
+      return
+    }
+    
+    while (this.runningChunks < this.maxConcurrent && this.chunkQueue.length > 0 && !this.checkPaused()) {
       const chunkUploadFn = this.chunkQueue.shift()
       if (chunkUploadFn) {
         this.runningChunks++
         chunkUploadFn().finally(() => {
           this.runningChunks--
-          this.processQueue()
+          if (!this.checkPaused()) {
+            this.processQueue()
+          }
         })
       }
     }
@@ -137,6 +174,37 @@ class ConcurrentUploader {
   // 等待所有分片上传完成
   public async waitForAll(): Promise<void> {
     while (this.runningChunks > 0 || this.chunkQueue.length > 0) {
+      // 检查任务状态
+      if (this.taskId) {
+        const task = uploadTaskManager.getTask(this.taskId)
+        if (task) {
+          // 如果任务被取消或失败，直接退出
+          if (task.status === 'cancelled' || task.status === 'failed') {
+            return
+          }
+          // 如果任务暂停，等待恢复
+          if (task.status === 'paused') {
+            while (task.status === 'paused') {
+              await new Promise(resolve => setTimeout(resolve, 100))
+              const currentTask = uploadTaskManager.getTask(this.taskId)
+              if (!currentTask) break
+              // 如果恢复后状态变为取消或失败，直接退出
+              if (currentTask.status === 'cancelled' || currentTask.status === 'failed') {
+                return
+              }
+              // 如果状态不再是暂停，退出循环
+              if (currentTask.status !== 'paused') {
+                break
+              }
+            }
+            // 恢复后继续处理队列
+            this.processQueue()
+            continue
+          }
+        }
+      }
+      
+      // 正常等待
       await new Promise(resolve => setTimeout(resolve, 100))
     }
   }
@@ -153,7 +221,8 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     config = {},
     onProgress,
     onSuccess,
-    onError
+    onError,
+    taskId: providedTaskId
   } = params
 
   // 合并配置
@@ -165,11 +234,26 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     throw new Error(`文件 ${file.name} 大小超过限制（最大 ${maxSizeMB}MB）`)
   }
   
+  // 使用提供的任务ID，如果没有则创建新任务
+  let taskId: string | null = providedTaskId || null
+  if (!taskId) {
+    try {
+      taskId = uploadTaskManager.createTask(file.name, file.size)
+    } catch (err) {
+      logger.error('创建上传任务失败:', err)
+    }
+  }
+  
   try {
       ElMessage.info(`开始处理文件: ${file.name}`)
 
       // 1. 计算文件MD5
-      const fileMD5 = await calculateFileMD5(file, uploadConfig.chunkSize, (progress) => {
+      const fileMD5 = await calculateFileMD5(file, uploadConfig.chunkSize, (md5Progress) => {
+        // MD5计算占10%进度
+        const progress = Math.floor(md5Progress * 0.1)
+        if (taskId) {
+          uploadTaskManager.updateProgress(taskId, progress, Math.floor(file.size * md5Progress * 0.1))
+        }
         onProgress?.(progress, file.name)
       })
 
@@ -200,6 +284,9 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
     // 秒传成功
     if (precheckResponse.code === 200) {
+      if (taskId) {
+        uploadTaskManager.completeTask(taskId)
+      }
       ElMessage.success(`文件 ${file.name} 秒传成功`)
       onSuccess?.(file.name)
       return precheckResponse
@@ -212,16 +299,23 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       // 计算分片数
       const totalChunks = Math.ceil(file.size / uploadConfig.chunkSize)
       const uploadedChunks = new Set<number>()
-      const concurrentUploader = new ConcurrentUploader(uploadConfig.maxConcurrentChunks)
+      const concurrentUploader = new ConcurrentUploader(uploadConfig.maxConcurrentChunks, taskId || undefined)
       const precheckId = precheckResponse.data?.precheck_id || precheckResponse.data
 
       if (!precheckId) {
+        if (taskId) {
+          uploadTaskManager.failTask(taskId, 'precheck_id获取失败')
+        }
         throw new Error('precheck_id获取失败')
       }
 
       // 4. 上传文件（根据文件大小选择分片或不分片上传）
       if (file.size <= uploadConfig.chunkSize) {
         // 小文件，单分片上传
+        if (taskId) {
+          uploadTaskManager.updateProgress(taskId, 10, Math.floor(file.size * 0.1))
+        }
+        
         const uploadParams = {
           precheck_id: precheckId,
           file: file,
@@ -231,15 +325,27 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
           is_enc: false
         }
 
-        const uploadResponse = await uploadFile(uploadParams)
+        const uploadResponse = await uploadFile(uploadParams, (_percent, loaded, _total) => {
+          // 小文件上传进度，实时更新
+          if (taskId && loaded !== undefined) {
+            const totalProgress = Math.floor(10 + (loaded / file.size) * 90)
+            uploadTaskManager.updateProgress(taskId, totalProgress, loaded)
+          }
+        })
         logger.debug('上传接口响应:', uploadResponse)
 
         if (uploadResponse.code === 200) {
           // 更新上传进度
+          if (taskId) {
+            uploadTaskManager.completeTask(taskId)
+          }
           onProgress?.(100, file.name)
           ElMessage.success(`文件 ${file.name} 上传成功`)
           onSuccess?.(file.name)
         } else {
+          if (taskId) {
+            uploadTaskManager.failTask(taskId, uploadResponse.message || '上传失败')
+          }
           throw new Error(uploadResponse.message)
         }
       } else {
@@ -256,10 +362,51 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
             // 创建上传任务
             const uploadChunkTask = async () => {
               try {
+                // 检查是否暂停
+                if (taskId) {
+                  const task = uploadTaskManager.getTask(taskId)
+                  if (task && task.status === 'paused') {
+                    // 等待恢复
+                    while (task.status === 'paused') {
+                      await new Promise(resolve => setTimeout(resolve, 100))
+                      const currentTask = uploadTaskManager.getTask(taskId)
+                      if (!currentTask || currentTask.status !== 'paused') break
+                    }
+                  }
+                  // 如果任务被取消，停止上传
+                  const currentTask = uploadTaskManager.getTask(taskId)
+                  if (currentTask && (currentTask.status === 'cancelled' || currentTask.status === 'failed')) {
+                    return
+                  }
+                }
+
                 // 计算分片MD5
                 const chunkMD5 = await calculateChunkMD5(chunk)
 
-                // 上传分片
+                // 再次检查暂停状态
+                if (taskId) {
+                  const task = uploadTaskManager.getTask(taskId)
+                  if (task && task.status === 'paused') {
+                    // 暂停时等待恢复
+                    while (task.status === 'paused') {
+                      await new Promise(resolve => setTimeout(resolve, 100))
+                      const currentTask = uploadTaskManager.getTask(taskId)
+                      if (!currentTask || currentTask.status !== 'paused') break
+                    }
+                    // 如果恢复后状态变为取消或失败，直接返回
+                    const currentTask = uploadTaskManager.getTask(taskId)
+                    if (currentTask && (currentTask.status === 'cancelled' || currentTask.status === 'failed')) {
+                      return
+                    }
+                  }
+                  // 如果任务被取消或失败，停止上传
+                  const currentTask = uploadTaskManager.getTask(taskId)
+                  if (currentTask && (currentTask.status === 'cancelled' || currentTask.status === 'failed')) {
+                    return
+                  }
+                }
+
+                // 上传分片（带进度回调，用于实时更新总进度和速度）
                 await uploadFile({
                   precheck_id: precheckId,
                   file: chunkFile,
@@ -267,6 +414,25 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
                   total_chunks: totalChunks,
                   chunk_md5: chunkMD5,
                   is_enc: false // 默认不加密
+                }, (_percent, loaded, _total) => {
+                  // 分片上传进度，用于实时更新总进度
+                  if (taskId && loaded !== undefined) {
+                    // 计算当前分片已上传大小
+                    const chunkUploaded = loaded
+                    // 计算总已上传大小（之前已完成的分片 + 当前分片已上传部分）
+                    // 注意：这里只计算已完成的分片，不包括当前正在上传的分片
+                    const previousChunksSize = Array.from(uploadedChunks).reduce((sum) => {
+                      return sum + uploadConfig.chunkSize
+                    }, 0)
+                    // 当前分片的上传大小不能超过分片大小
+                    const currentChunkSize = Math.min(chunkUploaded, uploadConfig.chunkSize)
+                    const totalUploaded = previousChunksSize + currentChunkSize
+                    // 确保不超过文件总大小
+                    const clampedTotalUploaded = Math.min(totalUploaded, file.size)
+                    const totalProgress = Math.floor(10 + (clampedTotalUploaded / file.size) * 90)
+                    // 更新进度（会自动计算速度）
+                    uploadTaskManager.updateProgress(taskId, totalProgress, clampedTotalUploaded)
+                  }
                 })
 
                 // 标记分片上传完成
@@ -274,8 +440,23 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
                 // 更新上传进度（MD5计算10% + 分片上传90%）
                 const uploadProgress = Math.floor(10 + (uploadedChunks.size / totalChunks) * 90)
+                const uploadedSize = Math.floor(file.size * uploadProgress / 100)
+                if (taskId) {
+                  // 自动计算速度
+                  uploadTaskManager.updateProgress(taskId, uploadProgress, uploadedSize)
+                }
                 onProgress?.(uploadProgress, file.name)
               } catch (error) {
+                // 如果是取消错误，不标记为失败
+                if (error instanceof Error && error.message === '上传已取消') {
+                  return
+                }
+                if (taskId) {
+                  const task = uploadTaskManager.getTask(taskId)
+                  if (task && task.status !== 'cancelled') {
+                    uploadTaskManager.failTask(taskId, error instanceof Error ? error.message : '上传失败')
+                  }
+                }
                 onError?.(error as Error, file.name)
                 throw error
               }
@@ -290,19 +471,45 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         await concurrentUploader.waitForAll()
 
         // 6. 检查是否所有分片都上传成功
+        // 如果任务是暂停或取消状态，不检查分片完成情况
+        if (taskId) {
+          const task = uploadTaskManager.getTask(taskId)
+          if (task && (task.status === 'paused' || task.status === 'cancelled')) {
+            // 暂停或取消状态，不抛出错误，直接返回
+            return
+          }
+        }
+        
         if (uploadedChunks.size !== totalChunks) {
+          if (taskId) {
+            uploadTaskManager.failTask(taskId, '部分分片上传失败，请重试')
+          }
           throw new Error('部分分片上传失败，请重试')
         }
 
         // 更新上传进度为100%
+        if (taskId) {
+          uploadTaskManager.completeTask(taskId)
+        }
         onProgress?.(100, file.name)
         ElMessage.success(`文件 ${file.name} 上传成功`)
         onSuccess?.(file.name)
       }
     } else {
+      // 预检失败
+      if (taskId) {
+        uploadTaskManager.failTask(taskId, precheckResponse.message || '预检失败')
+      }
       throw new Error(precheckResponse.message)
     }
   } catch (error: any) {
+    // 如果任务已创建但未处理，标记为失败
+    if (taskId) {
+      const task = uploadTaskManager.getTask(taskId)
+      if (task && task.status !== 'completed' && task.status !== 'failed') {
+        uploadTaskManager.failTask(taskId, error.message || '上传失败')
+      }
+    }
     logger.error(`处理文件 ${file.name} 时出错:`, error)
     ElMessage.error(`处理文件 ${file.name} 时出错: ${error.message}`)
     onError?.(error, file.name)
@@ -326,15 +533,28 @@ export const uploadMultipleFiles = async (
   onSuccess?: (fileName: string) => void,
   onError?: (error: Error, fileName: string) => void
 ): Promise<void> => {
+  // 先为所有文件创建任务，确保所有任务立即显示
+  const fileTaskMap = new Map<File, string>()
+  for (const file of files) {
+    try {
+      const taskId = uploadTaskManager.createTask(file.name, file.size)
+      fileTaskMap.set(file, taskId)
+    } catch (err) {
+      logger.error(`为文件 ${file.name} 创建任务失败:`, err)
+    }
+  }
+
   // 遍历处理每个文件
   for (const file of files) {
+    const taskId = fileTaskMap.get(file)
     await uploadSingleFile({
       file,
       pathId,
       config,
       onProgress,
       onSuccess,
-      onError
+      onError,
+      taskId // 传递已创建的任务ID
     })
   }
 }
@@ -370,7 +590,8 @@ export const handleFileUpload = async (
   onProgress?: (progress: number, fileName: string) => void,
   onSuccess?: (fileName: string) => void,
   onError?: (error: Error, fileName: string) => void,
-  multiple: boolean = true
+  multiple: boolean = true,
+  onFilesSelected?: () => void
 ): Promise<void> => {
   try {
     // 1. 选择文件
@@ -380,10 +601,17 @@ export const handleFileUpload = async (
       return
     }
 
-    // 2. 显示上传提示
+    // 2. 文件选择完成后，调用回调（用于跳转等操作）
+    if (onFilesSelected) {
+      onFilesSelected()
+      // 等待一下让页面跳转完成，再开始上传
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+
+    // 3. 显示上传提示
     ElMessage.info(`开始上传 ${files.length} 个文件`)
 
-    // 3. 上传文件
+    // 4. 上传文件
     await uploadMultipleFiles(files, pathId, config, onProgress, onSuccess, onError)
   } catch (error: any) {
     logger.error('处理文件上传时出错:', error)

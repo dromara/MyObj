@@ -515,7 +515,14 @@ const handleUpload = async () => {
       proxy?.$log.error(`文件 ${fileName} 上传失败:`, error)
       proxy?.$modal.msgError(`文件 ${fileName} 上传失败: ${error.message}`)
     },
-    true // 允许选择多个文件
+    true, // 允许选择多个文件
+    () => {
+      // 文件选择完成后，跳转到任务中心的上传任务标签页
+      router.push({
+        path: '/tasks',
+        query: { tab: 'upload' }
+      })
+    }
   )
 }
 

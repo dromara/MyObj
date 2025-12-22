@@ -270,7 +270,7 @@ const loadPublicFiles = async () => {
       publicFiles.value = response.data.files
       total.value = response.data.total
     } else {
-      proxy?.$modal.msgError(response.msg || '加载失败')
+      proxy?.$modal.msgError(response.message || '加载失败')
     }
   } catch (error) {
     console.error('加载公开文件列表失败:', error)

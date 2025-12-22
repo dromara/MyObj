@@ -165,14 +165,14 @@ export interface uploadParams {
 /**
  * 上传
  */
-export const uploadFile = (data: uploadParams) => {
+export const uploadFile = (data: uploadParams, onProgress?: (percent: number, loaded?: number, total?: number) => void) => {
   const formData = new FormData();
   formData.append('precheck_id', data.precheck_id);
   formData.append('chunk_index', data.chunk_index.toString());
   formData.append('total_chunks', data.total_chunks.toString());
   formData.append('chunk_md5', data.chunk_md5);
   formData.append('is_enc', data.is_enc.toString());
-  return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData)
+  return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData, onProgress)
 }
 
 // 公开文件列表请求参数

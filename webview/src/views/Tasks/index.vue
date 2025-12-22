@@ -37,10 +37,29 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right">
               <template #default="{ row }">
+                <!-- 上传中或等待中：显示暂停和取消 -->
                 <el-button 
-                  v-if="row.status === 'uploading' || row.status === 'pending'"
+                  v-if="row.status === 'uploading'"
+                  link 
+                  icon="VideoPause" 
+                  type="warning"
+                  @click="pauseUpload(row.id)"
+                >
+                  暂停
+                </el-button>
+                <el-button 
+                  v-if="row.status === 'paused'"
+                  link 
+                  icon="VideoPlay" 
+                  type="primary"
+                  @click="resumeUpload(row.id)"
+                >
+                  继续
+                </el-button>
+                <el-button 
+                  v-if="row.status === 'uploading' || row.status === 'pending' || row.status === 'paused'"
                   link 
                   icon="Close" 
                   type="danger"
@@ -48,6 +67,7 @@
                 >
                   取消
                 </el-button>
+                <!-- 已完成或失败：显示删除 -->
                 <el-button 
                   v-if="row.status === 'completed' || row.status === 'failed'"
                   link 
@@ -160,8 +180,6 @@
 </template>
 
 <script setup lang="ts">
-import { get } from '@/utils/request'
-import { API_ENDPOINTS } from '@/config/api'
 import { 
   getDownloadTaskList, 
   cancelDownload as cancelDownloadApi, 
@@ -170,25 +188,36 @@ import {
   resumeDownload
 } from '@/api/download'
 import type { OfflineDownloadTask } from '@/api/download'
-import { formatSize, formatDate, formatSpeed, getUploadStatusType, getUploadStatusText, getDownloadStatusType } from '@/utils'
+import { formatSize, formatDate, formatSpeed, getUploadStatusType, getUploadStatusText } from '@/utils'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
-const activeTab = ref('upload')
+const route = useRoute()
+
+// 从 URL 查询参数获取标签页，默认为 'upload'
+const activeTab = ref<string>((route.query.tab as string) || 'upload')
 const uploadLoading = ref(false)
 const downloadLoading = ref(false)
 const uploadTasks = ref<any[]>([])
 const downloadTasks = ref<OfflineDownloadTask[]>([])
 let refreshTimer: number | null = null
 
+// 监听路由查询参数变化
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && (newTab === 'upload' || newTab === 'download')) {
+    activeTab.value = newTab as string
+  }
+})
+
+// 导入上传任务管理器
+import { uploadTaskManager } from '@/utils/uploadTaskManager'
+
 // 加载上传任务列表
 const loadUploadTasks = async () => {
   uploadLoading.value = true
   try {
-    const res = await get(API_ENDPOINTS.TASK.UPLOAD_LIST)
-    if (res.code === 200 && res.data) {
-      uploadTasks.value = res.data.tasks || []
-    }
+    // 从上传任务管理器获取任务列表
+    uploadTasks.value = uploadTaskManager.getAllTasks()
   } catch (error: any) {
     proxy?.$log.error('加载上传任务失败:', error)
   } finally {
@@ -212,11 +241,24 @@ const loadDownloadTasks = async () => {
   }
 }
 
+// 暂停上传任务
+const pauseUpload = (taskId: string) => {
+  uploadTaskManager.pauseTask(taskId)
+  proxy?.$modal.msgSuccess('已暂停')
+}
+
+// 继续上传任务
+const resumeUpload = (taskId: string) => {
+  uploadTaskManager.resumeTask(taskId)
+  proxy?.$modal.msgSuccess('已继续')
+  // 注意：实际的上传恢复逻辑在 upload.ts 中通过检查任务状态实现
+}
+
 // 取消上传任务
 const cancelUpload = async (taskId: string) => {
   try {
     await proxy?.$modal.confirm('确认取消该上传任务?')
-    // TODO: 调用取消上传API
+    uploadTaskManager.cancelTask(taskId)
     proxy?.$modal.msgSuccess('已取消')
     loadUploadTasks()
   } catch (error) {
@@ -228,7 +270,7 @@ const cancelUpload = async (taskId: string) => {
 const deleteUpload = async (taskId: string) => {
   try {
     await proxy?.$modal.confirm('确认删除该任务记录?')
-    // TODO: 调用删除任务API
+    uploadTaskManager.deleteTask(taskId)
     proxy?.$modal.msgSuccess('已删除')
     loadUploadTasks()
   } catch (error) {
@@ -333,11 +375,20 @@ onMounted(() => {
   loadUploadTasks()
   loadDownloadTasks()
   
-  // 每 3 秒自动刷新
+  // 订阅上传任务变化
+  const unsubscribe = uploadTaskManager.subscribe((tasks) => {
+    uploadTasks.value = tasks
+  })
+  
+  // 每 3 秒自动刷新下载任务（上传任务通过订阅实时更新）
   refreshTimer = window.setInterval(() => {
-    loadUploadTasks()
     loadDownloadTasks()
   }, 3000)
+  
+  // 页面销毁时取消订阅
+  onBeforeUnmount(() => {
+    unsubscribe()
+  })
 })
 
 // 页面销毁时清除定时器

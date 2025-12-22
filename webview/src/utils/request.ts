@@ -123,7 +123,7 @@ export const upload = <T = any>(
   url: string,
   file: File,
   outerParams: FormData,
-  onProgress?: (percent: number) => void,
+  onProgress?: (percent: number, loaded?: number, total?: number) => void,
   options: { onCancel?: (cancel: () => void) => void } = {}
 ): Promise<T> => {
   const formData = outerParams;
@@ -139,7 +139,7 @@ export const upload = <T = any>(
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const percentComplete = (e.loaded / e.total) * 100
-          onProgress(percentComplete)
+          onProgress(percentComplete, e.loaded, e.total)
         }
       })
     }
