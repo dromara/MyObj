@@ -30,10 +30,15 @@ const responseInterceptor = async <T = any>(response: Response): Promise<T> => {
   if (!response.ok) {
     // 处理 HTTP 错误
     if (response.status === 401) {
+      // 检查是否是权限不足（通过错误消息判断）
+      if (data.message && data.message.includes('用户无权限')) {
+        // 权限不足，不跳转登录页
+        throw new Error(data.message || '权限不足')
+      }
       // token过期，跳转登录
       localStorage.removeItem('token')
       window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
+      throw new Error(data.message || '登录已过期，请重新登录')
     }
     throw new Error(data.message || '请求失败')
   }
@@ -42,7 +47,13 @@ const responseInterceptor = async <T = any>(response: Response): Promise<T> => {
   if (data.code && data.code !== 200) {
     // 业务错误
     if (data.code === 401) {
-      // token无效或过期
+      // 区分"用户未登录"和"用户无权限"
+      // 如果是权限不足，不跳转登录页，而是抛出错误让调用方处理
+      if (data.message && data.message.includes('用户无权限')) {
+        // 权限不足，不跳转登录页
+        throw new Error(data.message || '权限不足')
+      }
+      // token无效或过期，跳转登录
       localStorage.removeItem('token')
       window.location.href = '/login'
       throw new Error(data.message || '登录已过期，请重新登录')

@@ -513,7 +513,7 @@ const handleCreateAnother = () => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   /* 确保弹窗容器不超出屏幕 */
   .share-dialog {
     width: 100vw !important;
@@ -525,7 +525,7 @@ const handleCreateAnother = () => {
   }
   
   .share-dialog :deep(.el-dialog) {
-    width: 100vw !important;
+    width: 100% !important;
     max-width: 100vw !important;
     margin: 0 !important;
     max-height: 100vh;

@@ -135,7 +135,7 @@ const getIcon = (iconName: string) => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .sidebar {
     width: 100%;
     border-right: none;

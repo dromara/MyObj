@@ -501,15 +501,14 @@ watch(() => route.query.keyword, (newKeyword) => {
   gap: 16px;
 }
 
-/* 移动端响应式 */
-@media (max-width: 768px) {
+/* 移动端响应式 - 组件特定样式 */
+@media (max-width: 1024px) {
   .square-container {
     border-radius: 0;
   }
   
   .toolbar {
     padding: 12px 16px;
-    flex-wrap: wrap;
     gap: 12px;
   }
   
@@ -534,10 +533,6 @@ watch(() => route.query.keyword, (newKeyword) => {
   
   .mobile-toolbar {
     display: flex;
-  }
-  
-  .desktop-toolbar {
-    display: none;
   }
   
   .filter-bar {

@@ -23,11 +23,16 @@ export const deleteFolder = (folderId: string) => {
 }
 
 /**
- * 重命名文件夹
+ * 目录重命名请求参数
  */
-export const renameFolder = (folderId: string, newName: string) => {
-  return post<ApiResponse>(API_ENDPOINTS.FOLDER.RENAME, {
-    folder_id: folderId,
-    new_name: newName
-  })
+export interface RenameDirRequest {
+  dir_id: number
+  new_dir_name: string
+}
+
+/**
+ * 重命名目录
+ */
+export const renameDir = (data: RenameDirRequest) => {
+  return post<ApiResponse>('/file/renameDir', data)
 }

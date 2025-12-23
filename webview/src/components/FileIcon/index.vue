@@ -167,7 +167,7 @@ const handleImageError = () => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .file-type-badge {
     font-size: 9px;
     padding: 1px 4px;

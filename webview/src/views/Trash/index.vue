@@ -464,92 +464,10 @@ onMounted(() => {
   min-width: 120px;
 }
 
-/* 移动端响应式 */
-@media (max-width: 768px) {
-  .trash-page {
-    padding: 12px;
-  }
-  
+/* 移动端响应式 - 组件特定样式 */
+@media (max-width: 1024px) {
   .toolbar-card {
     margin-bottom: 12px;
-    padding: 12px;
-  }
-  
-  .toolbar {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  
-  .toolbar-left {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .mobile-toolbar-menu {
-    display: inline-flex;
-  }
-  
-  .desktop-toolbar {
-    display: none;
-  }
-  
-  .toolbar-right {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-    margin-top: 8px;
-  }
-  
-  .file-name-cell {
-    gap: 8px;
-  }
-  
-  .file-name-cell span {
-    font-size: 13px;
-    max-width: 200px;
-  }
-  
-  /* 表格移动端隐藏列 */
-  .trash-table :deep(.mobile-hide) {
-    display: none;
-  }
-  
-  .trash-table :deep(.mobile-name-column) {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .trash-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 80px;
-  }
-  
-  /* 操作按钮在移动端使用图标按钮 */
-  .trash-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-  
-  .trash-table :deep(.mobile-actions-column .el-button span) {
-    display: none;
-  }
-  
-  .trash-table :deep(.mobile-actions-column .el-button .el-icon) {
-    margin: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .file-name-cell span {
-    max-width: 150px;
-  }
-  
-  .trash-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 60px;
-  }
-  
-  .trash-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px;
   }
 }
 </style>

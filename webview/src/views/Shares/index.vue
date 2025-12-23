@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { Share, Document, Lock, Clock, Calendar } from '@element-plus/icons-vue'
 import { getShareList, deleteShare, updateSharePassword } from '@/api/share'
 import type { ShareInfo } from '@/types'
 import { formatDate, getShareUrl, generateRandomPassword } from '@/utils'
@@ -347,42 +348,9 @@ onMounted(() => {
   min-width: 120px;
 }
 
-/* 移动端响应式 */
-@media (max-width: 768px) {
-  .shares-page {
-    padding: 8px;
-    gap: 12px;
-  }
-  
-  .header-card {
-    padding: 12px 16px;
-  }
-  
-  .header {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  
-  .title-section h2 {
-    font-size: 18px;
-  }
-  
-  .table-card {
-    padding: 4px;
-  }
-  
-  .file-name-cell {
-    gap: 8px;
-  }
-  
-  .file-name {
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
-  }
-  
+/* 移动端响应式 - 组件特定样式 */
+@media (max-width: 1024px) {
+  /* 链接单元格特定样式 */
   .link-cell :deep(.el-input) {
     font-size: 12px;
   }
@@ -391,61 +359,9 @@ onMounted(() => {
     padding: 4px 8px;
     font-size: 12px;
   }
-  
-  /* 表格移动端隐藏列 */
-  .shares-table :deep(.mobile-hide) {
-    display: none;
-  }
-  
-  .shares-table :deep(.mobile-name-column) {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .shares-table :deep(.mobile-link-column) {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .shares-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 80px;
-  }
-  
-  /* 操作按钮在移动端使用图标按钮 */
-  .shares-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-  
-  .shares-table :deep(.mobile-actions-column .el-button span) {
-    display: none;
-  }
-  
-  .shares-table :deep(.mobile-actions-column .el-button .el-icon) {
-    margin: 0;
-  }
-  
-  /* 修改密码对话框 */
-  :deep(.el-dialog) {
-    width: 95% !important;
-    margin: 5vh auto;
-  }
 }
 
 @media (max-width: 480px) {
-  .header-card {
-    padding: 10px 12px;
-  }
-  
-  .title-section h2 {
-    font-size: 16px;
-  }
-  
-  .file-name {
-    max-width: 150px;
-  }
-  
   .link-cell :deep(.el-input) {
     font-size: 11px;
   }
@@ -456,15 +372,6 @@ onMounted(() => {
   
   .link-cell :deep(.el-button span) {
     display: none;
-  }
-  
-  .shares-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 60px;
-  }
-  
-  .shares-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px;
   }
 }
 </style>

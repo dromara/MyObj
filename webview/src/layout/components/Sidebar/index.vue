@@ -109,7 +109,7 @@ const isMobile = ref(false)
 
 // 检测是否为移动端
 const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768
+  isMobile.value = window.innerWidth <= 1024
   
   if (isMobile.value) {
     // 移动端默认隐藏侧边栏
@@ -226,7 +226,7 @@ onBeforeUnmount(() => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .layout-aside {
     display: none;
   }

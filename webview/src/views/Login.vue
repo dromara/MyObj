@@ -427,7 +427,7 @@ onMounted(() => checkSysInfo())
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .login-content {
     max-width: 100%;
     padding: 0 20px;

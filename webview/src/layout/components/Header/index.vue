@@ -149,7 +149,7 @@ onMounted(() => {
   display: none !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .mobile-menu-btn {
     display: inline-flex !important;
   }
@@ -237,7 +237,7 @@ onMounted(() => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .layout-header {
     padding: 0 12px;
   }

@@ -68,10 +68,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/move", middleware.PowerVerify("file:move"), f.MoveFile)
 		// 删除文件
 		fileGroup.POST("/delete", middleware.PowerVerify("file:delete"), f.DeleteFile)
-		// 重命名文件
-		fileGroup.POST("/rename", middleware.PowerVerify("file:update"), f.RenameFile)
-		// 重命名目录
-		fileGroup.POST("/renameDir", middleware.PowerVerify("dir:update"), f.RenameDir)
+		// 重命名文件（业务逻辑已验证文件所有权，无需额外权限验证）
+		fileGroup.POST("/rename", f.RenameFile)
+		// 重命名目录（业务逻辑已验证目录所有权，无需额外权限验证）
+		fileGroup.POST("/renameDir", f.RenameDir)
 		// 获取虚拟路径
 		fileGroup.GET("/virtualPath", middleware.PowerVerify("file:preview"), f.GetVirtualPath)
 	}

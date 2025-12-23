@@ -1,0 +1,478 @@
+/* 响应式样式 */
+
+/* 弹窗 */
+@media (max-width: 1024px) {
+  :deep(.el-overlay) {
+    overflow: hidden !important;
+  }
+
+  :deep(.el-overlay-dialog) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  :deep(.el-dialog) {
+    width: 95% !important;
+    max-width: 95vw !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__wrapper) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 16px !important;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__header) {
+    padding: 16px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 12px 16px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__footer .el-button) {
+    min-width: 80px !important;
+    flex: 0 0 auto !important;
+  }
+
+  /* 表单垂直布局 */
+  :deep(.el-form-item) {
+    margin-bottom: 20px;
+  }
+
+  :deep(.el-form-item__label) {
+    float: none !important;
+    display: block !important;
+    text-align: left !important;
+    padding: 0 0 8px !important;
+    width: 100% !important;
+    margin-bottom: 8px;
+    margin-right: 0 !important;
+  }
+
+  :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* 表单控件自动填充 */
+  /* 只在 el-form-item__content 内部设置宽度，让 Element Plus 自动处理 */
+  :deep(.el-form-item__content .el-input),
+  :deep(.el-form-item__content .el-select),
+  :deep(.el-form-item__content .el-textarea),
+  :deep(.el-form-item__content .el-date-picker),
+  :deep(.el-form-item__content .el-input-number),
+  :deep(.el-form-item__content .el-tree-select) {
+    width: 100%;
+  }
+
+  /* 确保输入框和选择框的内部包装器也占满宽度 */
+  :deep(.el-form-item__content .el-input__wrapper),
+  :deep(.el-form-item__content .el-select__wrapper) {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 面包屑 */
+  :deep(.el-breadcrumb) {
+    font-size: 13px !important;
+  }
+
+  :deep(.el-breadcrumb__item) {
+    max-width: 120px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* 按钮组 */
+  :deep(.el-button-group) {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+
+  :deep(.el-button-group .el-button) {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+}
+
+/* 手机端弹窗全屏 */
+@media (max-width: 768px) {
+  :deep(.el-overlay-dialog) {
+    align-items: flex-start !important;
+  }
+
+  :deep(.el-dialog) {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__wrapper) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__body) {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__header),
+  :deep(.el-dialog__footer) {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.el-overlay-dialog) {
+    align-items: flex-start !important;
+  }
+
+  :deep(.el-dialog) {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__wrapper) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  :deep(.el-dialog__header) {
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 16px !important;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 12px 16px !important;
+    border-top: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  :deep(.el-dialog__footer .el-button) {
+    min-width: 80px !important;
+    flex: 0 0 auto !important;
+  }
+}
+
+/* 表格 */
+@media (max-width: 1024px) {
+  :deep(.el-table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  :deep(.el-table__inner-wrapper) {
+    min-width: 100% !important;
+  }
+
+  :deep(.mobile-hide) {
+    display: none !important;
+  }
+
+  :deep(.mobile-name-column),
+  :deep(.mobile-link-column),
+  :deep(.mobile-progress-column) {
+    min-width: auto !important;
+    width: 100% !important;
+  }
+
+  :deep(.mobile-actions-column) {
+    width: auto !important;
+    min-width: 80px !important;
+  }
+
+  :deep(.mobile-actions-column .el-button) {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+
+  :deep(.mobile-actions-column .el-button span) {
+    display: none !important;
+  }
+
+  :deep(.mobile-actions-column .el-button .el-icon) {
+    margin: 0 !important;
+  }
+
+  .file-name-cell {
+    gap: 8px !important;
+  }
+
+  .file-name-cell .el-icon {
+    font-size: 20px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .file-name-cell span,
+  .file-name {
+    font-size: 13px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 200px !important;
+  }
+
+  .progress-cell {
+    gap: 2px !important;
+  }
+
+  .progress-info,
+  .progress-text {
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.mobile-actions-column) {
+    width: auto !important;
+    min-width: 60px !important;
+  }
+
+  :deep(.mobile-actions-column .el-button) {
+    padding: 2px 4px !important;
+    font-size: 11px !important;
+  }
+
+  .file-name-cell span,
+  .file-name {
+    max-width: 150px !important;
+  }
+}
+
+/* 工具栏 */
+@media (max-width: 1024px) {
+  .toolbar-container {
+    padding: 12px !important;
+  }
+
+  .toolbar {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .toolbar-left {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .toolbar-right {
+    flex: 1 1 100% !important;
+    justify-content: flex-end !important;
+    margin-top: 8px !important;
+  }
+
+  .mobile-toolbar-menu {
+    display: inline-flex !important;
+  }
+
+  .desktop-toolbar,
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* 页面容器 */
+@media (max-width: 1024px) {
+  .shares-page,
+  .trash-page,
+  .tasks-page,
+  .offline-page,
+  .square-container {
+    padding: 8px !important;
+    gap: 12px !important;
+  }
+
+  .header-card,
+  .table-card,
+  .toolbar-card {
+    padding: 12px 16px !important;
+  }
+
+  .table-card {
+    padding: 4px !important;
+  }
+
+  .title-section h2,
+  .header-left h2 {
+    font-size: 18px !important;
+  }
+
+  .header,
+  .page-header {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+
+  .header-left {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .header-right {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+
+  .header-right .el-button {
+    flex: 1 !important;
+  }
+
+  .selection-info {
+    margin-right: 8px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h2 {
+    font-size: 16px !important;
+  }
+
+  .header-card {
+    padding: 10px 12px !important;
+  }
+}
+
+/* 分页 */
+@media (max-width: 1024px) {
+  .pagination-container :deep(.el-pagination > .el-pagination__jump),
+  .pagination :deep(.el-pagination > .el-pagination__jump),
+  .pagination-container :deep(.el-pagination > .el-pagination__sizes),
+  .pagination :deep(.el-pagination > .el-pagination__sizes) {
+    display: none !important;
+  }
+}
+
+/* 面包屑 */
+@media (max-width: 1024px) {
+  .breadcrumb-container {
+    padding: 10px 16px !important;
+    margin-bottom: 12px !important;
+  }
+
+  :deep(.el-breadcrumb) {
+    font-size: 12px !important;
+  }
+
+  :deep(.el-breadcrumb__item) {
+    max-width: 100px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .breadcrumb-container {
+    padding: 8px 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  :deep(.el-breadcrumb) {
+    font-size: 11px !important;
+  }
+
+  :deep(.el-breadcrumb__item) {
+    max-width: 80px !important;
+  }
+}
+
+/* 抽屉 */
+@media (max-width: 1024px) {
+  :deep(.el-drawer) {
+    width: 280px !important;
+    max-width: 85vw !important;
+  }
+
+  :deep(.el-drawer__body) {
+    padding: 16px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :deep(.el-drawer) {
+    width: 260px !important;
+    max-width: 90vw !important;
+  }
+}
+
+/* 工具类 */
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-only {
+  display: block !important;
+}
+
+@media (max-width: 1024px) {
+  .mobile-only {
+    display: block !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+}
+

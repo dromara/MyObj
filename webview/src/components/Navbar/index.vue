@@ -184,7 +184,7 @@ const handleCommand = (command: string) => {
 }
 
 /* 移动端响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .navbar {
     padding: 0 12px;
     height: 56px;

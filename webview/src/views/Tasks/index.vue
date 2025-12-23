@@ -644,12 +644,9 @@ onBeforeUnmount(() => {
   min-width: 120px;
 }
 
-/* 移动端响应式 */
-@media (max-width: 768px) {
-  .tasks-page {
-    padding: 8px;
-  }
-  
+/* 移动端响应式 - 组件特定样式 */
+@media (max-width: 1024px) {
+  /* 任务标签页特定样式 */
   .task-tabs :deep(.el-tabs__header) {
     margin-bottom: 12px;
   }
@@ -657,79 +654,6 @@ onBeforeUnmount(() => {
   .task-tabs :deep(.el-tabs__item) {
     padding: 0 12px;
     font-size: 14px;
-  }
-  
-  .file-name-cell {
-    gap: 8px;
-  }
-  
-  .file-name-cell .el-icon {
-    font-size: 20px;
-  }
-  
-  .file-name-cell span {
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
-  }
-  
-  .progress-cell {
-    gap: 2px;
-  }
-  
-  .progress-info {
-    font-size: 11px;
-  }
-  
-  /* 表格移动端隐藏列 */
-  .task-table :deep(.mobile-hide) {
-    display: none;
-  }
-  
-  .task-table :deep(.mobile-name-column) {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .task-table :deep(.mobile-progress-column) {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .task-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 80px;
-  }
-  
-  /* 操作按钮在移动端使用图标按钮 */
-  .task-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-  
-  .task-table :deep(.mobile-actions-column .el-button span) {
-    display: none;
-  }
-  
-  .task-table :deep(.mobile-actions-column .el-button .el-icon) {
-    margin: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .file-name-cell span {
-    max-width: 150px;
-  }
-  
-  .task-table :deep(.mobile-actions-column) {
-    width: auto;
-    min-width: 60px;
-  }
-  
-  .task-table :deep(.mobile-actions-column .el-button) {
-    padding: 4px;
   }
 }
 </style>

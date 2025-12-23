@@ -59,7 +59,7 @@ export const API_ENDPOINTS = {
     CREATE: '/file/makeDir',
     LIST: '/folder/list',
     DELETE: '/folder/delete',
-    RENAME: '/folder/rename',
+    RENAME: '/file/renameDir', // 目录重命名接口
   },
   
   // 分享相关

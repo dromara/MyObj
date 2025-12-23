@@ -136,6 +136,21 @@ export const deleteFiles = (data: DeleteFileRequest) => {
   return post<ApiResponse>(API_ENDPOINTS.FILE.DELETE, data)
 }
 
+/**
+ * 文件重命名请求参数
+ */
+export interface RenameFileRequest {
+  file_id: string
+  new_file_name: string
+}
+
+/**
+ * 重命名文件
+ */
+export const renameFile = (data: RenameFileRequest) => {
+  return post<ApiResponse>(API_ENDPOINTS.FILE.RENAME, data)
+}
+
 // 上传文件请求参数
 export interface uploadPrecheckParams {
   chunk_signature: string,
