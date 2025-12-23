@@ -170,6 +170,16 @@
                 >
                   取消
                 </el-button>
+                <!-- 已完成的任务显示查看文件按钮 -->
+                <el-button 
+                  v-if="row.state === 3 && row.file_id"
+                  link 
+                  icon="View" 
+                  type="primary"
+                  @click="viewDownloadedFile(row)"
+                >
+                  查看文件
+                </el-button>
                 <!-- 已完成或失败的任务显示删除按钮 -->
                 <el-button 
                   v-if="row.state === 3 || row.state === 4"
@@ -200,7 +210,7 @@ import {
   resumeDownload
 } from '@/api/download'
 import type { OfflineDownloadTask } from '@/api/download'
-import { cleanExpiredUploads as cleanExpiredUploadsApi, deleteUploadTask, getUploadProgress } from '@/api/file'
+import { cleanExpiredUploads as cleanExpiredUploadsApi, deleteUploadTask, getUploadProgress, getVirtualPathTree } from '@/api/file'
 import { formatSize, formatDate, formatSpeed, getUploadStatusType, getUploadStatusText, formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/upload'
 import { ElMessage } from 'element-plus'
@@ -208,6 +218,7 @@ import { ElMessage } from 'element-plus'
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const route = useRoute()
+const router = useRouter()
 
 const activeTab = ref<string>((route.query.tab as string) || 'upload')
 const uploadLoading = ref(false)
@@ -252,7 +263,8 @@ const loadUploadTasks = async () => {
 const loadDownloadTasks = async () => {
   downloadLoading.value = true
   try {
-    const res = await getDownloadTaskList({ page: 1, pageSize: 100 })
+    // 只查询网盘文件下载任务（type=7）
+    const res = await getDownloadTaskList({ page: 1, pageSize: 100, type: 7 })
     if (res.code === 200 && res.data) {
       downloadTasks.value = res.data.tasks || []
     }
@@ -556,6 +568,96 @@ const getDownloadStatusType = (state: number) => {
     4: 'danger'
   }
   return typeMap[state] || 'info'
+}
+
+// 查看已下载的文件
+const viewDownloadedFile = async (task: OfflineDownloadTask) => {
+  try {
+    if (!task.virtual_path) {
+      proxy?.$modal.msgError('任务缺少虚拟路径信息')
+      return
+    }
+
+    // 获取虚拟路径树
+    const res = await getVirtualPathTree()
+    if (res.code !== 200 || !res.data) {
+      proxy?.$modal.msgError('获取路径信息失败')
+      return
+    }
+
+    // 在路径树中查找匹配的路径
+    const virtualPaths = res.data as Array<{
+      id: number
+      path: string
+      parent_level: string
+      is_dir: boolean
+    }>
+
+    // 查找匹配的路径（支持完整路径匹配）
+    const targetPath = task.virtual_path.trim()
+    let targetPathId: number | null = null
+
+    // 先尝试完整路径匹配
+    for (const vp of virtualPaths) {
+      // 构建完整路径（需要递归查找父路径）
+      const fullPath = buildFullPath(vp, virtualPaths)
+      if (fullPath === targetPath || fullPath === targetPath + '/') {
+        targetPathId = vp.id
+        break
+      }
+    }
+
+    // 如果完整路径匹配失败，尝试只匹配最后一级路径
+    if (targetPathId === null) {
+      const pathParts = targetPath.split('/').filter(p => p)
+      const lastPart = pathParts[pathParts.length - 1]
+      
+      for (const vp of virtualPaths) {
+        if (vp.path === `/${lastPart}` || vp.path === lastPart) {
+          targetPathId = vp.id
+          break
+        }
+      }
+    }
+
+    if (targetPathId === null) {
+      proxy?.$modal.msgWarning('未找到对应的路径，将跳转到文件列表页面')
+      // 跳转到文件列表页面，让用户手动导航
+      router.push('/files')
+      return
+    }
+
+    // 跳转到文件列表页面，并传递路径ID
+    router.push({
+      path: '/files',
+      query: {
+        virtualPath: String(targetPathId)
+      }
+    })
+  } catch (error: any) {
+    proxy?.$log.error('查看文件失败:', error)
+    proxy?.$modal.msgError('查看文件失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 构建完整路径（递归查找父路径）
+const buildFullPath = (vp: { id: number; path: string; parent_level: string }, allPaths: Array<{ id: number; path: string; parent_level: string }>): string => {
+  const parts: string[] = []
+  let current: any = vp
+
+  while (current) {
+    parts.unshift(current.path)
+    if (!current.parent_level || current.parent_level === '0' || current.parent_level === '') {
+      break
+    }
+    const parentId = parseInt(current.parent_level)
+    current = allPaths.find(p => p.id === parentId)
+    if (!current) {
+      break
+    }
+  }
+
+  return '/' + parts.map(p => p.replace(/^\//, '')).join('/')
 }
 
 onMounted(() => {

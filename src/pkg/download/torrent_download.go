@@ -326,7 +326,12 @@ func ensureVirtualPath(ctx context.Context, userID, fullPath string, repoFactory
 		return fmt.Errorf("无效的虚拟路径: %s", fullPath)
 	}
 
-	var parentID = "" // 根目录的父级ID为空字符串
+	// 首先获取用户的根目录（home），作为第一级子目录的父级
+	rootPath, err := repoFactory.VirtualPath().GetRootPath(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取根目录失败: %w", err)
+	}
+	var parentID = fmt.Sprintf("%d", rootPath.ID) // 使用根目录的ID作为第一级子目录的父级ID
 
 	// 逐层创建虚拟路径
 	for i, part := range parts {

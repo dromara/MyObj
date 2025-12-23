@@ -77,3 +77,43 @@ func (r *downloadTaskRepository) CountByState(ctx context.Context, userID string
 		Count(&count).Error
 	return count, err
 }
+
+func (r *downloadTaskRepository) ListByType(ctx context.Context, userID string, taskType int, offset, limit int) ([]*models.DownloadTask, error) {
+	var tasks []*models.DownloadTask
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND type = ?", userID, taskType).
+		Order("create_time DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
+
+func (r *downloadTaskRepository) CountByType(ctx context.Context, userID string, taskType int) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.DownloadTask{}).
+		Where("user_id = ? AND type = ?", userID, taskType).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *downloadTaskRepository) ListByStateAndType(ctx context.Context, userID string, state int, taskType int, offset, limit int) ([]*models.DownloadTask, error) {
+	var tasks []*models.DownloadTask
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND state = ? AND type = ?", userID, state, taskType).
+		Order("create_time DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
+
+func (r *downloadTaskRepository) CountByStateAndType(ctx context.Context, userID string, state int, taskType int) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.DownloadTask{}).
+		Where("user_id = ? AND state = ? AND type = ?", userID, state, taskType).
+		Count(&count).Error
+	return count, err
+}

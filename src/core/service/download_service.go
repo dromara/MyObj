@@ -106,14 +106,34 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 	var total int64
 	var err error
 
-	if req.State >= 0 {
-		// 按状态查询
+	// 判断是否指定了类型过滤
+	hasTypeFilter := req.Type >= 0
+	hasStateFilter := req.State >= 0
+
+	if hasStateFilter && hasTypeFilter {
+		// 按状态和类型查询
+		tasks, err = d.factory.DownloadTask().ListByStateAndType(ctx, userID, req.State, req.Type, offset, req.PageSize)
+		if err != nil {
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State, "type", req.Type)
+			return nil, fmt.Errorf("查询任务失败: %w", err)
+		}
+		total, err = d.factory.DownloadTask().CountByStateAndType(ctx, userID, req.State, req.Type)
+	} else if hasStateFilter {
+		// 只按状态查询
 		tasks, err = d.factory.DownloadTask().ListByState(ctx, userID, req.State, offset, req.PageSize)
 		if err != nil {
 			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
 		total, err = d.factory.DownloadTask().CountByState(ctx, userID, req.State)
+	} else if hasTypeFilter {
+		// 只按类型查询
+		tasks, err = d.factory.DownloadTask().ListByType(ctx, userID, req.Type, offset, req.PageSize)
+		if err != nil {
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "type", req.Type)
+			return nil, fmt.Errorf("查询任务失败: %w", err)
+		}
+		total, err = d.factory.DownloadTask().CountByType(ctx, userID, req.Type)
 	} else {
 		// 查询所有任务
 		tasks, err = d.factory.DownloadTask().ListByUserID(ctx, userID, offset, req.PageSize)

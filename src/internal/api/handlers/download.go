@@ -12,7 +12,9 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -55,6 +57,8 @@ func (h *DownloadHandler) Router(c *gin.RouterGroup) {
 		downloadGroup.POST("/local/create", middleware.PowerVerify("file:download"), h.CreateLocalFileDownload)
 		// 下载网盘文件
 		downloadGroup.GET("/local/file/:taskID", middleware.PowerVerify("file:download"), h.DownloadLocalFile)
+		// 文件预览接口（直接预览，不创建任务）
+		downloadGroup.GET("/preview", middleware.PowerVerify("file:preview"), h.PreviewFile)
 	}
 
 	logger.LOG.Info("[路由] 下载路由注册完成✔️")
@@ -89,6 +93,11 @@ func (h *DownloadHandler) GetTaskList(c *gin.Context) {
 	// 默认查询所有状态
 	if req.State == 0 && c.Query("state") == "" {
 		req.State = -1
+	}
+	// 默认查询所有类型（如果未指定 type 参数，则 Type 为 0，需要设置为 -1）
+	// 注意：type=0 是有效的类型值（HTTP下载），所以只有当查询参数中完全没有 type 时才设置为 -1
+	if c.Query("type") == "" {
+		req.Type = -1
 	}
 
 	userID := c.GetString("userID")
@@ -264,7 +273,44 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 
 	fileSize := fileInfo.Size()
 
-	// 7. 解析Range请求
+	// 7. 传输文件（使用公共函数）
+	serveFileWithOptions(c, file, fileSize, &serveFileOptions{
+		ContentType:        "application/octet-stream",
+		ContentDisposition: "attachment; filename=\"" + task.FileName + "\"",
+		FileName:           task.FileName,
+		LogContext:         map[string]interface{}{"taskID": taskID},
+		OnComplete: func() {
+			// 完整文件下载后清理临时文件
+			go func() {
+				// 更新任务状态为完成
+				task.State = 3 // 3=完成
+				task.FinishTime = custom_type.Now()
+				h.service.GetRepository().DownloadTask().Update(context.Background(), task)
+
+				// 如果是临时文件，则清理
+				if download.IsTempPath(tempFilePath) {
+					logger.LOG.Info("清理临时文件", "path", tempFilePath)
+					os.RemoveAll(tempFilePath)
+				} else {
+					logger.LOG.Info("保留data文件，不清理", "path", tempFilePath)
+				}
+			}()
+		},
+	})
+}
+
+// serveFileOptions 文件传输选项
+type serveFileOptions struct {
+	ContentType        string                 // Content-Type
+	ContentDisposition string                 // Content-Disposition
+	FileName           string                 // 文件名（用于日志）
+	LogContext         map[string]interface{} // 日志上下文
+	OnComplete         func()                 // 完整文件传输完成后的回调
+}
+
+// serveFileWithOptions 传输文件的公共函数
+func serveFileWithOptions(c *gin.Context, file *os.File, fileSize int64, opts *serveFileOptions) {
+	// 解析Range请求
 	rangeHeader := c.GetHeader("Range")
 	rangeInfo, err := download.ParseRangeHeader(rangeHeader, fileSize)
 	if err != nil {
@@ -273,9 +319,9 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 		return
 	}
 
-	// 8. 设置响应头
-	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Content-Disposition", "attachment; filename=\""+task.FileName+"\"")
+	// 设置响应头
+	c.Header("Content-Type", opts.ContentType)
+	c.Header("Content-Disposition", opts.ContentDisposition)
 	c.Header("Accept-Ranges", "bytes")
 
 	if rangeInfo.IsRanged {
@@ -299,8 +345,12 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 			return
 		}
 
-		// Range请求不清理文件，等待完整请求或超时清理
-		logger.LOG.Info("Range请求完成", "taskID", taskID, "range", rangeHeader)
+		logContext := opts.LogContext
+		if logContext == nil {
+			logContext = make(map[string]interface{})
+		}
+		logContext["range"] = rangeHeader
+		logger.LOG.Info("Range请求完成", logContext)
 	} else {
 		// 完整文件请求
 		c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
@@ -313,23 +363,130 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 			return
 		}
 
-		logger.LOG.Info("完整文件传输完成", "taskID", taskID, "fileName", task.FileName, "fileSize", fileSize)
+		logContext := opts.LogContext
+		if logContext == nil {
+			logContext = make(map[string]interface{})
+		}
+		logContext["fileName"] = opts.FileName
+		logContext["fileSize"] = fileSize
+		logger.LOG.Info("完整文件传输完成", logContext)
 
-		// 使用goroutine异步清理临时文件，避免阻塞响应
-		go func() {
-			// 更新任务状态为完成
-			task.State = 3 // 3=完成
-			task.FinishTime = custom_type.Now()
-			h.service.GetRepository().DownloadTask().Update(context.Background(), task)
-
-			// 如果是临时文件，则清理
-			if download.IsTempPath(tempFilePath) {
-				logger.LOG.Info("清理临时文件", "path", tempFilePath)
-				os.RemoveAll(tempFilePath)
-			} else {
-				logger.LOG.Info("保留data文件，不清理", "path", tempFilePath)
-			}
-		}()
+		// 执行完成回调
+		if opts.OnComplete != nil {
+			opts.OnComplete()
+		}
 	}
-	logger.LOG.Info("文件下载处理完成", "taskID", taskID, "fileName", task.FileName, "isRange", rangeInfo.IsRanged)
+}
+
+// PreviewFile 文件预览接口
+// @Summary 文件预览
+// @Description 直接预览文件（用于图片、视频、PDF等预览场景），支持HTTP Range断点续传，不创建下载任务
+// @Tags 下载管理
+// @Produce octet-stream
+// @Security BearerAuth
+// @Param file_id query string true "文件ID（UserFiles的UfID）"
+// @Param file_password query string false "文件解密密码（加密文件必需）"
+// @Param Range header string false "Range请求头（例：bytes=0-1023）"
+// @Success 200 {file} binary "文件流"
+// @Success 206 {file} binary "部分文件流（Range请求）"
+// @Failure 400 {object} models.JsonResponse "参数错误或文件不存在"
+// @Failure 403 {object} models.JsonResponse "无权限"
+// @Failure 500 {object} models.JsonResponse "预览失败"
+// @Router /download/preview [get]
+func (h *DownloadHandler) PreviewFile(c *gin.Context) {
+	fileID := c.Query("file_id")
+	if fileID == "" {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误：file_id不能为空", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	filePassword := c.Query("file_password")
+
+	ctx := context.Background()
+
+	// 1. 查询用户文件关联（使用UfID）
+	userFile, err := h.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+	if err != nil {
+		logger.LOG.Error("查询用户文件失败", "error", err, "fileID", fileID, "userID", userID)
+		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
+		return
+	}
+
+	// 2. 验证权限（用户自己的文件或公开文件）
+	if userFile.UserID != userID && !userFile.Public {
+		c.JSON(200, models.NewJsonResponse(403, "无权限访问此文件", nil))
+		return
+	}
+
+	// 3. 查询文件信息
+	fileInfo, err := h.service.GetRepository().FileInfo().GetByID(ctx, userFile.FileID)
+	if err != nil {
+		logger.LOG.Error("查询文件信息失败", "error", err, "fileID", userFile.FileID)
+		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
+		return
+	}
+
+	// 4. 准备文件（解密+合并）
+	opts := &download.LocalFileDownloadOptions{
+		FilePassword: filePassword,
+	}
+
+	// 获取临时目录（使用文件所在磁盘的temp目录）
+	tempDir := filepath.Join(filepath.Dir(filepath.Dir(fileInfo.Path)), "temp")
+	result, err := download.PrepareLocalFileDownload(
+		ctx,
+		userFile.FileID,
+		userID,
+		tempDir,
+		h.service.GetRepository(),
+		opts,
+	)
+	if err != nil {
+		logger.LOG.Error("准备文件失败", "error", err, "fileID", userFile.FileID)
+		c.JSON(200, models.NewJsonResponse(500, "准备文件失败: "+err.Error(), nil))
+		return
+	}
+
+	// 5. 打开文件
+	file, err := os.Open(result.TempFilePath)
+	if err != nil {
+		logger.LOG.Error("打开文件失败", "error", err, "path", result.TempFilePath)
+		c.JSON(200, models.NewJsonResponse(500, "文件不存在", nil))
+		return
+	}
+	defer file.Close()
+
+	// 6. 获取文件信息
+	fileStat, err := file.Stat()
+	if err != nil {
+		logger.LOG.Error("获取文件信息失败", "error", err)
+		c.JSON(200, models.NewJsonResponse(500, "获取文件信息失败", nil))
+		return
+	}
+
+	fileSize := fileStat.Size()
+
+	// 7. 传输文件（使用公共函数）
+	tempFilePath := result.TempFilePath
+	serveFileWithOptions(c, file, fileSize, &serveFileOptions{
+		ContentType:        result.ContentType,
+		ContentDisposition: "inline; filename=\"" + fileInfo.Name + "\"", // inline 用于预览
+		FileName:           fileInfo.Name,
+		LogContext:         map[string]interface{}{"fileID": fileID},
+		OnComplete: func() {
+			// 完整文件预览后清理临时文件（如果是临时文件）
+			if download.IsTempPath(tempFilePath) {
+				go func() {
+					// 异步清理临时文件（延迟清理，避免频繁创建）
+					time.Sleep(5 * time.Minute) // 5分钟后清理
+					if err := os.RemoveAll(filepath.Dir(tempFilePath)); err != nil {
+						logger.LOG.Warn("清理预览临时文件失败", "path", tempFilePath, "error", err)
+					} else {
+						logger.LOG.Debug("预览临时文件已清理", "path", tempFilePath)
+					}
+				}()
+			}
+		},
+	})
 }

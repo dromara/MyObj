@@ -40,12 +40,13 @@ export interface DownloadTaskListResponse {
 }
 
 /**
- * 获取离线下载任务列表
+ * 获取下载任务列表
  */
 export const getDownloadTaskList = (params: { 
   page: number
   pageSize: number
   state?: number
+  type?: number
 }) => {
   return get<ApiResponse<DownloadTaskListResponse>>(
     API_ENDPOINTS.DOWNLOAD.LIST,

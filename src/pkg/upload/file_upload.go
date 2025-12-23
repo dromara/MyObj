@@ -14,6 +14,7 @@ import (
 	"myobj/src/pkg/util"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -298,11 +299,34 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		UpdatedAt:       custom_type.Now(),
 	}
 
+	// 将虚拟路径转换为路径ID
+	// 如果 VirtualPath 已经是路径ID（纯数字字符串），直接使用
+	// 如果是路径字符串（如 "/home/"），则调用 getVirtualPathID 获取或创建
+	var virtualPathID string
+	if data.VirtualPath == "" {
+		// 空路径，使用根目录
+		rootPath, err := repoFactory.VirtualPath().GetRootPath(ctx, data.UserID)
+		if err != nil {
+			return "", fmt.Errorf("获取根目录失败: %w", err)
+		}
+		virtualPathID = fmt.Sprintf("%d", rootPath.ID)
+	} else if matched, _ := regexp.MatchString(`^\d+$`, data.VirtualPath); matched {
+		// 纯数字字符串，说明已经是路径ID，直接使用
+		virtualPathID = data.VirtualPath
+	} else {
+		// 路径字符串，需要获取或创建路径
+		var err error
+		virtualPathID, err = getVirtualPathID(ctx, data.UserID, data.VirtualPath, repoFactory)
+		if err != nil {
+			return "", fmt.Errorf("获取虚拟路径ID失败: %w", err)
+		}
+	}
+
 	userFile := &models.UserFiles{
 		UserID:      data.UserID,
 		FileID:      fileID,
-		Public:      false, // 默认私有
-		VirtualPath: data.VirtualPath,
+		Public:      false,         // 默认私有
+		VirtualPath: virtualPathID, // 存储路径ID而不是路径字符串
 		FileName:    data.FileName,
 		CreatedAt:   custom_type.Now(),
 		UfID:        uuid.NewString(),
@@ -615,4 +639,91 @@ func cleanupProcessedFiles(mainFilePath, thumbnailPath string, chunks []*models.
 	}
 
 	logger.LOG.Info("已清理处理失败的文件", "mainFilePath", mainFilePath)
+}
+
+// getVirtualPathID 获取虚拟路径的ID（如果路径不存在则创建）
+func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) (string, error) {
+	// 分割路径为各层级
+	parts := strings.Split(strings.Trim(fullPath, "/"), "/")
+	if len(parts) == 0 {
+		return "", fmt.Errorf("无效的虚拟路径: %s", fullPath)
+	}
+
+	// 首先获取用户的根目录（home），作为第一级子目录的父级
+	rootPath, err := repoFactory.VirtualPath().GetRootPath(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("获取根目录失败: %w", err)
+	}
+	var parentID = fmt.Sprintf("%d", rootPath.ID) // 使用根目录的ID作为第一级子目录的父级ID
+	var lastPathID string
+
+	// 逐层查找或创建虚拟路径
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		currentPath := "/" + part
+
+		// 查询当前层级路径是否存在
+		existingPaths, err := repoFactory.VirtualPath().ListByUserID(ctx, userID, 0, 1000)
+		if err != nil {
+			return "", fmt.Errorf("查询虚拟路径失败: %w", err)
+		}
+
+		// 查找是否已存在当前路径且父级匹配的记录
+		var existingPath *models.VirtualPath
+		for _, vp := range existingPaths {
+			if vp.Path == currentPath && vp.ParentLevel == parentID {
+				existingPath = vp
+				break
+			}
+		}
+
+		if existingPath != nil {
+			// 路径已存在，使用该路径的ID作为下一层的父级ID
+			parentID = fmt.Sprintf("%d", existingPath.ID)
+			lastPathID = parentID
+		} else {
+			// 路径不存在，创建新记录
+			newPath := &models.VirtualPath{
+				UserID:      userID,
+				Path:        currentPath,
+				IsFile:      false,
+				IsDir:       true,
+				ParentLevel: parentID,
+				CreatedTime: custom_type.Now(),
+				UpdateTime:  custom_type.Now(),
+			}
+
+			if err := repoFactory.VirtualPath().Create(ctx, newPath); err != nil {
+				// 可能是并发创建导致的重复，再次查询
+				existingPaths, queryErr := repoFactory.VirtualPath().ListByUserID(ctx, userID, 0, 1000)
+				if queryErr != nil {
+					return "", fmt.Errorf("创建虚拟路径失败: %w, 查询失败: %w", err, queryErr)
+				}
+				for _, vp := range existingPaths {
+					if vp.Path == currentPath && vp.ParentLevel == parentID {
+						existingPath = vp
+						break
+					}
+				}
+				if existingPath != nil {
+					parentID = fmt.Sprintf("%d", existingPath.ID)
+					lastPathID = parentID
+				} else {
+					return "", fmt.Errorf("创建虚拟路径失败且无法查询到已创建的路径")
+				}
+			} else {
+				parentID = fmt.Sprintf("%d", newPath.ID)
+				lastPathID = parentID
+			}
+		}
+	}
+
+	if lastPathID == "" {
+		return "", fmt.Errorf("无法获取虚拟路径ID: %s", fullPath)
+	}
+
+	return lastPathID, nil
 }

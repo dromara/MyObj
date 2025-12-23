@@ -66,14 +66,31 @@ export const detectFileType = (file: FileItem): PreviewType => {
 }
 
 /**
- * 获取文件预览 URL
+ * 获取文件预览 URL（返回blob URL，带认证）
  * @param fileId 文件ID
- * @returns 预览URL
+ * @returns Promise<string> blob URL
  */
-export const getFilePreviewUrl = (fileId: string): string => {
-  // 使用下载接口作为预览URL（需要后端支持预览）
-  // 注意：这里需要根据实际后端接口调整
-  return `${API_ENDPOINTS.FILE.DOWNLOAD}?file_id=${fileId}`
+export const getFilePreviewUrl = async (fileId: string): Promise<string> => {
+  try {
+    const token = localStorage.getItem('token')
+    const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('获取文件失败: ' + response.status)
+    }
+    
+    const blob = await response.blob()
+    return window.URL.createObjectURL(blob)
+  } catch (error) {
+    throw new Error('获取文件预览失败: ' + (error instanceof Error ? error.message : '未知错误'))
+  }
 }
 
 /**
@@ -82,7 +99,8 @@ export const getFilePreviewUrl = (fileId: string): string => {
  * @returns 下载URL
  */
 export const getFileDownloadUrl = (fileId: string): string => {
-  return `${API_ENDPOINTS.FILE.DOWNLOAD}?file_id=${fileId}`
+  // 使用预览接口（预览和下载使用同一个接口）
+  return `${API_BASE_URL}/download/preview?file_id=${fileId}`
 }
 
 /**

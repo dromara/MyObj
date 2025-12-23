@@ -185,13 +185,17 @@ const urlRules: FormRules = {
 const loadTaskList = async () => {
   loading.value = true
   try {
+    // 查询所有类型的离线下载任务（type < 7），不包含网盘文件下载（type=7）
+    // 由于后端不支持 type < 7 的查询，这里先查询所有任务，然后在前端过滤
+    // 或者可以分别查询 type=0,1,2,3,4,5,6，但这样需要多次请求
+    // 为了简化，暂时保持前端过滤，但可以优化为后端支持范围查询
     const res = await getDownloadTaskList({
       page: 1,
       pageSize: 100,
       state: -1 // 查询所有状态
     })
     if (res.code === 200 && res.data) {
-      // 过滤掉网盘下载任务（type=7），只显示离线下载
+      // 过滤掉网盘下载任务（type=7），只显示离线下载（type=0-6）
       taskList.value = (res.data.tasks || []).filter((task: any) => task.type !== 7)
     }
   } catch (error: any) {

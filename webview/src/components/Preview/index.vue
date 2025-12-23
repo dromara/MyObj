@@ -133,8 +133,7 @@
 <script setup lang="ts">
 import type { FileItem } from '@/types'
 import type { PreviewType, PreviewOptions } from '@/types/preview'
-import { detectFileType, getFilePreviewUrl, getFileDownloadUrl, getFileTextContent, getCodeLanguage } from '@/utils/preview'
-import { download } from '@/utils/request'
+import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage } from '@/utils/preview'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
 import { ZoomIn, ZoomOut, RefreshRight, Refresh, Download, Loading, WarningFilled, Headset, Document } from '@element-plus/icons-vue'
 
@@ -206,21 +205,40 @@ const loadFileContent = async () => {
 
     switch (previewType.value) {
       case 'image':
-        // 优先使用缩略图，如果没有则使用预览URL
+        // 优先使用缩略图，如果没有则使用预览URL（blob URL）
         if (file.has_thumbnail) {
-          imageUrl.value = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
+          // 缩略图也需要通过fetch获取（带认证），然后创建blob URL
+          try {
+            const token = localStorage.getItem('token')
+            const thumbnailUrl = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
+            const response = await fetch(thumbnailUrl, {
+              headers: {
+                'Authorization': token ? `Bearer ${token}` : ''
+              }
+            })
+            if (response.ok) {
+              const blob = await response.blob()
+              imageUrl.value = window.URL.createObjectURL(blob)
+            } else {
+              // 缩略图获取失败，使用预览URL
+              imageUrl.value = await getFilePreviewUrl(fileId)
+            }
+          } catch (err) {
+            // 缩略图获取失败，使用预览URL
+            imageUrl.value = await getFilePreviewUrl(fileId)
+          }
         } else {
-          imageUrl.value = getFilePreviewUrl(fileId)
+          imageUrl.value = await getFilePreviewUrl(fileId)
         }
         break
       case 'video':
-        videoUrl.value = getFilePreviewUrl(fileId)
+        videoUrl.value = await getFilePreviewUrl(fileId)
         break
       case 'audio':
-        audioUrl.value = getFilePreviewUrl(fileId)
+        audioUrl.value = await getFilePreviewUrl(fileId)
         break
       case 'pdf':
-        pdfUrl.value = getFilePreviewUrl(fileId)
+        pdfUrl.value = await getFilePreviewUrl(fileId)
         break
       case 'text':
       case 'code':
@@ -262,13 +280,42 @@ const rotateImage = (angle: number) => {
 }
 
 // 下载文件
-const handleDownload = () => {
+const handleDownload = async () => {
   if (!currentFile.value) return
   const fileId = currentFile.value.file_id
   const fileName = currentFile.value.file_name
-  const url = getFileDownloadUrl(fileId)
   
-  download(url, fileName)
+  try {
+    // 使用预览接口下载文件（带认证）
+    const token = localStorage.getItem('token')
+    const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('下载失败: ' + response.status)
+    }
+    
+    const blob = await response.blob()
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    proxy?.$modal.msgSuccess('下载完成')
+  } catch (error: any) {
+    proxy?.$log.error('下载文件失败:', error)
+    proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))
+  }
 }
 
 // 重试
@@ -276,8 +323,25 @@ const handleRetry = () => {
   loadFileContent()
 }
 
+// 清理blob URL
+const cleanupBlobUrls = () => {
+  if (imageUrl.value && imageUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(imageUrl.value)
+  }
+  if (videoUrl.value && videoUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(videoUrl.value)
+  }
+  if (audioUrl.value && audioUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(audioUrl.value)
+  }
+  if (pdfUrl.value && pdfUrl.value.startsWith('blob:')) {
+    window.URL.revokeObjectURL(pdfUrl.value)
+  }
+}
+
 // 关闭预览
 const handleClose = () => {
+  cleanupBlobUrls()
   visible.value = false
   // 清理资源
   imageUrl.value = ''

@@ -1312,7 +1312,13 @@ func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID s
 	}
 	task.UpdateTime = custom_type.Now()
 
-	return f.factory.UploadTask().Update(ctx, task)
+	err = f.factory.UploadTask().Update(ctx, task)
+	if err != nil {
+		logger.LOG.Error("更新上传任务失败", "error", err, "precheckID", precheckID, "status", status, "uploadedChunks", uploadedChunks, "totalChunks", totalChunks)
+		return err
+	}
+	logger.LOG.Info("更新上传任务成功", "precheckID", precheckID, "status", status, "uploadedChunks", uploadedChunks, "totalChunks", totalChunks)
+	return nil
 }
 
 // ListUncompletedUploads 查询未完成的上传任务列表

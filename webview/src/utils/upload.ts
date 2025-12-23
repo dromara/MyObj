@@ -222,15 +222,17 @@ class ConcurrentUploader {
       if (this.taskId) {
         const task = uploadTaskManager.getTask(this.taskId)
         if (task) {
-          if (task.status === 'cancelled' || task.status === 'failed') {
+          // 如果任务被取消，立即返回
+          if (task.status === 'cancelled') {
             return
           }
+          // 如果任务被暂停，等待恢复
           if (task.status === 'paused') {
             while (task.status === 'paused') {
               await new Promise(resolve => setTimeout(resolve, 100))
               const currentTask = uploadTaskManager.getTask(this.taskId)
               if (!currentTask) break
-              if (currentTask.status === 'cancelled' || currentTask.status === 'failed') {
+              if (currentTask.status === 'cancelled') {
                 return
               }
               if (currentTask.status !== 'paused') {
@@ -240,6 +242,8 @@ class ConcurrentUploader {
             this.processQueue()
             continue
           }
+          // 注意：不再检查 failed 状态，因为单个分片失败不应该阻止其他分片上传
+          // 等待所有分片完成后再统一判断任务是否失败
         }
       }
       
@@ -547,14 +551,12 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
               if (error instanceof Error && error.message === '上传已取消') {
                 return
               }
-              if (taskId) {
-                const task = uploadTaskManager.getTask(taskId)
-                if (task && task.status !== 'cancelled') {
-                  uploadTaskManager.failTask(taskId, error instanceof Error ? error.message : '上传失败')
-                }
-              }
+              // 不要在这里将整个任务标记为失败，因为可能还有其他分片在上传
+              // 只记录错误，等待所有分片完成后再统一判断
+              logger.error(`分片 ${chunkIndex} 上传失败:`, error)
               onError?.(error as Error, file.name)
-              throw error
+              // 不抛出错误，让其他分片继续上传
+              // 错误会在 waitForAll 后通过 uploadedChunks.size 检查发现
             }
           }
 
@@ -572,10 +574,12 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       }
       
       if (uploadedChunks.size !== totalChunks) {
+        const failedChunks = totalChunks - uploadedChunks.size
+        const errorMessage = `部分分片上传失败（${failedChunks}/${totalChunks} 个分片失败），请重试`
         if (taskId) {
-          uploadTaskManager.failTask(taskId, '部分分片上传失败，请重试')
+          uploadTaskManager.failTask(taskId, errorMessage)
         }
-        throw new Error('部分分片上传失败，请重试')
+        throw new Error(errorMessage)
       }
 
       if (taskId) {

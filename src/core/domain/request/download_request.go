@@ -12,8 +12,10 @@ type CreateOfflineDownloadRequest struct {
 
 // DownloadTaskListRequest 下载任务列表请求
 type DownloadTaskListRequest struct {
-	// 任务状态（可选，0=初始化,1=下载中,2=暂停,3=完成,4=失败）
+	// 任务状态（可选，0=初始化,1=下载中,2=暂停,3=完成,4=失败，-1=所有状态）
 	State int `form:"state"`
+	// 任务类型（可选，0-6=离线下载，7=网盘文件下载，-1=所有类型）
+	Type int `form:"type"`
 	// 页码
 	Page int `form:"page" binding:"required,min=1"`
 	// 每页数量

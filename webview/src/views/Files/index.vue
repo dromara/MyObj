@@ -9,7 +9,7 @@
           @click="navigateToPath(item.path)"
           class="breadcrumb-item"
         >
-          {{ item.name }}
+          {{ formatBreadcrumbName(item.name) }}
         </el-breadcrumb-item>
       </el-breadcrumb>
     </div>
@@ -386,6 +386,21 @@ const thumbnailCache = ref<Map<string, string>>(new Map())
 // 面包屑数据（后端已经返回面包屑，直接使用）
 const breadcrumbs = computed(() => fileListData.value.breadcrumbs)
 
+// 格式化面包屑名称（去掉前导斜杠，处理特殊名称）
+const formatBreadcrumbName = (name: string): string => {
+  if (!name) return ''
+  
+  // 去掉前导斜杠
+  let formatted = name.replace(/^\/+/, '')
+  
+  // 处理特殊名称
+  if (formatted === 'home' || formatted === '') {
+    return '首页'
+  }
+  
+  return formatted
+}
+
 // 所有选中项数量
 const selectedCount = computed(() => selectedFolderIds.value.length + selectedFileIds.value.length)
 
@@ -708,7 +723,13 @@ const executeDownload = async (fileId: string, password: string) => {
             proxy?.$log.debug('任务状态:', task.state, '任务信息:', task)
             
             if (task.state === 3) {
-              // 准备完成，使用fetch下载避免Range问题
+              // 准备完成，跳转到下载任务tab页
+              router.push({
+                path: '/tasks',
+                query: { tab: 'download' }
+              })
+              
+              // 使用fetch下载避免Range问题
               const token = proxy?.$cache.local.get('token')
               const downloadUrl = getLocalFileDownloadUrl(taskId)
               
@@ -1044,6 +1065,10 @@ const handleConfirmMove = async () => {
 
 // 初始化
 onMounted(() => {
+  // 从路由查询参数中读取 virtualPath
+  if (route.query.virtualPath) {
+    currentPath.value = route.query.virtualPath as string
+  }
   loadFileList()
 })
 </script>
