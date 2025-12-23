@@ -110,8 +110,12 @@ const isMobile = ref(false)
 // 检测是否为移动端
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768
-  // 桌面端默认显示侧边栏
-  if (!isMobile.value) {
+  
+  if (isMobile.value) {
+    // 移动端默认隐藏侧边栏
+    sidebarVisible.value = false
+  } else {
+    // 桌面端默认显示侧边栏
     sidebarVisible.value = true
   }
 }

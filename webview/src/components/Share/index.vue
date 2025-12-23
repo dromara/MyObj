@@ -22,9 +22,24 @@
     <!-- 分享设置 -->
     <el-form :model="shareForm" label-width="100px" class="share-form">
       <el-form-item label="有效期">
+        <!-- 移动端使用下拉选择框 -->
+        <el-select 
+          v-model="shareForm.expire_days" 
+          class="expire-select mobile-only"
+          @change="handleExpireChange"
+        >
+          <el-option
+            v-for="option in expireOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        
+        <!-- 桌面端使用单选按钮组 -->
         <el-radio-group 
           v-model="shareForm.expire_days" 
-          class="expire-options"
+          class="expire-options desktop-only"
           @change="handleExpireChange"
         >
           <el-radio-button 
@@ -314,6 +329,8 @@ const handleCreateAnother = () => {
 <style scoped>
 .share-dialog :deep(.el-dialog) {
   box-sizing: border-box;
+  /* 确保弹窗不会超出屏幕 */
+  max-width: 100vw;
 }
 
 .share-dialog :deep(.el-dialog__body) {
@@ -321,6 +338,8 @@ const handleCreateAnother = () => {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
+  /* 防止内容溢出 */
+  overflow-x: hidden;
 }
 
 /* 确保所有内部元素使用 border-box */
@@ -330,6 +349,13 @@ const handleCreateAnother = () => {
 
 .share-dialog :deep(.el-dialog__body > *) {
   max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* 确保弹窗容器不会超出屏幕 */
+.share-dialog {
+  max-width: 100vw;
   overflow-x: hidden;
 }
 
@@ -368,7 +394,14 @@ const handleCreateAnother = () => {
   margin-bottom: 24px;
 }
 
-.expire-options {
+/* 移动端下拉选择框 */
+.expire-select.mobile-only {
+  width: 100%;
+  display: none; /* 默认隐藏，移动端显示 */
+}
+
+/* 桌面端单选按钮组 */
+.expire-options.desktop-only {
   width: 100%;
   display: flex;
   gap: 8px;
@@ -393,6 +426,17 @@ const handleCreateAnother = () => {
   height: 100%;
   margin: 0;
   cursor: pointer;
+}
+
+/* 桌面端显示单选按钮组，隐藏下拉选择框 */
+@media screen and (min-width: 769px) {
+  .expire-select.mobile-only {
+    display: none !important;
+  }
+  
+  .expire-options.desktop-only {
+    display: flex !important;
+  }
 }
 
 .form-tip {
@@ -470,28 +514,71 @@ const handleCreateAnother = () => {
 
 /* 移动端响应式 */
 @media (max-width: 768px) {
+  /* 确保弹窗容器不超出屏幕 */
+  .share-dialog {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+  
   .share-dialog :deep(.el-dialog) {
-    width: 95% !important;
-    max-width: 95vw !important;
-    margin: 5vh auto;
-    max-height: 90vh;
-    box-sizing: border-box;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    max-height: 100vh;
+    box-sizing: border-box !important;
+    /* 确保弹窗不会超出屏幕 */
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    /* 防止横向滚动 */
+    overflow-x: hidden !important;
+    position: fixed !important;
+  }
+  
+  /* 覆盖 Element Plus 的默认宽度 */
+  .share-dialog :deep(.el-dialog__wrapper) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
   }
   
   .share-dialog :deep(.el-dialog__body) {
     padding: 16px;
-    max-height: calc(90vh - 120px);
+    max-height: calc(100vh - 120px);
     overflow-y: auto;
+    overflow-x: hidden !important;
     box-sizing: border-box;
-    width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   .share-dialog :deep(.el-dialog__header) {
     padding: 16px;
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden;
   }
   
   .share-dialog :deep(.el-dialog__footer) {
     padding: 12px 16px;
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden;
+  }
+  
+  /* 确保所有内部元素不超出 */
+  .share-dialog :deep(.el-dialog__body > *) {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
   }
   
   .file-info-card {
@@ -499,6 +586,10 @@ const handleCreateAnother = () => {
     gap: 12px;
     flex-direction: row;
     align-items: center;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
   
   .file-info-card .el-icon {
@@ -526,76 +617,94 @@ const handleCreateAnother = () => {
   }
   
   .share-form :deep(.el-form-item) {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    display: flex !important;
+    flex-direction: column !important; /* 移动端垂直布局 */
+    align-items: flex-start !important;
+    /* 覆盖 Element Plus 默认的水平布局 */
+    flex-wrap: nowrap;
+  }
+  
+  /* 确保标签容器也使用垂直布局 */
+  .share-form :deep(.el-form-item__label-wrap) {
+    width: 100% !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
   }
   
   .share-form :deep(.el-form-item__label) {
-    width: 80px !important;
-    font-size: 13px;
-    line-height: 32px;
+    width: 100% !important;
+    text-align: left !important;
+    margin-bottom: 10px;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    line-height: 1.5;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #303133);
+    /* 确保标签靠左对齐 */
+    justify-content: flex-start;
+    display: block;
   }
   
   .share-form :deep(.el-form-item__content) {
-    margin-left: 80px !important;
+    margin-left: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
   }
   
-  .expire-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  /* 移动端显示下拉选择框，隐藏单选按钮组 */
+  .expire-select.mobile-only {
+    display: block !important;
     width: 100%;
   }
   
-  .expire-options :deep(.el-radio-button) {
-    flex: 1 1 calc(50% - 4px);
-    min-width: 0;
-    position: relative;
-  }
-  
-  .expire-options :deep(.el-radio-button__inner) {
-    width: 100%;
-    padding: 8px 12px;
-    font-size: 13px;
-    text-align: center;
-    cursor: pointer;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .expire-options :deep(.el-radio-button__original-radio) {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 1;
+  .expire-options.desktop-only {
+    display: none !important;
   }
   
   /* 输入框在移动端优化 */
   .share-form :deep(.el-input) {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .share-form :deep(.el-input__wrapper) {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+  }
+  
+  /* 下拉选择框样式优化 */
+  .share-form :deep(.el-select) {
+    width: 100%;
+  }
+  
+  .share-form :deep(.el-select .el-input__wrapper) {
+    border-radius: 8px;
   }
   
   .share-form :deep(.el-input__append) {
     padding: 0;
+    flex-shrink: 0;
   }
   
   .share-form :deep(.el-input__append .el-button) {
     padding: 0 12px;
     font-size: 12px;
     white-space: nowrap;
+    min-width: auto;
+    height: 100%;
+    border-radius: 0 8px 8px 0;
   }
   
   .form-tip {
-    font-size: 11px;
-    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #909399);
+    margin-top: 8px;
+    line-height: 1.5;
   }
   
   .share-result {
@@ -769,39 +878,14 @@ const handleCreateAnother = () => {
     width: 100%;
   }
   
-  .expire-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  /* 超小屏幕也使用下拉选择框 */
+  .expire-select.mobile-only {
+    display: block !important;
     width: 100%;
   }
   
-  .expire-options :deep(.el-radio-button) {
-    flex: 1 1 calc(50% - 4px);
-    min-width: 0;
-    position: relative;
-  }
-  
-  .expire-options :deep(.el-radio-button__inner) {
-    width: 100%;
-    padding: 10px 8px;
-    font-size: 13px;
-    text-align: center;
-    cursor: pointer;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .expire-options :deep(.el-radio-button__original-radio) {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 1;
+  .expire-options.desktop-only {
+    display: none !important;
   }
   
   /* 输入框在超小屏幕优化 */
@@ -815,15 +899,24 @@ const handleCreateAnother = () => {
   
   .share-form :deep(.el-input__append) {
     padding: 0;
+    flex-shrink: 0;
+    min-width: auto;
   }
   
   .share-form :deep(.el-input__append .el-button) {
-    padding: 0 10px;
+    padding: 0 8px;
     font-size: 12px;
+    min-width: auto;
   }
   
   .share-form :deep(.el-input__append .el-button span) {
     display: none; /* 超小屏幕隐藏按钮文字 */
+  }
+  
+  /* 确保输入框内部不会超出 */
+  .share-form :deep(.el-input__inner) {
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .form-tip {
