@@ -23,17 +23,23 @@ type RangeInfo struct {
 }
 
 // MaxRangeSize 单次 Range 请求的最大大小（2MB）
-const MaxRangeSize = 2 * 1024 * 1024
+const MaxRangeSize = int64(2 * 1024 * 1024)
 
 // ParseRange 解析 HTTP Range 请求头
 // 支持格式: "bytes=start-end" 或 "bytes=start-"
 // 返回解析后的 Range 信息
 // 限制：单次请求不能超过 2MB
+// 如果 Range 头为空，返回前 2MB（或整个文件，如果文件小于 2MB）
 func ParseRange(rangeHeader string, fileSize int64) (*RangeInfo, error) {
 	if rangeHeader == "" {
+		// 如果没有 Range 头，返回前 2MB（或整个文件，如果文件小于 2MB）
+		end := MaxRangeSize - 1
+		if fileSize < MaxRangeSize {
+			end = fileSize - 1
+		}
 		return &RangeInfo{
 			Start: 0,
-			End:   fileSize - 1,
+			End:   end,
 			Total: fileSize,
 		}, nil
 	}
@@ -65,8 +71,12 @@ func ParseRange(rangeHeader string, fileSize int64) (*RangeInfo, error) {
 			return nil, fmt.Errorf("无效的结束位置: %s", parts[1])
 		}
 	} else {
-		// 如果没有指定 end，默认到文件末尾
-		end = fileSize - 1
+		// 如果没有指定 end，限制为最多 2MB（从 start 开始）
+		// 确保不超过文件大小
+		end = start + MaxRangeSize - 1
+		if end >= fileSize {
+			end = fileSize - 1
+		}
 	}
 
 	// 验证范围
@@ -90,13 +100,22 @@ func ParseRange(rangeHeader string, fileSize int64) (*RangeInfo, error) {
 }
 
 // SetRangeHeaders 设置 HTTP Range 响应头
-func SetRangeHeaders(w http.ResponseWriter, rangeInfo *RangeInfo, contentType string) {
+// hasRangeHeader: 客户端是否发送了 Range 请求头
+func SetRangeHeaders(w http.ResponseWriter, rangeInfo *RangeInfo, contentType string, hasRangeHeader bool) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d",
-		rangeInfo.Start, rangeInfo.End, rangeInfo.Total))
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", rangeInfo.End-rangeInfo.Start+1))
-	w.WriteHeader(http.StatusPartialContent) // 206
+	
+	if hasRangeHeader {
+		// 有 Range 头，返回 206 Partial Content
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d",
+			rangeInfo.Start, rangeInfo.End, rangeInfo.Total))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", rangeInfo.End-rangeInfo.Start+1))
+		w.WriteHeader(http.StatusPartialContent) // 206
+	} else {
+		// 没有 Range 头，返回 200 OK，但只返回部分内容（前 2MB）
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", rangeInfo.End-rangeInfo.Start+1))
+		w.WriteHeader(http.StatusOK) // 200
+	}
 }
 
 // IncrementIV 根据块偏移量调整 CTR 模式的 IV（计数器）

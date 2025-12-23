@@ -107,11 +107,34 @@ func (v *VideoHandler) CreateVideoPlay(c *gin.Context) {
 	playToken := uuid.New().String()
 
 	// 3. 准备 Token 信息
+	// 根据是否加密选择正确的文件路径
+	// 对于加密文件，优先使用 EncPath；对于普通文件，使用 Path
+	// 如果优先路径为空，则尝试使用另一个路径
+	filePath := ""
+	if fileInfo.IsEnc {
+		filePath = fileInfo.EncPath
+		if filePath == "" {
+			filePath = fileInfo.Path
+		}
+	} else {
+		filePath = fileInfo.Path
+		if filePath == "" {
+			filePath = fileInfo.EncPath
+		}
+	}
+	
+	// 如果路径仍然为空，记录错误
+	if filePath == "" {
+		logger.LOG.Error("文件路径为空", "fileID", fileInfo.ID, "isEnc", fileInfo.IsEnc, "path", fileInfo.Path, "encPath", fileInfo.EncPath)
+		c.JSON(500, models.NewJsonResponse(500, "文件路径不存在", nil))
+		return
+	}
+	
 	tokenInfo := PlayTokenInfo{
 		FileID:    req.FileID,
 		UserID:    userID,
 		FileSize:  int64(fileInfo.Size),
-		EncPath:   fileInfo.EncPath,
+		EncPath:   filePath, // 使用实际的文件路径（无论是否加密）
 		IsEnc:     fileInfo.IsEnc,
 		MimeType:  fileInfo.Mime,
 		CreatedAt: time.Now(),
@@ -214,6 +237,7 @@ func (v *VideoHandler) VideoPlay(c *gin.Context) {
 
 	// 3. 解析 Range 请求头
 	rangeHeader := c.GetHeader("Range")
+	hasRangeHeader := rangeHeader != ""
 	rangeInfo, err := util.ParseRange(rangeHeader, tokenInfo.FileSize)
 	if err != nil {
 		logger.LOG.Error("解析 Range 失败", "error", err, "rangeHeader", rangeHeader)
@@ -222,7 +246,7 @@ func (v *VideoHandler) VideoPlay(c *gin.Context) {
 	}
 
 	// 4. 设置响应头
-	util.SetRangeHeaders(c.Writer, rangeInfo, tokenInfo.MimeType)
+	util.SetRangeHeaders(c.Writer, rangeInfo, tokenInfo.MimeType, hasRangeHeader)
 
 	// 5. 根据是否加密选择传输方式
 	if tokenInfo.IsEnc {
