@@ -25,6 +25,7 @@ type RepositoryFactory struct {
 	downloadTaskRepo repository.DownloadTaskRepository
 	sysConfigRepo    repository.SysConfigRepository
 	uploadChunkRepo  repository.UploadChunkRepository
+	uploadTaskRepo   repository.UploadTaskRepository
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -152,6 +153,14 @@ func (f *RepositoryFactory) UploadChunk() repository.UploadChunkRepository {
 		f.uploadChunkRepo = NewUploadChunkRepository(f.db)
 	}
 	return f.uploadChunkRepo
+}
+
+// UploadTask 获取上传任务仓储
+func (f *RepositoryFactory) UploadTask() repository.UploadTaskRepository {
+	if f.uploadTaskRepo == nil {
+		f.uploadTaskRepo = NewUploadTaskRepository(f.db)
+	}
+	return f.uploadTaskRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

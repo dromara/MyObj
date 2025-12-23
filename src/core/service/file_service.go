@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/google/uuid"
@@ -114,6 +115,60 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	for _, chunk := range chunks {
 		res.Md5 = append(res.Md5, chunk.Md5)
 	}
+
+	// 计算分片大小和总分片数（默认5MB）
+	chunkSize := int64(5 * 1024 * 1024) // 5MB
+	totalChunks := int((req.FileSize + chunkSize - 1) / chunkSize) // 向上取整
+
+	// 创建或更新上传任务记录（用于持久化和断点续传）
+	uploadTask := &models.UploadTask{
+		ID:            uid, // 使用 precheck_id 作为主键
+		UserID:        user.ID,
+		FileName:      req.FileName,
+		FileSize:      req.FileSize,
+		ChunkSize:     chunkSize,
+		TotalChunks:   totalChunks,
+		UploadedChunks: len(chunks), // 已上传的分片数
+		ChunkSignature: req.ChunkSignature,
+		PathID:        req.PathID,
+		Status:        "pending",
+		CreateTime:    custom_type.Now(),
+		UpdateTime:    custom_type.Now(),
+		ExpireTime:    custom_type.JsonTime(time.Now().Add(7 * 24 * time.Hour)), // 7天后过期
+	}
+
+	// 尝试获取已存在的任务（如果存在则更新，否则创建）
+	existingTask, err := f.factory.UploadTask().GetByID(ctx, uid)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.LOG.Warn("查询上传任务失败", "error", err, "precheckID", uid)
+		// 不阻塞主流程，继续执行
+	} else if existingTask != nil {
+		// 更新已存在的任务
+		uploadTask.UploadedChunks = existingTask.UploadedChunks // 保留已上传的分片数
+		if err := f.factory.UploadTask().Update(ctx, uploadTask); err != nil {
+			logger.LOG.Warn("更新上传任务失败", "error", err, "precheckID", uid)
+			// 不阻塞主流程，继续执行
+		}
+	} else {
+		// 创建新任务
+		if err := f.factory.UploadTask().Create(ctx, uploadTask); err != nil {
+			logger.LOG.Warn("创建上传任务失败", "error", err, "precheckID", uid)
+			// 不阻塞主流程，继续执行
+		}
+	}
+
+	// 存储预检请求信息到缓存（用于后续查询进度）
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		logger.LOG.Error("序列化预检请求失败", "error", err)
+		return nil, err
+	}
+	// 存储预检请求信息到缓存（24小时过期，86400秒）
+	if err := f.cacheLocal.Set(reqCacheKey, string(reqJSON), 86400); err != nil {
+		logger.LOG.Warn("存储预检请求到缓存失败", "error", err)
+		// 不阻塞主流程，继续执行
+	}
 	// 序列化为JSON字符串存储到Redis
 	resJSON, err := json.Marshal(res)
 	if err != nil {
@@ -127,7 +182,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	}
 	// 保存原始请求数据到缓存，供上传时使用
 	reqKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
-	reqJSON, err := json.Marshal(req)
+	reqJSON, err = json.Marshal(req)
 	if err != nil {
 		logger.LOG.Error("序列化预检请求失败", "error", err)
 		return nil, err
@@ -762,6 +817,12 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	remaining := int64(totalChunks - uploadedChunkCount)
 	logger.LOG.Debug("分片上传进度", "chunkIndex", chunkIndex, "uploadedChunkCount", uploadedChunkCount, "totalChunks", totalChunks, "remaining", remaining, "fileName", header.Filename)
 
+	// 更新上传任务记录（更新已上传分片数和状态）
+	if err := f.updateUploadTask(ctx, req.PrecheckID, userID, uploadedChunkCount, totalChunks, tempBaseDir, "uploading", ""); err != nil {
+		logger.LOG.Warn("更新上传任务失败", "error", err, "precheckID", req.PrecheckID)
+		// 不阻塞主流程，继续执行
+	}
+
 	// 5. 如果还有分片未完成，释放锁并返回成功响应
 	if remaining > 0 {
 		mutex.Unlock() // 释放锁
@@ -850,7 +911,17 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	fileID, err := upload.ProcessUploadedFile(uploadData, f.factory)
 	if err != nil {
 		logger.LOG.Error("处理上传文件失败", "error", err)
+		// 更新上传任务状态为失败
+		if updateErr := f.updateUploadTask(ctx, req.PrecheckID, userID, uploadedChunkCount, totalChunks, tempBaseDir, "failed", err.Error()); updateErr != nil {
+			logger.LOG.Warn("更新上传任务状态失败", "error", updateErr, "precheckID", req.PrecheckID)
+		}
 		return nil, fmt.Errorf("文件处理失败: %w", err)
+	}
+
+	// 更新上传任务状态为完成
+	if err := f.updateUploadTask(ctx, req.PrecheckID, userID, totalChunks, totalChunks, tempBaseDir, "completed", ""); err != nil {
+		logger.LOG.Warn("更新上传任务状态失败", "error", err, "precheckID", req.PrecheckID)
+		// 不阻塞主流程，继续执行
 	}
 
 	// 6. 清除缓存
@@ -933,7 +1004,17 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 	fileID, err := upload.ProcessUploadedFile(uploadData, f.factory)
 	if err != nil {
 		logger.LOG.Error("处理上传文件失败", "error", err)
+		// 更新上传任务状态为失败
+		if updateErr := f.updateUploadTask(ctx, req.PrecheckID, userID, 0, 1, tempBaseDir, "failed", err.Error()); updateErr != nil {
+			logger.LOG.Warn("更新上传任务状态失败", "error", updateErr, "precheckID", req.PrecheckID)
+		}
 		return nil, fmt.Errorf("文件处理失败: %w", err)
+	}
+
+	// 更新上传任务状态为完成
+	if err := f.updateUploadTask(ctx, req.PrecheckID, userID, 1, 1, tempBaseDir, "completed", ""); err != nil {
+		logger.LOG.Warn("更新上传任务状态失败", "error", err, "precheckID", req.PrecheckID)
+		// 不阻塞主流程，继续执行
 	}
 
 	// 5. 清除缓存
@@ -1062,4 +1143,274 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 	}
 
 	return models.NewJsonResponse(200, "获取成功", resp), nil
+}
+
+// GetUploadProgress 查询上传进度
+// 优化策略：
+// 1. 优先查询缓存（快速响应，减少数据库压力）
+// 2. 如果缓存命中，再查询数据库获取实时进度（因为上传过程中只更新数据库，不更新缓存）
+// 3. 如果缓存未命中，说明任务不存在或已过期，直接返回404
+func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 优先查询缓存（快速判断任务是否存在）
+	cacheKey := fmt.Sprintf("fileUpload:%s", userID)
+	precheckData, err := f.cacheLocal.Get(cacheKey)
+	if err != nil {
+		// 缓存未命中，说明任务不存在或已过期
+		logger.LOG.Debug("预检信息缓存未命中", "precheckID", req.PrecheckID, "userID", userID)
+		return models.NewJsonResponse(404, "预检信息不存在或已过期", nil), nil
+	}
+
+	// 2. 反序列化缓存中的预检响应数据
+	var precheckResp response.FilePrecheckResponse
+	switch v := precheckData.(type) {
+	case *response.FilePrecheckResponse:
+		precheckResp = *v
+	case string:
+		if err := json.Unmarshal([]byte(v), &precheckResp); err != nil {
+			logger.LOG.Error("反序列化预检信息失败", "error", err)
+			return models.NewJsonResponse(400, "预检信息格式错误", nil), nil
+		}
+	default:
+		logger.LOG.Error("预检信息类型错误", "type", fmt.Sprintf("%T", v))
+		return models.NewJsonResponse(400, "预检信息类型错误", nil), nil
+	}
+
+	// 3. 验证预检ID是否匹配
+	if precheckResp.PrecheckID != req.PrecheckID {
+		return models.NewJsonResponse(400, "无效的预检ID", nil), nil
+	}
+
+	// 4. 查询数据库获取实时进度（因为上传过程中只更新数据库，不更新缓存）
+	task, err := f.factory.UploadTask().GetByID(ctx, req.PrecheckID)
+	if err != nil {
+		// 数据库中没有记录，但缓存存在（可能是旧数据），使用缓存中的基本信息
+		logger.LOG.Warn("数据库中没有找到上传任务，使用缓存数据", "precheckID", req.PrecheckID, "error", err)
+		
+		// 从缓存获取预检请求信息（包含文件大小、文件名等）
+		reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+		reqData, err := f.cacheLocal.Get(reqCacheKey)
+		if err != nil {
+			logger.LOG.Error("获取预检请求失败", "error", err)
+			return models.NewJsonResponse(404, "无法获取原始上传请求信息", nil), nil
+		}
+
+		var precheckReq request.UploadPrecheckRequest
+		switch v := reqData.(type) {
+		case *request.UploadPrecheckRequest:
+			precheckReq = *v
+		case string:
+			if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
+				logger.LOG.Error("反序列化预检请求失败", "error", err)
+				return models.NewJsonResponse(400, "预检请求信息格式错误", nil), nil
+			}
+		default:
+			logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+			return models.NewJsonResponse(400, "预检请求信息类型错误", nil), nil
+		}
+
+		// 计算总分片数
+		chunkSize := int64(5 * 1024 * 1024) // 5MB
+		totalChunks := int((precheckReq.FileSize + chunkSize - 1) / chunkSize)
+
+		// 使用缓存中的已上传分片MD5数量作为进度（不准确，但总比没有好）
+		uploadedChunks := len(precheckResp.Md5)
+		progress := 0.0
+		if totalChunks > 0 {
+			progress = float64(uploadedChunks) / float64(totalChunks) * 100
+		}
+
+		progressResp := response.UploadProgressResponse{
+			PrecheckID: req.PrecheckID,
+			FileName:   precheckReq.FileName,
+			FileSize:   precheckReq.FileSize,
+			Uploaded:   uploadedChunks,
+			Total:      totalChunks,
+			Progress:   progress,
+			Md5:        precheckResp.Md5,
+			IsComplete: uploadedChunks == totalChunks && totalChunks > 0,
+		}
+
+		return models.NewJsonResponse(200, "查询成功（使用缓存数据，进度可能不准确）", progressResp), nil
+	}
+
+	// 5. 数据库查询成功，使用数据库中的实时进度信息
+	progress := 0.0
+	if task.TotalChunks > 0 {
+		progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
+	}
+
+	progressResp := response.UploadProgressResponse{
+		PrecheckID: task.ID,
+		FileName:   task.FileName,
+		FileSize:   task.FileSize,
+		Uploaded:   task.UploadedChunks,
+		Total:      task.TotalChunks,
+		Progress:   progress,
+		Md5:        precheckResp.Md5, // MD5列表从缓存获取
+		IsComplete: task.UploadedChunks == task.TotalChunks && task.TotalChunks > 0,
+	}
+
+	return models.NewJsonResponse(200, "查询成功", progressResp), nil
+}
+
+// updateUploadTask 更新上传任务记录
+func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID string, uploadedChunks, totalChunks int, tempDir, status, errorMsg string) error {
+	task, err := f.factory.UploadTask().GetByID(ctx, precheckID)
+	if err != nil {
+		// 如果任务不存在，尝试创建（可能是从缓存恢复的场景）
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 从缓存获取预检请求信息
+			reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+			reqData, err := f.cacheLocal.Get(reqCacheKey)
+			if err != nil {
+				return fmt.Errorf("无法获取预检请求信息: %w", err)
+			}
+
+			var precheckReq request.UploadPrecheckRequest
+			switch v := reqData.(type) {
+			case *request.UploadPrecheckRequest:
+				precheckReq = *v
+			case string:
+				if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
+					return fmt.Errorf("反序列化预检请求失败: %w", err)
+				}
+			default:
+				return fmt.Errorf("预检请求类型错误: %T", v)
+			}
+
+			chunkSize := int64(5 * 1024 * 1024) // 5MB
+			task = &models.UploadTask{
+				ID:             precheckID,
+				UserID:         userID,
+				FileName:       precheckReq.FileName,
+				FileSize:       precheckReq.FileSize,
+				ChunkSize:      chunkSize,
+				TotalChunks:    totalChunks,
+				UploadedChunks: uploadedChunks,
+				ChunkSignature: precheckReq.ChunkSignature,
+				PathID:         precheckReq.PathID,
+				TempDir:        tempDir,
+				Status:         status,
+				ErrorMessage:   errorMsg,
+				CreateTime:     custom_type.Now(),
+				UpdateTime:     custom_type.Now(),
+				ExpireTime:     custom_type.JsonTime(time.Now().Add(7 * 24 * time.Hour)),
+			}
+			return f.factory.UploadTask().Create(ctx, task)
+		}
+		return err
+	}
+
+	// 更新任务信息
+	task.UploadedChunks = uploadedChunks
+	task.Status = status
+	task.ErrorMessage = errorMsg
+	if tempDir != "" {
+		task.TempDir = tempDir
+	}
+	task.UpdateTime = custom_type.Now()
+
+	return f.factory.UploadTask().Update(ctx, task)
+}
+
+// ListUncompletedUploads 查询未完成的上传任务列表
+func (f *FileService) ListUncompletedUploads(userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	tasks, err := f.factory.UploadTask().GetUncompletedByUserID(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("查询未完成上传任务失败", "error", err, "userID", userID)
+		return nil, err
+	}
+
+	// 转换为响应格式
+	var taskList []map[string]interface{}
+	for _, task := range tasks {
+		// 计算进度百分比
+		progress := 0.0
+		if task.TotalChunks > 0 {
+			progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
+		}
+
+		taskList = append(taskList, map[string]interface{}{
+			"id":              task.ID,
+			"file_name":       task.FileName,
+			"file_size":       task.FileSize,
+			"chunk_size":      task.ChunkSize,
+			"total_chunks":    task.TotalChunks,
+			"uploaded_chunks": task.UploadedChunks,
+			"progress":        progress,
+			"status":          task.Status,
+			"error_message":   task.ErrorMessage,
+			"path_id":         task.PathID,
+			"create_time":     task.CreateTime,
+			"update_time":     task.UpdateTime,
+			"expire_time":     task.ExpireTime,
+		})
+	}
+
+	return models.NewJsonResponse(200, "查询成功", taskList), nil
+}
+
+// DeleteUploadTask 删除上传任务
+func (f *FileService) DeleteUploadTask(taskID string, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 先查询任务是否存在，并验证是否属于当前用户
+	task, err := f.factory.UploadTask().GetByID(ctx, taskID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "任务不存在", nil), nil
+		}
+		logger.LOG.Error("查询上传任务失败", "error", err, "taskID", taskID)
+		return nil, err
+	}
+
+	// 验证任务是否属于当前用户
+	if task.UserID != userID {
+		return models.NewJsonResponse(403, "无权删除该任务", nil), nil
+	}
+
+	// 删除任务
+	err = f.factory.UploadTask().Delete(ctx, taskID)
+	if err != nil {
+		logger.LOG.Error("删除上传任务失败", "error", err, "taskID", taskID, "userID", userID)
+		return nil, err
+	}
+
+	logger.LOG.Info("删除上传任务成功", "taskID", taskID, "userID", userID, "fileName", task.FileName)
+	return models.NewJsonResponse(200, "删除成功", nil), nil
+}
+
+// CleanExpiredUploads 清理过期的上传任务
+// userID: 如果提供，则只清理该用户的过期任务；如果为空，则清理所有用户的过期任务（系统自动清理）
+func (f *FileService) CleanExpiredUploads(userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	var count int64
+	var err error
+
+	if userID != "" {
+		// 用户清理自己的过期任务
+		count, err = f.factory.UploadTask().DeleteExpiredByUserID(ctx, userID)
+		if err != nil {
+			logger.LOG.Error("清理用户过期上传任务失败", "error", err, "userID", userID)
+			return nil, err
+		}
+		logger.LOG.Info("清理用户过期上传任务完成", "count", count, "userID", userID)
+	} else {
+		// 系统自动清理所有过期任务
+		count, err = f.factory.UploadTask().DeleteExpired(ctx)
+		if err != nil {
+			logger.LOG.Error("清理过期上传任务失败", "error", err)
+			return nil, err
+		}
+		logger.LOG.Info("清理过期上传任务完成", "count", count)
+	}
+
+	return models.NewJsonResponse(200, "清理完成", map[string]interface{}{
+		"cleaned_count": count,
+	}), nil
 }

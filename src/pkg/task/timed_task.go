@@ -314,3 +314,67 @@ func (t *RecycledTask) StartScheduledCleanup(days int, interval time.Duration) {
 		}
 	}()
 }
+
+// UploadTask 上传任务定时任务
+type UploadTask struct {
+	factory *impl.RepositoryFactory
+}
+
+// NewUploadTask 创建上传任务定时任务
+func NewUploadTask(factory *impl.RepositoryFactory) *UploadTask {
+	return &UploadTask{
+		factory: factory,
+	}
+}
+
+// CleanupExpiredTasks 清理过期的上传任务
+func (t *UploadTask) CleanupExpiredTasks() error {
+	ctx := context.Background()
+	logger.LOG.Info("开始执行上传任务清理任务")
+
+	count, err := t.factory.UploadTask().DeleteExpired(ctx)
+	if err != nil {
+		logger.LOG.Error("清理过期上传任务失败", "error", err)
+		return fmt.Errorf("清理过期上传任务失败: %w", err)
+	}
+
+	if count > 0 {
+		logger.LOG.Info("上传任务清理完成", "cleaned_count", count)
+	} else {
+		logger.LOG.Debug("没有需要清理的过期上传任务")
+	}
+
+	return nil
+}
+
+// StartScheduledCleanup 启动定时清理任务
+// interval: 执行间隔（例如每天1次）
+func (t *UploadTask) StartScheduledCleanup(interval time.Duration) {
+	logger.LOG.Info("启动上传任务定时清理任务", "interval", interval)
+
+	// 在启动定时任务前，先确保表存在
+	db := t.factory.DB()
+	if db != nil {
+		logger.LOG.Info("检查 upload_task 表是否存在...")
+		if err := db.AutoMigrate(&models.UploadTask{}); err != nil {
+			logger.LOG.Warn("创建 upload_task 表失败（可能已存在）", "error", err)
+		} else {
+			logger.LOG.Info("✓ upload_task 表已创建或已存在")
+		}
+	}
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		// 启动时立即执行一次
+		if err := t.CleanupExpiredTasks(); err != nil {
+			logger.LOG.Error("定时清理任务执行失败", "error", err)
+		}
+
+		// 然后按间隔执行
+		for range ticker.C {
+			if err := t.CleanupExpiredTasks(); err != nil {
+				logger.LOG.Error("定时清理任务执行失败", "error", err)
+			}
+		}
+	}()
+}

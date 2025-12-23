@@ -97,3 +97,15 @@ type PublicFileListRequest struct {
 	// 每页数量
 	PageSize int `form:"pageSize" binding:"required,min=1,max=100"`
 }
+
+// UploadProgressRequest 上传进度查询请求
+type UploadProgressRequest struct {
+	// 预检ID
+	PrecheckID string `form:"precheck_id" binding:"required"`
+}
+
+// DeleteUploadTaskRequest 删除上传任务请求
+type DeleteUploadTaskRequest struct {
+	// 任务ID（预检ID）
+	TaskID string `json:"task_id" binding:"required"`
+}

@@ -105,6 +105,18 @@ type FilePrecheckResponse struct {
 	Md5        []string `json:"md5"`
 }
 
+// UploadProgressResponse 上传进度响应结构体
+type UploadProgressResponse struct {
+	PrecheckID string   `json:"precheck_id"`
+	FileName   string   `json:"file_name"`
+	FileSize   int64    `json:"file_size"`
+	Uploaded   int      `json:"uploaded"`   // 已上传分片数
+	Total      int      `json:"total"`      // 总分片数
+	Progress   float64  `json:"progress"`   // 进度百分比 (0-100)
+	Md5        []string `json:"md5"`        // 已上传分片的MD5列表
+	IsComplete bool     `json:"is_complete"` // 是否已完成
+}
+
 // VideoPlayTokenResponse 视频播放 Token 响应
 type VideoPlayTokenResponse struct {
 	// 播放 Token（24小时有效）

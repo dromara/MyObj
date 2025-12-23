@@ -29,7 +29,8 @@ export const getUploadStatusType = (status: string): 'info' | 'primary' | 'warni
     'uploading': 'primary',
     'paused': 'warning',
     'completed': 'success',
-    'failed': 'danger'
+    'failed': 'danger',
+    'cancelled': 'info'
   }
   return typeMap[status] || 'info'
 }
@@ -45,7 +46,8 @@ export const getUploadStatusText = (status: string): string => {
     'uploading': '上传中',
     'paused': '已暂停',
     'completed': '已完成',
-    'failed': '失败'
+    'failed': '失败',
+    'cancelled': '已取消'
   }
   return textMap[status] || '未知'
 }

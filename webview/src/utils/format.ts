@@ -68,3 +68,19 @@ export const truncateUrl = (url: string, maxLength: number = 50): string => {
   return url.substring(0, maxLength) + '...'
 }
 
+/**
+ * 格式化文件大小（简化版，用于显示）
+ * @param bytes 字节数
+ * @param useGB 是否使用GB单位（大于1GB时）
+ * @returns 格式化后的文件大小字符串（MB或GB）
+ */
+export const formatFileSizeForDisplay = (bytes: number, useGB: boolean = true): string => {
+  if (!bytes || bytes === 0) return '0 B'
+  const mb = bytes / (1024 * 1024)
+  if (useGB && bytes >= 1024 * 1024 * 1024) {
+    const gb = bytes / (1024 * 1024 * 1024)
+    return `${gb.toFixed(2)} GB`
+  }
+  return `${mb.toFixed(2)} MB`
+}
+

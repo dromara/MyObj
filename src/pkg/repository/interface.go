@@ -191,6 +191,18 @@ type SysConfigRepository interface {
 	GetAllAsMap(ctx context.Context) (map[string]string, error)
 }
 
+// UploadTaskRepository 上传任务仓储接口
+type UploadTaskRepository interface {
+	Create(ctx context.Context, task *models.UploadTask) error
+	GetByID(ctx context.Context, id string) (*models.UploadTask, error)
+	GetByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error)
+	GetUncompletedByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error)
+	Update(ctx context.Context, task *models.UploadTask) error
+	Delete(ctx context.Context, id string) error
+	DeleteExpired(ctx context.Context) (int64, error)
+	DeleteExpiredByUserID(ctx context.Context, userID string) (int64, error)
+}
+
 // UploadChunkRepository 上传分片信息仓储接口
 type UploadChunkRepository interface {
 	Create(ctx context.Context, chunk *models.UploadChunk) error

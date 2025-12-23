@@ -44,6 +44,14 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.Use(verify.Verify())
 		// 预检接口
 		fileGroup.POST("/upload/precheck", middleware.PowerVerify("file:upload"), f.Precheck)
+		// 上传进度查询接口
+		fileGroup.GET("/upload/progress", middleware.PowerVerify("file:upload"), f.GetUploadProgress)
+		// 查询未完成的上传任务列表
+		fileGroup.GET("/upload/uncompleted", middleware.PowerVerify("file:upload"), f.ListUncompletedUploads)
+		// 删除上传任务
+		fileGroup.POST("/upload/delete", middleware.PowerVerify("file:upload"), f.DeleteUploadTask)
+		// 清理过期的上传任务（用户可清理自己的，系统自动清理所有）
+		fileGroup.POST("/upload/clean-expired", middleware.PowerVerify("file:upload"), f.CleanExpiredUploads)
 		// 文件上传接口
 		fileGroup.POST("/upload", middleware.PowerVerify("file:upload"), f.UploadFile)
 		// 获取文件列表
@@ -314,6 +322,35 @@ func (f *FileHandler) UploadFile(c *gin.Context) {
 	c.JSON(200, result)
 }
 
+// GetUploadProgress godoc
+// @Summary 查询上传进度
+// @Description 根据预检ID查询文件上传进度
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param precheck_id query string true "预检ID"
+// @Success 200 {object} models.JsonResponse{data=response.UploadProgressResponse} "进度信息"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 404 {object} models.JsonResponse "预检信息不存在"
+// @Router /file/upload/progress [get]
+func (f *FileHandler) GetUploadProgress(c *gin.Context) {
+	req := new(request.UploadProgressRequest)
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	
+	userID := c.GetString("userID")
+	result, err := f.service.GetUploadProgress(req, userID)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "查询失败", err.Error()))
+		return
+	}
+	
+	c.JSON(200, result)
+}
+
 // PublicFileList 广场公开文件列表
 // @Summary 获取广场公开文件列表
 // @Description 获取广场公开文件列表
@@ -333,6 +370,82 @@ func (f *FileHandler) PublicFileList(c *gin.Context) {
 	result, err := f.service.PublicFileList(req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "获取文件列表失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ListUncompletedUploads godoc
+// @Summary 查询未完成的上传任务列表
+// @Description 查询当前用户所有未完成的上传任务（用于断点续传）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse{data=[]object} "未完成的上传任务列表"
+// @Failure 500 {object} models.JsonResponse "查询失败"
+// @Router /file/upload/uncompleted [get]
+func (f *FileHandler) ListUncompletedUploads(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := f.service.ListUncompletedUploads(userID)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "查询失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// DeleteUploadTask godoc
+// @Summary 删除上传任务
+// @Description 删除指定的上传任务（从数据库中删除记录）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.DeleteUploadTaskRequest true "删除请求"
+// @Success 200 {object} models.JsonResponse "删除成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 500 {object} models.JsonResponse "删除失败"
+// @Router /file/upload/delete [post]
+func (f *FileHandler) DeleteUploadTask(c *gin.Context) {
+	req := new(request.DeleteUploadTaskRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := f.service.DeleteUploadTask(req.TaskID, userID)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "删除失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// CleanExpiredUploads godoc
+// @Summary 清理过期的上传任务
+// @Description 清理过期的未完成上传任务。如果提供 userID 参数，则只清理该用户的过期任务；如果不提供，则清理所有用户的过期任务（系统自动清理）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user_id query string false "用户ID（可选，不提供则清理所有用户的过期任务）"
+// @Success 200 {object} models.JsonResponse{data=object} "清理结果"
+// @Failure 500 {object} models.JsonResponse "清理失败"
+// @Router /file/upload/clean-expired [post]
+func (f *FileHandler) CleanExpiredUploads(c *gin.Context) {
+	// 获取当前用户ID（用户清理自己的任务）
+	userID := c.GetString("userID")
+	
+	// 如果提供了 user_id 查询参数，使用该参数（用于系统自动清理）
+	if queryUserID := c.Query("user_id"); queryUserID != "" {
+		userID = queryUserID
+	}
+
+	result, err := f.service.CleanExpiredUploads(userID)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "清理失败", err.Error()))
 		return
 	}
 	c.JSON(200, result)

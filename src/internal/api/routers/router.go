@@ -83,9 +83,12 @@ func Execute(cacheLocal cache.Cache) {
 
 	factory := impl.NewRepositoryFactory(database.GetDB())
 	serverFactory := service.NewServiceFactory(factory, cacheLocal)
-	// 启动回收任务
+	// 启动回收站定时清理任务
 	recycledTask := task.NewRecycledTask(factory)
 	recycledTask.StartScheduledCleanup(30, 24*time.Hour)
+	// 启动上传任务定时清理任务（每天清理一次过期任务）
+	uploadTask := task.NewUploadTask(factory)
+	uploadTask.StartScheduledCleanup(24 * time.Hour)
 	// 初始化路由
 	router := initRouter(serverFactory, cacheLocal)
 

@@ -39,6 +39,10 @@ export const API_ENDPOINTS = {
     PREVIEW: '/file/preview',
     THUMBNAIL: '/file/thumbnail',
     PRECHECK: '/file/upload/precheck',
+    PROGRESS: '/file/upload/progress', // 上传进度查询
+    UNCOMPLETED: '/file/upload/uncompleted', // 查询未完成的上传任务列表
+    DELETE_UPLOAD_TASK: '/file/upload/delete', // 删除上传任务
+    CLEAN_EXPIRED: '/file/upload/clean-expired', // 清理过期的上传任务
     // 分片上传
     CHUNK_UPLOAD: '/file/chunk/upload',
     CHUNK_MERGE: '/file/chunk/merge',

@@ -152,6 +152,25 @@ export const uploadPrecheck = (data: uploadPrecheckParams) => {
   return post<ApiResponse>(API_ENDPOINTS.FILE.PRECHECK, data)
 }
 
+// 上传进度响应
+export interface UploadProgressResponse {
+  precheck_id: string
+  file_name: string
+  file_size: number
+  uploaded: number  // 已上传分片数
+  total: number     // 总分片数
+  progress: number  // 进度百分比 (0-100)
+  md5: string[]     // 已上传分片的MD5列表
+  is_complete: boolean // 是否已完成
+}
+
+/**
+ * 查询上传进度
+ */
+export const getUploadProgress = (precheckId: string) => {
+  return get<ApiResponse<UploadProgressResponse>>(API_ENDPOINTS.FILE.PROGRESS, { precheck_id: precheckId })
+}
+
 // 上传请求参数
 export interface uploadParams {
   precheck_id: string,
@@ -165,14 +184,18 @@ export interface uploadParams {
 /**
  * 上传
  */
-export const uploadFile = (data: uploadParams, onProgress?: (percent: number, loaded?: number, total?: number) => void) => {
+export const uploadFile = (
+  data: uploadParams, 
+  onProgress?: (percent: number, loaded?: number, total?: number) => void,
+  options?: { onCancel?: (cancel: () => void) => void }
+) => {
   const formData = new FormData();
   formData.append('precheck_id', data.precheck_id);
   formData.append('chunk_index', data.chunk_index.toString());
   formData.append('total_chunks', data.total_chunks.toString());
   formData.append('chunk_md5', data.chunk_md5);
   formData.append('is_enc', data.is_enc.toString());
-  return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData, onProgress)
+  return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData, onProgress, options)
 }
 
 // 公开文件列表请求参数
@@ -207,5 +230,52 @@ export interface PublicFileListResponse {
  */
 export const getPublicFileList = (params: PublicFileListParams) => {
   return get<ApiResponse<PublicFileListResponse>>(API_ENDPOINTS.FILE.PUBLIC_LIST, params)
+}
+
+// 未完成的上传任务项
+export interface UncompletedUploadTask {
+  id: string
+  file_name: string
+  file_size: number
+  chunk_size: number
+  total_chunks: number
+  uploaded_chunks: number
+  progress: number
+  status: string
+  error_message?: string
+  path_id: string
+  create_time: string
+  update_time: string
+  expire_time: string
+}
+
+/**
+ * 查询未完成的上传任务列表
+ */
+export const listUncompletedUploads = () => {
+  return get<ApiResponse<UncompletedUploadTask[]>>(API_ENDPOINTS.FILE.UNCOMPLETED)
+}
+
+/**
+ * 删除上传任务请求参数
+ */
+export interface DeleteUploadTaskRequest {
+  task_id: string
+}
+
+/**
+ * 删除上传任务
+ */
+export const deleteUploadTask = (taskId: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.FILE.DELETE_UPLOAD_TASK, {
+    task_id: taskId
+  })
+}
+
+/**
+ * 清理过期的上传任务
+ */
+export const cleanExpiredUploads = () => {
+  return post<ApiResponse<{ cleaned_count: number }>>(API_ENDPOINTS.FILE.CLEAN_EXPIRED)
 }
 

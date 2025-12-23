@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatSize, formatDate, getMimeTypeFromFileType } from '@/utils'
+import { formatSize, formatDate } from '@/utils'
 import Preview from '@/components/Preview/index.vue'
 import { getPublicFileList, type PublicFileItem } from '@/api/file'
 import type { ComponentInternalInstance } from 'vue'
@@ -273,7 +273,7 @@ const loadPublicFiles = async () => {
       proxy?.$modal.msgError(response.message || '加载失败')
     }
   } catch (error) {
-    console.error('加载公开文件列表失败:', error)
+    proxy?.$log.error('加载公开文件列表失败:', error)
     proxy?.$modal.msgError('加载失败')
   } finally {
     loading.value = false

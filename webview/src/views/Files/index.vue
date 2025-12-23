@@ -502,7 +502,7 @@ const handleNewFolder = () => {
 const handleUpload = async () => {
   await handleFileUpload(
     currentPath.value,
-    { chunkSize: 10 * 1024 * 1024 }, // 自定义分片大小为10MB
+    { chunkSize: 5 * 1024 * 1024 }, // 分片大小为5MB（与后端保持一致）
     (progress, fileName) => {
       proxy?.$log.debug(`文件 ${fileName} 上传进度: ${progress}%`)
       // 可以在这里更新UI进度条
