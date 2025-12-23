@@ -57,6 +57,7 @@
               </template>
               <template v-else>
                 <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
+                <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
               </template>
             </el-dropdown-menu>
           </template>
@@ -93,12 +94,15 @@ const emit = defineEmits<{
   'share-file': [file: FileItem]
   'delete-file': [file: FileItem]
   'rename-dir': [folder: FolderItem]
+  'delete-dir': [folder: FolderItem]
 }>()
 
 const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder: boolean })) => {
   if ('isFolder' in row && row.isFolder) {
     if (command === 'rename') {
       emit('rename-dir', row as FolderItem)
+    } else if (command === 'delete') {
+      emit('delete-dir', row as FolderItem)
     }
   } else {
     switch (command) {

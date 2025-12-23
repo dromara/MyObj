@@ -720,6 +720,226 @@ func (f *FileService) RenameDir(req *request.RenameDirRequest, userID string) (*
 	}), nil
 }
 
+// SetFilePublic 设置文件公开状态
+func (f *FileService) SetFilePublic(req *request.SetFilePublicRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 验证用户是否拥有该文件
+	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "文件不存在或无权访问", nil), nil
+		}
+		logger.LOG.Error("获取文件失败", "error", err, "fileID", req.FileID)
+		return nil, err
+	}
+
+	// 2. 如果要设置为公开，检查文件是否加密
+	if req.Public {
+		// 获取文件信息
+		fileInfo, err := f.factory.FileInfo().GetByID(ctx, userFile.FileID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return models.NewJsonResponse(404, "文件信息不存在", nil), nil
+			}
+			logger.LOG.Error("获取文件信息失败", "error", err, "fileID", userFile.FileID)
+			return nil, err
+		}
+
+		// 如果文件是加密的，不允许设置为公开
+		if fileInfo.IsEnc {
+			return models.NewJsonResponse(400, "加密文件不能设置为公开", nil), nil
+		}
+	}
+
+	// 3. 更新文件公开状态
+	userFile.Public = req.Public
+	err = f.factory.UserFiles().Update(ctx, userFile)
+	if err != nil {
+		logger.LOG.Error("设置文件公开状态失败", "error", err, "fileID", req.FileID, "public", req.Public)
+		return nil, fmt.Errorf("设置文件公开状态失败: %w", err)
+	}
+
+	logger.LOG.Info("文件公开状态已更新", "fileID", req.FileID, "public", req.Public)
+	return models.NewJsonResponse(200, "文件公开状态已更新", map[string]interface{}{
+		"file_id": req.FileID,
+		"public":  req.Public,
+	}), nil
+}
+
+// DeleteDir 删除目录（递归删除目录下的所有文件和子目录）
+func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 获取目录信息
+	virtualPath, err := f.factory.VirtualPath().GetByID(ctx, req.DirID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "目录不存在", nil), nil
+		}
+		logger.LOG.Error("获取目录失败", "error", err, "dirID", req.DirID)
+		return nil, err
+	}
+
+	// 2. 验证目录是否属于当前用户
+	if virtualPath.UserID != userID {
+		return models.NewJsonResponse(403, "无权访问该目录", nil), nil
+	}
+
+	// 3. 检查是否是根目录（根目录不能删除）
+	rootPath, err := f.factory.VirtualPath().GetRootPath(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("获取根目录失败", "error", err)
+		return nil, err
+	}
+	
+	isRootDir := rootPath.ID == req.DirID
+	if isRootDir {
+		return models.NewJsonResponse(400, "根目录不能删除", nil), nil
+	}
+
+	// 4. 递归获取目录下的所有文件和子目录
+	dirPathID := strconv.Itoa(req.DirID)
+	
+	// 4.1 获取目录下的所有文件（直接查询该目录下的文件，避免获取所有文件）
+	// 注意：由于 UserFilesRepository 没有 ListByVirtualPath 方法，我们使用 ListByUserID 然后过滤
+	// 对于大多数用户，文件数量不会太多，这个实现是可以接受的
+	allFiles, err := f.factory.UserFiles().ListByUserID(ctx, userID, 0, 100000)
+	if err != nil {
+		logger.LOG.Error("获取文件列表失败", "error", err)
+		return nil, err
+	}
+
+	// 过滤出该目录下的文件（VirtualPath 存储的是路径ID的字符串形式）
+	var filesToDelete []string
+	for _, file := range allFiles {
+		// 检查文件是否在该目录下（VirtualPath 存储的是目录ID的字符串形式）
+		if file.VirtualPath == dirPathID {
+			filesToDelete = append(filesToDelete, file.UfID)
+		}
+	}
+
+	// 4.2 递归获取所有子目录
+	// 注意：需要处理根目录的子目录（ParentLevel 可能为空）的情况
+	var dirsToDelete []int
+	err = f.collectSubDirs(ctx, userID, req.DirID, &dirsToDelete, rootPath.ID)
+	if err != nil {
+		logger.LOG.Error("收集子目录失败", "error", err)
+		return nil, err
+	}
+
+	// 5. 删除所有文件（移动到回收站）
+	fileSuccessCount := 0
+	fileFailedCount := 0
+	if len(filesToDelete) > 0 {
+		deleteFileReq := &request.DeleteFileRequest{
+			FileIDs: filesToDelete,
+		}
+		result, err := f.DeleteFiles(deleteFileReq, userID)
+		if err != nil {
+			logger.LOG.Error("删除目录下文件失败", "error", err)
+			return nil, err
+		}
+		// 解析删除结果
+		if result.Data != nil {
+			if data, ok := result.Data.(map[string]interface{}); ok {
+				if success, ok := data["success"].(float64); ok {
+					fileSuccessCount = int(success)
+				}
+				if failed, ok := data["failed"].(float64); ok {
+					fileFailedCount = int(failed)
+				}
+			}
+		}
+	}
+
+	// 6. 递归删除所有子目录（从最深层开始）
+	// 注意：如果子目录删除失败，我们仍然会尝试删除父目录
+	// 这是合理的，因为用户已经确认要删除整个目录，且返回了详细的失败信息
+	dirSuccessCount := 0
+	dirFailedCount := 0
+	// 反转数组，从最深层开始删除（确保先删除子目录，再删除父目录）
+	for i := len(dirsToDelete) - 1; i >= 0; i-- {
+		dirID := dirsToDelete[i]
+		err := f.factory.VirtualPath().Delete(ctx, dirID)
+		if err != nil {
+			logger.LOG.Error("删除子目录失败", "error", err, "dirID", dirID)
+			dirFailedCount++
+			// 继续删除其他目录，不中断流程
+		} else {
+			dirSuccessCount++
+		}
+	}
+
+	// 7. 删除目录本身
+	// 即使部分子目录删除失败，仍然删除父目录（用户已确认删除）
+	err = f.factory.VirtualPath().Delete(ctx, req.DirID)
+	if err != nil {
+		logger.LOG.Error("删除目录失败", "error", err, "dirID", req.DirID)
+		return nil, fmt.Errorf("删除目录失败: %w", err)
+	}
+
+	logger.LOG.Info("目录删除成功", "dirID", req.DirID, 
+		"filesDeleted", fileSuccessCount, "filesFailed", fileFailedCount,
+		"dirsDeleted", dirSuccessCount, "dirsFailed", dirFailedCount)
+
+	message := fmt.Sprintf("目录删除成功，已删除 %d 个文件", fileSuccessCount)
+	if fileFailedCount > 0 {
+		message = fmt.Sprintf("%s，%d 个文件删除失败", message, fileFailedCount)
+	}
+	if dirSuccessCount > 0 {
+		message = fmt.Sprintf("%s，已删除 %d 个子目录", message, dirSuccessCount)
+	}
+	if dirFailedCount > 0 {
+		message = fmt.Sprintf("%s，%d 个子目录删除失败", message, dirFailedCount)
+	}
+
+	return models.NewJsonResponse(200, message, map[string]interface{}{
+		"dir_id":           req.DirID,
+		"files_deleted":    fileSuccessCount,
+		"files_failed":     fileFailedCount,
+		"dirs_deleted":     dirSuccessCount,
+		"dirs_failed":      dirFailedCount,
+	}), nil
+}
+
+// collectSubDirs 递归收集目录下的所有子目录
+func (f *FileService) collectSubDirs(ctx context.Context, userID string, parentDirID int, result *[]int, rootDirID int) error {
+	// 获取直接子目录
+	// 注意：ListSubFoldersByParentID 使用整数 parentID 查询 TEXT 类型的 parent_level 字段
+	// GORM 会自动进行类型转换，这在其他代码（如 RenameDir）中已经验证可行
+	subDirs, err := f.factory.VirtualPath().ListSubFoldersByParentID(ctx, userID, parentDirID, 0, 10000)
+	if err != nil {
+		return err
+	}
+
+	// 验证 parent_level 是否匹配（作为额外的安全检查）
+	parentLevelStr := strconv.Itoa(parentDirID)
+	for _, subDir := range subDirs {
+		// 验证确实是子目录
+		// 情况1：ParentLevel 等于父目录ID的字符串形式（正常情况）
+		// 情况2：ParentLevel 为空且父目录是根目录（根目录的直接子目录）
+		isValidChild := false
+		if subDir.ParentLevel == parentLevelStr {
+			// 正常情况：ParentLevel 匹配
+			isValidChild = true
+		} else if subDir.ParentLevel == "" && parentDirID == rootDirID {
+			// 特殊情况：根目录的直接子目录，ParentLevel 可能为空
+			isValidChild = true
+		}
+
+		if isValidChild && subDir.IsDir {
+			*result = append(*result, subDir.ID)
+			// 递归收集子目录的子目录
+			if err := f.collectSubDirs(ctx, userID, subDir.ID, result, rootDirID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // DeleteFiles 删除文件（移动到回收站）
 func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()

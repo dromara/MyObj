@@ -81,6 +81,7 @@
         @share-file="handleShareFile"
         @delete-file="handleDeleteFile"
         @rename-dir="handleRenameDir"
+        @delete-dir="handleDeleteDir"
       />
       
       <!-- 空状态 -->
@@ -403,6 +404,11 @@ const enterFolder = (folder: FolderItem) => {
   if (folder.path) {
     navigateToPath(folder.path)
   }
+}
+
+// 处理列表视图的删除目录事件
+const handleDeleteDir = (folder: FolderItem) => {
+  handleFolderAction('delete', folder)
 }
 
 // 列表视图行双击处理

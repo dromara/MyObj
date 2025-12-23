@@ -72,6 +72,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/rename", f.RenameFile)
 		// 重命名目录（业务逻辑已验证目录所有权，无需额外权限验证）
 		fileGroup.POST("/renameDir", f.RenameDir)
+		// 删除目录（业务逻辑已验证目录所有权，无需额外权限验证）
+		fileGroup.POST("/deleteDir", f.DeleteDir)
+		// 设置文件公开状态（业务逻辑已验证文件所有权和加密状态，无需额外权限验证）
+		fileGroup.POST("/setPublic", f.SetFilePublic)
 		// 获取虚拟路径
 		fileGroup.GET("/virtualPath", middleware.PowerVerify("file:preview"), f.GetVirtualPath)
 	}
@@ -331,6 +335,59 @@ func (f *FileHandler) RenameDir(c *gin.Context) {
 	result, err := f.service.RenameDir(req, c.GetString("userID"))
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "重命名目录失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// DeleteDir godoc
+// @Summary 删除目录
+// @Description 删除目录及其下的所有文件和子目录（文件会移动到回收站）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.DeleteDirRequest true "删除目录请求"
+// @Success 200 {object} models.JsonResponse{data=object} "删除成功"
+// @Failure 400 {object} models.JsonResponse "参数错误或根目录不能删除"
+// @Failure 404 {object} models.JsonResponse "目录不存在"
+// @Failure 403 {object} models.JsonResponse "无权访问"
+// @Router /file/deleteDir [post]
+func (f *FileHandler) DeleteDir(c *gin.Context) {
+	req := new(request.DeleteDirRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.DeleteDir(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "删除目录失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// SetFilePublic godoc
+// @Summary 设置文件公开状态
+// @Description 设置文件是否公开（加密文件不能设置为公开）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.SetFilePublicRequest true "设置公开状态请求"
+// @Success 200 {object} models.JsonResponse{data=object} "设置成功"
+// @Failure 400 {object} models.JsonResponse "参数错误或加密文件不能公开"
+// @Failure 404 {object} models.JsonResponse "文件不存在"
+// @Router /file/setPublic [post]
+func (f *FileHandler) SetFilePublic(c *gin.Context) {
+	req := new(request.SetFilePublicRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.SetFilePublic(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "设置文件公开状态失败", err.Error()))
 		return
 	}
 	c.JSON(200, result)

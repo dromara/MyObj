@@ -16,10 +16,17 @@ export const createFolder = (data: CreateFolderRequest) => {
 }
 
 /**
- * 删除文件夹
+ * 删除目录请求参数
  */
-export const deleteFolder = (folderId: string) => {
-  return post<ApiResponse>(API_ENDPOINTS.FOLDER.DELETE, { folder_id: folderId })
+export interface DeleteDirRequest {
+  dir_id: number
+}
+
+/**
+ * 删除文件夹（会递归删除目录下的所有文件和子目录）
+ */
+export const deleteFolder = (data: DeleteDirRequest) => {
+  return post<ApiResponse>(API_ENDPOINTS.FOLDER.DELETE, data)
 }
 
 /**

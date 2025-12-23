@@ -55,7 +55,7 @@
       <el-form-item label="访问密码">
         <el-input 
           v-model="shareForm.password" 
-          placeholder="请输入访问密码（可选）"
+          placeholder="请输入访问密码（可选，留空则无需密码）"
           maxlength="20"
           show-word-limit
           clearable
@@ -64,7 +64,7 @@
             <el-button @click="generateRandomPassword" :icon="Refresh">随机生成</el-button>
           </template>
         </el-input>
-        <div class="form-tip">设置密码后，访问者需要输入密码才能下载文件</div>
+        <div class="form-tip">设置密码后，访问者需要输入密码才能下载文件；不设置密码则任何人都可以通过链接下载</div>
       </el-form-item>
     </el-form>
 
@@ -224,11 +224,6 @@ const handleExpireChange = (value: string | number | boolean | undefined) => {
 }
 
 const handleConfirmShare = async () => {
-  if (!shareForm.password) {
-    proxy?.$modal.msgWarning('请设置访问密码')
-    return
-  }
-  
   sharing.value = true
   try {
     // 计算过期时间

@@ -125,3 +125,17 @@ type RenameDirRequest struct {
 	// 新目录名
 	NewDirName string `json:"new_dir_name" binding:"required"`
 }
+
+// SetFilePublicRequest 设置文件公开状态请求
+type SetFilePublicRequest struct {
+	// 文件ID（uf_id）
+	FileID string `json:"file_id" binding:"required"`
+	// 是否公开
+	Public bool `json:"public" binding:"required"`
+}
+
+// DeleteDirRequest 删除目录请求
+type DeleteDirRequest struct {
+	// 目录ID
+	DirID int `json:"dir_id" binding:"required"`
+}
