@@ -569,6 +569,157 @@ func (f *FileService) GetVirtualPath(userID string) (*models.JsonResponse, error
 	return models.NewJsonResponse(200, "获取虚拟路径成功", user), nil
 }
 
+// RenameFile 重命名文件
+func (f *FileService) RenameFile(req *request.RenameFileRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 验证用户是否拥有该文件
+	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "文件不存在或无权访问", nil), nil
+		}
+		logger.LOG.Error("获取文件失败", "error", err, "fileID", req.FileID)
+		return nil, err
+	}
+
+	// 2. 验证新文件名不能为空
+	if strings.TrimSpace(req.NewFileName) == "" {
+		return models.NewJsonResponse(400, "新文件名不能为空", nil), nil
+	}
+
+	// 3. 检查同一目录下是否已存在同名文件
+	// 注意：UserFiles.VirtualPath 存储的是路径ID（字符串格式）
+	existingFiles, err := f.factory.UserFiles().ListByUserID(ctx, userID, 0, 10000)
+	if err != nil {
+		logger.LOG.Error("查询文件列表失败", "error", err)
+		return nil, err
+	}
+
+	// 检查同一虚拟路径下是否有同名文件
+	for _, file := range existingFiles {
+		if file.VirtualPath == userFile.VirtualPath &&
+			file.FileName == req.NewFileName &&
+			file.UfID != req.FileID {
+			return models.NewJsonResponse(400, "该目录下已存在同名文件", nil), nil
+		}
+	}
+
+	// 4. 保存旧文件名用于日志
+	oldFileName := userFile.FileName
+
+	// 5. 更新文件名
+	userFile.FileName = req.NewFileName
+	err = f.factory.UserFiles().Update(ctx, userFile)
+	if err != nil {
+		logger.LOG.Error("重命名文件失败", "error", err, "fileID", req.FileID, "newFileName", req.NewFileName)
+		return nil, fmt.Errorf("重命名文件失败: %w", err)
+	}
+
+	logger.LOG.Info("文件重命名成功", "fileID", req.FileID, "oldFileName", oldFileName, "newFileName", req.NewFileName)
+	return models.NewJsonResponse(200, "文件重命名成功", map[string]interface{}{
+		"file_id":     req.FileID,
+		"file_name":   req.NewFileName,
+	}), nil
+}
+
+// RenameDir 重命名目录
+func (f *FileService) RenameDir(req *request.RenameDirRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 获取目录信息
+	virtualPath, err := f.factory.VirtualPath().GetByID(ctx, req.DirID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "目录不存在", nil), nil
+		}
+		logger.LOG.Error("获取目录失败", "error", err, "dirID", req.DirID)
+		return nil, err
+	}
+
+	// 2. 验证目录是否属于当前用户
+	if virtualPath.UserID != userID {
+		return models.NewJsonResponse(403, "无权访问该目录", nil), nil
+	}
+
+	// 2.1 检查是否是根目录（根目录的 ParentLevel 为空或 NULL）
+	rootPath, err := f.factory.VirtualPath().GetRootPath(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("获取根目录失败", "error", err)
+		return nil, err
+	}
+	
+	isRootDir := rootPath.ID == req.DirID
+	if isRootDir {
+		// 根目录通常不应该被重命名，这里返回错误
+		return models.NewJsonResponse(400, "根目录不能重命名", nil), nil
+	}
+
+	// 3. 验证新目录名不能为空
+	newDirName := strings.TrimSpace(req.NewDirName)
+	if newDirName == "" {
+		return models.NewJsonResponse(400, "新目录名不能为空", nil), nil
+	}
+
+	// 4. 构建新路径（VirtualPath.Path 存储的是目录名，如 "/folder1"）
+	newPath := "/" + newDirName
+
+	// 5. 检查同级目录下是否已存在同名目录
+	// 获取父目录ID（用于查询同级目录）
+	var parentID int
+	if virtualPath.ParentLevel != "" {
+		// 有父目录，解析父目录ID
+		var err error
+		parentID, err = strconv.Atoi(virtualPath.ParentLevel)
+		if err != nil {
+			logger.LOG.Error("解析父目录ID失败", "error", err, "parentLevel", virtualPath.ParentLevel)
+			return nil, fmt.Errorf("无效的父目录ID: %w", err)
+		}
+	} else {
+		// ParentLevel 为空，应该是根目录的子目录
+		// 根据代码逻辑，根目录的子目录的 ParentLevel 应该是根目录的ID
+		// 但如果 ParentLevel 为空，说明可能是数据不一致，使用根目录ID作为父目录ID
+		parentID = rootPath.ID
+		logger.LOG.Warn("目录的 ParentLevel 为空，使用根目录ID作为父目录", "dirID", req.DirID)
+	}
+
+	// 查询同一父目录下的所有子目录
+	subFolders, err := f.factory.VirtualPath().ListSubFoldersByParentID(ctx, userID, parentID, 0, 1000)
+	if err != nil {
+		logger.LOG.Error("查询子目录列表失败", "error", err)
+		return nil, err
+	}
+
+	// 检查是否有同名目录（排除当前目录）
+	for _, folder := range subFolders {
+		if folder.Path == newPath && folder.ID != req.DirID {
+			return models.NewJsonResponse(400, "该目录下已存在同名目录", nil), nil
+		}
+	}
+
+	// 6. 更新目录路径
+	oldPath := virtualPath.Path
+	virtualPath.Path = newPath
+	virtualPath.UpdateTime = custom_type.Now()
+
+	err = f.factory.VirtualPath().Update(ctx, virtualPath)
+	if err != nil {
+		logger.LOG.Error("重命名目录失败", "error", err, "dirID", req.DirID, "newDirName", req.NewDirName)
+		return nil, fmt.Errorf("重命名目录失败: %w", err)
+	}
+
+	// 7. 注意：由于 VirtualPath.Path 只存储目录名（如 "/folder1"），
+	// 而 UserFiles.VirtualPath 存储的是路径ID（字符串格式），
+	// 所以重命名目录时，子目录和文件的路径不需要更新
+	// 只需要更新当前目录的 Path 即可
+
+	logger.LOG.Info("目录重命名成功", "dirID", req.DirID, "oldPath", oldPath, "newPath", newPath)
+	return models.NewJsonResponse(200, "目录重命名成功", map[string]interface{}{
+		"dir_id":   req.DirID,
+		"dir_path": newPath,
+	}), nil
+}
+
 // DeleteFiles 删除文件（移动到回收站）
 func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()

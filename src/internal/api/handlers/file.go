@@ -68,6 +68,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/move", middleware.PowerVerify("file:move"), f.MoveFile)
 		// 删除文件
 		fileGroup.POST("/delete", middleware.PowerVerify("file:delete"), f.DeleteFile)
+		// 重命名文件
+		fileGroup.POST("/rename", middleware.PowerVerify("file:update"), f.RenameFile)
+		// 重命名目录
+		fileGroup.POST("/renameDir", middleware.PowerVerify("dir:update"), f.RenameDir)
 		// 获取虚拟路径
 		fileGroup.GET("/virtualPath", middleware.PowerVerify("file:preview"), f.GetVirtualPath)
 	}
@@ -274,6 +278,59 @@ func (f *FileHandler) DeleteFile(c *gin.Context) {
 	result, err := f.service.DeleteFiles(req, c.GetString("userID"))
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "删除文件失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// RenameFile godoc
+// @Summary 重命名文件
+// @Description 重命名用户文件
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.RenameFileRequest true "重命名请求"
+// @Success 200 {object} models.JsonResponse{data=object} "重命名成功"
+// @Failure 400 {object} models.JsonResponse "参数错误或重命名失败"
+// @Failure 404 {object} models.JsonResponse "文件不存在"
+// @Router /file/rename [post]
+func (f *FileHandler) RenameFile(c *gin.Context) {
+	req := new(request.RenameFileRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.RenameFile(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "重命名文件失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// RenameDir godoc
+// @Summary 重命名目录
+// @Description 重命名用户目录，并自动更新子目录和文件的路径
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.RenameDirRequest true "重命名请求"
+// @Success 200 {object} models.JsonResponse{data=object} "重命名成功"
+// @Failure 400 {object} models.JsonResponse "参数错误或重命名失败"
+// @Failure 404 {object} models.JsonResponse "目录不存在"
+// @Failure 403 {object} models.JsonResponse "无权访问"
+// @Router /file/renameDir [post]
+func (f *FileHandler) RenameDir(c *gin.Context) {
+	req := new(request.RenameDirRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.RenameDir(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "重命名目录失败", err.Error()))
 		return
 	}
 	c.JSON(200, result)

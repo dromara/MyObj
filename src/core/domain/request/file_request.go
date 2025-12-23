@@ -109,3 +109,19 @@ type DeleteUploadTaskRequest struct {
 	// 任务ID（预检ID）
 	TaskID string `json:"task_id" binding:"required"`
 }
+
+// RenameFileRequest 文件重命名请求
+type RenameFileRequest struct {
+	// 文件ID（uf_id）
+	FileID string `json:"file_id" binding:"required"`
+	// 新文件名
+	NewFileName string `json:"new_file_name" binding:"required"`
+}
+
+// RenameDirRequest 目录重命名请求
+type RenameDirRequest struct {
+	// 目录ID
+	DirID int `json:"dir_id" binding:"required"`
+	// 新目录名
+	NewDirName string `json:"new_dir_name" binding:"required"`
+}
