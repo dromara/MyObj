@@ -10,6 +10,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/upload"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -324,10 +325,34 @@ func getFileInfo(url string, timeout int) (*fileInfoResult, bool, error) {
 func extractFileName(url, contentDisposition string) string {
 	// 优先从Content-Disposition获取
 	if contentDisposition != "" {
-		if strings.Contains(contentDisposition, "filename=") {
-			parts := strings.Split(contentDisposition, "filename=")
-			if len(parts) > 1 {
-				fileName := strings.Trim(parts[1], " \"")
+		// 1. 优先处理 filename*=UTF-8''xxx (RFC 5987 格式)
+		if idx := strings.Index(contentDisposition, "filename*=UTF-8''"); idx >= 0 {
+			value := contentDisposition[idx+len("filename*=UTF-8''"):]
+			// 移除分号后的内容（如果有）
+			if semicolonIdx := strings.Index(value, ";"); semicolonIdx > 0 {
+				value = value[:semicolonIdx]
+			}
+			// URL解码
+			if decoded, err := neturl.QueryUnescape(value); err == nil {
+				fileName := sanitizeFileName(decoded)
+				if fileName != "" {
+					return fileName
+				}
+			}
+		}
+
+		// 2. 处理 filename="xxx" 或 filename=xxx
+		if idx := strings.Index(contentDisposition, "filename="); idx >= 0 {
+			value := contentDisposition[idx+len("filename="):]
+			// 移除分号后的内容（如果有）
+			if semicolonIdx := strings.Index(value, ";"); semicolonIdx > 0 {
+				value = value[:semicolonIdx]
+			}
+			// 移除引号和空格
+			value = strings.Trim(value, " \"")
+			// 如果值不为空且不是 filename*= 的开头（避免重复处理）
+			if value != "" && !strings.HasPrefix(value, "UTF-8''") {
+				fileName := sanitizeFileName(value)
 				if fileName != "" {
 					return fileName
 				}
@@ -344,12 +369,55 @@ func extractFileName(url, contentDisposition string) string {
 			lastPart = lastPart[:idx]
 		}
 		if lastPart != "" {
-			return lastPart
+			fileName := sanitizeFileName(lastPart)
+			if fileName != "" {
+				return fileName
+			}
 		}
 	}
 
 	// 使用默认文件名
 	return fmt.Sprintf("未命名文件_%s", time.Now().Format("20060102150405"))
+}
+
+// sanitizeFileName 清理文件名，移除Windows不允许的字符
+func sanitizeFileName(fileName string) string {
+	// Windows不允许的字符: < > : " / \ | ? *
+	invalidChars := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
+	result := fileName
+
+	// 移除所有非法字符
+	for _, char := range invalidChars {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+
+	// 移除控制字符（ASCII 0-31）
+	var builder strings.Builder
+	for _, r := range result {
+		if r > 31 && r != 127 { // 保留可打印字符，排除DEL (127)
+			builder.WriteRune(r)
+		}
+	}
+	result = builder.String()
+
+	// 移除首尾空格和点号（Windows不允许）
+	result = strings.Trim(result, " .")
+
+	// 如果结果为空，返回默认名称
+	if result == "" {
+		return fmt.Sprintf("未命名文件_%s", time.Now().Format("20060102150405"))
+	}
+
+	// Windows保留名称检查
+	reservedNames := []string{"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+	upperName := strings.ToUpper(result)
+	for _, reserved := range reservedNames {
+		if upperName == reserved || strings.HasPrefix(upperName, reserved+".") {
+			return fmt.Sprintf("未命名文件_%s", time.Now().Format("20060102150405"))
+		}
+	}
+
+	return result
 }
 
 // downloadDirect 直接下载（不支持断点续传）
