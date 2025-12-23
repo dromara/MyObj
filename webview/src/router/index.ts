@@ -49,6 +49,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Square',
         component: () => import('@/views/Square/index.vue'),
         meta: { title: '文件广场' }
+      },
+      {
+        path: '/settings',
+        name: 'Settings',
+        component: () => import('@/views/Settings/index.vue'),
+        meta: { title: '系统设置' }
       }
     ]
   },

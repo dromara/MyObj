@@ -44,3 +44,13 @@ type UserSetFilePasswordRequest struct {
 	Passwd    string `json:"passwd"`
 	Challenge string `json:"challenge"` //挑战ID
 }
+
+// GenerateApiKeyRequest 生成API Key请求结构体
+type GenerateApiKeyRequest struct {
+	ExpiresDays int `json:"expires_days"` // 过期天数，0表示永不过期
+}
+
+// DeleteApiKeyRequest 删除API Key请求结构体
+type DeleteApiKeyRequest struct {
+	ApiKeyID int `json:"api_key_id" binding:"required"` // API Key ID
+}

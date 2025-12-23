@@ -13,6 +13,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/util"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -390,4 +391,148 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "ok", nil), nil
+}
+
+// GenerateApiKey 生成API Key
+func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 生成唯一的 API Key（使用 UUID）
+	apiKeyStr := uuid.Must(uuid.NewV7()).String()
+
+	// 生成 RSA 密钥对（用于签名验证）
+	keyPair, err := util.GenerateKeyPair()
+	if err != nil {
+		logger.LOG.Error("生成密钥对失败", "error", err)
+		return nil, fmt.Errorf("生成密钥对失败: %w", err)
+	}
+
+	// 计算过期时间
+	var expiresAt custom_type.JsonTime
+	if req.ExpiresDays > 0 {
+		// JsonTime 没有 AddDate 方法，需要转换为 time.Time 后调用
+		now := custom_type.Now().ToTime()
+		expiresAt = custom_type.JsonTime(now.AddDate(0, 0, req.ExpiresDays))
+	} else {
+		// 永不过期，设置为零值
+		expiresAt = custom_type.JsonTime{}
+	}
+
+	// 创建 API Key 记录
+	apiKey := &models.ApiKey{
+		UserID:     userID,
+		Key:        apiKeyStr,
+		PrivateKey: keyPair.PrivateKey,
+		ExpiresAt:  expiresAt,
+		CreatedAt:  custom_type.Now(),
+	}
+
+	// 保存到数据库
+	if err := u.factory.ApiKey().Create(ctx, apiKey); err != nil {
+		logger.LOG.Error("保存API Key失败", "error", err)
+		return nil, fmt.Errorf("保存API Key失败: %w", err)
+	}
+
+	logger.LOG.Info("API Key已生成", "userID", userID, "apiKeyID", apiKey.ID)
+
+	// 处理过期时间：如果为零值，返回 null
+	var expiresAtResp interface{} = nil
+	if !expiresAt.IsZero() {
+		expiresAtResp = expiresAt
+	}
+
+	// 返回 API Key（注意：只返回一次，后续无法再获取）
+	return models.NewJsonResponse(200, "API Key生成成功", map[string]interface{}{
+		"id":          apiKey.ID,
+		"key":         apiKeyStr,
+		"public_key":  keyPair.PublicKey, // 返回公钥，用于客户端签名
+		"expires_at":  expiresAtResp,
+		"created_at":  apiKey.CreatedAt,
+	}), nil
+}
+
+// ListApiKeys 获取用户的API Key列表
+func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 查询用户的API Key列表
+	apiKeys, err := u.factory.ApiKey().List(ctx, userID, 0, 100)
+	if err != nil {
+		logger.LOG.Error("查询API Key列表失败", "error", err, "userID", userID)
+		return nil, fmt.Errorf("查询API Key列表失败: %w", err)
+	}
+
+	// 构造响应数据（不返回完整的 Key 和 PrivateKey，只返回部分信息）
+	items := make([]map[string]interface{}, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		// 只显示 Key 的前8位和后4位，中间用*代替
+		maskedKey := maskApiKey(key.Key)
+		
+		// 处理过期时间：如果为零值，返回 null
+		var expiresAt interface{} = nil
+		if !key.ExpiresAt.IsZero() {
+			expiresAt = key.ExpiresAt
+		}
+		
+		item := map[string]interface{}{
+			"id":         key.ID,
+			"key":        maskedKey,
+			"expires_at": expiresAt,
+			"created_at": key.CreatedAt,
+			"is_expired": false,
+		}
+
+		// 检查是否过期
+		// 如果 ExpiresAt 为零值（NULL），表示永不过期，不标记为过期
+		if !key.ExpiresAt.IsZero() {
+			expiresTime := time.Time(key.ExpiresAt)
+			// 如果过期时间在当前时间之前，则已过期
+			if expiresTime.Before(time.Now()) {
+				item["is_expired"] = true
+			}
+		}
+		// 如果 ExpiresAt 为零值，is_expired 保持为 false（永不过期）
+
+		items = append(items, item)
+	}
+
+	return models.NewJsonResponse(200, "获取成功", items), nil
+}
+
+// DeleteApiKey 删除API Key
+func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 验证API Key是否存在且属于该用户
+	apiKey, err := u.factory.ApiKey().GetByID(ctx, req.ApiKeyID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "API Key不存在", nil), nil
+		}
+		logger.LOG.Error("获取API Key失败", "error", err, "apiKeyID", req.ApiKeyID)
+		return nil, fmt.Errorf("获取API Key失败: %w", err)
+	}
+
+	// 验证权限
+	if apiKey.UserID != userID {
+		logger.LOG.Warn("用户尝试删除他人的API Key", "userID", userID, "apiKeyID", req.ApiKeyID)
+		return models.NewJsonResponse(403, "无权操作此API Key", nil), nil
+	}
+
+	// 删除API Key
+	if err := u.factory.ApiKey().Delete(ctx, req.ApiKeyID); err != nil {
+		logger.LOG.Error("删除API Key失败", "error", err, "apiKeyID", req.ApiKeyID)
+		return nil, fmt.Errorf("删除API Key失败: %w", err)
+	}
+
+	logger.LOG.Info("API Key已删除", "userID", userID, "apiKeyID", req.ApiKeyID)
+	return models.NewJsonResponse(200, "API Key已删除", nil), nil
+}
+
+// maskApiKey 掩码API Key（只显示前8位和后4位）
+func maskApiKey(key string) string {
+	if len(key) <= 12 {
+		return "****"
+	}
+	return key[:8] + "****" + key[len(key)-4:]
 }

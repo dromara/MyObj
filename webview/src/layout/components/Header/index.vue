@@ -110,7 +110,7 @@ const handleCommand = (command: string) => {
     router.push('/login')
     proxy?.$modal.msgSuccess('已退出登录')
   } else if (command === 'settings') {
-    proxy?.$modal.msg('设置功能开发中')
+    router.push('/settings')
   }
 }
 

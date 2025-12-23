@@ -39,8 +39,8 @@ func (t *JsonTime) Scan(value interface{}) (err error) {
 
 func (t JsonTime) Value() (driver.Value, error) {
 	if t.IsZero() {
-		localTime := time.Now()
-		return localTime, nil
+		// 返回 nil，让数据库保存 NULL（适用于可选字段）
+		return nil, nil
 	}
 	return time.Time(t), nil
 }

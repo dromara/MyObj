@@ -45,6 +45,10 @@ func (u *UserHandler) Router(c *gin.RouterGroup) {
 		r.POST("/updatePassword", middleware.PowerVerify("user:update:password"), u.UpdatePassword)
 		r.POST("/setFilePassword", middleware.PowerVerify("file:update:filePassword"), u.SetFilePassword)
 		r.POST("/updateFilePassword", middleware.PowerVerify("file:update:filePassword"), u.UserUpdateFilePassword)
+		// API Key 相关路由
+		r.POST("/apiKey/generate", middleware.PowerVerify("user:update"), u.GenerateApiKey)
+		r.GET("/apiKey/list", middleware.PowerVerify("user:update"), u.ListApiKeys)
+		r.POST("/apiKey/delete", middleware.PowerVerify("user:update"), u.DeleteApiKey)
 	}
 	logger.LOG.Info("[路由] 用户路由注册完成✔️")
 }
@@ -249,4 +253,74 @@ func (u *UserHandler) UserUpdateFilePassword(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 	}
 	c.JSON(200, update)
+}
+
+// GenerateApiKey godoc
+// @Summary 生成API Key
+// @Description 为用户生成新的API Key，用于API调用认证
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.GenerateApiKeyRequest true "生成API Key请求"
+// @Success 200 {object} models.JsonResponse{data=object} "生成成功，返回API Key和公钥"
+// @Failure 400 {object} models.JsonResponse "参数错误或生成失败"
+// @Router /user/apiKey/generate [post]
+func (u *UserHandler) GenerateApiKey(c *gin.Context) {
+	req := new(request.GenerateApiKeyRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+	result, err := u.service.GenerateApiKey(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ListApiKeys godoc
+// @Summary 获取API Key列表
+// @Description 获取当前用户的所有API Key列表（Key已掩码）
+// @Tags 用户管理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse{data=[]object} "获取成功"
+// @Failure 400 {object} models.JsonResponse "获取失败"
+// @Router /user/apiKey/list [get]
+func (u *UserHandler) ListApiKeys(c *gin.Context) {
+	result, err := u.service.ListApiKeys(c.GetString("userID"))
+	if err != nil {
+		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// DeleteApiKey godoc
+// @Summary 删除API Key
+// @Description 删除指定的API Key
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.DeleteApiKeyRequest true "删除API Key请求"
+// @Success 200 {object} models.JsonResponse "删除成功"
+// @Failure 400 {object} models.JsonResponse "参数错误或删除失败"
+// @Failure 403 {object} models.JsonResponse "无权操作"
+// @Failure 404 {object} models.JsonResponse "API Key不存在"
+// @Router /user/apiKey/delete [post]
+func (u *UserHandler) DeleteApiKey(c *gin.Context) {
+	req := new(request.DeleteApiKeyRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+	result, err := u.service.DeleteApiKey(req, c.GetString("userID"))
+	if err != nil {
+		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
 }

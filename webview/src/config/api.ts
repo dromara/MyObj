@@ -18,7 +18,7 @@ export const API_ENDPOINTS = {
   // 用户相关
   USER: {
     INFO: '/user/info',
-    UPDATE: '/user/update',
+    UPDATE: '/user/updateUser',
     CHANGE_PASSWORD: '/user/updatePassword',
     STORAGE: '/user/storage',
     SET_FILE_PASSWORD: '/user/setFilePassword',
