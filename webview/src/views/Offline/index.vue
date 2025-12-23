@@ -16,26 +16,26 @@
 
     <!-- 任务列表 -->
     <el-card shadow="never" class="task-list-card">
-      <el-table :data="taskList" v-loading="loading" style="width: 100%">
-        <el-table-column label="文件名" min-width="300">
+      <el-table :data="taskList" v-loading="loading" style="width: 100%" class="offline-table">
+        <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
               <el-icon :size="24" color="#409EFF"><Document /></el-icon>
               <div class="file-info">
                 <div class="file-name">{{ row.file_name || '未知文件' }}</div>
-                <div class="file-url" v-if="row.url">{{ truncateUrl(row.url) }}</div>
+                <div class="file-url mobile-hide" v-if="row.url">{{ truncateUrl(row.url) }}</div>
               </div>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" width="120" class-name="mobile-hide">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.state)">{{ row.state_text }}</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="进度" width="200">
+        <el-table-column label="进度" width="200" class-name="mobile-progress-column">
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress 
@@ -47,20 +47,20 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="速度" width="120">
+        <el-table-column label="速度" width="120" class-name="mobile-hide">
           <template #default="{ row }">
             <span v-if="row.state === 1">{{ formatSpeed(row.speed) }}</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         
-        <el-table-column label="创建时间" width="180">
+        <el-table-column label="创建时间" width="180" class-name="mobile-hide">
           <template #default="{ row }">
             {{ formatDate(row.create_time) }}
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
           <template #default="{ row }">
             <el-button-group>
               <el-button 
@@ -471,5 +471,137 @@ onBeforeUnmount(() => {
 .progress-text {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+/* 表格移动端优化 */
+.offline-table :deep(.mobile-hide) {
+  display: table-cell;
+}
+
+.offline-table :deep(.mobile-name-column) {
+  min-width: 200px;
+}
+
+.offline-table :deep(.mobile-progress-column) {
+  min-width: 180px;
+}
+
+.offline-table :deep(.mobile-actions-column) {
+  width: auto;
+  min-width: 120px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .offline-page {
+    padding: 8px;
+    gap: 12px;
+  }
+  
+  .header-card {
+    padding: 12px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .header-left h2 {
+    font-size: 18px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .header-right .el-button {
+    flex: 1;
+  }
+  
+  .file-name-cell {
+    gap: 8px;
+  }
+  
+  .file-name-cell .el-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  
+  .file-info {
+    min-width: 0;
+  }
+  
+  .file-name {
+    font-size: 13px;
+  }
+  
+  .file-url {
+    font-size: 11px;
+  }
+  
+  .progress-cell {
+    gap: 2px;
+  }
+  
+  .progress-text {
+    font-size: 11px;
+  }
+  
+  /* 表格移动端隐藏列 */
+  .offline-table :deep(.mobile-hide) {
+    display: none;
+  }
+  
+  .offline-table :deep(.mobile-name-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .offline-table :deep(.mobile-progress-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .offline-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 80px;
+  }
+  
+  /* 操作按钮在移动端使用图标按钮 */
+  .offline-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .offline-table :deep(.mobile-actions-column .el-button span) {
+    display: none;
+  }
+  
+  .offline-table :deep(.mobile-actions-column .el-button .el-icon) {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h2 {
+    font-size: 16px;
+  }
+  
+  .offline-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 60px;
+  }
+  
+  .offline-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px;
+  }
 }
 </style>

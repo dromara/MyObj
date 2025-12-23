@@ -15,8 +15,8 @@
               清理过期任务
             </el-button>
           </div>
-          <el-table :data="uploadTasks" v-loading="uploadLoading">
-            <el-table-column label="文件名" min-width="300">
+          <el-table :data="uploadTasks" v-loading="uploadLoading" class="task-table">
+            <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
               <template #default="{ row }">
                 <div class="file-name-cell">
                   <el-icon :size="24" color="#409EFF"><Document /></el-icon>
@@ -25,13 +25,13 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="状态" width="120">
+            <el-table-column label="状态" width="120" class-name="mobile-hide">
               <template #default="{ row }">
                 <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
             
-            <el-table-column label="进度" width="250">
+            <el-table-column label="进度" width="250" class-name="mobile-progress-column">
               <template #default="{ row }">
                 <div class="progress-cell">
                   <el-progress 
@@ -43,13 +43,13 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="创建时间" width="180">
+            <el-table-column label="创建时间" width="180" class-name="mobile-hide">
               <template #default="{ row }">
                 {{ formatDate(row.created_at) }}
               </template>
             </el-table-column>
             
-            <el-table-column label="操作" width="240" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right" class-name="mobile-actions-column">
               <template #default="{ row }">
                 <!-- 上传中或等待中：显示暂停和取消 -->
                 <el-button 
@@ -99,8 +99,8 @@
       
       <el-tab-pane label="下载任务" name="download">
         <el-card shadow="never">
-          <el-table :data="downloadTasks" v-loading="downloadLoading">
-            <el-table-column label="文件名" min-width="300">
+          <el-table :data="downloadTasks" v-loading="downloadLoading" class="task-table">
+            <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
               <template #default="{ row }">
                 <div class="file-name-cell">
                   <el-icon :size="24" color="#67C23A"><Document /></el-icon>
@@ -109,19 +109,19 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="类型" width="120">
+            <el-table-column label="类型" width="120" class-name="mobile-hide">
               <template #default="{ row }">
                 <el-tag :type="getDownloadTypeColor(row.type)" effect="plain">{{ row.type_text }}</el-tag>
               </template>
             </el-table-column>
             
-            <el-table-column label="状态" width="120">
+            <el-table-column label="状态" width="120" class-name="mobile-hide">
               <template #default="{ row }">
                 <el-tag :type="getDownloadStatusType(row.state)">{{ row.state_text }}</el-tag>
               </template>
             </el-table-column>
             
-            <el-table-column label="进度" width="250">
+            <el-table-column label="进度" width="250" class-name="mobile-progress-column">
               <template #default="{ row }">
                 <div class="progress-cell">
                   <el-progress 
@@ -133,13 +133,13 @@
               </template>
             </el-table-column>
             
-            <el-table-column label="创建时间" width="180">
+            <el-table-column label="创建时间" width="180" class-name="mobile-hide">
               <template #default="{ row }">
                 {{ formatDate(row.create_time) }}
               </template>
             </el-table-column>
             
-            <el-table-column label="操作" width="240" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right" class-name="mobile-actions-column">
               <template #default="{ row }">
                 <!-- 其他类型的下载任务，显示暂停/继续按钮 -->
                 <el-button 
@@ -169,16 +169,6 @@
                   @click="cancelDownload(row.id)"
                 >
                   取消
-                </el-button>
-                <!-- 已完成的任务显示查看文件按钮 -->
-                <el-button 
-                  v-if="row.state === 3 && row.file_id"
-                  link 
-                  icon="View" 
-                  type="primary"
-                  @click="viewDownloadedFile(row)"
-                >
-                  查看文件
                 </el-button>
                 <!-- 已完成或失败的任务显示删除按钮 -->
                 <el-button 
@@ -210,7 +200,7 @@ import {
   resumeDownload
 } from '@/api/download'
 import type { OfflineDownloadTask } from '@/api/download'
-import { cleanExpiredUploads as cleanExpiredUploadsApi, deleteUploadTask, getUploadProgress, getVirtualPathTree } from '@/api/file'
+import { cleanExpiredUploads as cleanExpiredUploadsApi, deleteUploadTask, getUploadProgress } from '@/api/file'
 import { formatSize, formatDate, formatSpeed, getUploadStatusType, getUploadStatusText, formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/upload'
 import { ElMessage } from 'element-plus'
@@ -218,7 +208,6 @@ import { ElMessage } from 'element-plus'
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const route = useRoute()
-const router = useRouter()
 
 const activeTab = ref<string>((route.query.tab as string) || 'upload')
 const uploadLoading = ref(false)
@@ -570,96 +559,6 @@ const getDownloadStatusType = (state: number) => {
   return typeMap[state] || 'info'
 }
 
-// 查看已下载的文件
-const viewDownloadedFile = async (task: OfflineDownloadTask) => {
-  try {
-    if (!task.virtual_path) {
-      proxy?.$modal.msgError('任务缺少虚拟路径信息')
-      return
-    }
-
-    // 获取虚拟路径树
-    const res = await getVirtualPathTree()
-    if (res.code !== 200 || !res.data) {
-      proxy?.$modal.msgError('获取路径信息失败')
-      return
-    }
-
-    // 在路径树中查找匹配的路径
-    const virtualPaths = res.data as Array<{
-      id: number
-      path: string
-      parent_level: string
-      is_dir: boolean
-    }>
-
-    // 查找匹配的路径（支持完整路径匹配）
-    const targetPath = task.virtual_path.trim()
-    let targetPathId: number | null = null
-
-    // 先尝试完整路径匹配
-    for (const vp of virtualPaths) {
-      // 构建完整路径（需要递归查找父路径）
-      const fullPath = buildFullPath(vp, virtualPaths)
-      if (fullPath === targetPath || fullPath === targetPath + '/') {
-        targetPathId = vp.id
-        break
-      }
-    }
-
-    // 如果完整路径匹配失败，尝试只匹配最后一级路径
-    if (targetPathId === null) {
-      const pathParts = targetPath.split('/').filter(p => p)
-      const lastPart = pathParts[pathParts.length - 1]
-      
-      for (const vp of virtualPaths) {
-        if (vp.path === `/${lastPart}` || vp.path === lastPart) {
-          targetPathId = vp.id
-          break
-        }
-      }
-    }
-
-    if (targetPathId === null) {
-      proxy?.$modal.msgWarning('未找到对应的路径，将跳转到文件列表页面')
-      // 跳转到文件列表页面，让用户手动导航
-      router.push('/files')
-      return
-    }
-
-    // 跳转到文件列表页面，并传递路径ID
-    router.push({
-      path: '/files',
-      query: {
-        virtualPath: String(targetPathId)
-      }
-    })
-  } catch (error: any) {
-    proxy?.$log.error('查看文件失败:', error)
-    proxy?.$modal.msgError('查看文件失败: ' + (error.message || '未知错误'))
-  }
-}
-
-// 构建完整路径（递归查找父路径）
-const buildFullPath = (vp: { id: number; path: string; parent_level: string }, allPaths: Array<{ id: number; path: string; parent_level: string }>): string => {
-  const parts: string[] = []
-  let current: any = vp
-
-  while (current) {
-    parts.unshift(current.path)
-    if (!current.parent_level || current.parent_level === '0' || current.parent_level === '') {
-      break
-    }
-    const parentId = parseInt(current.parent_level)
-    current = allPaths.find(p => p.id === parentId)
-    if (!current) {
-      break
-    }
-  }
-
-  return '/' + parts.map(p => p.replace(/^\//, '')).join('/')
-}
-
 onMounted(() => {
   loadUploadTasks()
   loadDownloadTasks()
@@ -725,5 +624,112 @@ onBeforeUnmount(() => {
 .progress-info {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+/* 表格移动端优化 */
+.task-table :deep(.mobile-hide) {
+  display: table-cell;
+}
+
+.task-table :deep(.mobile-name-column) {
+  min-width: 200px;
+}
+
+.task-table :deep(.mobile-progress-column) {
+  min-width: 200px;
+}
+
+.task-table :deep(.mobile-actions-column) {
+  width: auto;
+  min-width: 120px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .tasks-page {
+    padding: 8px;
+  }
+  
+  .task-tabs :deep(.el-tabs__header) {
+    margin-bottom: 12px;
+  }
+  
+  .task-tabs :deep(.el-tabs__item) {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  
+  .file-name-cell {
+    gap: 8px;
+  }
+  
+  .file-name-cell .el-icon {
+    font-size: 20px;
+  }
+  
+  .file-name-cell span {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+  
+  .progress-cell {
+    gap: 2px;
+  }
+  
+  .progress-info {
+    font-size: 11px;
+  }
+  
+  /* 表格移动端隐藏列 */
+  .task-table :deep(.mobile-hide) {
+    display: none;
+  }
+  
+  .task-table :deep(.mobile-name-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .task-table :deep(.mobile-progress-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .task-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 80px;
+  }
+  
+  /* 操作按钮在移动端使用图标按钮 */
+  .task-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .task-table :deep(.mobile-actions-column .el-button span) {
+    display: none;
+  }
+  
+  .task-table :deep(.mobile-actions-column .el-button .el-icon) {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-name-cell span {
+    max-width: 150px;
+  }
+  
+  .task-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 60px;
+  }
+  
+  .task-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px;
+  }
 }
 </style>

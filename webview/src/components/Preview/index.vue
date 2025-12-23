@@ -232,7 +232,8 @@ const loadFileContent = async () => {
         }
         break
       case 'video':
-        videoUrl.value = await getFilePreviewUrl(fileId)
+        // 视频使用 /video/stream 接口（支持 Range 请求，每次最大 2MB）
+        videoUrl.value = await getFilePreviewUrl(fileId, 'video')
         break
       case 'audio':
         audioUrl.value = await getFilePreviewUrl(fileId)
@@ -565,6 +566,117 @@ watch(visible, async (newVisible) => {
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .file-preview-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 5vh auto;
+  }
+  
+  .file-preview-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+    max-height: 85vh;
+  }
+  
+  .preview-loading,
+  .preview-error,
+  .preview-unsupported {
+    min-height: 300px;
+    gap: 12px;
+  }
+  
+  .image-wrapper {
+    min-height: 300px;
+    padding: 12px;
+  }
+  
+  .preview-image {
+    max-height: 60vh;
+  }
+  
+  .preview-video {
+    max-height: 60vh;
+  }
+  
+  .preview-pdf {
+    height: 60vh;
+  }
+  
+  .preview-text-content {
+    max-height: 50vh;
+    padding: 12px;
+    font-size: 12px;
+  }
+  
+  .preview-toolbar {
+    padding-top: 12px;
+  }
+  
+  .preview-toolbar :deep(.el-button-group) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .preview-toolbar :deep(.el-button) {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+  }
+  
+  .preview-toolbar :deep(.el-button span) {
+    display: none;
+  }
+  
+  .audio-wrapper {
+    padding: 24px 16px;
+    gap: 12px;
+  }
+  
+  .audio-filename {
+    font-size: 14px;
+  }
+  
+  .preview-audio {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-preview-dialog :deep(.el-dialog) {
+    width: 100% !important;
+    margin: 0;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .file-preview-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+  
+  .file-preview-dialog :deep(.el-dialog__body) {
+    padding: 8px;
+    max-height: calc(100vh - 120px);
+  }
+  
+  .preview-image {
+    max-height: 50vh;
+  }
+  
+  .preview-video {
+    max-height: 50vh;
+  }
+  
+  .preview-pdf {
+    height: 50vh;
+  }
+  
+  .preview-text-content {
+    max-height: 45vh;
+    font-size: 11px;
+  }
 }
 </style>
 

@@ -99,6 +99,17 @@ export const API_ENDPOINTS = {
     DELETE: '/recycled/delete',
     EMPTY: '/recycled/empty',
   },
+  
+  // 视频播放
+  VIDEO: {
+    PRECHECK: '/video/play/precheck',
+    STREAM: '/video/stream',
+  },
+  
+  // 文件预览/下载
+  PREVIEW: {
+    PREVIEW: '/download/preview',
+  },
 }
 
 // 请求超时配置

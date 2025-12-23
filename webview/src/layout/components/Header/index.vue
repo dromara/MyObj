@@ -1,6 +1,14 @@
 <template>
   <el-header class="layout-header glass-panel">
     <div class="header-left">
+      <!-- 移动端汉堡菜单按钮 -->
+      <el-button
+        class="mobile-menu-btn"
+        :icon="Menu"
+        circle
+        text
+        @click="toggleSidebar"
+      />
       <div class="logo-wrapper">
         <el-icon :size="32" class="logo-icon"><Folder /></el-icon>
         <span class="logo-text">MyObj 云盘</span>
@@ -21,13 +29,14 @@
     </div>
     
     <div class="header-right">
+      <!-- 移动端只显示头像，隐藏用户名 -->
       <el-dropdown @command="handleCommand" trigger="click">
         <div class="user-profile glass-hover">
           <el-avatar :size="32" :style="{ background: avatarColor }" class="user-avatar-img">
             {{ avatarText }}
           </el-avatar>
-          <span class="username">{{ userInfo.name }}</span>
-          <el-icon class="el-icon--right"><CaretBottom /></el-icon>
+          <span class="username desktop-only">{{ userInfo.name }}</span>
+          <el-icon class="el-icon--right desktop-only"><CaretBottom /></el-icon>
         </div>
         <template #dropdown>
           <el-dropdown-menu class="premium-dropdown">
@@ -47,6 +56,8 @@
 </template>
 
 <script setup lang="ts">
+import { Menu } from '@element-plus/icons-vue'
+
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 interface UserInfo {
@@ -103,6 +114,12 @@ const handleCommand = (command: string) => {
   }
 }
 
+const toggleSidebar = () => {
+  // 触发侧边栏显示/隐藏事件
+  const event = new CustomEvent('toggle-sidebar')
+  window.dispatchEvent(event)
+}
+
 onMounted(() => {
   initUserInfo()
 })
@@ -123,6 +140,28 @@ onMounted(() => {
 
 .header-left {
   min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-menu-btn {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: inline-flex !important;
+  }
+  
+  .header-left {
+    min-width: auto;
+    gap: 8px;
+  }
+  
+  .logo-text {
+    font-size: 18px;
+  }
 }
 
 .logo-wrapper {
@@ -191,6 +230,42 @@ onMounted(() => {
   font-weight: 600;
   font-size: 14px;
   color: var(--text-primary);
+}
+
+.desktop-only {
+  display: inline;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .layout-header {
+    padding: 0 12px;
+  }
+  
+  .header-center {
+    flex: 1;
+    max-width: none;
+    margin: 0 12px;
+  }
+  
+  .header-right {
+    flex-shrink: 0;
+  }
+  
+  .user-profile {
+    padding: 4px;
+    gap: 0;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-center {
+    display: none;
+  }
 }
 </style>
 

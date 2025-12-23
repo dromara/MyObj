@@ -1,0 +1,917 @@
+<template>
+  <el-dialog
+    v-model="visible"
+    title="分享文件"
+    width="600px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="true"
+    class="share-dialog"
+    @close="handleClose"
+  >
+    <!-- 文件信息卡片 -->
+    <div class="file-info-card">
+      <el-icon :size="48" color="#409EFF"><Document /></el-icon>
+      <div class="file-info-content">
+        <div class="file-name">{{ fileInfo.file_name || '未知文件' }}</div>
+        <div class="file-size" v-if="fileInfo.file_size">
+          {{ formatFileSize(fileInfo.file_size) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 分享设置 -->
+    <el-form :model="shareForm" label-width="100px" class="share-form">
+      <el-form-item label="有效期">
+        <el-radio-group 
+          v-model="shareForm.expire_days" 
+          class="expire-options"
+          @change="handleExpireChange"
+        >
+          <el-radio-button 
+            v-for="option in expireOptions" 
+            :key="option.value" 
+            :label="option.value"
+          >
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+      
+      <el-form-item label="访问密码">
+        <el-input 
+          v-model="shareForm.password" 
+          placeholder="请输入访问密码（可选）"
+          maxlength="20"
+          show-word-limit
+          clearable
+        >
+          <template #append>
+            <el-button @click="generateRandomPassword" :icon="Refresh">随机生成</el-button>
+          </template>
+        </el-input>
+        <div class="form-tip">设置密码后，访问者需要输入密码才能下载文件</div>
+      </el-form-item>
+    </el-form>
+
+    <!-- 分享结果（分享成功后显示） -->
+    <div v-if="shareResult" class="share-result">
+      <el-alert
+        type="success"
+        :closable="false"
+        show-icon
+        class="result-alert"
+      >
+        <template #title>
+          <div class="result-title">分享创建成功！</div>
+        </template>
+      </el-alert>
+      
+      <div class="share-link-section">
+        <div class="link-label">分享链接</div>
+        <div class="link-content">
+          <el-input
+            :model-value="shareResult.shareUrl"
+            readonly
+            class="link-input"
+          >
+            <template #append>
+              <el-button 
+                :icon="shareResult.copied ? 'Check' : 'CopyDocument'" 
+                @click="copyShareLink"
+                :type="shareResult.copied ? 'success' : 'primary'"
+              >
+                {{ shareResult.copied ? '已复制' : '复制链接' }}
+              </el-button>
+            </template>
+          </el-input>
+        </div>
+        
+        <div v-if="shareForm.password" class="password-section">
+          <div class="link-label">访问密码</div>
+          <div class="link-content">
+            <el-input
+              :model-value="shareForm.password"
+              readonly
+              class="link-input"
+            >
+              <template #append>
+                <el-button 
+                  :icon="shareResult.passwordCopied ? 'Check' : 'CopyDocument'" 
+                  @click="copyPassword"
+                  :type="shareResult.passwordCopied ? 'success' : 'primary'"
+                >
+                  {{ shareResult.passwordCopied ? '已复制' : '复制密码' }}
+                </el-button>
+              </template>
+            </el-input>
+          </div>
+        </div>
+        
+        <div class="expire-info">
+          <el-icon><Clock /></el-icon>
+          <span>有效期：{{ shareResult.expireText }}</span>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="handleClose">关闭</el-button>
+        <el-button 
+          v-if="!shareResult"
+          type="primary" 
+          :loading="sharing" 
+          @click="handleConfirmShare"
+        >
+          创建分享
+        </el-button>
+        <el-button 
+          v-else
+          type="primary" 
+          @click="handleCreateAnother"
+        >
+          继续分享
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup lang="ts">
+import { createShare } from '@/api/share'
+import type { CreateShareRequest } from '@/types'
+import { formatSize, generateRandomPassword as generatePassword, copyToClipboard } from '@/utils'
+import { Document, Refresh, Clock } from '@element-plus/icons-vue'
+
+interface Props {
+  modelValue: boolean
+  fileInfo: {
+    file_id: string
+    file_name: string
+    file_size?: number
+  }
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  modelValue: false,
+  fileInfo: () => ({
+    file_id: '',
+    file_name: '',
+    file_size: 0
+  })
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'success': [shareUrl: string, password: string]
+}>()
+
+const { proxy } = getCurrentInstance() as ComponentInternalInstance
+
+const visible = computed({
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
+})
+
+const sharing = ref(false)
+const shareForm = reactive({
+  expire_days: 7,
+  password: ''
+})
+
+const shareResult = ref<{
+  shareUrl: string
+  expireText: string
+  copied: boolean
+  passwordCopied: boolean
+} | null>(null)
+
+const expireOptions = [
+  { label: '1天', value: 1 },
+  { label: '7天', value: 7 },
+  { label: '30天', value: 30 },
+  { label: '永久', value: 0 }
+]
+
+const formatFileSize = (size: number) => {
+  return formatSize(size)
+}
+
+const generateRandomPassword = () => {
+  shareForm.password = generatePassword()
+}
+
+const handleExpireChange = (value: string | number | boolean | undefined) => {
+  // 确保值正确更新
+  if (typeof value === 'number') {
+    shareForm.expire_days = value
+  }
+}
+
+const handleConfirmShare = async () => {
+  if (!shareForm.password) {
+    proxy?.$modal.msgWarning('请设置访问密码')
+    return
+  }
+  
+  sharing.value = true
+  try {
+    // 计算过期时间
+    const expireDate = new Date()
+    if (shareForm.expire_days > 0) {
+      expireDate.setDate(expireDate.getDate() + shareForm.expire_days)
+    } else {
+      // 永久有效，设置为很远的未来
+      expireDate.setFullYear(expireDate.getFullYear() + 100)
+    }
+    const expireStr = expireDate.toISOString().slice(0, 19).replace('T', ' ')
+    
+    const res = await createShare({
+      file_id: props.fileInfo.file_id,
+      expire: expireStr,
+      password: shareForm.password
+    } as CreateShareRequest)
+    
+    if (res.code === 200) {
+      // 后端返回的 token，构建分享链接
+      const token = res.data.split('/').pop()
+      const shareUrl = `${window.location.origin}/api/share/download?token=${token}`
+      
+      const expireText = shareForm.expire_days === 0 
+        ? '永久有效' 
+        : `${shareForm.expire_days}天后过期`
+      
+      shareResult.value = {
+        shareUrl,
+        expireText,
+        copied: false,
+        passwordCopied: false
+      }
+      
+      // 自动复制链接
+      await copyShareLink()
+      
+      emit('success', shareUrl, shareForm.password)
+    } else {
+      proxy?.$modal.msgError(res.message || '分享失败')
+    }
+  } catch (error: any) {
+    proxy?.$modal.msgError(error.message || '分享失败')
+  } finally {
+    sharing.value = false
+  }
+}
+
+const copyShareLink = async () => {
+  if (!shareResult.value) return
+  
+  const success = await copyToClipboard(shareResult.value.shareUrl)
+  if (success) {
+    shareResult.value.copied = true
+    proxy?.$modal.msgSuccess('链接已复制到剪贴板')
+    setTimeout(() => {
+      if (shareResult.value) {
+        shareResult.value.copied = false
+      }
+    }, 2000)
+  } else {
+    proxy?.$modal.msgError('复制失败')
+  }
+}
+
+const copyPassword = async () => {
+  if (!shareResult.value || !shareForm.password) return
+  
+  const success = await copyToClipboard(shareForm.password)
+  if (success) {
+    shareResult.value.passwordCopied = true
+    proxy?.$modal.msgSuccess('密码已复制到剪贴板')
+    setTimeout(() => {
+      if (shareResult.value) {
+        shareResult.value.passwordCopied = false
+      }
+    }, 2000)
+  } else {
+    proxy?.$modal.msgError('复制失败')
+  }
+}
+
+const handleClose = () => {
+  visible.value = false
+  // 重置表单
+  shareForm.expire_days = 7
+  shareForm.password = ''
+  shareResult.value = null
+}
+
+const handleCreateAnother = () => {
+  shareResult.value = null
+  shareForm.expire_days = 7
+  shareForm.password = ''
+}
+</script>
+
+<style scoped>
+.share-dialog :deep(.el-dialog) {
+  box-sizing: border-box;
+}
+
+.share-dialog :deep(.el-dialog__body) {
+  padding: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 确保所有内部元素使用 border-box */
+.share-dialog :deep(*) {
+  box-sizing: border-box;
+}
+
+.share-dialog :deep(.el-dialog__body > *) {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.file-info-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #bae6fd;
+}
+
+.file-info-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.share-form {
+  margin-bottom: 24px;
+}
+
+.expire-options {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.expire-options :deep(.el-radio-button) {
+  flex: 1;
+  min-width: 0;
+}
+
+.expire-options :deep(.el-radio-button__inner) {
+  width: 100%;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.expire-options :deep(.el-radio-button__original-radio) {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.share-result {
+  margin-top: 24px;
+}
+
+.result-alert {
+  margin-bottom: 20px;
+}
+
+.result-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.share-link-section {
+  background: var(--bg-color);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.link-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.link-content {
+  margin-bottom: 16px;
+}
+
+.link-content:last-child {
+  margin-bottom: 0;
+}
+
+.link-input {
+  width: 100%;
+}
+
+.password-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.expire-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.expire-info .el-icon {
+  font-size: 14px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .share-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    max-width: 95vw !important;
+    margin: 5vh auto;
+    max-height: 90vh;
+    box-sizing: border-box;
+  }
+  
+  .share-dialog :deep(.el-dialog__body) {
+    padding: 16px;
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  
+  .share-dialog :deep(.el-dialog__header) {
+    padding: 16px;
+  }
+  
+  .share-dialog :deep(.el-dialog__footer) {
+    padding: 12px 16px;
+  }
+  
+  .file-info-card {
+    padding: 16px;
+    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  .file-info-card .el-icon {
+    flex-shrink: 0;
+  }
+  
+  .file-info-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .file-name {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .file-size {
+    font-size: 12px;
+  }
+  
+  .share-form {
+    margin-bottom: 20px;
+  }
+  
+  .share-form :deep(.el-form-item) {
+    margin-bottom: 20px;
+  }
+  
+  .share-form :deep(.el-form-item__label) {
+    width: 80px !important;
+    font-size: 13px;
+    line-height: 32px;
+  }
+  
+  .share-form :deep(.el-form-item__content) {
+    margin-left: 80px !important;
+  }
+  
+  .expire-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .expire-options :deep(.el-radio-button) {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    position: relative;
+  }
+  
+  .expire-options :deep(.el-radio-button__inner) {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .expire-options :deep(.el-radio-button__original-radio) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  
+  /* 输入框在移动端优化 */
+  .share-form :deep(.el-input) {
+    width: 100%;
+  }
+  
+  .share-form :deep(.el-input__wrapper) {
+    width: 100%;
+  }
+  
+  .share-form :deep(.el-input__append) {
+    padding: 0;
+  }
+  
+  .share-form :deep(.el-input__append .el-button) {
+    padding: 0 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  
+  .form-tip {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  
+  .share-result {
+    margin-top: 20px;
+  }
+  
+  .result-alert {
+    margin-bottom: 16px;
+  }
+  
+  .result-title {
+    font-size: 14px;
+  }
+  
+  .share-link-section {
+    padding: 16px;
+  }
+  
+  .link-label {
+    font-size: 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  
+  .link-content {
+    margin-bottom: 12px;
+  }
+  
+  .link-input {
+    width: 100%;
+  }
+  
+  .link-input :deep(.el-input__wrapper) {
+    width: 100%;
+  }
+  
+  .link-input :deep(.el-input__append) {
+    padding: 0;
+  }
+  
+  .link-input :deep(.el-input__append .el-button) {
+    padding: 0 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  
+  .link-input :deep(.el-input__append .el-button span) {
+    display: inline; /* 平板端显示文字 */
+  }
+  
+  .password-section {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  
+  .expire-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    font-size: 12px;
+  }
+  
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .dialog-footer .el-button {
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .share-dialog :deep(.el-dialog) {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 100vh !important;
+    box-sizing: border-box;
+    padding: 0;
+  }
+  
+  .share-dialog :deep(.el-dialog__header) {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .share-dialog :deep(.el-dialog__body) {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .share-dialog :deep(.el-dialog__footer) {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .file-info-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 16px 12px;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .file-info-card .el-icon {
+    margin: 0 auto;
+  }
+  
+  .file-info-content {
+    text-align: center;
+    width: 100%;
+  }
+  
+  .file-name {
+    font-size: 14px;
+    white-space: normal;
+    word-break: break-all;
+    overflow: visible;
+    text-overflow: unset;
+    line-height: 1.4;
+  }
+  
+  .file-size {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  
+  .share-form {
+    margin-bottom: 20px;
+  }
+  
+  .share-form :deep(.el-form-item) {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .share-form :deep(.el-form-item__label) {
+    width: 100% !important;
+    text-align: left;
+    margin-bottom: 8px;
+    padding: 0;
+    line-height: 1.5;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .share-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+  
+  .expire-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .expire-options :deep(.el-radio-button) {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    position: relative;
+  }
+  
+  .expire-options :deep(.el-radio-button__inner) {
+    width: 100%;
+    padding: 10px 8px;
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .expire-options :deep(.el-radio-button__original-radio) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  
+  /* 输入框在超小屏幕优化 */
+  .share-form :deep(.el-input) {
+    width: 100%;
+  }
+  
+  .share-form :deep(.el-input__wrapper) {
+    width: 100%;
+  }
+  
+  .share-form :deep(.el-input__append) {
+    padding: 0;
+  }
+  
+  .share-form :deep(.el-input__append .el-button) {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  
+  .share-form :deep(.el-input__append .el-button span) {
+    display: none; /* 超小屏幕隐藏按钮文字 */
+  }
+  
+  .form-tip {
+    font-size: 11px;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  
+  .share-result {
+    margin-top: 20px;
+  }
+  
+  .result-alert {
+    margin-bottom: 16px;
+  }
+  
+  .result-title {
+    font-size: 14px;
+  }
+  
+  .share-link-section {
+    padding: 16px 12px;
+  }
+  
+  .link-label {
+    font-size: 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  
+  .link-content {
+    margin-bottom: 12px;
+  }
+  
+  .link-input {
+    width: 100%;
+  }
+  
+  .link-input :deep(.el-input__wrapper) {
+    width: 100%;
+  }
+  
+  .link-input :deep(.el-input__inner) {
+    font-size: 12px;
+  }
+  
+  .link-input :deep(.el-input__append) {
+    padding: 0;
+  }
+  
+  .link-input :deep(.el-input__append .el-button) {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  
+  .link-input :deep(.el-input__append .el-button span) {
+    display: none; /* 超小屏幕隐藏按钮文字 */
+  }
+  
+  .password-section {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  
+  .expire-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    font-size: 12px;
+    gap: 6px;
+  }
+  
+  .expire-info .el-icon {
+    font-size: 14px;
+  }
+  
+  .dialog-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .dialog-footer .el-button {
+    width: 100%;
+    margin: 0;
+    height: 44px;
+    font-size: 15px;
+  }
+}
+</style>
+

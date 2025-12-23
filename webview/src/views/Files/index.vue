@@ -18,20 +18,39 @@
     <div class="toolbar-container glass-panel">
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-tooltip content="上传文件" placement="bottom">
-            <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
-          </el-tooltip>
-          <el-button icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
-          <el-button icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
-          <div class="divider-vertical"></div>
-          <div class="view-switch glass-toggle">
-            <el-button icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
-            <el-button icon="List" :class="{ 'is-active': viewMode === 'list' }" @click="viewMode = 'list'" text />
+          <!-- 移动端：使用下拉菜单 -->
+          <el-dropdown
+            class="mobile-toolbar-menu"
+            trigger="click"
+            @command="handleToolbarCommand"
+          >
+            <el-button type="primary" icon="More" circle />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="upload" icon="Upload">上传文件</el-dropdown-item>
+                <el-dropdown-item command="newFolder" icon="FolderAdd">新建文件夹</el-dropdown-item>
+                <el-dropdown-item command="moveFile" :disabled="selectedFileIds.length === 0" icon="FolderOpened">移动文件</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          
+          <!-- 桌面端：显示所有按钮 -->
+          <div class="desktop-toolbar">
+            <el-tooltip content="上传文件" placement="bottom">
+              <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
+            </el-tooltip>
+            <el-button icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
+            <el-button icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
+            <div class="divider-vertical"></div>
+            <div class="view-switch glass-toggle">
+              <el-button icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
+              <el-button icon="List" :class="{ 'is-active': viewMode === 'list' }" @click="viewMode = 'list'" text />
+            </div>
           </div>
         </div>
         
         <div class="toolbar-right" v-if="selectedCount > 0">
-          <span class="selection-info">已选 {{ selectedCount }} 项</span>
+          <span class="selection-info desktop-only">已选 {{ selectedCount }} 项</span>
           <el-button icon="Download" @click="handleToolbarDownload" plain circle />
           <el-button icon="Share" @click="handleToolbarShare" plain circle />
           <el-button icon="Delete" type="danger" @click="handleToolbarDelete" plain circle />
@@ -93,9 +112,10 @@
       v-else
       :data="[...fileListData.folders.map((f: any) => ({ ...f, isFolder: true })), ...fileListData.files.map((f: any) => ({ ...f, isFolder: false }))]"
       @selection-change="handleSelectionChange"
+      class="file-table"
     >
-      <el-table-column type="selection" width="55" />
-      <el-table-column label="名称" min-width="300">
+      <el-table-column type="selection" width="55" class-name="mobile-hide" />
+      <el-table-column label="名称" min-width="300" class-name="mobile-name-column">
         <template #default="{ row }">
           <div class="file-name-cell" @dblclick="row.isFolder ? navigateToPath(row.path) : handleFilePreview(row)">
             <!-- 文件夹图标 -->
@@ -122,17 +142,17 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="120">
+      <el-table-column label="大小" width="120" class-name="mobile-hide">
         <template #default="{ row }">
           {{ row.isFolder ? '-' : formatSize(row.file_size) }}
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" width="180">
+      <el-table-column label="创建时间" width="180" class-name="mobile-hide">
         <template #default="{ row }">
           {{ formatDate(row.isFolder ? row.created_time : row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
         <template #default="{ row }">
           <template v-if="!row.isFolder">
             <el-button link icon="Download" @click.stop="handleDownloadFile(row)">下载</el-button>
@@ -223,46 +243,16 @@
       </template>
     </el-dialog>
     
-    <!-- 分享文件对话框 -->
-    <el-dialog 
-      v-model="showShareDialog" 
-      title="分享文件" 
-      width="500px"
-    >
-      <el-form label-width="100px">
-        <el-form-item label="文件名称">
-          <el-input v-model="shareForm.file_name" disabled />
-        </el-form-item>
-        <el-form-item label="有效期">
-          <el-radio-group v-model="shareForm.expire_days">
-            <el-radio-button 
-              v-for="option in expireOptions" 
-              :key="option.value" 
-              :label="option.value"
-            >
-              {{ option.label }}
-            </el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="访问密码">
-          <el-input 
-            v-model="shareForm.password" 
-            placeholder="请输入访问密码"
-            maxlength="20"
-            show-word-limit
-          >
-            <template #append>
-              <el-button @click="shareForm.password = generateRandomPassword()">随机生成</el-button>
-            </template>
-          </el-input>
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <el-button @click="showShareDialog = false">取消</el-button>
-        <el-button type="primary" :loading="sharing" @click="handleConfirmShare">确定分享</el-button>
-      </template>
-    </el-dialog>
+    <!-- 分享文件组件 -->
+    <Share
+      v-model="showShareDialog"
+      :file-info="{
+        file_id: shareForm.file_id,
+        file_name: shareForm.file_name,
+        file_size: getFileSize(shareForm.file_id)
+      }"
+      @success="handleShareSuccess"
+    />
     
     <!-- 下载密码对话框 -->
     <el-dialog 
@@ -298,12 +288,12 @@
 
 <script setup lang="ts">
 import { getFileList, getThumbnail, moveFile, getVirtualPathTree } from '@/api/file'
-import { createShare } from '@/api/share'
 import { createFolder } from '@/api/folder'
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
 import type { FileListResponse, FileItem } from '@/types'
-import { formatSize, formatDate, copyToClipboard, generateRandomPassword } from '@/utils'
+import { formatSize, formatDate } from '@/utils'
 import Preview from '@/components/Preview/index.vue'
+import Share from '@/components/Share/index.vue'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
@@ -326,13 +316,22 @@ const loadingTree = ref(false)
 
 // 分享对话框
 const showShareDialog = ref(false)
-const sharing = ref(false)
 const shareForm = reactive({
   file_id: '',
   file_name: '',
-  expire_days: 7,
-  password: ''
+  file_size: 0
 })
+
+// 获取文件大小（用于分享组件）
+const getFileSize = (fileId: string): number => {
+  const file = fileListData.value.files.find(f => f.file_id === fileId)
+  return file?.file_size || 0
+}
+
+// 分享成功回调
+const handleShareSuccess = () => {
+  selectedFileIds.value = []
+}
 
 // 下载密码对话框
 const showDownloadPasswordDialog = ref(false)
@@ -342,14 +341,6 @@ const downloadPasswordForm = reactive({
   file_password: ''
 })
 const downloadingFile = ref(false)
-
-// 预设有效期选项
-const expireOptions = [
-  { label: '1天', value: 1 },
-  { label: '3天', value: 3 },
-  { label: '7天', value: 7 },
-  { label: '30天', value: 30 }
-]
 
 // 文件夹表单
 const folderForm = reactive({
@@ -512,6 +503,21 @@ const enterFolder = (folder: any) => {
 const handleNewFolder = () => {
   showNewFolderDialog.value = true
   folderForm.dir_path = ''
+}
+
+// 移动端工具栏菜单命令处理
+const handleToolbarCommand = (command: string) => {
+  switch (command) {
+    case 'upload':
+      handleUpload()
+      break
+    case 'newFolder':
+      handleNewFolder()
+      break
+    case 'moveFile':
+      handleMoveFile()
+      break
+  }
 }
 
 const handleUpload = async () => {
@@ -832,8 +838,7 @@ const confirmDownloadPassword = async () => {
 const handleShareFile = (file: FileItem) => {
   shareForm.file_id = file.file_id
   shareForm.file_name = file.file_name
-  shareForm.expire_days = 7
-  shareForm.password = generateRandomPassword()
+  shareForm.file_size = file.file_size
   showShareDialog.value = true
 }
 
@@ -874,56 +879,6 @@ const handleSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
   loadFileList()
-}
-
-// 包装 copyToClipboard 以显示消息提示
-const handleCopyToClipboard = async (text: string) => {
-  const success = await copyToClipboard(text)
-  if (success) {
-    proxy?.$modal.msgSuccess('已复制到剪贴板')
-  } else {
-    proxy?.$modal.msgError('复制失败')
-  }
-}
-
-// 确认分享
-const handleConfirmShare = async () => {
-  if (!shareForm.password) {
-    proxy?.$modal.msgWarning('请设置访问密码')
-    return
-  }
-  
-  sharing.value = true
-  try {
-    // 计算过期时间
-    const expireDate = new Date()
-    expireDate.setDate(expireDate.getDate() + shareForm.expire_days)
-    const expireStr = expireDate.toISOString().slice(0, 19).replace('T', ' ')
-    
-    const res = await createShare({
-      file_id: shareForm.file_id,
-      expire: expireStr,
-      password: shareForm.password
-    })
-    
-    if (res.code === 200) {
-      // 后端返回的 token，构建分享链接（不包含密码，用户在页面输入）
-      const token = res.data.split('/').pop()
-      const shareUrl = `${window.location.origin}/api/share/download?token=${token}`
-      
-      proxy?.$modal.alert(`分享链接：${shareUrl}\n访问密码：${shareForm.password}\n有效期：${shareForm.expire_days}天`)
-      handleCopyToClipboard(shareUrl)
-      
-      showShareDialog.value = false
-      selectedFileIds.value = []
-    } else {
-      proxy?.$modal.msgError(res.message || '分享失败')
-    }
-  } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '分享失败')
-  } finally {
-    sharing.value = false
-  }
 }
 
 // 构建文件夹树结构（从后端获取完整的路径数据）
@@ -1284,5 +1239,146 @@ onMounted(() => {
 .file-tag {
   margin-right: 8px;
   margin-bottom: 8px;
+}
+
+/* 移动端工具栏 */
+.mobile-toolbar-menu {
+  display: none;
+}
+
+.desktop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-only {
+  display: inline;
+}
+
+/* 表格移动端优化 */
+.file-table :deep(.mobile-hide) {
+  display: table-cell;
+}
+
+.file-table :deep(.mobile-name-column) {
+  min-width: 200px;
+}
+
+.file-table :deep(.mobile-actions-column) {
+  width: auto;
+  min-width: 120px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .files-page {
+    gap: 12px;
+  }
+  
+  .breadcrumb-container {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+  
+  .breadcrumb-item {
+    font-size: 12px;
+  }
+  
+  .toolbar-container {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .toolbar-left {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .mobile-toolbar-menu {
+    display: inline-flex;
+  }
+  
+  .desktop-toolbar {
+    display: none;
+  }
+  
+  .toolbar-right {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  
+  .selection-info {
+    margin-right: 8px;
+    font-size: 12px;
+  }
+  
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 4px;
+  }
+  
+  .file-card {
+    padding: 8px;
+  }
+  
+  .file-icon {
+    height: 60px;
+  }
+  
+  .file-name {
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  
+  /* 表格移动端隐藏列 */
+  .file-table :deep(.mobile-hide) {
+    display: none;
+  }
+  
+  .file-table :deep(.mobile-name-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .file-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 80px;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+  }
+  
+  .file-card {
+    padding: 6px;
+  }
+  
+  .file-icon {
+    height: 50px;
+  }
+  
+  .file-name {
+    font-size: 11px;
+  }
+  
+  .file-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 60px;
+  }
 }
 </style>

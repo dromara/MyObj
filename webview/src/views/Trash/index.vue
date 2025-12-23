@@ -4,29 +4,48 @@
     <el-card shadow="never" class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-button 
-            icon="RefreshRight" 
-            :disabled="selectedIds.length === 0"
-            @click="handleRestore"
+          <!-- 移动端：使用下拉菜单 -->
+          <el-dropdown
+            class="mobile-toolbar-menu"
+            trigger="click"
+            @command="handleToolbarCommand"
           >
-            还原
-          </el-button>
-          <el-button 
-            icon="Delete" 
-            type="danger"
-            :disabled="selectedIds.length === 0"
-            @click="handleDeletePermanently"
-          >
-            永久删除
-          </el-button>
-          <el-divider direction="vertical" />
-          <el-button 
-            icon="Delete" 
-            type="danger"
-            @click="handleEmptyTrash"
-          >
-            清空回收站
-          </el-button>
+            <el-button type="primary" icon="More" circle />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="restore" :disabled="selectedIds.length === 0" icon="RefreshRight">还原</el-dropdown-item>
+                <el-dropdown-item command="delete" :disabled="selectedIds.length === 0" icon="Delete">永久删除</el-dropdown-item>
+                <el-dropdown-item divided command="empty" icon="Delete">清空回收站</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          
+          <!-- 桌面端：显示所有按钮 -->
+          <div class="desktop-toolbar">
+            <el-button 
+              icon="RefreshRight" 
+              :disabled="selectedIds.length === 0"
+              @click="handleRestore"
+            >
+              还原
+            </el-button>
+            <el-button 
+              icon="Delete" 
+              type="danger"
+              :disabled="selectedIds.length === 0"
+              @click="handleDeletePermanently"
+            >
+              永久删除
+            </el-button>
+            <el-divider direction="vertical" />
+            <el-button 
+              icon="Delete" 
+              type="danger"
+              @click="handleEmptyTrash"
+            >
+              清空回收站
+            </el-button>
+          </div>
         </div>
         
         <div class="toolbar-right" v-if="selectedIds.length > 0">
@@ -40,9 +59,10 @@
       v-loading="loading"
       :data="fileList"
       @selection-change="handleSelectionChange"
+      class="trash-table"
     >
-      <el-table-column type="selection" width="55" />
-      <el-table-column label="名称" min-width="300">
+      <el-table-column type="selection" width="55" class-name="mobile-hide" />
+      <el-table-column label="名称" min-width="300" class-name="mobile-name-column">
         <template #default="{ row }">
           <div class="file-name-cell" @dblclick="handleFilePreview(row)">
             <div class="list-file-icon">
@@ -64,17 +84,17 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="120">
+      <el-table-column label="大小" width="120" class-name="mobile-hide">
         <template #default="{ row }">
           {{ formatSize(row.file_size) }}
         </template>
       </el-table-column>
-      <el-table-column label="删除时间" width="180">
+      <el-table-column label="删除时间" width="180" class-name="mobile-hide">
         <template #default="{ row }">
           {{ formatDate(row.deleted_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
         <template #default="{ row }">
           <el-button link icon="RefreshRight" @click.stop="handleRestoreFile(row)">还原</el-button>
           <el-button link icon="Delete" type="danger" @click.stop="handleDeleteFilepermanently(row)">永久删除</el-button>
@@ -209,6 +229,21 @@ const handleRestore = async () => {
     if (error !== 'cancel') {
       // 用户取消操作
     }
+  }
+}
+
+// 移动端工具栏菜单命令处理
+const handleToolbarCommand = (command: string) => {
+  switch (command) {
+    case 'restore':
+      handleRestore()
+      break
+    case 'delete':
+      handleDeletePermanently()
+      break
+    case 'empty':
+      handleEmptyTrash()
+      break
   }
 }
 
@@ -402,5 +437,119 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+/* 移动端工具栏 */
+.mobile-toolbar-menu {
+  display: none;
+}
+
+.desktop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 表格移动端优化 */
+.trash-table :deep(.mobile-hide) {
+  display: table-cell;
+}
+
+.trash-table :deep(.mobile-name-column) {
+  min-width: 200px;
+}
+
+.trash-table :deep(.mobile-actions-column) {
+  width: auto;
+  min-width: 120px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .trash-page {
+    padding: 12px;
+  }
+  
+  .toolbar-card {
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+  
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .toolbar-left {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .mobile-toolbar-menu {
+    display: inline-flex;
+  }
+  
+  .desktop-toolbar {
+    display: none;
+  }
+  
+  .toolbar-right {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  
+  .file-name-cell {
+    gap: 8px;
+  }
+  
+  .file-name-cell span {
+    font-size: 13px;
+    max-width: 200px;
+  }
+  
+  /* 表格移动端隐藏列 */
+  .trash-table :deep(.mobile-hide) {
+    display: none;
+  }
+  
+  .trash-table :deep(.mobile-name-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .trash-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 80px;
+  }
+  
+  /* 操作按钮在移动端使用图标按钮 */
+  .trash-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .trash-table :deep(.mobile-actions-column .el-button span) {
+    display: none;
+  }
+  
+  .trash-table :deep(.mobile-actions-column .el-button .el-icon) {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-name-cell span {
+    max-width: 150px;
+  }
+  
+  .trash-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 60px;
+  }
+  
+  .trash-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px;
+  }
 }
 </style>

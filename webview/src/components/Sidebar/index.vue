@@ -133,4 +133,67 @@ const getIcon = (iconName: string) => {
 .storage-bar {
   margin-bottom: 12px;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    padding: 12px 0;
+  }
+  
+  .menu-list {
+    padding: 0 8px;
+  }
+  
+  .menu-list :deep(.el-menu-item) {
+    height: 44px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  
+  .storage-info {
+    padding: 12px;
+    margin: 12px 8px 0;
+  }
+  
+  .storage-title {
+    font-size: 11px;
+  }
+  
+  .storage-text {
+    font-size: 13px;
+  }
+  
+  .upgrade-btn {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    padding: 8px 0;
+  }
+  
+  .menu-list {
+    padding: 0 4px;
+  }
+  
+  .menu-list :deep(.el-menu-item) {
+    height: 40px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+  
+  .menu-list :deep(.el-icon) {
+    font-size: 16px;
+    margin-right: 8px;
+  }
+  
+  .storage-info {
+    padding: 10px;
+    margin: 10px 4px 0;
+  }
+}
 </style>

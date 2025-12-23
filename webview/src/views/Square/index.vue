@@ -9,22 +9,38 @@
       </div>
       
       <div class="toolbar-actions">
-        <!-- 搜索框 -->
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索广场文件..."
-          prefix-icon="Search"
-          clearable
-          @input="handleSearch"
-          style="width: 300px"
-        />
-        
-        <!-- 视图切换 -->
-        <div class="view-mode">
+        <!-- 移动端：搜索框和视图切换合并 -->
+        <div class="mobile-toolbar">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索..."
+            prefix-icon="Search"
+            clearable
+            @input="handleSearch"
+            class="mobile-search-input"
+          />
           <el-button-group>
             <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
             <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
           </el-button-group>
+        </div>
+        
+        <!-- 桌面端：显示完整工具栏 -->
+        <div class="desktop-toolbar">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索广场文件..."
+            prefix-icon="Search"
+            clearable
+            @input="handleSearch"
+            style="width: 300px"
+          />
+          <div class="view-mode">
+            <el-button-group>
+              <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
+              <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
+            </el-button-group>
+          </div>
         </div>
       </div>
     </div>
@@ -169,14 +185,15 @@ const publicFiles = ref<PublicFileItem[]>([])
 
 // 筛选后的文件列表（仅用于前端搜索）
 const filteredFiles = computed(() => {
-  let files = publicFiles.value
+  // 确保 publicFiles.value 是数组
+  let files = publicFiles.value || []
 
   // 根据搜索关键词筛选（前端过滤）
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
     files = files.filter(file => 
-      file.file_name.toLowerCase().includes(keyword) ||
-      file.owner_name.toLowerCase().includes(keyword)
+      file?.file_name?.toLowerCase().includes(keyword) ||
+      file?.owner_name?.toLowerCase().includes(keyword)
     )
   }
 
@@ -267,10 +284,13 @@ const loadPublicFiles = async () => {
     })
     
     if (response.code === 200 && response.data) {
-      publicFiles.value = response.data.files
-      total.value = response.data.total
+      // 确保 files 是数组，如果为 null 或 undefined 则使用空数组
+      publicFiles.value = response.data.files || []
+      total.value = response.data.total || 0
     } else {
       proxy?.$modal.msgError(response.message || '加载失败')
+      // 加载失败时也确保是空数组
+      publicFiles.value = []
     }
   } catch (error) {
     proxy?.$log.error('加载公开文件列表失败:', error)
@@ -460,5 +480,148 @@ watch(() => route.query.keyword, (newKeyword) => {
   border-top: 1px solid var(--el-border-color);
   display: flex;
   justify-content: center;
+}
+
+/* 移动端工具栏 */
+.mobile-toolbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.mobile-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.desktop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .square-container {
+    border-radius: 0;
+  }
+  
+  .toolbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .breadcrumb {
+    flex: 1 1 100%;
+    order: 1;
+  }
+  
+  .breadcrumb-item {
+    font-size: 16px;
+  }
+  
+  .breadcrumb-desc {
+    display: none;
+  }
+  
+  .toolbar-actions {
+    flex: 1 1 100%;
+    order: 2;
+    width: 100%;
+  }
+  
+  .mobile-toolbar {
+    display: flex;
+  }
+  
+  .desktop-toolbar {
+    display: none;
+  }
+  
+  .filter-bar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .filter-bar :deep(.el-radio-group) {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    display: flex;
+    gap: 4px;
+  }
+  
+  .filter-bar :deep(.el-radio-button) {
+    flex-shrink: 0;
+  }
+  
+  .filter-bar :deep(.el-radio-button__inner) {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .filter-bar :deep(.el-select) {
+    width: 100%;
+  }
+  
+  .file-grid {
+    padding: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  
+  .file-card :deep(.el-card__body) {
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  .file-icon {
+    padding: 8px;
+  }
+  
+  .file-name {
+    font-size: 12px;
+  }
+  
+  .file-info {
+    font-size: 11px;
+  }
+  
+  .file-stats {
+    font-size: 11px;
+  }
+  
+  .pagination {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+  
+  .file-card :deep(.el-card__body) {
+    padding: 8px;
+    gap: 6px;
+  }
+  
+  .file-icon {
+    padding: 6px;
+  }
+  
+  .file-name {
+    font-size: 11px;
+  }
+  
+  .filter-bar :deep(.el-radio-button__inner) {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
 }
 </style>

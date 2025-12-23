@@ -165,4 +165,41 @@ const handleImageError = () => {
     box-shadow: 0 2px 12px rgba(245, 158, 11, 0.6);
   }
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .file-type-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    bottom: 2px;
+    right: 2px;
+  }
+  
+  .encryption-badge {
+    width: 20px;
+    height: 20px;
+    top: 2px;
+    right: 2px;
+  }
+  
+  .encryption-badge .el-icon {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-type-badge {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+  
+  .encryption-badge {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .encryption-badge .el-icon {
+    font-size: 10px;
+  }
+}
 </style>

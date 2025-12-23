@@ -381,4 +381,106 @@ const handleShare = () => {
 .empty-state p {
   font-size: 14px;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .file-list-container {
+    padding: 0;
+  }
+  
+  .toolbar {
+    padding: 12px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .breadcrumb {
+    flex: 1 1 100%;
+    order: 1;
+  }
+  
+  .breadcrumb-item {
+    font-size: 14px;
+  }
+  
+  .toolbar-actions {
+    flex: 1 1 100%;
+    order: 2;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .action-buttons {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .action-buttons .el-button {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+  }
+  
+  .action-buttons .el-button span {
+    display: none;
+  }
+  
+  .file-grid {
+    padding: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+  }
+  
+  .file-card {
+    padding: 12px;
+    gap: 6px;
+  }
+  
+  .file-name {
+    font-size: 12px;
+  }
+  
+  .file-info {
+    font-size: 11px;
+  }
+  
+  .file-table {
+    padding: 0 12px;
+    overflow-x: auto;
+  }
+  
+  .file-table table {
+    min-width: 600px;
+  }
+  
+  .file-table thead th {
+    padding: 8px;
+    font-size: 12px;
+  }
+  
+  .file-table tbody td {
+    padding: 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+  
+  .file-card {
+    padding: 8px;
+  }
+  
+  .file-name {
+    font-size: 11px;
+  }
+  
+  .file-info {
+    font-size: 10px;
+  }
+}
 </style>

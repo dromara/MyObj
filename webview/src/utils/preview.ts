@@ -67,11 +67,26 @@ export const detectFileType = (file: FileItem): PreviewType => {
 
 /**
  * 获取文件预览 URL（返回blob URL，带认证）
+ * 对于视频文件，使用 /video/stream 接口（支持 Range 请求，每次最大 2MB）
  * @param fileId 文件ID
- * @returns Promise<string> blob URL
+ * @param fileType 文件类型（可选，用于判断是否为视频）
+ * @returns Promise<string> blob URL 或视频流 URL
  */
-export const getFilePreviewUrl = async (fileId: string): Promise<string> => {
+export const getFilePreviewUrl = async (fileId: string, fileType?: string): Promise<string> => {
   try {
+    // 如果是视频类型，使用视频流接口（支持 Range 请求）
+    if (fileType === 'video') {
+      const { createVideoPlayPrecheck, getVideoStreamUrl } = await import('@/api/video')
+      const res = await createVideoPlayPrecheck(fileId)
+      if (res.code === 200 && res.data) {
+        // 直接返回视频流 URL，浏览器会自动处理 Range 请求
+        return getVideoStreamUrl(res.data.play_token)
+      } else {
+        throw new Error(res.message || '获取视频播放 Token 失败')
+      }
+    }
+    
+    // 其他类型文件使用预览接口
     const token = localStorage.getItem('token')
     const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
     

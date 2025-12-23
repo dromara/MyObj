@@ -11,8 +11,8 @@
     </div>
 
     <div class="table-card glass-panel">
-      <el-table :data="shareList" v-loading="loading" style="width: 100%" empty-text="暂无分享记录">
-        <el-table-column label="文件名" min-width="200">
+      <el-table :data="shareList" v-loading="loading" style="width: 100%" empty-text="暂无分享记录" class="shares-table">
+        <el-table-column label="文件名" min-width="200" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
               <el-icon :size="18" color="#409EFF"><Document /></el-icon>
@@ -21,7 +21,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="分享链接" min-width="350">
+        <el-table-column label="分享链接" min-width="350" class-name="mobile-link-column">
           <template #default="{ row }">
             <div class="link-cell">
               <el-input 
@@ -37,7 +37,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="访问密码" width="120" align="center">
+        <el-table-column label="访问密码" width="120" align="center" class-name="mobile-hide">
           <template #default>
             <el-tag type="warning" effect="plain" size="small">
               <el-icon><Lock /></el-icon>
@@ -46,13 +46,13 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="下载次数" prop="download_count" width="100" align="center">
+        <el-table-column label="下载次数" prop="download_count" width="100" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <el-tag type="info" size="small">{{ row.download_count }}</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="过期时间" width="180" align="center">
+        <el-table-column label="过期时间" width="180" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <div class="time-cell">
               <el-icon :size="14"><Clock /></el-icon>
@@ -61,7 +61,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="创建时间" width="180" align="center">
+        <el-table-column label="创建时间" width="180" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <div class="time-cell">
               <el-icon :size="14"><Calendar /></el-icon>
@@ -70,7 +70,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column label="操作" width="180" fixed="right" align="center" class-name="mobile-actions-column">
           <template #default="{ row }">
             <el-button-group>
               <el-button link type="primary" icon="Edit" @click="handleUpdatePassword(row)">修改密码</el-button>
@@ -314,5 +314,157 @@ onMounted(() => {
 
 :deep(.el-tag) {
   border-radius: 6px;
+}
+
+.time-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.link-cell {
+  width: 100%;
+}
+
+/* 表格移动端优化 */
+.shares-table :deep(.mobile-hide) {
+  display: table-cell;
+}
+
+.shares-table :deep(.mobile-name-column) {
+  min-width: 200px;
+}
+
+.shares-table :deep(.mobile-link-column) {
+  min-width: 300px;
+}
+
+.shares-table :deep(.mobile-actions-column) {
+  width: auto;
+  min-width: 120px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .shares-page {
+    padding: 8px;
+    gap: 12px;
+  }
+  
+  .header-card {
+    padding: 12px 16px;
+  }
+  
+  .header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .title-section h2 {
+    font-size: 18px;
+  }
+  
+  .table-card {
+    padding: 4px;
+  }
+  
+  .file-name-cell {
+    gap: 8px;
+  }
+  
+  .file-name {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+  
+  .link-cell :deep(.el-input) {
+    font-size: 12px;
+  }
+  
+  .link-cell :deep(.el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  /* 表格移动端隐藏列 */
+  .shares-table :deep(.mobile-hide) {
+    display: none;
+  }
+  
+  .shares-table :deep(.mobile-name-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .shares-table :deep(.mobile-link-column) {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .shares-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 80px;
+  }
+  
+  /* 操作按钮在移动端使用图标按钮 */
+  .shares-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .shares-table :deep(.mobile-actions-column .el-button span) {
+    display: none;
+  }
+  
+  .shares-table :deep(.mobile-actions-column .el-button .el-icon) {
+    margin: 0;
+  }
+  
+  /* 修改密码对话框 */
+  :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 5vh auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-card {
+    padding: 10px 12px;
+  }
+  
+  .title-section h2 {
+    font-size: 16px;
+  }
+  
+  .file-name {
+    max-width: 150px;
+  }
+  
+  .link-cell :deep(.el-input) {
+    font-size: 11px;
+  }
+  
+  .link-cell :deep(.el-button) {
+    padding: 4px;
+  }
+  
+  .link-cell :deep(.el-button span) {
+    display: none;
+  }
+  
+  .shares-table :deep(.mobile-actions-column) {
+    width: auto;
+    min-width: 60px;
+  }
+  
+  .shares-table :deep(.mobile-actions-column .el-button) {
+    padding: 4px;
+  }
 }
 </style>

@@ -1,3 +1,12 @@
+/* 响应式断点定义 */
+:root {
+  --breakpoint-xs: 480px;   /* 手机 */
+  --breakpoint-sm: 768px;   /* 平板 */
+  --breakpoint-md: 1024px;  /* 小桌面 */
+  --breakpoint-lg: 1280px;  /* 桌面 */
+  --breakpoint-xl: 1920px;  /* 大桌面 */
+}
+
 /* Glassmorphism Utilities */
 .glass-panel {
   background: var(--bg-color-glass);

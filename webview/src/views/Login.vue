@@ -425,4 +425,108 @@ onMounted(() => checkSysInfo())
   color: #1d4ed8;
   text-decoration: underline;
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .login-content {
+    max-width: 100%;
+    padding: 0 20px;
+  }
+  
+  .brand-header {
+    margin-bottom: 32px;
+  }
+  
+  .logo-text {
+    font-size: 28px;
+  }
+  
+  .badge {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+  
+  .subtitle {
+    font-size: 13px;
+  }
+  
+  .auth-card {
+    padding: 0 16px;
+  }
+  
+  .input-group {
+    margin-bottom: 16px;
+  }
+  
+  .input-group label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  
+  :deep(.custom-input .el-input__wrapper) {
+    height: 46px;
+    padding: 6px 14px;
+  }
+  
+  .submit-btn {
+    height: 50px;
+    font-size: 15px;
+    margin-top: 10px;
+  }
+  
+  .auth-switch {
+    margin-top: 24px;
+    font-size: 13px;
+  }
+  
+  .blob-1 {
+    width: 500px;
+    height: 500px;
+  }
+  
+  .blob-2 {
+    width: 400px;
+    height: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-content {
+    padding: 0 16px;
+  }
+  
+  .brand-header {
+    margin-bottom: 24px;
+  }
+  
+  .logo-text {
+    font-size: 24px;
+  }
+  
+  .subtitle {
+    font-size: 12px;
+  }
+  
+  .auth-card {
+    padding: 0 12px;
+  }
+  
+  .input-group label {
+    font-size: 11px;
+  }
+  
+  :deep(.custom-input .el-input__wrapper) {
+    height: 44px;
+    padding: 6px 12px;
+  }
+  
+  .submit-btn {
+    height: 48px;
+    font-size: 14px;
+  }
+  
+  .auth-switch {
+    font-size: 12px;
+  }
+}
 </style>

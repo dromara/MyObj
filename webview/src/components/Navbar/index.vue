@@ -182,4 +182,66 @@ const handleCommand = (command: string) => {
   font-size: 14px;
   color: var(--text-primary);
 }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 12px;
+    height: 56px;
+  }
+  
+  .logo-text {
+    font-size: 16px;
+  }
+  
+  .navbar-center {
+    display: none;
+  }
+  
+  .navbar-right {
+    gap: 8px;
+  }
+  
+  .navbar-right .el-button {
+    padding: 8px;
+  }
+  
+  .navbar-right .el-button span {
+    display: none;
+  }
+  
+  .user-info {
+    padding: 4px 8px;
+  }
+  
+  .username {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0 8px;
+  }
+  
+  .logo {
+    gap: 4px;
+  }
+  
+  .logo .el-icon {
+    font-size: 24px;
+  }
+  
+  .logo-text {
+    font-size: 14px;
+  }
+  
+  .navbar-right {
+    gap: 4px;
+  }
+  
+  .navbar-right .el-button {
+    padding: 6px;
+  }
+}
 </style>
