@@ -112,14 +112,76 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 		return nil, fmt.Errorf("无权操作此文件")
 	}
 
-	// 在事务中执行：1. 恢复 user_files 软删除、 2. 删除回收站记录
+	// 获取要还原的文件记录（使用 Unscoped 查询软删除的记录）
+	var userFile models.UserFiles
+	err = r.factory.DB().Unscoped().Where("user_id = ? AND uf_id = ?", userID, recycled.FileID).First(&userFile).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("文件记录不存在")
+		}
+		logger.LOG.Error("获取文件记录失败", "error", err, "userID", userID, "fileID", recycled.FileID)
+		return nil, fmt.Errorf("获取文件记录失败: %w", err)
+	}
+
+	// 检查父目录是否存在
+	var targetVirtualPath string = userFile.VirtualPath
+	parentDirExists := false
+	
+	// 如果 VirtualPath 为空或 "0"，说明文件原本就在根目录，不需要检查
+	if userFile.VirtualPath == "" || userFile.VirtualPath == "0" {
+		parentDirExists = true // 根目录总是存在的
+	} else {
+		// 解析虚拟路径ID
+		pathID := 0
+		_, err := fmt.Sscanf(userFile.VirtualPath, "%d", &pathID)
+		if err == nil && pathID > 0 {
+			// 检查目录是否存在
+			_, err := r.factory.VirtualPath().GetByID(ctx, pathID)
+			if err == nil {
+				parentDirExists = true
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				// 父目录不存在
+				logger.LOG.Warn("文件原父目录已删除，将还原到根目录", 
+					"userID", userID, 
+					"fileID", recycled.FileID, 
+					"originalPath", userFile.VirtualPath)
+			} else {
+				logger.LOG.Warn("检查父目录时出错", "error", err, "pathID", pathID)
+			}
+		}
+	}
+
+	// 如果父目录不存在，获取根目录ID
+	if !parentDirExists {
+		rootPath, err := r.factory.VirtualPath().GetRootPath(ctx, userID)
+		if err != nil {
+			logger.LOG.Error("获取根目录失败", "error", err, "userID", userID)
+			return nil, fmt.Errorf("获取根目录失败: %w", err)
+		}
+		targetVirtualPath = fmt.Sprintf("%d", rootPath.ID)
+		logger.LOG.Info("文件将还原到根目录", 
+			"userID", userID, 
+			"fileID", recycled.FileID, 
+			"originalPath", userFile.VirtualPath, 
+			"newPath", targetVirtualPath)
+	}
+
+	// 在事务中执行：1. 恢复 user_files 软删除、2. 更新 VirtualPath（如果父目录不存在）、3. 删除回收站记录
 	err = r.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := r.factory.WithTx(tx)
 
 		// 恢复 user_files 软删除（清除 deleted_at）
+		// 如果父目录不存在，同时更新 VirtualPath
+		updateMap := map[string]interface{}{
+			"deleted_at": nil,
+		}
+		if !parentDirExists {
+			updateMap["virtual_path"] = targetVirtualPath
+		}
+		
 		if err := tx.Model(&models.UserFiles{}).Unscoped().
 			Where("user_id = ? AND uf_id = ?", userID, recycled.FileID).
-			Update("deleted_at", nil).Error; err != nil {
+			Updates(updateMap).Error; err != nil {
 			return fmt.Errorf("恢复用户文件失败: %w", err)
 		}
 
@@ -136,8 +198,18 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 		return nil, fmt.Errorf("还原文件失败: %w", err)
 	}
 
-	logger.LOG.Info("文件已还原", "recycledID", req.RecycledID, "userID", userID, "fileID", recycled.FileID)
-	return models.NewJsonResponse(200, "文件已还原", nil), nil
+	message := "文件已还原"
+	if !parentDirExists {
+		message = "文件已还原到根目录（原父目录已删除）"
+	}
+
+	logger.LOG.Info("文件已还原", 
+		"recycledID", req.RecycledID, 
+		"userID", userID, 
+		"fileID", recycled.FileID,
+		"originalPath", userFile.VirtualPath,
+		"newPath", targetVirtualPath)
+	return models.NewJsonResponse(200, message, nil), nil
 }
 
 // DeletePermanently 永久删除文件
