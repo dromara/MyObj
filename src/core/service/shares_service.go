@@ -37,11 +37,18 @@ func (s *SharesService) GetRepository() *impl.RepositoryFactory {
 // CreateShare 创建分享
 func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID string) (*models.JsonResponse, error) {
 	uid := fmt.Sprintf("%s-%v", uuid.New().String(), util.TimeUtil{}.GetTimestamp())
-	password, err := util.GeneratePassword(req.Password)
-	if err != nil {
-		logger.LOG.Error("生成密码失败", "error", err)
-		return nil, err
+	
+	// 如果密码为空，不生成哈希，直接设置为空字符串
+	var passwordHash string
+	if req.Password != "" {
+		password, err := util.GeneratePassword(req.Password)
+		if err != nil {
+			logger.LOG.Error("生成密码失败", "error", err)
+			return nil, err
+		}
+		passwordHash = password
 	}
+	
 	userFile, err := s.factory.UserFiles().GetByUserIDAndUfID(context.Background(), userID, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
@@ -52,7 +59,7 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 		FileID:        userFile.FileID,
 		Token:         uid,
 		ExpiresAt:     req.Expire,
-		PasswordHash:  password,
+		PasswordHash:  passwordHash, // 如果密码为空，这里就是空字符串
 		DownloadCount: 0,
 		CreatedAt:     custom_type.Now(),
 	}

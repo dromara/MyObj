@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { createShare } from '@/api/share'
+import { API_BASE_URL } from '@/config/api'
 import type { CreateShareRequest } from '@/types'
 import { formatSize, generateRandomPassword as generatePassword, copyToClipboard } from '@/utils'
 import { Document, Refresh, Clock } from '@element-plus/icons-vue'
@@ -245,7 +246,7 @@ const handleConfirmShare = async () => {
     if (res.code === 200) {
       // 后端返回的 token，构建分享链接
       const token = res.data.split('/').pop()
-      const shareUrl = `${window.location.origin}/api/share/download?token=${token}`
+      const shareUrl = `${window.location.origin}${API_BASE_URL}/share/download?token=${token}`
       
       const expireText = shareForm.expire_days === 0 
         ? '永久有效' 
