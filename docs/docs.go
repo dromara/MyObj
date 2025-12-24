@@ -49,7 +49,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.CreateLocalFileDownloadRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.CreateLocalFileDownloadRequest"
                         }
                     }
                 ],
@@ -59,7 +59,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -76,13 +76,13 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "500": {
                         "description": "创建失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -134,13 +134,209 @@ const docTemplate = `{
                     "400": {
                         "description": "任务不存在或未准备完成",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "500": {
                         "description": "下载失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/preview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "直接预览文件（用于图片、视频、PDF等预览场景），支持HTTP Range断点续传，不创建下载任务",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "下载管理"
+                ],
+                "summary": "文件预览",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文件ID（UserFiles的UfID）",
+                        "name": "file_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "文件解密密码（加密文件必需）",
+                        "name": "file_password",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range请求头（例：bytes=0-1023）",
+                        "name": "Range",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文件流",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "206": {
+                        "description": "部分文件流（Range请求）",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或文件不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权限",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "预览失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/torrent/parse": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "解析种子文件或磁力链接，返回文件列表供用户选择",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "下载管理"
+                ],
+                "summary": "解析种子/磁力链",
+                "parameters": [
+                    {
+                        "description": "解析请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.ParseTorrentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "解析成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/myobj_src_core_domain_response.ParseTorrentResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "解析失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/download/torrent/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据用户选择的文件索引，创建下载任务并开始下载",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "下载管理"
+                ],
+                "summary": "开始种子/磁力链下载",
+                "parameters": [
+                    {
+                        "description": "下载请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.StartTorrentDownloadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/myobj_src_core_domain_response.StartTorrentDownloadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "创建失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -171,7 +367,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.DeleteFileRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.DeleteFileRequest"
                         }
                     }
                 ],
@@ -181,7 +377,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -197,7 +393,76 @@ const docTemplate = `{
                     "500": {
                         "description": "删除失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/deleteDir": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除目录及其下的所有文件和子目录（文件会移动到回收站）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "删除目录",
+                "parameters": [
+                    {
+                        "description": "删除目录请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.DeleteDirRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或根目录不能删除",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "目录不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -252,7 +517,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -268,7 +533,191 @@ const docTemplate = `{
                     "500": {
                         "description": "获取失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/public/list": {
+            "get": {
+                "description": "获取广场公开文件列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "获取广场公开文件列表",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.PublicFileListRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/rename": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "重命名用户文件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "重命名文件",
+                "parameters": [
+                    {
+                        "description": "重命名请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.RenameFileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "重命名成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或重命名失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/renameDir": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "重命名用户目录，并自动更新子目录和文件的路径",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "重命名目录",
+                "parameters": [
+                    {
+                        "description": "重命名请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.RenameDirRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "重命名成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或重命名失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "目录不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -321,7 +770,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -337,7 +786,70 @@ const docTemplate = `{
                     "500": {
                         "description": "搜索失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/setPublic": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设置文件是否公开（加密文件不能设置为公开）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "设置文件公开状态",
+                "parameters": [
+                    {
+                        "description": "设置公开状态请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.SetFilePublicRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "设置成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或加密文件不能公开",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -407,7 +919,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -423,7 +935,161 @@ const docTemplate = `{
                     "400": {
                         "description": "上传失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/clean-expired": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "清理过期的未完成上传任务。如果提供 userID 参数，则只清理该用户的过期任务；如果不提供，则清理所有用户的过期任务（系统自动清理）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "清理过期的上传任务",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "用户ID（可选，不提供则清理所有用户的过期任务）",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "清理结果",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "清理失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除指定的上传任务（从数据库中删除记录）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "删除上传任务",
+                "parameters": [
+                    {
+                        "description": "删除请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.DeleteUploadTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "删除失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/expired": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询当前用户所有过期的上传任务",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "查询过期的上传任务列表",
+                "responses": {
+                    "200": {
+                        "description": "过期的上传任务列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -454,7 +1120,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UploadPrecheckRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UploadPrecheckRequest"
                         }
                     }
                 ],
@@ -464,7 +1130,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -480,7 +1146,192 @@ const docTemplate = `{
                     "400": {
                         "description": "预检失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/progress": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据预检ID查询文件上传进度",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "查询上传进度",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "预检ID",
+                        "name": "precheck_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "进度信息",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/myobj_src_core_domain_response.UploadProgressResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "预检信息不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/renew": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "延期过期的上传任务，延长过期时间使其可以继续上传",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "延期过期任务（恢复任务）",
+                "parameters": [
+                    {
+                        "description": "延期请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.RenewExpiredTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "延期成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权操作",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "任务不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "延期失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/file/upload/uncompleted": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询当前用户所有未完成的上传任务（用于断点续传）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "查询未完成的上传任务列表",
+                "responses": {
+                    "200": {
+                        "description": "未完成的上传任务列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -511,7 +1362,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.DeleteRecycledRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.DeleteRecycledRequest"
                         }
                     }
                 ],
@@ -519,13 +1370,13 @@ const docTemplate = `{
                     "200": {
                         "description": "删除成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "500": {
                         "description": "删除失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -550,13 +1401,13 @@ const docTemplate = `{
                     "200": {
                         "description": "清空成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "500": {
                         "description": "清空失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -605,7 +1456,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -621,7 +1472,7 @@ const docTemplate = `{
                     "500": {
                         "description": "获取失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -652,7 +1503,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.RestoreFileRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.RestoreFileRequest"
                         }
                     }
                 ],
@@ -660,13 +1511,173 @@ const docTemplate = `{
                     "200": {
                         "description": "还原成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "500": {
                         "description": "还原失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/apiKey/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除指定的API Key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "删除API Key",
+                "parameters": [
+                    {
+                        "description": "删除API Key请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.DeleteApiKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或删除失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "无权操作",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "API Key不存在",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/apiKey/generate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为用户生成新的API Key，用于API调用认证",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "生成API Key",
+                "parameters": [
+                    {
+                        "description": "生成API Key请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_core_domain_request.GenerateApiKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "生成成功，返回API Key和公钥",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或生成失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/apiKey/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取当前用户的所有API Key列表（Key已掩码）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "获取API Key列表",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "获取失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -688,7 +1699,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -704,7 +1715,7 @@ const docTemplate = `{
                     "400": {
                         "description": "获取失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -730,7 +1741,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserLoginRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserLoginRequest"
                         }
                     }
                 ],
@@ -740,7 +1751,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
@@ -756,7 +1767,7 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误或登录失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -782,7 +1793,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserRegisterRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserRegisterRequest"
                         }
                     }
                 ],
@@ -790,13 +1801,13 @@ const docTemplate = `{
                     "200": {
                         "description": "注册成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或注册失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -827,7 +1838,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserUpdatePasswordRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest"
                         }
                     }
                 ],
@@ -835,13 +1846,13 @@ const docTemplate = `{
                     "200": {
                         "description": "设置成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或设置失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -861,13 +1872,13 @@ const docTemplate = `{
                     "200": {
                         "description": "系统信息",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "获取失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -898,7 +1909,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserUpdatePasswordRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest"
                         }
                     }
                 ],
@@ -906,13 +1917,13 @@ const docTemplate = `{
                     "200": {
                         "description": "修改成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或修改失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -943,7 +1954,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserUpdatePasswordRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserUpdatePasswordRequest"
                         }
                     }
                 ],
@@ -951,13 +1962,13 @@ const docTemplate = `{
                     "200": {
                         "description": "修改成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或修改失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -988,7 +1999,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.UserUpdateRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.UserUpdateRequest"
                         }
                     }
                 ],
@@ -996,13 +2007,13 @@ const docTemplate = `{
                     "200": {
                         "description": "更新成功",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或更新失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -1033,7 +2044,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/request.VideoPlayPrecheckRequest"
+                            "$ref": "#/definitions/myobj_src_core_domain_request.VideoPlayPrecheckRequest"
                         }
                     }
                 ],
@@ -1043,13 +2054,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/models.JsonResponse"
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/response.VideoPlayTokenResponse"
+                                            "$ref": "#/definitions/myobj_src_core_domain_response.VideoPlayTokenResponse"
                                         }
                                     }
                                 }
@@ -1059,19 +2070,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "404": {
                         "description": "文件不存在",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -1110,19 +2121,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求失败",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "403": {
                         "description": "Token 无效或已过期",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     },
                     "404": {
                         "description": "文件不存在",
                         "schema": {
-                            "$ref": "#/definitions/models.JsonResponse"
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
                         }
                     }
                 }
@@ -1130,23 +2141,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "models.JsonResponse": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "description": "状态码",
-                    "type": "integer"
-                },
-                "data": {
-                    "description": "数据"
-                },
-                "message": {
-                    "description": "状态",
-                    "type": "string"
-                }
-            }
-        },
-        "request.CreateLocalFileDownloadRequest": {
+        "myobj_src_core_domain_request.CreateLocalFileDownloadRequest": {
             "type": "object",
             "required": [
                 "file_id"
@@ -1162,7 +2157,31 @@ const docTemplate = `{
                 }
             }
         },
-        "request.DeleteFileRequest": {
+        "myobj_src_core_domain_request.DeleteApiKeyRequest": {
+            "type": "object",
+            "required": [
+                "api_key_id"
+            ],
+            "properties": {
+                "api_key_id": {
+                    "description": "API Key ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.DeleteDirRequest": {
+            "type": "object",
+            "required": [
+                "dir_id"
+            ],
+            "properties": {
+                "dir_id": {
+                    "description": "目录ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.DeleteFileRequest": {
             "type": "object",
             "required": [
                 "file_ids"
@@ -1177,7 +2196,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.DeleteRecycledRequest": {
+        "myobj_src_core_domain_request.DeleteRecycledRequest": {
             "type": "object",
             "required": [
                 "recycled_id"
@@ -1188,7 +2207,118 @@ const docTemplate = `{
                 }
             }
         },
-        "request.RestoreFileRequest": {
+        "myobj_src_core_domain_request.DeleteUploadTaskRequest": {
+            "type": "object",
+            "required": [
+                "task_id"
+            ],
+            "properties": {
+                "task_id": {
+                    "description": "任务ID（预检ID）",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.GenerateApiKeyRequest": {
+            "type": "object",
+            "properties": {
+                "expires_days": {
+                    "description": "过期天数，0表示永不过期",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.ParseTorrentRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "description": "种子文件内容（Base64编码）或磁力链接（magnet:开头）",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.PublicFileListRequest": {
+            "type": "object",
+            "required": [
+                "page",
+                "pageSize"
+            ],
+            "properties": {
+                "page": {
+                    "description": "页码（从1开始）",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "pageSize": {
+                    "description": "每页数量",
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "sortBy": {
+                    "description": "排序字段（name, size, time）",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "文件类型",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.RenameDirRequest": {
+            "type": "object",
+            "required": [
+                "dir_id",
+                "new_dir_name"
+            ],
+            "properties": {
+                "dir_id": {
+                    "description": "目录ID",
+                    "type": "integer"
+                },
+                "new_dir_name": {
+                    "description": "新目录名",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.RenameFileRequest": {
+            "type": "object",
+            "required": [
+                "file_id",
+                "new_file_name"
+            ],
+            "properties": {
+                "file_id": {
+                    "description": "文件ID（uf_id）",
+                    "type": "string"
+                },
+                "new_file_name": {
+                    "description": "新文件名",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.RenewExpiredTaskRequest": {
+            "type": "object",
+            "required": [
+                "task_id"
+            ],
+            "properties": {
+                "days": {
+                    "description": "延期天数（默认7天）",
+                    "type": "integer"
+                },
+                "task_id": {
+                    "description": "任务ID（预检ID）",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.RestoreFileRequest": {
             "type": "object",
             "required": [
                 "recycled_id"
@@ -1199,7 +2329,52 @@ const docTemplate = `{
                 }
             }
         },
-        "request.UploadPrecheckRequest": {
+        "myobj_src_core_domain_request.SetFilePublicRequest": {
+            "type": "object",
+            "required": [
+                "file_id",
+                "public"
+            ],
+            "properties": {
+                "file_id": {
+                    "description": "文件ID（uf_id）",
+                    "type": "string"
+                },
+                "public": {
+                    "description": "是否公开",
+                    "type": "boolean"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.StartTorrentDownloadRequest": {
+            "type": "object",
+            "required": [
+                "content",
+                "file_indexes"
+            ],
+            "properties": {
+                "content": {
+                    "description": "种子文件内容（Base64编码）或磁力链接",
+                    "type": "string"
+                },
+                "enable_encryption": {
+                    "description": "是否加密存储",
+                    "type": "boolean"
+                },
+                "file_indexes": {
+                    "description": "要下载的文件索引列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "virtual_path": {
+                    "description": "保存的虚拟路径（可选，默认为/离线下载/）",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_request.UploadPrecheckRequest": {
             "type": "object",
             "properties": {
                 "chunk_signature": {
@@ -1230,7 +2405,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.UserLoginRequest": {
+        "myobj_src_core_domain_request.UserLoginRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -1248,7 +2423,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.UserRegisterRequest": {
+        "myobj_src_core_domain_request.UserRegisterRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -1276,7 +2451,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.UserUpdatePasswordRequest": {
+        "myobj_src_core_domain_request.UserUpdatePasswordRequest": {
             "type": "object",
             "properties": {
                 "challenge": {
@@ -1294,7 +2469,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.UserUpdateRequest": {
+        "myobj_src_core_domain_request.UserUpdateRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -1318,7 +2493,7 @@ const docTemplate = `{
                 }
             }
         },
-        "request.VideoPlayPrecheckRequest": {
+        "myobj_src_core_domain_request.VideoPlayPrecheckRequest": {
             "type": "object",
             "required": [
                 "file_id"
@@ -1334,7 +2509,109 @@ const docTemplate = `{
                 }
             }
         },
-        "response.VideoFileInfo": {
+        "myobj_src_core_domain_response.ParseTorrentResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "description": "文件列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/myobj_src_core_domain_response.TorrentFileInfo"
+                    }
+                },
+                "info_hash": {
+                    "description": "InfoHash（种子唯一标识）",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "种子名称",
+                    "type": "string"
+                },
+                "total_size": {
+                    "description": "总大小（字节）",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_response.StartTorrentDownloadResponse": {
+            "type": "object",
+            "properties": {
+                "task_count": {
+                    "description": "创建的任务数量",
+                    "type": "integer"
+                },
+                "task_ids": {
+                    "description": "创建的任务ID列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "torrent_name": {
+                    "description": "种子名称",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_core_domain_response.TorrentFileInfo": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "description": "文件索引",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "文件名",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "文件路径（种子内的相对路径）",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "文件大小（字节）",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_response.UploadProgressResponse": {
+            "type": "object",
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "is_complete": {
+                    "description": "是否已完成",
+                    "type": "boolean"
+                },
+                "md5": {
+                    "description": "已上传分片的MD5列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "precheck_id": {
+                    "type": "string"
+                },
+                "progress": {
+                    "description": "进度百分比 (0-100)",
+                    "type": "number"
+                },
+                "total": {
+                    "description": "总分片数",
+                    "type": "integer"
+                },
+                "uploaded": {
+                    "description": "已上传分片数",
+                    "type": "integer"
+                }
+            }
+        },
+        "myobj_src_core_domain_response.VideoFileInfo": {
             "type": "object",
             "properties": {
                 "file_id": {
@@ -1359,19 +2636,35 @@ const docTemplate = `{
                 }
             }
         },
-        "response.VideoPlayTokenResponse": {
+        "myobj_src_core_domain_response.VideoPlayTokenResponse": {
             "type": "object",
             "properties": {
                 "file_info": {
                     "description": "文件信息",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/response.VideoFileInfo"
+                            "$ref": "#/definitions/myobj_src_core_domain_response.VideoFileInfo"
                         }
                     ]
                 },
                 "play_token": {
                     "description": "播放 Token（24小时有效）",
+                    "type": "string"
+                }
+            }
+        },
+        "myobj_src_pkg_models.JsonResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "状态码",
+                    "type": "integer"
+                },
+                "data": {
+                    "description": "数据"
+                },
+                "message": {
+                    "description": "状态",
                     "type": "string"
                 }
             }

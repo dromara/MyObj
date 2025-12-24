@@ -41,8 +41,8 @@ func (v *VideoHandler) Router(c *gin.RouterGroup) {
 	{
 		// 创建视频播放预检（需要登录）
 		videoGroup.POST("/play/precheck", verify.Verify(), middleware.PowerVerify("file:preview"), v.CreateVideoPlay)
-		// 视频流播放（基于 token，无需登录）
-		videoGroup.GET("/stream", v.VideoPlay)
+		// 视频流播放
+		videoGroup.GET("/stream", verify.Verify(), middleware.PowerVerify("file:preview"), v.VideoPlay)
 	}
 
 	logger.LOG.Info("[路由] 视频播放路由注册完成✔️")
@@ -122,14 +122,14 @@ func (v *VideoHandler) CreateVideoPlay(c *gin.Context) {
 			filePath = fileInfo.EncPath
 		}
 	}
-	
+
 	// 如果路径仍然为空，记录错误
 	if filePath == "" {
 		logger.LOG.Error("文件路径为空", "fileID", fileInfo.ID, "isEnc", fileInfo.IsEnc, "path", fileInfo.Path, "encPath", fileInfo.EncPath)
 		c.JSON(500, models.NewJsonResponse(500, "文件路径不存在", nil))
 		return
 	}
-	
+
 	tokenInfo := PlayTokenInfo{
 		FileID:    req.FileID,
 		UserID:    userID,

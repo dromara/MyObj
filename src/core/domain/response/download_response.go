@@ -53,3 +53,37 @@ type DownloadTaskListResponse struct {
 	// 每页数量
 	PageSize int `json:"page_size"`
 }
+
+// TorrentFileInfo 种子文件信息
+type TorrentFileInfo struct {
+	// 文件索引
+	Index int `json:"index"`
+	// 文件名
+	Name string `json:"name"`
+	// 文件大小（字节）
+	Size int64 `json:"size"`
+	// 文件路径（种子内的相对路径）
+	Path string `json:"path"`
+}
+
+// ParseTorrentResponse 解析种子/磁力链响应
+type ParseTorrentResponse struct {
+	// 种子名称
+	Name string `json:"name"`
+	// InfoHash（种子唯一标识）
+	InfoHash string `json:"info_hash"`
+	// 文件列表
+	Files []TorrentFileInfo `json:"files"`
+	// 总大小（字节）
+	TotalSize int64 `json:"total_size"`
+}
+
+// StartTorrentDownloadResponse 开始种子下载响应
+type StartTorrentDownloadResponse struct {
+	// 创建的任务ID列表
+	TaskIDs []string `json:"task_ids"`
+	// 种子名称
+	TorrentName string `json:"torrent_name"`
+	// 创建的任务数量
+	TaskCount int `json:"task_count"`
+}

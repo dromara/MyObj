@@ -57,8 +57,12 @@ func (h *DownloadHandler) Router(c *gin.RouterGroup) {
 		downloadGroup.POST("/local/create", middleware.PowerVerify("file:download"), h.CreateLocalFileDownload)
 		// 下载网盘文件
 		downloadGroup.GET("/local/file/:taskID", middleware.PowerVerify("file:download"), h.DownloadLocalFile)
+		// 解析种子/磁力链
+		downloadGroup.POST("/torrent/parse", middleware.PowerVerify("file:offLine"), h.ParseTorrent)
+		// 开始种子/磁力链下载
+		downloadGroup.POST("/torrent/start", middleware.PowerVerify("file:offLine"), h.StartTorrentDownload)
 	}
-	
+
 	// 文件预览接口（支持公开文件未登录访问，使用可选认证）
 	// 使用可选认证中间件，允许未登录用户访问公开文件
 	c.Group("/download").GET("/preview", verify.VerifyOptional(), h.PreviewFile)
@@ -412,7 +416,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 	// 如果用户未登录，使用 GetByUfID（用于公开文件）
 	var userFile *models.UserFiles
 	var err error
-	
+
 	if userID != "" {
 		// 已登录用户：使用 userID + ufID 查询
 		userFile, err = h.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
@@ -420,7 +424,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 		// 未登录用户：仅使用 ufID 查询（用于公开文件）
 		userFile, err = h.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
 	}
-	
+
 	if err != nil {
 		logger.LOG.Error("查询用户文件失败", "error", err, "fileID", fileID, "userID", userID)
 		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
@@ -511,4 +515,61 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 			}
 		},
 	})
+}
+
+// ParseTorrent 解析种子/磁力链
+// @Summary 解析种子/磁力链
+// @Description 解析种子文件或磁力链接，返回文件列表供用户选择
+// @Tags 下载管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.ParseTorrentRequest true "解析请求"
+// @Success 200 {object} models.JsonResponse{data=response.ParseTorrentResponse} "解析成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 500 {object} models.JsonResponse "解析失败"
+// @Router /download/torrent/parse [post]
+func (h *DownloadHandler) ParseTorrent(c *gin.Context) {
+	req := new(request.ParseTorrentRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	result, err := h.service.ParseTorrent(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "解析失败", err.Error()))
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+// StartTorrentDownload 开始种子/磁力链下载
+// @Summary 开始种子/磁力链下载
+// @Description 根据用户选择的文件索引，创建下载任务并开始下载
+// @Tags 下载管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.StartTorrentDownloadRequest true "下载请求"
+// @Success 200 {object} models.JsonResponse{data=response.StartTorrentDownloadResponse} "任务创建成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 500 {object} models.JsonResponse "创建失败"
+// @Router /download/torrent/start [post]
+func (h *DownloadHandler) StartTorrentDownload(c *gin.Context) {
+	req := new(request.StartTorrentDownloadRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := h.service.StartTorrentDownload(req, userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
+		return
+	}
+
+	c.JSON(200, result)
 }

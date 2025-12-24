@@ -40,6 +40,12 @@ type DownloadTask struct {
 	SupportRange bool `gorm:"column:support_range;type:boolean;default:false"`
 	// 是否加密存储
 	EnableEncryption bool `gorm:"column:enable_encryption;type:boolean;default:false"`
+	// 种子InfoHash（BT/磁力链任务）
+	InfoHash string `gorm:"column:info_hash;type:text;index"`
+	// 种子内文件索引（BT/磁力链任务）
+	FileIndex int `gorm:"column:file_index;type:integer"`
+	// 种子名称（BT/磁力链任务）
+	TorrentName string `gorm:"column:torrent_name;type:text"`
 	// 创建时间
 	CreateTime custom_type.JsonTime `gorm:"column:create_time;type:datetime"`
 	// 更新时间

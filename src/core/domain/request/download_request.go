@@ -49,3 +49,21 @@ type CreateVideoPlayRequest struct {
 	// 视频文件解密密码（加密文件必需）
 	FilePassword string `json:"file_password"`
 }
+
+// ParseTorrentRequest 解析种子/磁力链请求
+type ParseTorrentRequest struct {
+	// 种子文件内容（Base64编码）或磁力链接（magnet:开头）
+	Content string `json:"content" binding:"required"`
+}
+
+// StartTorrentDownloadRequest 开始种子/磁力链下载请求
+type StartTorrentDownloadRequest struct {
+	// 种子文件内容（Base64编码）或磁力链接
+	Content string `json:"content" binding:"required"`
+	// 要下载的文件索引列表
+	FileIndexes []int `json:"file_indexes" binding:"required"`
+	// 保存的虚拟路径（可选，默认为/离线下载/）
+	VirtualPath string `json:"virtual_path"`
+	// 是否加密存储
+	EnableEncryption bool `json:"enable_encryption"`
+}

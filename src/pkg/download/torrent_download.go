@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/custom_type"
@@ -18,6 +19,12 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
+)
+
+// 种子下载任务管理器
+var (
+	torrentDownloadTasks   = make(map[string]context.CancelFunc)
+	torrentDownloadTasksMu sync.RWMutex
 )
 
 // TorrentDownloadResult 种子下载结果
@@ -402,5 +409,555 @@ func ensureVirtualPath(ctx context.Context, userID, fullPath string, repoFactory
 		)
 	}
 
+	return nil
+}
+
+// TorrentFileInfo 种子文件信息
+type TorrentFileInfo struct {
+	Index int    // 文件索引
+	Name  string // 文件名
+	Size  int64  // 文件大小
+	Path  string // 文件路径（种子内的相对路径）
+}
+
+// ParseTorrentResult 解析种子结果
+type ParseTorrentResult struct {
+	Name      string            // 种子名称
+	InfoHash  string            // InfoHash
+	Files     []TorrentFileInfo // 文件列表
+	TotalSize int64             // 总大小
+}
+
+// ParseTorrent 解析种子或磁力链，返回文件列表
+// 参数:
+//   - content: 种子文件内容（Base64编码）或磁力链接（magnet:开头）
+//   - timeout: 超时时间（秒），默认120秒
+//
+// 返回:
+//   - result: 解析结果
+//   - err: 错误信息
+func ParseTorrent(content string, timeout int) (*ParseTorrentResult, error) {
+	if timeout <= 0 {
+		timeout = 120 // 默认120秒超时
+	}
+
+	// 创建临时目录
+	sessionID := uuid.New().String()[:8]
+	sessionTempDir := filepath.Join(os.TempDir(), fmt.Sprintf("torrent_parse_%s", sessionID))
+	if err := os.MkdirAll(sessionTempDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建临时目录失败: %w", err)
+	}
+	defer os.RemoveAll(sessionTempDir)
+
+	// 配置torrent客户端
+	cfg := torrent.NewDefaultClientConfig()
+	cfg.DataDir = sessionTempDir
+	cfg.NoUpload = true // 解析时不上传
+	cfg.Seed = false
+
+	// 创建torrent客户端
+	client, err := torrent.NewClient(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("创建torrent客户端失败: %w", err)
+	}
+	defer client.Close()
+
+	// 判断是磁力链还是种子文件
+	var t *torrent.Torrent
+	if strings.HasPrefix(content, "magnet:") {
+		// 磁力链接
+		t, err = client.AddMagnet(content)
+		if err != nil {
+			return nil, fmt.Errorf("添加磁力链接失败: %w", err)
+		}
+		logger.LOG.Info("添加磁力链接成功", "magnet", content)
+	} else {
+		// Base64编码的种子文件
+		torrentData, err := base64.StdEncoding.DecodeString(content)
+		if err != nil {
+			return nil, fmt.Errorf("Base64解码失败: %w", err)
+		}
+
+		// 保存为临时文件
+		torrentPath := filepath.Join(sessionTempDir, "temp.torrent")
+		if err := os.WriteFile(torrentPath, torrentData, 0644); err != nil {
+			return nil, fmt.Errorf("保存种子文件失败: %w", err)
+		}
+
+		// 添加种子文件
+		t, err = client.AddTorrentFromFile(torrentPath)
+		if err != nil {
+			return nil, fmt.Errorf("添加种子文件失败: %w", err)
+		}
+		logger.LOG.Info("添加种子文件成功")
+	}
+
+	// 等待获取种子元数据（带超时）
+	logger.LOG.Info("等待获取种子元数据...", "timeout", timeout)
+	select {
+	case <-t.GotInfo():
+		// 成功获取元数据
+		logger.LOG.Info("种子元数据获取成功")
+	case <-time.After(time.Duration(timeout) * time.Second):
+		return nil, fmt.Errorf("获取种子元数据超时（%d秒）", timeout)
+	}
+
+	info := t.Info()
+
+	// 提取种子名称
+	torrentName := info.Name
+	if strings.HasSuffix(strings.ToLower(torrentName), ".torrent") {
+		torrentName = torrentName[:len(torrentName)-8]
+	}
+
+	// 构建文件列表
+	files := make([]TorrentFileInfo, 0, len(info.Files))
+	var totalSize int64
+	for i, file := range info.Files {
+		fileName := filepath.Base(file.Path[len(file.Path)-1])
+		filePath := filepath.Join(file.Path...)
+
+		files = append(files, TorrentFileInfo{
+			Index: i,
+			Name:  fileName,
+			Size:  file.Length,
+			Path:  filePath,
+		})
+		totalSize += file.Length
+	}
+
+	// 获取InfoHash
+	infoHash := t.InfoHash().String()
+
+	result := &ParseTorrentResult{
+		Name:      torrentName,
+		InfoHash:  infoHash,
+		Files:     files,
+		TotalSize: totalSize,
+	}
+
+	logger.LOG.Info("种子解析完成",
+		"name", torrentName,
+		"infoHash", infoHash,
+		"files", len(files),
+		"totalSize", totalSize,
+	)
+
+	return result, nil
+}
+
+// TorrentSingleFileDownloadOptions 单文件下载配置
+type TorrentSingleFileDownloadOptions struct {
+	MaxConcurrentPeers int    // 最大并发peer连接数
+	DownloadRateMbps   int    // 下载速率限制(Mbps)
+	UploadRateMbps     int    // 上传速率限制(Mbps)
+	EnableEncryption   bool   // 是否加密存储
+	VirtualPath        string // 虚拟路径
+	TorrentName        string // 种子名称
+	InfoHash           string // InfoHash
+}
+
+// DownloadTorrentSingleFile 下载种子中的单个文件
+// 参数:
+//   - ctx: 上下文（用于取消下载）
+//   - taskID: 下载任务ID
+//   - content: 种子文件内容（Base64编码）或磁力链接
+//   - fileIndex: 要下载的文件索引
+//   - userID: 用户ID
+//   - tempDir: 临时目录
+//   - repoFactory: 数据库仓储工厂
+//   - opts: 下载配置选项
+//
+// 返回:
+//   - fileID: 上传成功的文件ID
+//   - err: 错误信息
+func DownloadTorrentSingleFile(
+	ctx context.Context,
+	taskID string,
+	content string,
+	fileIndex int,
+	userID string,
+	tempDir string,
+	repoFactory *impl.RepositoryFactory,
+	opts *TorrentSingleFileDownloadOptions,
+) (string, error) {
+	// 创建可取消的context
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// 注册取消函数
+	torrentDownloadTasksMu.Lock()
+	torrentDownloadTasks[taskID] = cancel
+	torrentDownloadTasksMu.Unlock()
+
+	// 确保清理
+	defer func() {
+		torrentDownloadTasksMu.Lock()
+		delete(torrentDownloadTasks, taskID)
+		torrentDownloadTasksMu.Unlock()
+	}()
+
+	// 使用默认配置
+	if opts == nil {
+		opts = &TorrentSingleFileDownloadOptions{
+			MaxConcurrentPeers: 100,
+			EnableEncryption:   false,
+			VirtualPath:        "/离线下载/",
+		}
+	}
+
+	// 创建唯一的临时子目录
+	sessionID := uuid.New().String()[:8]
+	sessionTempDir := filepath.Join(tempDir, fmt.Sprintf("torrent_%s", sessionID))
+	if err := os.MkdirAll(sessionTempDir, 0755); err != nil {
+		return "", fmt.Errorf("创建临时目录失败: %w", err)
+	}
+
+	// 确保临时目录在结束时清理
+	defer func() {
+		if err := os.RemoveAll(sessionTempDir); err != nil {
+			logger.LOG.Warn("清理临时目录失败", "path", sessionTempDir, "error", err)
+		}
+	}()
+
+	// 配置torrent客户端
+	cfg := torrent.NewDefaultClientConfig()
+	cfg.DataDir = sessionTempDir
+	cfg.NoUpload = false
+	cfg.Seed = false
+
+	// 配置并发连接数
+	if opts.MaxConcurrentPeers > 0 {
+		cfg.EstablishedConnsPerTorrent = opts.MaxConcurrentPeers
+	}
+
+	// 配置速率限制
+	if opts.DownloadRateMbps > 0 {
+		limit := rate.Limit(int64(opts.DownloadRateMbps) * 1024 * 1024 / 8)
+		cfg.DownloadRateLimiter = rate.NewLimiter(limit, int(limit))
+	}
+	if opts.UploadRateMbps > 0 {
+		limit := rate.Limit(int64(opts.UploadRateMbps) * 1024 * 1024 / 8)
+		cfg.UploadRateLimiter = rate.NewLimiter(limit, int(limit))
+	}
+
+	// 创建torrent客户端
+	client, err := torrent.NewClient(cfg)
+	if err != nil {
+		return "", fmt.Errorf("创建torrent客户端失败: %w", err)
+	}
+	defer client.Close()
+
+	// 判断是磁力链还是种子文件
+	var t *torrent.Torrent
+	if strings.HasPrefix(content, "magnet:") {
+		// 磁力链接
+		t, err = client.AddMagnet(content)
+		if err != nil {
+			return "", fmt.Errorf("添加磁力链接失败: %w", err)
+		}
+		logger.LOG.Info("添加磁力链接成功", "taskID", taskID)
+	} else {
+		// Base64编码的种子文件
+		torrentData, err := base64.StdEncoding.DecodeString(content)
+		if err != nil {
+			return "", fmt.Errorf("Base64解码失败: %w", err)
+		}
+
+		torrentPath := filepath.Join(sessionTempDir, "temp.torrent")
+		if err := os.WriteFile(torrentPath, torrentData, 0644); err != nil {
+			return "", fmt.Errorf("保存种子文件失败: %w", err)
+		}
+
+		t, err = client.AddTorrentFromFile(torrentPath)
+		if err != nil {
+			return "", fmt.Errorf("添加种子文件失败: %w", err)
+		}
+		logger.LOG.Info("添加种子文件成功", "taskID", taskID)
+	}
+
+	// 等待获取种子元数据
+	logger.LOG.Info("等待获取种子元数据...", "taskID", taskID)
+	select {
+	case <-t.GotInfo():
+		logger.LOG.Info("种子元数据获取成功", "taskID", taskID)
+	case <-ctx.Done():
+		return "", fmt.Errorf("任务已取消")
+	case <-time.After(2 * time.Minute):
+		return "", fmt.Errorf("获取种子元数据超时")
+	}
+
+	info := t.Info()
+
+	// 验证文件索引
+	if fileIndex < 0 || fileIndex >= len(info.Files) {
+		return "", fmt.Errorf("文件索引无效: %d, 总文件数: %d", fileIndex, len(info.Files))
+	}
+
+	fileInfo := info.Files[fileIndex]
+	fileName := filepath.Base(fileInfo.Path[len(fileInfo.Path)-1])
+
+	// 只下载指定的文件
+	for i := range info.Files {
+		if i == fileIndex {
+			t.Files()[i].Download()
+		} else {
+			t.Files()[i].SetPriority(torrent.PiecePriorityNone)
+		}
+	}
+
+	// 获取下载任务
+	task, err := repoFactory.DownloadTask().GetByID(ctx, taskID)
+	if err != nil {
+		return "", fmt.Errorf("获取下载任务失败: %w", err)
+	}
+
+	// 更新任务信息
+	task.FileName = fileName
+	task.FileSize = fileInfo.Length
+	task.UpdateTime = custom_type.Now()
+	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
+		logger.LOG.Warn("更新任务信息失败", "taskID", taskID, "error", err)
+	}
+
+	// 等待下载完成，带进度监控
+	logger.LOG.Info("开始下载文件...", "taskID", taskID, "fileName", fileName)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	targetFile := t.Files()[fileIndex]
+	var lastCompleted int64
+	lastUpdate := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("任务已取消")
+		case <-ticker.C:
+			// 获取当前文件的完成字节数
+			completed := targetFile.BytesCompleted()
+			totalSize := fileInfo.Length
+
+			// 计算进度和速度
+			progress := int(float64(completed) / float64(totalSize) * 100)
+			now := time.Now()
+			elapsed := now.Sub(lastUpdate).Seconds()
+			var speed int64
+			if elapsed > 0 {
+				speed = int64(float64(completed-lastCompleted) / elapsed)
+			}
+
+			// 更新数据库
+			task.DownloadedSize = completed
+			task.Progress = progress
+			task.Speed = speed
+			task.UpdateTime = custom_type.Now()
+			if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
+				logger.LOG.Error("更新下载任务进度失败", "taskID", taskID, "error", err)
+			}
+
+			lastCompleted = completed
+			lastUpdate = now
+
+			// 记录进度
+			stats := t.Stats()
+			logger.LOG.Info("下载进度",
+				"taskID", taskID,
+				"progress", fmt.Sprintf("%d%%", progress),
+				"downloaded", completed,
+				"total", totalSize,
+				"speed", fmt.Sprintf("%.2f MB/s", float64(speed)/1024/1024),
+				"peers", stats.ConnectedSeeders+stats.ActivePeers,
+			)
+
+			// 检查是否完成
+			if completed >= totalSize {
+				logger.LOG.Info("文件下载完成", "taskID", taskID, "fileName", fileName, "size", totalSize)
+				goto DownloadComplete
+			}
+		}
+	}
+
+DownloadComplete:
+	// 构建文件的虚拟路径（根据种子名称创建子目录）
+	torrentName := opts.TorrentName
+	if torrentName == "" {
+		torrentName = info.Name
+		if strings.HasSuffix(strings.ToLower(torrentName), ".torrent") {
+			torrentName = torrentName[:len(torrentName)-8]
+		}
+	}
+
+	// 构建完整的虚拟路径（基础路径/种子名称/文件相对路径）
+	var relativeDir string
+	if len(fileInfo.Path) > 1 {
+		relativeDir = filepath.Join(fileInfo.Path[:len(fileInfo.Path)-1]...)
+	}
+
+	torrentVirtualPath := filepath.Join(opts.VirtualPath, torrentName)
+	fileVirtualPath := filepath.Join(torrentVirtualPath, relativeDir)
+
+	// 确保虚拟路径存在
+	if err := ensureVirtualPath(ctx, userID, fileVirtualPath, repoFactory); err != nil {
+		return "", fmt.Errorf("创建虚拟目录失败: %w", err)
+	}
+
+	// 下载后的文件实际路径
+	downloadedPath := filepath.Join(sessionTempDir, filepath.Join(fileInfo.Path...))
+
+	// 检查文件是否存在
+	fileStat, err := os.Stat(downloadedPath)
+	if err != nil {
+		return "", fmt.Errorf("文件不存在: %w", err)
+	}
+
+	// 准备上传数据
+	uploadData := &upload.FileUploadData{
+		TempFilePath: downloadedPath,
+		FileName:     fileName,
+		FileSize:     fileStat.Size(),
+		VirtualPath:  fileVirtualPath,
+		UserID:       userID,
+		IsEnc:        opts.EnableEncryption,
+		IsChunk:      false,
+	}
+
+	// 调用上传处理
+	fileID, err := upload.ProcessUploadedFile(uploadData, repoFactory)
+	if err != nil {
+		return "", fmt.Errorf("上传文件失败: %w", err)
+	}
+
+	logger.LOG.Info("文件上传成功",
+		"taskID", taskID,
+		"fileName", fileName,
+		"fileID", fileID,
+		"size", fileStat.Size(),
+	)
+
+	return fileID, nil
+}
+
+// PauseTorrentDownload 暂停种子下载任务
+func PauseTorrentDownload(taskID string, repoFactory *impl.RepositoryFactory) error {
+	ctx := context.Background()
+
+	task, err := repoFactory.DownloadTask().GetByID(ctx, taskID)
+	if err != nil {
+		logger.LOG.Error("获取下载任务失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	// 取消下载任务的context
+	torrentDownloadTasksMu.RLock()
+	cancel, exists := torrentDownloadTasks[taskID]
+	torrentDownloadTasksMu.RUnlock()
+
+	if exists && cancel != nil {
+		cancel() // 取消context，停止下载
+		logger.LOG.Info("已取消种子下载任务", "taskID", taskID)
+	}
+
+	task.State = 2 // 2=暂停
+	task.UpdateTime = custom_type.Now()
+
+	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
+		logger.LOG.Error("更新任务状态失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("暂停任务失败: %w", err)
+	}
+
+	logger.LOG.Info("种子下载任务已暂停", "taskID", taskID)
+	return nil
+}
+
+// ResumeTorrentDownload 恢复种子下载任务
+func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFactory *impl.RepositoryFactory) error {
+	ctx := context.Background()
+
+	task, err := repoFactory.DownloadTask().GetByID(ctx, taskID)
+	if err != nil {
+		logger.LOG.Error("获取下载任务失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	if task.State != 2 { // 2=暂停
+		return fmt.Errorf("任务状态不允许恢复")
+	}
+
+	task.State = 1 // 1=下载中
+	task.UpdateTime = custom_type.Now()
+
+	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
+		logger.LOG.Error("更新任务状态失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("恢复任务失败: %w", err)
+	}
+
+	// 重新启动下载（异步）
+	go func() {
+		opts := &TorrentSingleFileDownloadOptions{
+			MaxConcurrentPeers: 100,
+			EnableEncryption:   task.EnableEncryption,
+			VirtualPath:        task.VirtualPath,
+			TorrentName:        task.TorrentName,
+			InfoHash:           task.InfoHash,
+		}
+		_, err := DownloadTorrentSingleFile(
+			context.Background(),
+			taskID,
+			task.URL, // URL字段存储种子内容/磁力链
+			task.FileIndex,
+			userID,
+			tempDir,
+			repoFactory,
+			opts,
+		)
+		if err != nil {
+			logger.LOG.Error("恢复种子下载失败", "taskID", taskID, "error", err)
+			// 更新任务为失败状态
+			task.State = 4 // 4=失败
+			task.ErrorMsg = err.Error()
+			task.UpdateTime = custom_type.Now()
+			repoFactory.DownloadTask().Update(context.Background(), task)
+		}
+	}()
+
+	logger.LOG.Info("种子下载任务已恢复", "taskID", taskID)
+	return nil
+}
+
+// CancelTorrentDownload 取消种子下载任务
+func CancelTorrentDownload(taskID string, repoFactory *impl.RepositoryFactory) error {
+	ctx := context.Background()
+
+	task, err := repoFactory.DownloadTask().GetByID(ctx, taskID)
+	if err != nil {
+		logger.LOG.Error("获取下载任务失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("获取任务失败: %w", err)
+	}
+
+	if task.State == 3 { // 3=完成
+		return fmt.Errorf("任务已完成，无法取消")
+	}
+
+	// 取消下载任务的context
+	torrentDownloadTasksMu.RLock()
+	cancel, exists := torrentDownloadTasks[taskID]
+	torrentDownloadTasksMu.RUnlock()
+
+	if exists && cancel != nil {
+		cancel() // 取消context，停止下载
+		logger.LOG.Info("已取消种子下载任务", "taskID", taskID)
+	}
+
+	task.State = 4 // 4=失败
+	task.ErrorMsg = "用户取消下载"
+	task.UpdateTime = custom_type.Now()
+
+	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
+		logger.LOG.Error("更新任务状态失败", "taskID", taskID, "error", err)
+		return fmt.Errorf("取消任务失败: %w", err)
+	}
+
+	logger.LOG.Info("种子下载任务已取消", "taskID", taskID)
 	return nil
 }

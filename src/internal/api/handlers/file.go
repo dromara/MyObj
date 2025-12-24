@@ -458,14 +458,14 @@ func (f *FileHandler) GetUploadProgress(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	
+
 	userID := c.GetString("userID")
 	result, err := f.service.GetUploadProgress(req, userID)
 	if err != nil {
 		c.JSON(500, models.NewJsonResponse(500, "查询失败", err.Error()))
 		return
 	}
-	
+
 	c.JSON(200, result)
 }
 
@@ -555,7 +555,7 @@ func (f *FileHandler) DeleteUploadTask(c *gin.Context) {
 func (f *FileHandler) CleanExpiredUploads(c *gin.Context) {
 	// 获取当前用户ID（用户清理自己的任务）
 	userID := c.GetString("userID")
-	
+
 	// 如果提供了 user_id 查询参数，使用该参数（用于系统自动清理）
 	if queryUserID := c.Query("user_id"); queryUserID != "" {
 		userID = queryUserID
