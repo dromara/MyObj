@@ -519,7 +519,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 
 // ParseTorrent 解析种子/磁力链
 // @Summary 解析种子/磁力链
-// @Description 解析种子文件或磁力链接，返回文件列表供用户选择
+// @Description 解析种子文件或磁力链接，返回文件列表供用户选择 种子文件内容（Base64编码）或磁力链接（magnet:开头）
 // @Tags 下载管理
 // @Accept json
 // @Produce json
@@ -547,7 +547,7 @@ func (h *DownloadHandler) ParseTorrent(c *gin.Context) {
 
 // StartTorrentDownload 开始种子/磁力链下载
 // @Summary 开始种子/磁力链下载
-// @Description 根据用户选择的文件索引，创建下载任务并开始下载
+// @Description 根据用户选择的文件索引，创建下载任务并开始下载 种子文件内容（Base64编码）或磁力链接（magnet:开头）
 // @Tags 下载管理
 // @Accept json
 // @Produce json

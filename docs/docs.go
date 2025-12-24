@@ -223,7 +223,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "解析种子文件或磁力链接，返回文件列表供用户选择",
+                "description": "解析种子文件或磁力链接，返回文件列表供用户选择,种子文件内容（Base64编码）或磁力链接（magnet:开头）",
                 "consumes": [
                     "application/json"
                 ],
@@ -286,7 +286,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据用户选择的文件索引，创建下载任务并开始下载",
+                "description": "根据用户选择的文件索引，创建下载任务并开始下载,种子文件内容（Base64编码）或磁力链接（magnet:开头）",
                 "consumes": [
                     "application/json"
                 ],
