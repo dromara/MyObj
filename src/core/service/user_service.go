@@ -154,9 +154,9 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		Phone:        req.Phone,
 		GroupID:      group.ID,
 		CreatedAt:    custom_type.Now(),
-		Space:        0,
+		Space:        group.Space,
 		FilePassword: "",
-		FreeSpace:    0,
+		FreeSpace:    group.Space,
 		State:        0,
 	}
 	init, err := u.SysInit()
@@ -443,11 +443,11 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 
 	// 返回 API Key（注意：只返回一次，后续无法再获取）
 	return models.NewJsonResponse(200, "API Key生成成功", map[string]interface{}{
-		"id":          apiKey.ID,
-		"key":         apiKeyStr,
-		"public_key":  keyPair.PublicKey, // 返回公钥，用于客户端签名
-		"expires_at":  expiresAtResp,
-		"created_at":  apiKey.CreatedAt,
+		"id":         apiKey.ID,
+		"key":        apiKeyStr,
+		"public_key": keyPair.PublicKey, // 返回公钥，用于客户端签名
+		"expires_at": expiresAtResp,
+		"created_at": apiKey.CreatedAt,
 	}), nil
 }
 
@@ -467,13 +467,13 @@ func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 	for _, key := range apiKeys {
 		// 只显示 Key 的前8位和后4位，中间用*代替
 		maskedKey := maskApiKey(key.Key)
-		
+
 		// 处理过期时间：如果为零值，返回 null
 		var expiresAt interface{} = nil
 		if !key.ExpiresAt.IsZero() {
 			expiresAt = key.ExpiresAt
 		}
-		
+
 		item := map[string]interface{}{
 			"id":         key.ID,
 			"key":        maskedKey,

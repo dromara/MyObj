@@ -256,7 +256,7 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 	// 4. 获取临时文件路径
 	tempFilePath := task.Path // 使用Path字段存储的临时文件路径
 	if tempFilePath == "" {
-		c.JSON(200, models.NewJsonResponse(500, "文件不存在", nil))
+		c.JSON(404, models.NewJsonResponse(404, "文件不存在", nil))
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 	file, err := os.Open(tempFilePath)
 	if err != nil {
 		logger.LOG.Error("打开文件失败", "error", err, "path", tempFilePath)
-		c.JSON(200, models.NewJsonResponse(500, "文件不存在", nil))
+		c.JSON(404, models.NewJsonResponse(404, "文件不存在", nil))
 		return
 	}
 	defer file.Close()
@@ -273,7 +273,7 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 	fileInfo, err := file.Stat()
 	if err != nil {
 		logger.LOG.Error("获取文件信息失败", "error", err)
-		c.JSON(200, models.NewJsonResponse(500, "获取文件信息失败", nil))
+		c.JSON(400, models.NewJsonResponse(500, "获取文件信息失败", nil))
 		return
 	}
 
