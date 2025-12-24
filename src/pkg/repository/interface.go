@@ -127,6 +127,8 @@ type UserFilesRepository interface {
 	SearchUserFiles(ctx context.Context, userID, keyword string, offset, limit int) ([]*models.UserFiles, error)
 	CountUserFilesByKeyword(ctx context.Context, userID, keyword string) (int64, error)
 	GetByUserIDAndUfID(ctx context.Context, userID, ufID string) (*models.UserFiles, error)
+	// GetByUfID 通过 uf_id 查询文件（用于公开文件访问，不要求 user_id）
+	GetByUfID(ctx context.Context, ufID string) (*models.UserFiles, error)
 }
 
 // VirtualPathRepository 虚拟路径仓储接口

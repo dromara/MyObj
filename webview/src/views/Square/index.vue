@@ -83,7 +83,7 @@
             <component :is="getFileIconName(file.mime_type)" />
           </el-icon>
         </div>
-        <div class="file-name" :title="file.file_name">{{ file.file_name }}</div>
+        <file-name-tooltip :file-name="file.file_name" view-mode="grid" tag="div" custom-class="file-name" />
         <div class="file-meta">
           <div class="file-info">
             <span>{{ formatFileSize(file.file_size) }}</span>
@@ -122,7 +122,7 @@
             <el-icon :size="24" :color="getFileIconColor(row.mime_type)">
               <component :is="getFileIconName(row.mime_type)" />
             </el-icon>
-            <span>{{ row.file_name }}</span>
+            <file-name-tooltip :file-name="row.file_name" view-mode="table" />
           </div>
         </template>
       </el-table-column>
@@ -162,7 +162,7 @@
           </div>
           <div class="mobile-item-info">
             <div class="mobile-item-name-row">
-              <span class="mobile-item-name">{{ file.file_name }}</span>
+              <file-name-tooltip :file-name="file.file_name" view-mode="list" custom-class="mobile-item-name" />
             </div>
             <div class="mobile-item-meta">
               <span class="mobile-item-size">{{ formatFileSize(file.file_size) }}</span>
@@ -192,7 +192,7 @@
     
     <!-- 分页 -->
     <div class="pagination">
-      <Pagination
+      <pagination
         v-model:page="currentPage"
         v-model:limit="pageSize"
         :total="total"
@@ -202,15 +202,13 @@
     </div>
 
     <!-- 文件预览组件 -->
-    <Preview v-model="previewVisible" :file="previewFile" />
+    <preview v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
-import Preview from '@/components/Preview/index.vue'
-import Pagination from '@/components/Pagination/index.vue'
 import { getPublicFileList, type PublicFileItem, type PublicFileListParams } from '@/api/file'
 import { getFileIcon } from '@/utils/fileIcon'
 
@@ -265,6 +263,7 @@ const formatFileSize = formatSize
 const formatTime = (time: string): string => {
   return formatDate(time, { showTime: true })
 }
+
 
 // 搜索处理
 const handleSearch = () => {
@@ -460,12 +459,20 @@ watch(() => route.query.keyword, (newKeyword) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.file-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .file-card :deep(.el-card__body) {
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
 }
 
 .file-icon {
@@ -473,6 +480,7 @@ watch(() => route.query.keyword, (newKeyword) => {
   align-items: center;
   justify-content: center;
   padding: 12px;
+  flex-shrink: 0;
 }
 
 .file-name {
@@ -480,7 +488,7 @@ watch(() => route.query.keyword, (newKeyword) => {
   font-weight: 500;
   color: var(--el-text-color-primary);
   text-align: center;
-  word-break: break-all;
+  width: 100%;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -488,6 +496,10 @@ watch(() => route.query.keyword, (newKeyword) => {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
+  word-break: break-word;
+  line-height: 1.4;
+  min-height: 2.8em; /* 固定高度：2行 * 1.4行高 */
+  max-height: 2.8em;
 }
 
 .file-meta {
@@ -495,6 +507,7 @@ watch(() => route.query.keyword, (newKeyword) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .file-info {
@@ -526,7 +539,9 @@ watch(() => route.query.keyword, (newKeyword) => {
 
 .file-actions {
   width: 100%;
-  margin-top: 4px;
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 8px;
 }
 
 .file-actions .el-button {
@@ -537,6 +552,15 @@ watch(() => route.query.keyword, (newKeyword) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.file-name-text {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+  vertical-align: middle;
 }
 
 .empty-state {
@@ -659,6 +683,8 @@ watch(() => route.query.keyword, (newKeyword) => {
   
   .file-name {
     font-size: 12px;
+    min-height: 2.52em; /* 2行 * 1.26行高（12px * 1.05） */
+    max-height: 2.52em;
   }
   
   .file-info {
@@ -692,6 +718,8 @@ watch(() => route.query.keyword, (newKeyword) => {
   
   .file-name {
     font-size: 11px;
+    min-height: 2.31em; /* 2行 * 1.155行高（11px * 1.05） */
+    max-height: 2.31em;
   }
   
   .filter-bar :deep(.el-radio-button__inner) {

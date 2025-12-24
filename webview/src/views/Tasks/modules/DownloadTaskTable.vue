@@ -6,7 +6,7 @@
         <template #default="{ row }">
           <div class="file-name-cell">
             <el-icon :size="24" color="#67C23A"><Document /></el-icon>
-            <span>{{ row.file_name || row.url }}</span>
+            <file-name-tooltip :file-name="row.file_name || row.url" view-mode="table" />
           </div>
         </template>
       </el-table-column>
@@ -94,7 +94,7 @@
           <div class="task-item-info">
             <el-icon :size="20" color="#67C23A" class="task-icon"><Document /></el-icon>
             <div class="task-name-wrapper">
-              <div class="task-name">{{ row.file_name || row.url }}</div>
+              <file-name-tooltip :file-name="row.file_name || row.url" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
                 <el-tag :type="getDownloadStatusType(row.state)" size="small" effect="plain">
                   {{ row.state_text }}

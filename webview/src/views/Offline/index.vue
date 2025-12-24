@@ -28,7 +28,7 @@
             <div class="file-name-cell">
               <el-icon :size="24" color="#409EFF"><Document /></el-icon>
               <div class="file-info">
-                <div class="file-name">{{ row.file_name || '未知文件' }}</div>
+                <file-name-tooltip :file-name="row.file_name || '未知文件'" view-mode="table" custom-class="file-name" />
                 <div class="file-url mobile-hide" v-if="row.url">{{ truncateUrl(row.url) }}</div>
               </div>
             </div>
@@ -125,7 +125,7 @@
             <div class="task-item-info">
               <el-icon :size="24" color="#409EFF" class="task-icon"><Document /></el-icon>
               <div class="task-name-wrapper">
-                <div class="task-name">{{ row.file_name || row.url || '未知文件' }}</div>
+                <file-name-tooltip :file-name="row.file_name || row.url || '未知文件'" view-mode="list" custom-class="task-name" />
                 <div class="task-meta">
                   <el-tag :type="getStatusType(row.state)" size="small" effect="plain">
                     {{ row.state_text }}
@@ -245,7 +245,6 @@ import {
 } from '@/api/download'
 import { getVirtualPathTree } from '@/api/file'
 import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
-
 import { useResponsive } from '@/composables/useResponsive'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance

@@ -160,12 +160,15 @@ func PrepareLocalFileDownload(
 }
 
 // validateFilePermission 验证文件下载权限
+// userID 可以为空（未登录用户），此时只允许访问公开文件
 func validateFilePermission(ctx context.Context, fileID string, userID string, repoFactory *impl.RepositoryFactory) error {
-	// 查询用户文件关联
-	userFile, err := repoFactory.UserFiles().GetByUserIDAndFileID(ctx, userID, fileID)
-	if err == nil && userFile != nil {
-		// 用户自己的文件，允许下载
-		return nil
+	// 如果用户已登录，先检查是否是用户自己的文件
+	if userID != "" {
+		userFile, err := repoFactory.UserFiles().GetByUserIDAndFileID(ctx, userID, fileID)
+		if err == nil && userFile != nil {
+			// 用户自己的文件，允许下载
+			return nil
+		}
 	}
 
 	// 检查是否为公开文件（查询所有公开文件）

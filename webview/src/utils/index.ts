@@ -9,4 +9,5 @@ export * from './password'
 export * from './status'
 export * from './mime'
 export * from './params'
+export * from './fileName'
 

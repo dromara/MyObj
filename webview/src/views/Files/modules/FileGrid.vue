@@ -75,7 +75,7 @@
         </el-dropdown>
       </div>
       <div class="file-icon">
-        <FileIcon
+        <file-icon
           :mime-type="file.mime_type"
           :file-name="file.file_name"
           :thumbnail-url="getThumbnailUrl(file.file_id)"
@@ -84,7 +84,7 @@
           :is-encrypted="file.is_enc"
         />
       </div>
-      <div class="file-name">{{ file.file_name }}</div>
+      <file-name-tooltip :file-name="file.file_name" view-mode="grid" tag="div" custom-class="file-name" />
       <div class="file-info">
         {{ formatSize(file.file_size) }} · {{ formatDate(file.created_at) }}
         <el-tag v-if="file.is_enc" size="small" type="warning" class="enc-tag">
@@ -99,7 +99,6 @@
 import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
 import { isPreviewable } from '@/utils/preview'
-import FileIcon from '@/components/FileIcon/index.vue'
 import type { FileItem, FolderItem } from '@/types'
 
 defineProps<{

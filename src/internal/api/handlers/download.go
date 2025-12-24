@@ -57,9 +57,11 @@ func (h *DownloadHandler) Router(c *gin.RouterGroup) {
 		downloadGroup.POST("/local/create", middleware.PowerVerify("file:download"), h.CreateLocalFileDownload)
 		// 下载网盘文件
 		downloadGroup.GET("/local/file/:taskID", middleware.PowerVerify("file:download"), h.DownloadLocalFile)
-		// 文件预览接口（直接预览，不创建任务）
-		downloadGroup.GET("/preview", middleware.PowerVerify("file:preview"), h.PreviewFile)
 	}
+	
+	// 文件预览接口（支持公开文件未登录访问，使用可选认证）
+	// 使用可选认证中间件，允许未登录用户访问公开文件
+	c.Group("/download").GET("/preview", verify.VerifyOptional(), h.PreviewFile)
 
 	logger.LOG.Info("[路由] 下载路由注册完成✔️")
 }
@@ -400,21 +402,41 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID := c.GetString("userID") // 可能为空（未登录用户）
 	filePassword := c.Query("file_password")
 
 	ctx := context.Background()
 
-	// 1. 查询用户文件关联（使用UfID）
-	userFile, err := h.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+	// 1. 查询用户文件关联
+	// 如果用户已登录，优先使用 GetByUserIDAndUfID（更精确）
+	// 如果用户未登录，使用 GetByUfID（用于公开文件）
+	var userFile *models.UserFiles
+	var err error
+	
+	if userID != "" {
+		// 已登录用户：使用 userID + ufID 查询
+		userFile, err = h.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+	} else {
+		// 未登录用户：仅使用 ufID 查询（用于公开文件）
+		userFile, err = h.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
+	}
+	
 	if err != nil {
 		logger.LOG.Error("查询用户文件失败", "error", err, "fileID", fileID, "userID", userID)
 		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
 		return
 	}
 
-	// 2. 验证权限（用户自己的文件或公开文件）
-	if userFile.UserID != userID && !userFile.IsPublic {
+	// 2. 验证权限
+	// - 如果用户已登录且是文件所有者，允许访问
+	// - 如果文件是公开的，允许访问（无论是否登录）
+	// - 否则拒绝访问
+	if userID != "" && userFile.UserID == userID {
+		// 用户自己的文件，允许访问
+	} else if userFile.IsPublic {
+		// 公开文件，允许访问（无论是否登录）
+	} else {
+		// 非公开文件且不是文件所有者，拒绝访问
 		c.JSON(200, models.NewJsonResponse(403, "无权限访问此文件", nil))
 		return
 	}

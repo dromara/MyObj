@@ -120,3 +120,13 @@ func (r *userFilesRepository) GetByUserIDAndUfID(ctx context.Context, userID, uf
 	}
 	return &userFile, nil
 }
+
+// GetByUfID 通过 uf_id 查询文件（用于公开文件访问，不要求 user_id）
+func (r *userFilesRepository) GetByUfID(ctx context.Context, ufID string) (*models.UserFiles, error) {
+	var userFile models.UserFiles
+	err := r.db.WithContext(ctx).Where("uf_id = ?", ufID).First(&userFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userFile, nil
+}

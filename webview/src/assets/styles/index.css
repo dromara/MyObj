@@ -13,6 +13,9 @@
 /* Element Plus 样式覆盖 */
 @import './element-plus.css';
 
+/* 文件名统一样式 */
+@import './file-name.css';
+
 /* 工具类和动画 */
 @import './utilities.css';
 

@@ -81,6 +81,34 @@ func (m *AuthMiddleware) Verify() gin.HandlerFunc {
 	}
 }
 
+// VerifyOptional 可选认证验证中间件（允许未登录用户访问，但会尝试认证）
+func (m *AuthMiddleware) VerifyOptional() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 1. 尝试从Authorization头获取JWT Token
+		authorization := c.Request.Header.Get("Authorization")
+
+		if authorization != "" {
+			// JWT认证流程（如果失败，不阻止请求，只是不设置用户信息）
+			if err := m.handleJWTAuth(c, authorization); err == nil {
+				c.Next()
+				return
+			}
+		}
+
+		// 2. 如果没有JWT,检查是否启用了API Key
+		if config.CONFIG.Auth.ApiKey {
+			// API Key认证流程（如果失败，不阻止请求，只是不设置用户信息）
+			if err := m.handleAPIKeyAuth(c); err == nil {
+				c.Next()
+				return
+			}
+		}
+
+		// 3. 没有任何认证信息，继续执行（允许未登录访问）
+		c.Next()
+	}
+}
+
 // handleJWTAuth 处理JWT认证
 func (m *AuthMiddleware) handleJWTAuth(c *gin.Context, authorization string) error {
 	// 解析Authorization头,支持 "Bearer {token}" 格式

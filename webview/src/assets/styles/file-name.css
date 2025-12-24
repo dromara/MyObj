@@ -1,0 +1,94 @@
+/**
+ * 文件名显示统一样式
+ * 用于所有显示文件名的场景
+ */
+
+/* 文件名文本基础样式 */
+.file-name-text {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  color: var(--el-text-color-primary);
+}
+
+/* 网格视图：2行显示 */
+.file-name-text--grid {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.4;
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 列表视图（移动端）：单行显示 */
+.file-name-text--list {
+  white-space: nowrap;
+  max-width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 表格视图：单行显示 */
+.file-name-text--table {
+  white-space: nowrap;
+  max-width: 250px;
+}
+
+/* 文件名容器样式 */
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.file-name-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Tooltip 样式优化 */
+:global(.file-name-tooltip) {
+  max-width: 400px;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* 响应式调整 */
+@media (max-width: 1024px) {
+  .file-name-text--table {
+    max-width: 200px;
+  }
+  
+  .file-name-text--grid {
+    font-size: 12px;
+    min-height: 2.52em; /* 2行 * 1.26行高 */
+    max-height: 2.52em;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-name-text--table {
+    max-width: 150px;
+  }
+  
+  .file-name-text--grid {
+    font-size: 11px;
+    min-height: 2.31em; /* 2行 * 1.155行高 */
+    max-height: 2.31em;
+  }
+  
+  .file-name-text--list {
+    font-size: 14px;
+  }
+}
+

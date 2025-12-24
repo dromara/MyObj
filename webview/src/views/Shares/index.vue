@@ -24,7 +24,7 @@
           <template #default="{ row }">
             <div class="file-name-cell">
               <el-icon :size="24" color="#409EFF"><Document /></el-icon>
-              <span class="file-name">{{ row.file_name }}</span>
+              <file-name-tooltip :file-name="row.file_name" view-mode="table" custom-class="file-name" />
             </div>
           </template>
         </el-table-column>
@@ -133,7 +133,7 @@
             <div class="share-item-info">
               <el-icon :size="24" color="#409EFF" class="share-icon"><Document /></el-icon>
               <div class="share-name-wrapper">
-                <div class="share-name">{{ row.file_name }}</div>
+                <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="share-name" />
                 <div class="share-meta">
                   <div 
                     class="mobile-status-badge" 

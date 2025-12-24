@@ -64,7 +64,7 @@
         <template #default="{ row }">
           <div class="file-name-cell">
             <div class="list-file-icon">
-              <FileIcon
+              <file-icon
                 :mime-type="row.mime_type"
                 :file-name="row.file_name"
                 :thumbnail-url="getThumbnailUrl(row.file_id)"
@@ -75,7 +75,7 @@
               />
             </div>
             <div class="file-name-content">
-              <span>{{ row.file_name }}</span>
+              <file-name-tooltip :file-name="row.file_name" view-mode="table" />
               <div class="file-name-tags">
                 <el-tag v-if="row.is_enc" size="small" type="warning" class="enc-tag-inline">
                   <el-icon :size="12"><Lock /></el-icon>
@@ -159,7 +159,7 @@
               class="trash-checkbox"
             />
             <div class="list-file-icon">
-              <FileIcon
+              <file-icon
                 :mime-type="row.mime_type"
                 :file-name="row.file_name"
                 :thumbnail-url="getThumbnailUrl(row.file_id)"
@@ -170,7 +170,7 @@
               />
             </div>
             <div class="trash-name-wrapper">
-              <div class="trash-name">{{ row.file_name }}</div>
+              <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="trash-name" />
               <div class="trash-meta">
                 <span class="trash-size">{{ formatSize(row.file_size) }}</span>
                 <el-tag v-if="row.is_enc" size="small" type="warning" effect="plain" class="enc-tag">
@@ -222,7 +222,7 @@
     <el-empty v-if="!loading && fileList.length === 0" description="回收站为空" />
     
     <!-- 分页 -->
-    <Pagination
+    <pagination
       v-if="total > 0"
       v-model:page="currentPage"
       v-model:limit="pageSize"
@@ -245,7 +245,6 @@ import {
 } from '@/api/recycled'
 import { getThumbnailUrl } from '@/api/file'
 import { formatSize, formatDate } from '@/utils'
-import Pagination from '@/components/Pagination/index.vue'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 

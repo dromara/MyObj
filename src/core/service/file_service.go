@@ -1466,12 +1466,42 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 				}
 			} else if req.Type == "doc" {
 				// 文档类型：pdf、word、excel、ppt等
-				if !strings.Contains(fileInfo.Mime, "pdf") && !strings.Contains(fileInfo.Mime, "word") &&
-					!strings.Contains(fileInfo.Mime, "document") && !strings.Contains(fileInfo.Mime, "excel") &&
-					!strings.Contains(fileInfo.Mime, "spreadsheet") && !strings.Contains(fileInfo.Mime, "powerpoint") &&
-					!strings.Contains(fileInfo.Mime, "presentation") {
+				// 检查 PDF
+				isPDF := strings.Contains(fileInfo.Mime, "pdf")
+				// 检查 Word 文档（包括旧格式 .doc 和新格式 .docx）
+				isWord := strings.Contains(fileInfo.Mime, "word") || strings.Contains(fileInfo.Mime, "wordprocessingml")
+				// 检查 Excel 表格（包括旧格式 .xls 和新格式 .xlsx）
+				isExcel := strings.Contains(fileInfo.Mime, "excel") || strings.Contains(fileInfo.Mime, "spreadsheetml")
+				// 检查 PowerPoint 演示（包括旧格式 .ppt 和新格式 .pptx）
+				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
+				// 检查通用文档类型
+				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
+				
+				if !isPDF && !isWord && !isDocument && !isExcel && !isPPT {
 					continue
 				}
+			} else if req.Type == "other" {
+				// 其他类型：匹配所有不属于 image、video、audio、doc、archive 的文件
+				if mainType == "image" || mainType == "video" || mainType == "audio" {
+					continue
+				}
+				// 检查是否是文档类型
+				isPDF := strings.Contains(fileInfo.Mime, "pdf")
+				isWord := strings.Contains(fileInfo.Mime, "word") || strings.Contains(fileInfo.Mime, "wordprocessingml")
+				isExcel := strings.Contains(fileInfo.Mime, "excel") || strings.Contains(fileInfo.Mime, "spreadsheetml")
+				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
+				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
+				
+				if isPDF || isWord || isDocument || isExcel || isPPT {
+					continue
+				}
+				// 检查是否是压缩文件
+				if strings.Contains(fileInfo.Mime, "zip") || strings.Contains(fileInfo.Mime, "rar") ||
+					strings.Contains(fileInfo.Mime, "7z") || strings.Contains(fileInfo.Mime, "tar") ||
+					strings.Contains(fileInfo.Mime, "gzip") {
+					continue
+				}
+				// 其他所有类型都匹配（包括 text、application 等）
 			} else if mainType != req.Type {
 				// 其他类型直接匹配主类型（image、video、audio）
 				continue

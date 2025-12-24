@@ -23,7 +23,7 @@
           </el-icon>
           <!-- 文件图标 -->
           <div v-else class="list-file-icon">
-            <FileIcon
+            <file-icon
               :mime-type="row.mime_type"
               :file-name="row.file_name"
               :thumbnail-url="getThumbnailUrl(row.file_id)"
@@ -33,9 +33,12 @@
               :is-encrypted="row.is_enc"
             />
           </div>
-          <span class="file-name-text" :class="{ 'folder-name': row.isFolder }">
-            {{ row.isFolder ? row.name : row.file_name }}
-          </span>
+          <file-name-tooltip
+            v-if="!row.isFolder"
+            :file-name="row.file_name"
+            view-mode="table"
+          />
+          <span v-else class="file-name-text folder-name">{{ row.name }}</span>
           <el-tag v-if="!row.isFolder && row.is_enc" size="small" type="warning" class="enc-tag-inline">
             <el-icon :size="12"><Lock /></el-icon>
             加密
@@ -118,7 +121,7 @@
               <Folder />
             </el-icon>
             <!-- 文件图标 -->
-            <FileIcon
+            <file-icon
               v-else
               :mime-type="row.mime_type"
               :file-name="row.file_name"
@@ -131,9 +134,13 @@
           </div>
           <div class="mobile-item-info">
             <div class="mobile-item-name-row">
-              <span class="mobile-item-name" :class="{ 'folder-name': row.isFolder }">
-                {{ row.isFolder ? row.name : row.file_name }}
-              </span>
+              <file-name-tooltip
+                v-if="!row.isFolder"
+                :file-name="row.file_name"
+                view-mode="list"
+                custom-class="mobile-item-name"
+              />
+              <span v-else class="mobile-item-name folder-name">{{ row.name }}</span>
               <el-tag v-if="!row.isFolder && row.is_enc" size="small" type="warning" class="mobile-enc-tag">
                 <el-icon :size="10"><Lock /></el-icon>
                 加密
@@ -197,7 +204,6 @@
 import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
 import { isPreviewable } from '@/utils/preview'
-import FileIcon from '@/components/FileIcon/index.vue'
 import type { FileItem, FileListResponse, FolderItem } from '@/types'
 
 const props = defineProps<{

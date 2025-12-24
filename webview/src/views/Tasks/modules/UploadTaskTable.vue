@@ -19,7 +19,7 @@
         <template #default="{ row }">
           <div class="file-name-cell">
             <el-icon :size="24" color="#409EFF"><Document /></el-icon>
-            <span>{{ row.file_name }}</span>
+            <file-name-tooltip :file-name="row.file_name" view-mode="table" />
           </div>
         </template>
       </el-table-column>
@@ -101,7 +101,7 @@
           <div class="task-item-info">
             <el-icon :size="20" color="#409EFF" class="task-icon"><Document /></el-icon>
             <div class="task-name-wrapper">
-              <div class="task-name">{{ row.file_name }}</div>
+              <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
                 <el-tag :type="getUploadStatusType(row.status)" size="small" effect="plain">
                   {{ getUploadStatusText(row.status) }}

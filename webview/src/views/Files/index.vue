@@ -78,7 +78,7 @@
     </div>
     
     <!-- 分页 -->
-    <Pagination
+    <pagination
       v-if="fileListData.total > 0"
       v-model:page="currentPage"
       v-model:limit="pageSize"
@@ -154,7 +154,7 @@
     </el-dialog>
     
     <!-- 分享文件组件 -->
-    <ShareDialog
+    <share-dialog
       v-model="showShareDialog"
       :file-info="{
         file_id: shareForm.file_id,
@@ -260,15 +260,12 @@
     </el-dialog>
 
     <!-- 文件预览组件 -->
-    <Preview v-model="previewVisible" :file="previewFile" />
+    <preview v-model="previewVisible" :file="previewFile" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { handleFileUpload } from '@/utils/upload'
-import Preview from '@/components/Preview/index.vue'
-import ShareDialog from '@/components/ShareDialog/index.vue'
-import Pagination from '@/components/Pagination/index.vue'
 import FileGrid from './modules/FileGrid.vue'
 import FileList from './modules/FileList.vue'
 import Breadcrumb from './modules/Breadcrumb.vue'
