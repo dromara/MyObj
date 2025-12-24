@@ -129,6 +129,8 @@ type UserFilesRepository interface {
 	GetByUserIDAndUfID(ctx context.Context, userID, ufID string) (*models.UserFiles, error)
 	// GetByUfID 通过 uf_id 查询文件（用于公开文件访问，不要求 user_id）
 	GetByUfID(ctx context.Context, ufID string) (*models.UserFiles, error)
+	// ListByVirtualPath 查询指定虚拟路径下的user_files记录（避免file_id重复问题）
+	ListByVirtualPath(ctx context.Context, userID, virtualPath string, offset, limit int) ([]*models.UserFiles, error)
 }
 
 // VirtualPathRepository 虚拟路径仓储接口

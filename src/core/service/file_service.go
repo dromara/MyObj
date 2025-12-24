@@ -117,24 +117,24 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	}
 
 	// 计算分片大小和总分片数（默认5MB）
-	chunkSize := int64(5 * 1024 * 1024) // 5MB
+	chunkSize := int64(5 * 1024 * 1024)                            // 5MB
 	totalChunks := int((req.FileSize + chunkSize - 1) / chunkSize) // 向上取整
 
 	// 创建或更新上传任务记录（用于持久化和断点续传）
 	uploadTask := &models.UploadTask{
-		ID:            uid, // 使用 precheck_id 作为主键
-		UserID:        user.ID,
-		FileName:      req.FileName,
-		FileSize:      req.FileSize,
-		ChunkSize:     chunkSize,
-		TotalChunks:   totalChunks,
+		ID:             uid, // 使用 precheck_id 作为主键
+		UserID:         user.ID,
+		FileName:       req.FileName,
+		FileSize:       req.FileSize,
+		ChunkSize:      chunkSize,
+		TotalChunks:    totalChunks,
 		UploadedChunks: len(chunks), // 已上传的分片数
 		ChunkSignature: req.ChunkSignature,
-		PathID:        req.PathID,
-		Status:        "pending",
-		CreateTime:    custom_type.Now(),
-		UpdateTime:    custom_type.Now(),
-		ExpireTime:    custom_type.JsonTime(time.Now().Add(7 * 24 * time.Hour)), // 7天后过期
+		PathID:         req.PathID,
+		Status:         "pending",
+		CreateTime:     custom_type.Now(),
+		UpdateTime:     custom_type.Now(),
+		ExpireTime:     custom_type.JsonTime(time.Now().Add(7 * 24 * time.Hour)), // 7天后过期
 	}
 
 	// 尝试获取已存在的任务（如果存在则更新，否则创建）
@@ -381,7 +381,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 
 	// 优先返回文件夹
 	var folders []*models.VirtualPath
-	var files []*models.FileInfo
+	var userFiles []*models.UserFiles
 
 	if offset < int(folderCount) {
 		// 当前页包含文件夹
@@ -396,19 +396,19 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 			return nil, err
 		}
 
-		// 如果还有剩余空间，查询文件
+		// 如果还有剩余空间，查询文件（直接从user_files表查询，避免file_id重复问题）
 		remaining := req.PageSize - len(folders)
 		if remaining > 0 {
-			files, err = f.factory.FileInfo().ListByVirtualPath(ctx, userID, virtualPathIDStr, 0, remaining)
+			userFiles, err = f.factory.UserFiles().ListByVirtualPath(ctx, userID, virtualPathIDStr, 0, remaining)
 			if err != nil {
 				logger.LOG.Error("查询文件列表失败", "error", err, "userID", userID, "virtualPath", virtualPathIDStr)
 				return nil, err
 			}
 		}
 	} else {
-		// 当前页只包含文件
+		// 当前页只包含文件（直接从user_files表查询，避免file_id重复问题）
 		fileOffset := offset - int(folderCount)
-		files, err = f.factory.FileInfo().ListByVirtualPath(ctx, userID, virtualPathIDStr, fileOffset, req.PageSize)
+		userFiles, err = f.factory.UserFiles().ListByVirtualPath(ctx, userID, virtualPathIDStr, fileOffset, req.PageSize)
 		if err != nil {
 			logger.LOG.Error("查询文件列表失败", "error", err, "userID", userID, "virtualPath", virtualPathIDStr)
 			return nil, err
@@ -427,7 +427,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 		Breadcrumbs: breadcrumbs,
 		CurrentPath: fmt.Sprintf("%d", currentPathID),
 		Folders:     make([]*response.FolderItem, 0, len(folders)),
-		Files:       make([]*response.FileItem, 0, len(files)),
+		Files:       make([]*response.FileItem, 0, len(userFiles)),
 		Total:       totalCount,
 		Page:        req.Page,
 		PageSize:    req.PageSize,
@@ -443,19 +443,24 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 		})
 	}
 
-	// 转换文件数据
-	for _, file := range files {
-		uf, _ := f.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, file.ID)
+	// 转换文件数据（直接使用user_files记录，避免file_id重复导致查询错误）
+	for _, uf := range userFiles {
+		// 获取file_info详情
+		fileInfo, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
+		if err != nil {
+			logger.LOG.Warn("获取文件信息失败", "error", err, "fileID", uf.FileID, "ufID", uf.UfID)
+			continue
+		}
+
 		resp.Files = append(resp.Files, &response.FileItem{
 			FileID:       uf.UfID,
 			FileName:     uf.FileName,
-			FileSize:     file.Size,
-			MimeType:     file.Mime,
-			IsEnc:        file.IsEnc,
-			HasThumbnail: file.ThumbnailImg != "",
+			FileSize:     fileInfo.Size,
+			MimeType:     fileInfo.Mime,
+			IsEnc:        fileInfo.IsEnc,
+			HasThumbnail: fileInfo.ThumbnailImg != "",
 			Public:       uf.IsPublic,
-			CreatedAt:    file.CreatedAt,
-			//UfID:         uf.UfID,
+			CreatedAt:    fileInfo.CreatedAt,
 		})
 	}
 
@@ -627,8 +632,8 @@ func (f *FileService) RenameFile(req *request.RenameFileRequest, userID string) 
 
 	logger.LOG.Info("文件重命名成功", "fileID", req.FileID, "oldFileName", oldFileName, "newFileName", req.NewFileName)
 	return models.NewJsonResponse(200, "文件重命名成功", map[string]interface{}{
-		"file_id":     req.FileID,
-		"file_name":   req.NewFileName,
+		"file_id":   req.FileID,
+		"file_name": req.NewFileName,
 	}), nil
 }
 
@@ -657,7 +662,7 @@ func (f *FileService) RenameDir(req *request.RenameDirRequest, userID string) (*
 		logger.LOG.Error("获取根目录失败", "error", err)
 		return nil, err
 	}
-	
+
 	isRootDir := rootPath.ID == req.DirID
 	if isRootDir {
 		// 根目录通常不应该被重命名，这里返回错误
@@ -801,7 +806,7 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 		logger.LOG.Error("获取根目录失败", "error", err)
 		return nil, err
 	}
-	
+
 	isRootDir := rootPath.ID == req.DirID
 	if isRootDir {
 		return models.NewJsonResponse(400, "根目录不能删除", nil), nil
@@ -809,7 +814,7 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 
 	// 4. 递归获取目录下的所有文件和子目录
 	dirPathID := strconv.Itoa(req.DirID)
-	
+
 	// 4.1 获取目录下的所有文件（直接查询该目录下的文件，避免获取所有文件）
 	// 注意：由于 UserFilesRepository 没有 ListByVirtualPath 方法，我们使用 ListByUserID 然后过滤
 	// 对于大多数用户，文件数量不会太多，这个实现是可以接受的
@@ -888,7 +893,7 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 		return nil, fmt.Errorf("删除目录失败: %w", err)
 	}
 
-	logger.LOG.Info("目录删除成功", "dirID", req.DirID, 
+	logger.LOG.Info("目录删除成功", "dirID", req.DirID,
 		"filesDeleted", fileSuccessCount, "filesFailed", fileFailedCount,
 		"dirsDeleted", dirSuccessCount, "dirsFailed", dirFailedCount)
 
@@ -904,11 +909,11 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 	}
 
 	return models.NewJsonResponse(200, message, map[string]interface{}{
-		"dir_id":           req.DirID,
-		"files_deleted":    fileSuccessCount,
-		"files_failed":     fileFailedCount,
-		"dirs_deleted":     dirSuccessCount,
-		"dirs_failed":      dirFailedCount,
+		"dir_id":        req.DirID,
+		"files_deleted": fileSuccessCount,
+		"files_failed":  fileFailedCount,
+		"dirs_deleted":  dirSuccessCount,
+		"dirs_failed":   dirFailedCount,
 	}), nil
 }
 
@@ -1484,7 +1489,7 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
 				// 检查通用文档类型
 				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
-				
+
 				if !isPDF && !isWord && !isDocument && !isExcel && !isPPT {
 					continue
 				}
@@ -1499,7 +1504,7 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 				isExcel := strings.Contains(fileInfo.Mime, "excel") || strings.Contains(fileInfo.Mime, "spreadsheetml")
 				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
 				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
-				
+
 				if isPDF || isWord || isDocument || isExcel || isPPT {
 					continue
 				}
@@ -1597,7 +1602,7 @@ func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, user
 	if err != nil {
 		// 数据库中没有记录，但缓存存在（可能是旧数据），使用缓存中的基本信息
 		logger.LOG.Warn("数据库中没有找到上传任务，使用缓存数据", "precheckID", req.PrecheckID, "error", err)
-		
+
 		// 从缓存获取预检请求信息（包含文件大小、文件名等）
 		reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
 		reqData, err := f.cacheLocal.Get(reqCacheKey)

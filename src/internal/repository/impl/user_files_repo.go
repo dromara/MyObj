@@ -130,3 +130,15 @@ func (r *userFilesRepository) GetByUfID(ctx context.Context, ufID string) (*mode
 	}
 	return &userFile, nil
 }
+
+// ListByVirtualPath 查询指定虚拟路径下的user_files记录（避免file_id重复问题）
+// 直接从 user_files 表查询，每个uf_id都是唯一的，避免了秒传场景下同一file_id有多条记录的问题
+func (r *userFilesRepository) ListByVirtualPath(ctx context.Context, userID, virtualPath string, offset, limit int) ([]*models.UserFiles, error) {
+	var userFiles []*models.UserFiles
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND virtual_path = ?", userID, virtualPath).
+		Order("created_at DESC").
+		Offset(offset).Limit(limit).
+		Find(&userFiles).Error
+	return userFiles, err
+}
