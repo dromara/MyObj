@@ -9,39 +9,11 @@
       </div>
       
       <div class="toolbar-actions">
-        <!-- 移动端：搜索框和视图切换合并 -->
-        <div class="mobile-toolbar">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索..."
-            prefix-icon="Search"
-            clearable
-            @input="handleSearch"
-            class="mobile-search-input"
-          />
-          <el-button-group>
-            <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
-            <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
-          </el-button-group>
-        </div>
-        
-        <!-- 桌面端：显示完整工具栏 -->
-        <div class="desktop-toolbar">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索广场文件..."
-            prefix-icon="Search"
-            clearable
-            @input="handleSearch"
-            style="width: 300px"
-          />
-          <div class="view-mode">
-            <el-button-group>
-              <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
-              <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
-            </el-button-group>
-          </div>
-        </div>
+        <!-- 视图切换按钮 -->
+        <el-button-group>
+          <el-button :type="viewMode === 'grid' ? 'primary' : ''" icon="Grid" @click="viewMode = 'grid'" />
+          <el-button :type="viewMode === 'list' ? 'primary' : ''" icon="List" @click="viewMode = 'list'" />
+        </el-button-group>
       </div>
     </div>
     
@@ -209,7 +181,8 @@
 <script setup lang="ts">
 import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
-import { getPublicFileList, type PublicFileItem, type PublicFileListParams } from '@/api/file'
+import { getPublicFileList, searchPublicFiles, type PublicFileItem, type PublicFileListParams } from '@/api/file'
+import { useSearch } from '@/composables/useSearch'
 import { getFileIcon } from '@/utils/fileIcon'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
@@ -220,32 +193,50 @@ const { isMobile } = useResponsive()
 
 // 响应式数据
 const viewMode = ref<'grid' | 'list'>(isMobile.value ? 'list' : 'grid')
-const searchKeyword = ref('')
 const fileTypeFilter = ref('all')
 const sortBy = ref('time')
 const loading = ref(false)
-const currentPage = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
+const isSearchMode = ref(false) // 是否处于搜索模式
 
 // 公开文件列表
 const publicFiles = ref<PublicFileItem[]>([])
 
-// 筛选后的文件列表（仅用于前端搜索）
-const filteredFiles = computed(() => {
-  // 确保 publicFiles.value 是数组
-  let files = publicFiles.value || []
+// 使用通用搜索 composable
+const transformResult = (files: any[]): PublicFileItem[] => {
+  return files.map((file: any) => ({
+    uf_id: file.uf_id || file.id || '',
+    file_name: file.file_name || file.name || '',
+    file_size: file.size || 0,
+    mime_type: file.mime || file.mime_type || '',
+    created_at: file.created_at || file.createdAt || '',
+    owner_name: file.owner_name || 'Unknown',
+    has_thumbnail: (file.thumbnail_img && file.thumbnail_img !== '') || false
+  }))
+}
 
-  // 根据搜索关键词筛选（前端过滤）
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    files = files.filter(file => 
-      file?.file_name?.toLowerCase().includes(keyword) ||
-      file?.owner_name?.toLowerCase().includes(keyword)
-    )
+const search = useSearch<PublicFileItem>(
+  searchPublicFiles,
+  transformResult,
+  () => {
+    // 清空搜索时的回调：切换到正常模式
+    isSearchMode.value = false
+    currentPage.value = 1
+    loadPublicFiles()
   }
+)
 
-  return files
+// 兼容现有代码的变量
+const searchKeyword = search.searchKeyword
+const currentPage = search.currentPage
+const pageSize = search.pageSize
+const total = search.total
+
+// 筛选后的文件列表（搜索模式或正常模式）
+const filteredFiles = computed(() => {
+  if (isSearchMode.value) {
+    return search.searchResults.value
+  }
+  return publicFiles.value || []
 })
 
 // 获取文件图标名称
@@ -265,10 +256,18 @@ const formatTime = (time: string): string => {
 }
 
 
-// 搜索处理
-const handleSearch = () => {
-  currentPage.value = 1
-  loadPublicFiles()
+// 搜索处理（使用后端搜索 API）
+const performSearch = async (keyword: string, pageNum: number = 1, pageSizeNum: number = 20) => {
+  if (!keyword.trim()) {
+    // 如果关键词为空，切换到正常模式
+    isSearchMode.value = false
+    currentPage.value = 1
+    loadPublicFiles()
+    return
+  }
+
+  isSearchMode.value = true
+  await search.performSearch(keyword, pageNum, pageSizeNum)
 }
 
 // 筛选处理
@@ -311,14 +310,23 @@ const handleDownload = (file: PublicFileItem) => {
 
 // 分页处理
 const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
-  currentPage.value = page
-  pageSize.value = limit
-  loadPublicFiles()
+  if (isSearchMode.value && searchKeyword.value.trim()) {
+    // 搜索模式下的分页
+    performSearch(searchKeyword.value, page, limit)
+  } else {
+    // 正常模式下的分页
+    currentPage.value = page
+    pageSize.value = limit
+    loadPublicFiles()
+  }
 }
 
 // 加载公开文件列表
 const loadPublicFiles = async () => {
-  loading.value = true
+  // 如果正在搜索，不显示加载状态（避免冲突）
+  if (!isSearchMode.value) {
+    loading.value = true
+  }
   try {
     // 构建请求参数，只有当类型不是 'all' 时才传递 type
     const params: PublicFileListParams = {
@@ -346,23 +354,56 @@ const loadPublicFiles = async () => {
     proxy?.$log.error('加载公开文件列表失败:', error)
     proxy?.$modal.msgError('加载失败')
   } finally {
-    loading.value = false
+    if (!isSearchMode.value) {
+      loading.value = false
+    }
   }
 }
 
 onMounted(() => {
-  loadPublicFiles()
-  // 监听 URL 参数变化
+  // 监听全局搜索事件
+  const handleGlobalSearch = (event: Event) => {
+    const customEvent = event as CustomEvent<{ keyword: string }>
+    const keyword = customEvent.detail.keyword.trim()
+    
+    if (keyword) {
+      // 只有当关键词变化时才执行搜索，避免重复请求
+      if (searchKeyword.value !== keyword) {
+        searchKeyword.value = keyword
+        performSearch(keyword, 1, pageSize.value)
+      }
+    } else {
+      // 清空搜索
+      search.clearSearch()
+    }
+  }
+
+  window.addEventListener('square-search', handleGlobalSearch)
+
+  // 检查路由参数中是否有搜索关键词
   const keyword = route.query.keyword as string
   if (keyword) {
     searchKeyword.value = keyword
+    performSearch(keyword, 1, pageSize.value)
+  } else {
+    loadPublicFiles()
   }
+
+  // 清理事件监听
+  onBeforeUnmount(() => {
+    window.removeEventListener('square-search', handleGlobalSearch)
+  })
 })
 
 // 监听路由参数变化
 watch(() => route.query.keyword, (newKeyword) => {
   if (newKeyword) {
     searchKeyword.value = newKeyword as string
+    performSearch(newKeyword as string, 1, pageSize.value)
+  } else if (isSearchMode.value) {
+    // 如果路由参数被清空，且当前在搜索模式，则切换到正常模式
+    isSearchMode.value = false
+    searchKeyword.value = ''
     loadPublicFiles()
   }
 })
@@ -577,24 +618,6 @@ watch(() => route.query.keyword, (newKeyword) => {
   justify-content: center;
 }
 
-/* 移动端工具栏 */
-.mobile-toolbar {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.mobile-search-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.desktop-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
 
 /* 移动端响应式 - 组件特定样式 */
 @media (max-width: 1024px) {
@@ -624,10 +647,6 @@ watch(() => route.query.keyword, (newKeyword) => {
     flex: 1 1 100%;
     order: 2;
     width: 100%;
-  }
-  
-  .mobile-toolbar {
-    display: flex;
   }
   
   .filter-bar {

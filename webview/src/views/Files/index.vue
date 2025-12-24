@@ -36,12 +36,12 @@
     </div>
     
     <!-- 文件列表内容区域 -->
-    <div class="file-content-area">
+    <div class="file-content-area" v-loading="isLoading">
       <!-- 网格视图 -->
       <FileGrid
         v-if="viewMode === 'grid'"
-        :folders="fileListData.folders"
-        :files="fileListData.files"
+        :folders="displayData.folders"
+        :files="displayData.files"
         :is-selected-folder="isSelectedFolder"
         :is-selected-file="isSelectedFile"
         :get-thumbnail-url="getThumbnailUrl"
@@ -56,7 +56,7 @@
       <!-- 列表视图 -->
       <FileList
         v-else
-        :file-list-data="fileListData"
+        :file-list-data="displayData"
         :get-thumbnail-url="getThumbnailUrl"
         :is-selected-folder="isSelectedFolder"
         :is-selected-file="isSelectedFile"
@@ -74,15 +74,18 @@
       />
       
       <!-- 空状态 -->
-      <el-empty v-if="fileListData.folders.length === 0 && fileListData.files.length === 0" description="暂无文件" />
+      <el-empty 
+        v-if="displayData.folders.length === 0 && displayData.files.length === 0 && !isSearching" 
+        :description="hasSearchKeyword ? '未找到匹配的文件' : '暂无文件'" 
+      />
     </div>
     
     <!-- 分页 -->
     <pagination
-      v-if="fileListData.total > 0"
-      v-model:page="currentPage"
-      v-model:limit="pageSize"
-      :total="fileListData.total"
+      v-if="displayPagination.total > 0"
+      :page="displayPagination.page"
+      :limit="displayPagination.pageSize"
+      :total="displayPagination.total"
       :page-sizes="[20, 50, 100]"
       float="center"
       @pagination="handlePagination"
@@ -278,6 +281,7 @@ import { useFileOperations } from './modules/useFileOperations'
 import { useFolderOperations } from './modules/useFolderOperations'
 import { useRename } from './modules/useRename'
 import { useMoveFile } from './modules/useMoveFile'
+import { useFileSearch } from './modules/useFileSearch'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const route = useRoute()
@@ -373,6 +377,45 @@ const {
   handleConfirmMove
 } = useMoveFile(currentPath, selectedFileIds, loadFileList)
 
+// 使用搜索 composable
+const {
+  searchKeyword,
+  isSearching,
+  searchResults,
+  performSearch,
+  clearSearch,
+  hasSearchKeyword
+} = useFileSearch()
+
+// 当前显示的数据（搜索模式或正常模式）
+const displayData = computed(() => {
+  if (hasSearchKeyword.value) {
+    return searchResults.value
+  }
+  return fileListData.value
+})
+
+// 当前显示的分页信息
+const displayPagination = computed(() => {
+  if (hasSearchKeyword.value) {
+    return {
+      page: searchResults.value.page,
+      pageSize: searchResults.value.page_size,
+      total: searchResults.value.total
+    }
+  }
+  return {
+    page: currentPage.value,
+    pageSize: pageSize.value,
+    total: fileListData.value.total
+  }
+})
+
+// 搜索时显示加载状态
+const isLoading = computed(() => {
+  return isSearching.value
+})
+
 // 合并文件操作处理
 const handleFileAction = (command: string, file: FileItem): void => {
   if (command === 'preview') {
@@ -439,21 +482,67 @@ const handleUpload = async () => {
 
 // 处理分页事件（统一处理）
 const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
-  currentPage.value = page
-  pageSize.value = limit
-  loadFileList()
-}
-
-// 初始化
-// 注意：路由监听已在 useFileList 中处理，这里不需要手动设置
-// 如果路由中有 virtualPath，watch 会自动处理
-onMounted(() => {
-  // 如果路由中没有 virtualPath，确保加载根目录
-  if (!route.query.virtualPath) {
+  if (hasSearchKeyword.value) {
+    // 搜索模式下的分页
+    performSearch(searchKeyword.value, page, limit)
+  } else {
+    // 正常模式下的分页
+    currentPage.value = page
+    pageSize.value = limit
     loadFileList()
   }
-  // 如果有 virtualPath，watch 会自动触发 loadFileList
+}
+
+// 监听 Header 的搜索事件
+onMounted(() => {
+  // 监听全局搜索事件
+  const handleGlobalSearch = (event: Event) => {
+    const customEvent = event as CustomEvent<{ keyword: string }>
+    const keyword = customEvent.detail.keyword.trim()
+    
+    if (keyword) {
+      // 只有当关键词变化时才执行搜索，避免重复请求
+      if (searchKeyword.value !== keyword) {
+        searchKeyword.value = keyword
+        performSearch(keyword, 1, pageSize.value)
+      }
+    } else {
+      // 清空搜索
+      if (hasSearchKeyword.value) {
+        clearSearch()
+      }
+    }
+  }
+
+  window.addEventListener('files-search', handleGlobalSearch)
+
+  // 检查路由参数中是否有搜索关键词
+  if (route.query.search && typeof route.query.search === 'string') {
+    searchKeyword.value = route.query.search
+    performSearch(route.query.search, 1, pageSize.value)
+  }
+
+  // 如果路由中没有 virtualPath，确保加载根目录
+  if (!route.query.virtualPath && !hasSearchKeyword.value) {
+    loadFileList()
+  }
+
+  // 清理事件监听
+  onBeforeUnmount(() => {
+    window.removeEventListener('files-search', handleGlobalSearch)
+  })
 })
+
+// 监听路由变化，清空搜索（当切换目录时）
+watch(
+  () => route.query.virtualPath,
+  () => {
+    // 如果切换了目录，清空搜索
+    if (hasSearchKeyword.value) {
+      clearSearch()
+    }
+  }
+)
 </script>
 
 <style scoped>

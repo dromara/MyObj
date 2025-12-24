@@ -22,7 +22,9 @@
           placeholder="搜索文件、资料..."
           prefix-icon="Search"
           clearable
+          @input="handleSearchInput"
           @keyup.enter="handleSearch"
+          @clear="handleSearchClear"
           class="search-input glass-input"
         />
       </div>
@@ -62,10 +64,12 @@ import { useAuthStore } from '@/stores/auth'
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const authStore = useAuthStore()
 
 const searchKeyword = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const avatarText = computed(() => {
   return userStore.nickname ? userStore.nickname.charAt(0).toUpperCase() : 'U'
@@ -81,8 +85,65 @@ const avatarColor = computed(() => {
   return colors[Math.abs(hash) % colors.length]
 })
 
+// 触发搜索（带防抖）
+const triggerSearch = (keyword: string) => {
+  const currentPath = route.path
+
+  // 根据当前页面决定搜索行为
+  if (currentPath === '/files') {
+    // 在 Files 页面，触发搜索事件
+    const event = new CustomEvent('files-search', { detail: { keyword: keyword.trim() } })
+    window.dispatchEvent(event)
+  } else if (currentPath === '/square') {
+    // 在 Square 页面，触发搜索事件
+    const event = new CustomEvent('square-search', { detail: { keyword: keyword.trim() } })
+    window.dispatchEvent(event)
+  } else {
+    // 不在 Files 或 Square 页面
+    if (keyword.trim()) {
+      // 有关键词，跳转到 Files 页面并搜索
+      router.push({
+        path: '/files',
+        query: { search: keyword.trim() }
+      })
+    }
+    // 没有关键词，不执行任何操作
+  }
+}
+
+// 处理输入事件（带防抖，500ms）
+const handleSearchInput = () => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+
+  // 设置新的定时器，500ms 后执行搜索
+  searchTimer = setTimeout(() => {
+    triggerSearch(searchKeyword.value)
+  }, 500)
+}
+
+// 处理清空事件
+const handleSearchClear = () => {
+  // 清除定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  // 立即触发清空搜索
+  triggerSearch('')
+}
+
+// 处理回车事件（立即搜索，不防抖）
 const handleSearch = () => {
-  proxy?.$log.debug('Search:', searchKeyword.value)
+  // 清除定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  // 立即触发搜索
+  triggerSearch(searchKeyword.value)
 }
 
 const handleCommand = (command: string) => {
@@ -100,6 +161,39 @@ const toggleSidebar = () => {
   const event = new CustomEvent('toggle-sidebar')
   window.dispatchEvent(event)
 }
+
+// 监听路由变化，切换页面时清空搜索框
+watch(
+  () => route.path,
+  (newPath, oldPath) => {
+    // 当从其他页面切换到 Square 或 Files 页面时，清空搜索框
+    if (oldPath && (newPath === '/square' || newPath === '/files')) {
+      // 清除定时器
+      if (searchTimer) {
+        clearTimeout(searchTimer)
+        searchTimer = null
+      }
+      // 清空搜索框
+      searchKeyword.value = ''
+      // 触发清空搜索事件
+      if (newPath === '/files') {
+        const event = new CustomEvent('files-search', { detail: { keyword: '' } })
+        window.dispatchEvent(event)
+      } else if (newPath === '/square') {
+        const event = new CustomEvent('square-search', { detail: { keyword: '' } })
+        window.dispatchEvent(event)
+      }
+    }
+  }
+)
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+})
 </script>
 
 <style scoped>

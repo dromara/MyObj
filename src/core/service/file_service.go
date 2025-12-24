@@ -215,19 +215,27 @@ func (f *FileService) SearchUserFiles(req *request.FileSearchRequest, userID str
 		logger.LOG.Error("搜索用户文件失败", "error", err, "userID", userID, "keyword", req.Keyword)
 		return nil, err
 	}
-	// 获取文件详情
-	fileIDs := make([]string, 0, len(userFiles))
-	for _, uf := range userFiles {
-		fileIDs = append(fileIDs, uf.FileID)
+	// 获取文件详情和用户文件信息
+	type FileWithUserInfo struct {
+		*models.FileInfo
+		UfID     string `json:"uf_id"`
+		FileName string `json:"file_name"`
+		IsPublic bool   `json:"public"`
 	}
 
-	files := make([]*models.FileInfo, 0, len(fileIDs))
-	for _, fileID := range fileIDs {
-		file, err := f.factory.FileInfo().GetByID(ctx, fileID)
+	resultFiles := make([]*FileWithUserInfo, 0, len(userFiles))
+	for _, uf := range userFiles {
+		file, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
 		if err != nil {
 			continue
 		}
-		files = append(files, file)
+
+		resultFiles = append(resultFiles, &FileWithUserInfo{
+			FileInfo: file,
+			UfID:     uf.UfID,
+			FileName: uf.FileName,
+			IsPublic: uf.IsPublic,
+		})
 	}
 
 	// 统计总数
@@ -238,7 +246,7 @@ func (f *FileService) SearchUserFiles(req *request.FileSearchRequest, userID str
 	}
 
 	result := map[string]interface{}{
-		"files": files,
+		"files": resultFiles,
 		"total": total,
 	}
 	return models.NewJsonResponse(200, "搜索成功", result), nil

@@ -65,7 +65,7 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		// 搜索当前用户文件
 		fileGroup.GET("/search/user", middleware.PowerVerify("file:preview"), f.SearchUserFiles)
 		// 搜索公开文件
-		fileGroup.GET("/file/search/public", middleware.PowerVerify("file:preview"), f.SearchPublicFiles)
+		fileGroup.GET("/search/public", middleware.PowerVerify("file:preview"), f.SearchPublicFiles)
 		// 创建目录
 		fileGroup.POST("/makeDir", middleware.PowerVerify("dir:create"), f.MakeDir)
 		// 移动文件
