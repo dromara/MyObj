@@ -41,7 +41,9 @@ export const API_ENDPOINTS = {
     PRECHECK: '/file/upload/precheck',
     PROGRESS: '/file/upload/progress', // 上传进度查询
     UNCOMPLETED: '/file/upload/uncompleted', // 查询未完成的上传任务列表
+    EXPIRED: '/file/upload/expired', // 查询过期的上传任务列表
     DELETE_UPLOAD_TASK: '/file/upload/delete', // 删除上传任务
+    RENEW_TASK: '/file/upload/renew', // 延期过期任务（恢复任务）
     CLEAN_EXPIRED: '/file/upload/clean-expired', // 清理过期的上传任务
     // 分片上传
     CHUNK_UPLOAD: '/file/chunk/upload',
@@ -52,6 +54,8 @@ export const API_ENDPOINTS = {
     SEARCH_PUBLIC: '/file/search/public',
     // 公开文件列表
     PUBLIC_LIST: '/file/public/list',
+    // 设置文件公开状态
+    SET_PUBLIC: '/file/setPublic',
   },
   
   // 文件夹相关

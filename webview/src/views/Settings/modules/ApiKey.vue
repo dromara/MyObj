@@ -51,7 +51,7 @@
                 class="key-input"
               >
                 <template #append>
-                  <el-button @click="copyApiKey(newApiKey.key)" :icon="CopyDocument">
+                  <el-button @click="copyApiKey(newApiKey.key)" icon="CopyDocument">
                     复制
                   </el-button>
                 </template>
@@ -69,7 +69,7 @@
                 />
                 <el-button 
                   @click="copyApiKey(newApiKey.public_key)" 
-                  :icon="CopyDocument"
+                  icon="CopyDocument"
                   style="margin-top: 8px"
                 >
                   复制公钥
@@ -93,7 +93,7 @@
           <el-button
             type="primary"
             size="small"
-            :icon="Refresh"
+            icon="Refresh"
             :loading="loading"
             @click="loadApiKeys"
           >
@@ -139,7 +139,7 @@
             <el-button
               type="danger"
               size="small"
-              :icon="Delete"
+              icon="Delete"
               :loading="deletingIds.includes(row.id)"
               @click="handleDelete(row.id)"
             >
@@ -153,12 +153,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, getCurrentInstance, ComponentInternalInstance } from 'vue'
 import { generateApiKey, listApiKeys, deleteApiKey } from '@/api/user'
 import { copyToClipboard } from '@/utils'
 import { formatDate } from '@/utils'
-import { CopyDocument, Refresh, Delete, Warning } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
 import type { ApiKeyInfo, GenerateApiKeyResponse } from '@/api/user'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance

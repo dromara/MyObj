@@ -1,5 +1,3 @@
-import { ref, computed, watch, getCurrentInstance, ComponentInternalInstance } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { getFileList, getThumbnail } from '@/api/file'
 import type { FileListResponse } from '@/types'
 

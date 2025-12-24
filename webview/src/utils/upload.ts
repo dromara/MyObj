@@ -1,6 +1,5 @@
 import SparkMD5 from 'spark-md5'
 import { uploadPrecheck, uploadFile } from '@/api/file'
-import { ElMessage } from 'element-plus'
 import { UPLOAD_CONFIG } from '@/config/api'
 import type { ApiResponse } from '@/types'
 import logger from '@/plugins/logger'

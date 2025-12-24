@@ -71,7 +71,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 				FileID:      signature.ID,
 				FileName:    req.FileName,
 				VirtualPath: req.PathID,
-				Public:      false,
+				IsPublic:    false,
 				CreatedAt:   custom_type.Now(),
 				UfID:        uuid.NewString(),
 			}
@@ -89,7 +89,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 				FileID:      signature.ID,
 				FileName:    req.FileName,
 				VirtualPath: req.PathID,
-				Public:      false,
+				IsPublic:    false,
 				CreatedAt:   custom_type.Now(),
 				UfID:        uuid.NewString(),
 			}
@@ -445,6 +445,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 			MimeType:     file.Mime,
 			IsEnc:        file.IsEnc,
 			HasThumbnail: file.ThumbnailImg != "",
+			Public:       uf.IsPublic,
 			CreatedAt:    file.CreatedAt,
 			//UfID:         uf.UfID,
 		})
@@ -753,7 +754,7 @@ func (f *FileService) SetFilePublic(req *request.SetFilePublicRequest, userID st
 	}
 
 	// 3. 更新文件公开状态
-	userFile.Public = req.Public
+	userFile.IsPublic = req.Public
 	err = f.factory.UserFiles().Update(ctx, userFile)
 	if err != nil {
 		logger.LOG.Error("设置文件公开状态失败", "error", err, "fileID", req.FileID, "public", req.Public)
@@ -1429,7 +1430,7 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 	}
 
 	// 构建响应数据
-	var fileList []response.PublicFileItem
+	fileList := make([]response.PublicFileItem, 0, len(userFiles))
 	for _, uf := range userFiles {
 		// 获取文件详情
 		fileInfo, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
@@ -1789,5 +1790,89 @@ func (f *FileService) CleanExpiredUploads(userID string) (*models.JsonResponse, 
 
 	return models.NewJsonResponse(200, "清理完成", map[string]interface{}{
 		"cleaned_count": count,
+	}), nil
+}
+
+// ListExpiredUploads 查询过期的上传任务列表
+func (f *FileService) ListExpiredUploads(userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	tasks, err := f.factory.UploadTask().GetExpiredByUserID(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("查询过期上传任务失败", "error", err, "userID", userID)
+		return nil, err
+	}
+
+	// 转换为响应格式
+	var taskList []map[string]interface{}
+	for _, task := range tasks {
+		// 计算进度百分比
+		progress := 0.0
+		if task.TotalChunks > 0 {
+			progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
+		}
+
+		taskList = append(taskList, map[string]interface{}{
+			"id":              task.ID,
+			"file_name":       task.FileName,
+			"file_size":       task.FileSize,
+			"chunk_size":      task.ChunkSize,
+			"total_chunks":    task.TotalChunks,
+			"uploaded_chunks": task.UploadedChunks,
+			"progress":        progress,
+			"status":          task.Status,
+			"error_message":   task.ErrorMessage,
+			"path_id":         task.PathID,
+			"create_time":     task.CreateTime,
+			"update_time":     task.UpdateTime,
+			"expire_time":     task.ExpireTime,
+		})
+	}
+
+	return models.NewJsonResponse(200, "查询成功", taskList), nil
+}
+
+// RenewExpiredTask 延期过期任务（恢复任务，延长过期时间）
+func (f *FileService) RenewExpiredTask(taskID string, userID string, days int) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 查询任务
+	task, err := f.factory.UploadTask().GetByID(ctx, taskID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.NewJsonResponse(404, "任务不存在", nil), nil
+		}
+		logger.LOG.Error("查询上传任务失败", "error", err, "taskID", taskID)
+		return nil, err
+	}
+
+	// 验证任务是否属于当前用户
+	if task.UserID != userID {
+		return models.NewJsonResponse(403, "无权操作该任务", nil), nil
+	}
+
+	// 验证任务是否过期
+	now := time.Now()
+	if time.Time(task.ExpireTime).After(now) {
+		return models.NewJsonResponse(400, "任务未过期，无需延期", nil), nil
+	}
+
+	// 延期任务（默认延长7天）
+	if days <= 0 {
+		days = 7
+	}
+	task.ExpireTime = custom_type.JsonTime(now.Add(time.Duration(days) * 24 * time.Hour))
+	task.UpdateTime = custom_type.Now()
+
+	err = f.factory.UploadTask().Update(ctx, task)
+	if err != nil {
+		logger.LOG.Error("延期上传任务失败", "error", err, "taskID", taskID, "userID", userID)
+		return nil, err
+	}
+
+	logger.LOG.Info("延期上传任务成功", "taskID", taskID, "userID", userID, "fileName", task.FileName, "days", days)
+	return models.NewJsonResponse(200, "延期成功", map[string]interface{}{
+		"task_id":     taskID,
+		"expire_time": task.ExpireTime,
 	}), nil
 }

@@ -175,7 +175,7 @@ func validateFilePermission(ctx context.Context, fileID string, userID string, r
 	}
 
 	for _, uf := range allPublicFiles {
-		if uf.FileID == fileID && uf.Public {
+		if uf.FileID == fileID && uf.IsPublic {
 			// 公开文件，允许下载
 			logger.LOG.Info("下载公开文件", "fileID", fileID, "ownerID", uf.UserID, "downloaderID", userID)
 			return nil

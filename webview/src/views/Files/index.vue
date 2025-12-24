@@ -11,24 +11,8 @@
     <div class="toolbar-container glass-panel">
       <div class="toolbar">
         <div class="toolbar-left">
-          <!-- 移动端：使用下拉菜单 -->
-          <el-dropdown
-            class="mobile-toolbar-menu"
-            trigger="click"
-            @command="handleToolbarCommand"
-          >
-            <el-button type="primary" icon="More" circle />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="upload" icon="Upload">上传文件</el-dropdown-item>
-                <el-dropdown-item command="newFolder" icon="FolderAdd">新建文件夹</el-dropdown-item>
-                <el-dropdown-item command="moveFile" :disabled="selectedFileIds.length === 0" icon="FolderOpened">移动文件</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          
-          <!-- 桌面端：显示所有按钮 -->
-          <div class="desktop-toolbar">
+          <!-- 显示所有按钮 -->
+          <div class="toolbar-actions">
             <el-tooltip content="上传文件" placement="bottom">
               <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
             </el-tooltip>
@@ -74,11 +58,16 @@
         v-else
         :file-list-data="fileListData"
         :get-thumbnail-url="getThumbnailUrl"
+        :is-selected-folder="isSelectedFolder"
+        :is-selected-file="isSelectedFile"
         @selection-change="handleSelectionChange"
+        @toggle-folder="toggleSelectFolder"
+        @toggle-file="toggleSelectFile"
         @row-dblclick="handleRowDblClick"
         @download-file="handleDownloadFile"
         @rename-file="handleRenameFile"
         @share-file="handleShareFile"
+        @set-file-public="(file, isPublic) => handleSetFilePublic(file, isPublic)"
         @delete-file="handleDeleteFile"
         @rename-dir="handleRenameDir"
         @delete-dir="handleDeleteDir"
@@ -89,15 +78,14 @@
     </div>
     
     <!-- 分页 -->
-    <el-pagination
+    <Pagination
       v-if="fileListData.total > 0"
-      v-model:current-page="currentPage"
-      v-model:page-size="pageSize"
-      :page-sizes="[20, 50, 100]"
+      v-model:page="currentPage"
+      v-model:limit="pageSize"
       :total="fileListData.total"
-      layout="total, sizes, prev, pager, next, jumper"
-      @size-change="handleSizeChange"
-      @current-change="handlePageChange"
+      :page-sizes="[20, 50, 100]"
+      float="center"
+      @pagination="handlePagination"
       class="pagination"
     />
     
@@ -166,7 +154,7 @@
     </el-dialog>
     
     <!-- 分享文件组件 -->
-    <Share
+    <ShareDialog
       v-model="showShareDialog"
       :file-info="{
         file_id: shareForm.file_id,
@@ -277,11 +265,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, getCurrentInstance, ComponentInternalInstance } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import { handleFileUpload } from '@/utils/upload'
 import Preview from '@/components/Preview/index.vue'
-import Share from '@/components/Share/index.vue'
+import ShareDialog from '@/components/ShareDialog/index.vue'
+import Pagination from '@/components/Pagination/index.vue'
 import FileGrid from './modules/FileGrid.vue'
 import FileList from './modules/FileList.vue'
 import Breadcrumb from './modules/Breadcrumb.vue'
@@ -310,9 +297,7 @@ const {
   formatBreadcrumbName,
   loadFileList,
   navigateToPath,
-  getThumbnailUrl,
-  handlePageChange,
-  handleSizeChange
+  getThumbnailUrl
 } = useFileList()
 
 const {
@@ -344,6 +329,7 @@ const {
   handleToolbarDownload,
   handleToolbarShare,
   handleToolbarDelete,
+  handleSetFilePublic,
   handleFileAction: handleFileActionFromOps
 } = useFileOperations(fileListData, selectedFileIds, selectedFolderIds, loadFileList)
 
@@ -392,7 +378,9 @@ const {
 
 // 合并文件操作处理
 const handleFileAction = (command: string, file: FileItem): void => {
-  if (command === 'rename') {
+  if (command === 'preview') {
+    handleFilePreview(file)
+  } else if (command === 'rename') {
     handleFileActionFromRename(command, file)
   } else {
     handleFileActionFromOps(command, file)
@@ -425,21 +413,6 @@ const getFileNameForMove = (fileId: string): string => {
   return getFileName(fileId, fileListData)
 }
 
-// 移动端工具栏菜单命令处理
-const handleToolbarCommand = (command: string) => {
-  switch (command) {
-    case 'upload':
-      handleUpload()
-      break
-    case 'newFolder':
-      handleNewFolder()
-      break
-    case 'moveFile':
-      handleMoveFile()
-      break
-  }
-}
-
 // 上传文件
 const router = useRouter()
 const handleUpload = async () => {
@@ -465,6 +438,13 @@ const handleUpload = async () => {
       })
     }
   )
+}
+
+// 处理分页事件（统一处理）
+const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+  currentPage.value = page
+  pageSize.value = limit
+  loadFileList()
 }
 
 // 初始化
@@ -582,15 +562,12 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
-/* 移动端工具栏 */
-.mobile-toolbar-menu {
-  display: none;
-}
-
-.desktop-toolbar {
+/* 工具栏操作按钮 */
+.toolbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .desktop-only {
@@ -608,20 +585,66 @@ onMounted(() => {
     margin-bottom: 12px;
   }
 
+  .toolbar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .toolbar-left {
+    width: 100%;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .toolbar-actions .action-btn,
+  .toolbar-actions .action-btn-secondary {
     flex: 1;
     min-width: 0;
+    font-size: 13px;
+    padding: 0 12px;
+  }
+
+  .toolbar-actions .action-btn {
+    flex: 1.2;
+  }
+
+  .divider-vertical {
+    display: none;
+  }
+
+  .view-switch {
+    margin-left: auto;
   }
 
   .toolbar-right {
-    flex: 1 1 100%;
+    width: 100%;
     justify-content: flex-end;
-    margin-top: 8px;
+    margin-top: 0;
   }
 
   .selection-info {
     margin-right: 8px;
     font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar-actions {
+    gap: 4px;
+  }
+
+  .toolbar-actions .action-btn,
+  .toolbar-actions .action-btn-secondary {
+    font-size: 12px;
+    padding: 0 8px;
+    height: 36px;
+  }
+
+  .toolbar-actions .action-btn-secondary {
+    font-size: 11px;
   }
 }
 </style>

@@ -101,6 +101,7 @@ export interface FileItem {
   mime_type: string
   is_enc: boolean
   has_thumbnail: boolean
+  public: boolean
   created_at: string
 }
 

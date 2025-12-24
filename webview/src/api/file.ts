@@ -1,4 +1,5 @@
 import { get, post, upload } from '@/utils/request'
+import { filterParams } from '@/utils/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { FileListRequest, FileListResponse, ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
@@ -40,7 +41,8 @@ export interface SearchResponse {
  * 获取文件列表
  */
 export const getFileList = (params: FileListRequest) => {
-  return get<ApiResponse<FileListResponse>>(API_ENDPOINTS.FILE.LIST, params)
+  const filteredParams = filterParams(params)
+  return get<ApiResponse<FileListResponse>>(API_ENDPOINTS.FILE.LIST, filteredParams)
 }
 
 /**
@@ -80,14 +82,16 @@ export const getThumbnailUrl = (fileId: string) => {
  * 搜索当前用户的文件
  */
 export const searchUserFiles = (params: FileSearchParams) => {
-  return get<SearchResponse>(API_ENDPOINTS.FILE.SEARCH_USER, params)
+  const filteredParams = filterParams(params)
+  return get<SearchResponse>(API_ENDPOINTS.FILE.SEARCH_USER, filteredParams)
 }
 
 /**
  * 搜索广场公开文件
  */
 export const searchPublicFiles = (params: FileSearchParams) => {
-  return get<SearchResponse>(API_ENDPOINTS.FILE.SEARCH_PUBLIC, params)
+  const filteredParams = filterParams(params)
+  return get<SearchResponse>(API_ENDPOINTS.FILE.SEARCH_PUBLIC, filteredParams)
 }
 
 /**
@@ -183,7 +187,8 @@ export interface UploadProgressResponse {
  * 查询上传进度
  */
 export const getUploadProgress = (precheckId: string) => {
-  return get<ApiResponse<UploadProgressResponse>>(API_ENDPOINTS.FILE.PROGRESS, { precheck_id: precheckId })
+  const filteredParams = filterParams({ precheck_id: precheckId })
+  return get<ApiResponse<UploadProgressResponse>>(API_ENDPOINTS.FILE.PROGRESS, filteredParams)
 }
 
 // 上传请求参数
@@ -244,7 +249,9 @@ export interface PublicFileListResponse {
  * 获取公开文件列表（文件广场）
  */
 export const getPublicFileList = (params: PublicFileListParams) => {
-  return get<ApiResponse<PublicFileListResponse>>(API_ENDPOINTS.FILE.PUBLIC_LIST, params)
+  // 过滤掉无效参数（undefined、null、空字符串）
+  const filteredParams = filterParams(params)
+  return get<ApiResponse<PublicFileListResponse>>(API_ENDPOINTS.FILE.PUBLIC_LIST, filteredParams)
 }
 
 // 未完成的上传任务项
@@ -288,9 +295,49 @@ export const deleteUploadTask = (taskId: string) => {
 }
 
 /**
+ * 查询过期的上传任务列表
+ */
+export const listExpiredUploads = () => {
+  return get<ApiResponse<UncompletedUploadTask[]>>(API_ENDPOINTS.FILE.EXPIRED)
+}
+
+/**
+ * 延期过期任务请求参数
+ */
+export interface RenewExpiredTaskRequest {
+  task_id: string
+  days?: number // 延期天数，默认7天
+}
+
+/**
+ * 延期过期任务（恢复任务）
+ */
+export const renewExpiredTask = (taskId: string, days?: number) => {
+  return post<ApiResponse<{ task_id: string; expire_time: string }>>(API_ENDPOINTS.FILE.RENEW_TASK, {
+    task_id: taskId,
+    days: days || 7
+  })
+}
+
+/**
  * 清理过期的上传任务
  */
 export const cleanExpiredUploads = () => {
   return post<ApiResponse<{ cleaned_count: number }>>(API_ENDPOINTS.FILE.CLEAN_EXPIRED)
+}
+
+/**
+ * 设置文件公开状态请求参数
+ */
+export interface SetFilePublicRequest {
+  file_id: string
+  public: boolean
+}
+
+/**
+ * 设置文件公开状态
+ */
+export const setFilePublic = (data: SetFilePublicRequest) => {
+  return post<ApiResponse>(API_ENDPOINTS.FILE.SET_PUBLIC, data)
 }
 

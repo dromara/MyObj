@@ -1,5 +1,11 @@
 <script setup lang="ts">
+import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
+
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const router = useRouter()
+const userStore = useUserStore()
+const authStore = useAuthStore()
 
 const emit = defineEmits<{
   search: [keyword: string]
@@ -10,10 +16,6 @@ const emit = defineEmits<{
 }>()
 
 const searchInput = ref('')
-const userInfo = ref({
-  username: proxy?.$cache.local.get('username') || '用户',
-  avatar: ''
-})
 
 const handleSearch = () => {
   emit('search', searchInput.value)
@@ -37,11 +39,11 @@ const handleTorrentDownload = () => {
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {
-    proxy?.$cache.local.remove('token')
-    proxy?.$cache.local.remove('username')
-    window.location.href = '/login'
+    authStore.logout()
+    router.push('/login')
+    proxy?.$modal.msgSuccess('已退出登录')
   } else if (command === 'settings') {
-    proxy?.$modal.msg('设置功能')
+    router.push('/settings')
   }
 }
 </script>
@@ -104,7 +106,7 @@ const handleCommand = (command: string) => {
       <el-dropdown @command="handleCommand">
         <div class="user-info">
           <el-avatar :size="32" icon="User" />
-          <span class="username">{{ userInfo.username }}</span>
+          <span class="username">{{ userStore.username || '用户' }}</span>
         </div>
         <template #dropdown>
           <el-dropdown-menu>

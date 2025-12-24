@@ -17,40 +17,45 @@
     :show-close="false"
     class="sidebar-drawer"
   >
-    <el-menu
-      :default-active="currentRoute"
-      router
-      @select="handleMenuSelect"
-      class="premium-menu"
-    >
-      <el-menu-item index="/files" @click="handleMenuClick">
-        <el-icon><Folder /></el-icon>
-        <span>我的文件</span>
-      </el-menu-item>
-      <el-menu-item index="/shares" @click="handleMenuClick">
-        <el-icon><Share /></el-icon>
-        <span>我的分享</span>
-      </el-menu-item>
-      <el-menu-item index="/offline" @click="handleMenuClick">
-        <el-icon><Download /></el-icon>
-        <span>离线下载</span>
-      </el-menu-item>
-      <el-menu-item index="/tasks" @click="handleMenuClick">
-        <el-icon><List /></el-icon>
-        <span>传输列表</span>
-      </el-menu-item>
-      <el-menu-item index="/trash" @click="handleMenuClick">
-        <el-icon><Delete /></el-icon>
-        <span>回收站</span>
-      </el-menu-item>
-      <div class="menu-divider"></div>
-      <el-menu-item index="/square" @click="handleMenuClick">
-        <el-icon><Grid /></el-icon>
-        <span>文件广场</span>
-      </el-menu-item>
-    </el-menu>
-    
-    <StorageCard />
+    <div class="drawer-content" @click="handleDrawerBodyClick">
+      <el-menu
+        :default-active="currentRoute"
+        router
+        @select="handleMenuSelect"
+        class="premium-menu"
+        @click.stop
+      >
+        <el-menu-item index="/files" @click="handleMenuClick">
+          <el-icon><Folder /></el-icon>
+          <span>我的文件</span>
+        </el-menu-item>
+        <el-menu-item index="/shares" @click="handleMenuClick">
+          <el-icon><Share /></el-icon>
+          <span>我的分享</span>
+        </el-menu-item>
+        <el-menu-item index="/offline" @click="handleMenuClick">
+          <el-icon><Download /></el-icon>
+          <span>离线下载</span>
+        </el-menu-item>
+        <el-menu-item index="/tasks" @click="handleMenuClick">
+          <el-icon><List /></el-icon>
+          <span>传输列表</span>
+        </el-menu-item>
+        <el-menu-item index="/trash" @click="handleMenuClick">
+          <el-icon><Delete /></el-icon>
+          <span>回收站</span>
+        </el-menu-item>
+        <div class="menu-divider"></div>
+        <el-menu-item index="/square" @click="handleMenuClick">
+          <el-icon><Grid /></el-icon>
+          <span>文件广场</span>
+        </el-menu-item>
+      </el-menu>
+      
+      <div class="storage-card-wrapper" @click.stop>
+        <StorageCard />
+      </div>
+    </div>
   </el-drawer>
   
   <!-- 桌面端固定侧边栏 -->
@@ -97,8 +102,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { Folder, Share, Download, List, Delete, Grid } from '@element-plus/icons-vue'
 import StorageCard from '../StorageCard/index.vue'
 
 const route = useRoute()
@@ -137,6 +140,19 @@ const handleMenuClick = () => {
 
 const closeSidebar = () => {
   sidebarVisible.value = false
+}
+
+// 处理抽屉内容区域点击事件（点击空白处关闭）
+const handleDrawerBodyClick = (event: MouseEvent) => {
+  // 检查点击的目标是否在菜单或 StorageCard 内部
+  const target = event.target as HTMLElement
+  const clickedMenu = target.closest('.premium-menu')
+  const clickedStorageCard = target.closest('.storage-card-wrapper')
+  
+  // 如果点击的不是菜单或 StorageCard，则关闭侧边栏
+  if (!clickedMenu && !clickedStorageCard) {
+    closeSidebar()
+  }
 }
 
 // 监听侧边栏切换事件
@@ -185,6 +201,20 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
+}
+
+.drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  min-height: 100%;
+  cursor: pointer;
+}
+
+.storage-card-wrapper {
+  flex-shrink: 0;
 }
 
 .premium-menu {

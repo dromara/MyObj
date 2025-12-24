@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/request'
+import { filterParams } from '@/utils/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
@@ -48,9 +49,10 @@ export const getDownloadTaskList = (params: {
   state?: number
   type?: number
 }) => {
+  const filteredParams = filterParams(params)
   return get<ApiResponse<DownloadTaskListResponse>>(
     API_ENDPOINTS.DOWNLOAD.LIST,
-    params
+    filteredParams
   )
 }
 

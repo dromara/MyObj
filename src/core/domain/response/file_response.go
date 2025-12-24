@@ -44,6 +44,7 @@ type FileItem struct {
 	MimeType     string               `json:"mime_type"`
 	IsEnc        bool                 `json:"is_enc"`
 	HasThumbnail bool                 `json:"has_thumbnail"` // 是否有缩略图
+	Public       bool                 `json:"public"`        // 是否公开
 	CreatedAt    custom_type.JsonTime `json:"created_at"`
 }
 

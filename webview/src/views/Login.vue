@@ -124,7 +124,6 @@ import { login, register, getChallenge, getSysInfo } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
-const router = useRouter()
 const activeTab = ref('login')
 const loading = ref(false)
 const isFirstUse = ref(false)
@@ -170,11 +169,12 @@ const handleLogin = async () => {
           challenge: challengeRes.data.id
         })
         if (res.data?.token) {
-          proxy?.$cache.local.set('token', res.data.token)
-          proxy?.$cache.local.setJSON('userInfo', res.data.user_info)
-          proxy?.$cache.local.set('username', loginForm.username)
+          // 使用 store 管理登录状态
+          const { useAuthStore } = await import('@/stores')
+          const authStore = useAuthStore()
+          authStore.login(res.data.token, res.data.user_info)
           proxy?.$modal.msgSuccess('登录成功')
-          router.push('/files')
+          proxy?.$router.push('/files')
         }
       } catch (error: any) {
         proxy?.$modal.msgError(error.message || '登录失败')

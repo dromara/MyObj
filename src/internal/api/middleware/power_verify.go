@@ -23,7 +23,7 @@ func PowerVerify(power string) gin.HandlerFunc {
 				return
 			}
 		}
-		c.JSON(401, models.NewJsonResponse(401, "用户无权限", nil))
+		c.JSON(403, models.NewJsonResponse(403, "用户无权限", nil))
 		c.Abort()
 		return
 	}

@@ -49,11 +49,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, getCurrentInstance, ComponentInternalInstance } from 'vue'
 import { updatePassword } from '@/api/user'
 import { getChallenge } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
-import type { FormInstance, FormRules } from 'element-plus'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 

@@ -25,7 +25,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import UserInfo from './modules/UserInfo.vue'
 import Password from './modules/Password.vue'
 import ApiKey from './modules/ApiKey.vue'

@@ -325,7 +325,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 	userFile := &models.UserFiles{
 		UserID:      data.UserID,
 		FileID:      fileID,
-		Public:      false,         // 默认私有
+		IsPublic:    false,         // 默认私有
 		VirtualPath: virtualPathID, // 存储路径ID而不是路径字符串
 		FileName:    data.FileName,
 		CreatedAt:   custom_type.Now(),

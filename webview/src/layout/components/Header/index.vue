@@ -4,7 +4,7 @@
       <!-- 移动端汉堡菜单按钮 -->
       <el-button
         class="mobile-menu-btn"
-        :icon="Menu"
+        icon="Menu"
         circle
         text
         @click="toggleSidebar"
@@ -35,7 +35,7 @@
           <el-avatar :size="32" :style="{ background: avatarColor }" class="user-avatar-img">
             {{ avatarText }}
           </el-avatar>
-          <span class="username desktop-only">{{ userInfo.name }}</span>
+          <span class="username desktop-only">{{ userStore.nickname }}</span>
           <el-icon class="el-icon--right desktop-only"><CaretBottom /></el-icon>
         </div>
         <template #dropdown>
@@ -56,32 +56,24 @@
 </template>
 
 <script setup lang="ts">
-import { Menu } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
-interface UserInfo {
-  name: string
-  username: string
-  email: string
-}
-
 const router = useRouter()
+const userStore = useUserStore()
+const authStore = useAuthStore()
 
 const searchKeyword = ref('')
-const userInfo = ref<UserInfo>({
-  name: '',
-  username: '',
-  email: ''
-})
 
 const avatarText = computed(() => {
-  return userInfo.value.name ? userInfo.value.name.charAt(0).toUpperCase() : 'U'
+  return userStore.nickname ? userStore.nickname.charAt(0).toUpperCase() : 'U'
 })
 
 const avatarColor = computed(() => {
   const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']
-  const name = userInfo.value.name
+  const name = userStore.nickname
   let hash = 0
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash)
@@ -89,24 +81,13 @@ const avatarColor = computed(() => {
   return colors[Math.abs(hash) % colors.length]
 })
 
-const initUserInfo = async () => {
-  try {
-    const user = proxy?.$cache.local.getJSON('userInfo')
-    if (user) {
-      userInfo.value = user
-    }
-  } catch (error) {
-    proxy?.$log.error('获取用户信息失败', error)
-  }
-}
-
 const handleSearch = () => {
   proxy?.$log.debug('Search:', searchKeyword.value)
 }
 
 const handleCommand = (command: string) => {
   if (command === 'logout') {
-    proxy?.$cache.local.remove('token')
+    authStore.logout()
     router.push('/login')
     proxy?.$modal.msgSuccess('已退出登录')
   } else if (command === 'settings') {
@@ -119,10 +100,6 @@ const toggleSidebar = () => {
   const event = new CustomEvent('toggle-sidebar')
   window.dispatchEvent(event)
 }
-
-onMounted(() => {
-  initUserInfo()
-})
 </script>
 
 <style scoped>

@@ -70,12 +70,14 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('token')
+router.beforeEach(async (to, _from, next) => {
+  // 动态导入 store 避免循环依赖
+  const { useAuthStore } = await import('@/stores/auth')
+  const authStore = useAuthStore()
   
-  if (to.meta.requiresAuth && !token) {
+  if (to.meta.requiresAuth && !authStore.token) {
     next('/login')
-  } else if (to.path === '/login' && token) {
+  } else if (to.path === '/login' && authStore.token) {
     next('/files')
   } else {
     next()

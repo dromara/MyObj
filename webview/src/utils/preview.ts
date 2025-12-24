@@ -191,3 +191,13 @@ export const getCodeLanguage = (fileName: string): string => {
   return langMap[ext] || ext
 }
 
+/**
+ * 判断文件是否可预览
+ * @param file 文件对象
+ * @returns 是否可预览
+ */
+export const isPreviewable = (file: FileItem): boolean => {
+  const fileType = detectFileType(file)
+  return fileType !== 'unsupported'
+}
+

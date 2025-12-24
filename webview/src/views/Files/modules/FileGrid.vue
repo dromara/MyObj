@@ -4,9 +4,9 @@
     <div
       v-for="folder in folders"
       :key="'folder-' + folder.id"
-      class="file-card scale-up"
+      class="file-card folder-card scale-up"
       :class="{ selected: isSelectedFolder(folder.id) }"
-      @click="$emit('toggle-folder', folder.id)"
+      @click="handleFolderClick(folder)"
       @dblclick="$emit('enter-folder', folder)"
     >
       <div class="file-card-actions" @click.stop>
@@ -25,7 +25,7 @@
           <Folder />
         </el-icon>
       </div>
-      <div class="file-name">{{ folder.name }}</div>
+      <div class="file-name folder-name">{{ folder.name }}</div>
       <div class="file-info">{{ formatDate(folder.created_time) }}</div>
     </div>
 
@@ -39,13 +39,36 @@
       @dblclick="$emit('preview-file', file)"
     >
       <div class="file-card-actions" @click.stop>
-        <el-dropdown trigger="click" @command="(cmd: string) => $emit('file-action', cmd, file)">
+        <!-- 移动端：显示预览按钮（如果可预览） -->
+        <el-button 
+          v-if="isMobile && isPreviewableFile(file)"
+          icon="View" 
+          circle 
+          text 
+          class="preview-btn"
+          @click.stop="$emit('preview-file', file)"
+        />
+        <el-dropdown trigger="click" @command="(cmd: string) => handleFileAction(cmd, file)">
           <el-button icon="More" circle text />
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item 
+                v-if="isPreviewableFile(file)" 
+                command="preview" 
+                icon="View"
+              >
+                预览
+              </el-dropdown-item>
               <el-dropdown-item command="download" icon="Download">下载</el-dropdown-item>
               <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
               <el-dropdown-item command="share" icon="Share">分享</el-dropdown-item>
+              <el-dropdown-item 
+                v-if="!file.is_enc"
+                :command="file.public ? 'setPrivate' : 'setPublic'" 
+                :icon="file.public ? 'Lock' : 'Unlock'"
+              >
+                {{ file.public ? '取消公开' : '设为公开' }}
+              </el-dropdown-item>
               <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -74,6 +97,8 @@
 
 <script setup lang="ts">
 import { formatSize, formatDate } from '@/utils'
+import { useResponsive } from '@/composables/useResponsive'
+import { isPreviewable } from '@/utils/preview'
 import FileIcon from '@/components/FileIcon/index.vue'
 import type { FileItem, FolderItem } from '@/types'
 
@@ -85,7 +110,7 @@ defineProps<{
   getThumbnailUrl: (fileId: string) => string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'toggle-folder': [id: number]
   'toggle-file': [id: string]
   'enter-folder': [folder: FolderItem]
@@ -93,6 +118,28 @@ defineEmits<{
   'folder-action': [command: string, folder: FolderItem]
   'file-action': [command: string, file: FileItem]
 }>()
+
+// 使用响应式检测 composable
+const { isMobile } = useResponsive()
+
+// 判断文件是否可预览
+const isPreviewableFile = (file: FileItem): boolean => {
+  return isPreviewable(file)
+}
+
+// 处理文件夹点击（单击进入，双击也进入）
+const handleFolderClick = (folder: FolderItem) => {
+  emit('enter-folder', folder)
+}
+
+// 处理文件操作
+const handleFileAction = (command: string, file: FileItem) => {
+  if (command === 'preview') {
+    emit('preview-file', file)
+  } else {
+    emit('file-action', command, file)
+  }
+}
 </script>
 
 <style scoped>
@@ -119,14 +166,23 @@ defineEmits<{
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   opacity: 0;
   transition: opacity 0.2s;
-  z-index: 2; /* 降低z-index，确保不会覆盖其他元素 */
-  pointer-events: auto; /* 确保可以点击 */
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .file-card:hover .file-card-actions {
   opacity: 1;
+}
+
+.preview-btn {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .file-card-actions .el-button {
@@ -139,6 +195,16 @@ defineEmits<{
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 12px 24px -8px rgba(0,0,0,0.08);
   z-index: 1; /* 降低z-index，避免覆盖工具栏 */
+}
+
+/* 文件夹卡片特殊样式 */
+.folder-card:hover {
+  background: rgba(64, 158, 255, 0.08);
+  border-color: rgba(64, 158, 255, 0.3);
+}
+
+.folder-card:hover .file-icon {
+  transform: scale(1.15);
 }
 
 .file-card.selected {
@@ -168,6 +234,11 @@ defineEmits<{
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-name.folder-name {
+  color: var(--el-color-primary) !important;
+  font-weight: 600;
 }
 
 .file-info {
@@ -211,6 +282,10 @@ defineEmits<{
   
   .file-card-actions {
     opacity: 1;
+  }
+  
+  .preview-btn {
+    opacity: 1 !important;
   }
 }
 

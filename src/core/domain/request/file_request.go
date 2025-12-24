@@ -110,6 +110,14 @@ type DeleteUploadTaskRequest struct {
 	TaskID string `json:"task_id" binding:"required"`
 }
 
+// RenewExpiredTaskRequest 延期过期任务请求
+type RenewExpiredTaskRequest struct {
+	// 任务ID（预检ID）
+	TaskID string `json:"task_id" binding:"required"`
+	// 延期天数（默认7天）
+	Days int `json:"days"`
+}
+
 // RenameFileRequest 文件重命名请求
 type RenameFileRequest struct {
 	// 文件ID（uf_id）

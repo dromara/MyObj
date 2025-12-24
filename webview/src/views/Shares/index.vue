@@ -1,54 +1,78 @@
 <template>
   <div class="shares-page">
+    <!-- 头部卡片 -->
     <div class="header-card glass-panel">
       <div class="header">
         <div class="title-section">
           <el-icon :size="24" class="title-icon"><Share /></el-icon>
           <h2>我的分享</h2>
+          <span class="share-count">共 {{ shareList.length }} 个分享</span>
         </div>
-        <el-button type="primary" icon="Refresh" @click="loadShareList">刷新</el-button>
+        <el-button type="primary" icon="Refresh" @click="loadShareList" :loading="loading">刷新</el-button>
       </div>
     </div>
 
+    <!-- PC端：表格布局 -->
     <div class="table-card glass-panel">
-      <el-table :data="shareList" v-loading="loading" style="width: 100%" empty-text="暂无分享记录" class="shares-table">
-        <el-table-column label="文件名" min-width="200" class-name="mobile-name-column">
+      <el-table 
+        :data="shareList" 
+        v-loading="loading" 
+        class="shares-table desktop-table"
+        empty-text="暂无分享记录"
+      >
+        <el-table-column label="文件名" min-width="250" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
-              <el-icon :size="18" color="#409EFF"><Document /></el-icon>
+              <el-icon :size="24" color="#409EFF"><Document /></el-icon>
               <span class="file-name">{{ row.file_name }}</span>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="分享链接" min-width="350" class-name="mobile-link-column">
+        <el-table-column label="分享链接" min-width="400" class-name="mobile-link-column">
           <template #default="{ row }">
             <div class="link-cell">
               <el-input 
                 :model-value="getShareUrl(row.token)" 
                 readonly
                 size="small"
+                class="share-link-input"
               >
                 <template #append>
-                  <el-button icon="CopyDocument" @click="copyShareLink(row)">复制</el-button>
+                  <el-button 
+                    icon="CopyDocument" 
+                    @click="copyShareLink(row)"
+                    :loading="copyingId === row.id"
+                  >
+                    复制
+                  </el-button>
                 </template>
               </el-input>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="访问密码" width="120" align="center" class-name="mobile-hide">
-          <template #default>
-            <el-tag type="warning" effect="plain" size="small">
-              <el-icon><Lock /></el-icon>
-              已设置
-            </el-tag>
+        <el-table-column label="访问密码" width="100" align="center" class-name="mobile-hide">
+          <template #default="{ row }">
+            <el-tooltip 
+              :content="row.password_hash ? '已设置访问密码' : '未设置访问密码'" 
+              placement="top"
+            >
+              <div class="status-badge" :class="{ 'has-password': row.password_hash, 'no-password': !row.password_hash }">
+                <el-icon :size="16"><Lock /></el-icon>
+              </div>
+            </el-tooltip>
           </template>
         </el-table-column>
         
-        <el-table-column label="下载次数" prop="download_count" width="100" align="center" class-name="mobile-hide">
+        <el-table-column label="下载次数" width="100" align="center" class-name="mobile-hide">
           <template #default="{ row }">
-            <el-tag type="info" size="small">{{ row.download_count }}</el-tag>
+            <el-tooltip :content="`已下载 ${row.download_count || 0} 次`" placement="top">
+              <div class="download-badge">
+                <el-icon :size="14"><Download /></el-icon>
+                <span class="download-count-text">{{ row.download_count || 0 }}</span>
+              </div>
+            </el-tooltip>
           </template>
         </el-table-column>
         
@@ -56,7 +80,9 @@
           <template #default="{ row }">
             <div class="time-cell">
               <el-icon :size="14"><Clock /></el-icon>
-              <span>{{ formatDate(row.expires_at) }}</span>
+              <span :class="{ 'expired-text': isExpired(row.expires_at) }">
+                {{ formatDate(row.expires_at) }}
+              </span>
             </div>
           </template>
         </el-table-column>
@@ -70,15 +96,113 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="180" fixed="right" align="center" class-name="mobile-actions-column">
+        <el-table-column label="操作" width="200" fixed="right" align="center" class-name="mobile-actions-column">
           <template #default="{ row }">
-            <el-button-group>
-              <el-button link type="primary" icon="Edit" @click="handleUpdatePassword(row)">修改密码</el-button>
-              <el-button link type="danger" icon="Delete" @click="handleDelete(row)">删除</el-button>
-            </el-button-group>
+            <div class="action-buttons">
+              <el-button 
+                link 
+                type="primary" 
+                icon="Edit" 
+                @click="handleUpdatePassword(row)"
+                size="small"
+              >
+                修改密码
+              </el-button>
+              <el-button 
+                link 
+                type="danger" 
+                icon="Delete" 
+                @click="handleDelete(row)"
+                size="small"
+              >
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 移动端：卡片布局 -->
+      <div class="mobile-share-list" v-loading="loading">
+        <div 
+          v-for="row in shareList" 
+          :key="row.id" 
+          class="mobile-share-item"
+        >
+          <div class="share-item-header">
+            <div class="share-item-info">
+              <el-icon :size="24" color="#409EFF" class="share-icon"><Document /></el-icon>
+              <div class="share-name-wrapper">
+                <div class="share-name">{{ row.file_name }}</div>
+                <div class="share-meta">
+                  <div 
+                    class="mobile-status-badge" 
+                    :class="{ 'has-password': row.password_hash, 'no-password': !row.password_hash }"
+                  >
+                    <el-icon :size="14"><Lock /></el-icon>
+                    <span class="status-text">{{ row.password_hash ? '密码' : '公开' }}</span>
+                  </div>
+                  <div class="mobile-download-badge">
+                    <el-icon :size="12"><Download /></el-icon>
+                    <span class="download-text">{{ row.download_count || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="share-actions">
+              <el-button 
+                link 
+                type="primary"
+                @click.stop="handleUpdatePassword(row)"
+                class="action-btn"
+              >
+                <el-icon><Edit /></el-icon>
+              </el-button>
+              <el-button 
+                link 
+                type="danger"
+                @click.stop="handleDelete(row)"
+                class="action-btn"
+              >
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          
+          <div class="share-link-wrapper">
+            <el-input 
+              :model-value="getShareUrl(row.token)" 
+              readonly
+              size="small"
+              class="mobile-share-link-input"
+            >
+              <template #append>
+                <el-button 
+                  icon="CopyDocument" 
+                  @click="copyShareLink(row)"
+                  :loading="copyingId === row.id"
+                  size="small"
+                >
+                  复制
+                </el-button>
+              </template>
+            </el-input>
+          </div>
+          
+          <div class="share-time-info">
+            <div class="time-item">
+              <el-icon :size="12"><Clock /></el-icon>
+              <span :class="{ 'expired-text': isExpired(row.expires_at) }">
+                过期：{{ formatDate(row.expires_at) }}
+              </span>
+            </div>
+            <div class="time-item">
+              <el-icon :size="12"><Calendar /></el-icon>
+              <span>创建：{{ formatDate(row.created_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <el-empty v-if="shareList.length === 0 && !loading" description="暂无分享记录" />
     </div>
@@ -87,8 +211,9 @@
     <el-dialog 
       v-model="showPasswordDialog" 
       title="修改分享密码" 
-      width="450px"
+      :width="isMobile ? '95%' : '450px'"
       :close-on-click-modal="false"
+      class="password-dialog"
     >
       <el-form label-width="80px">
         <el-form-item label="文件名">
@@ -97,13 +222,13 @@
         <el-form-item label="新密码">
           <el-input 
             v-model="newPassword" 
-            placeholder="请输入新的访问密码"
+            placeholder="请输入新的访问密码（留空则取消密码）"
             maxlength="20"
             show-word-limit
             clearable
           >
             <template #append>
-              <el-button @click="handleGenerateRandomPassword">随机生成</el-button>
+              <el-button @click="handleGenerateRandomPassword" size="small">随机生成</el-button>
             </template>
           </el-input>
         </el-form-item>
@@ -118,13 +243,15 @@
 </template>
 
 <script setup lang="ts">
-import { Share, Document, Lock, Clock, Calendar } from '@element-plus/icons-vue'
+import { useResponsive } from '@/composables/useResponsive'
 import { getShareList, deleteShare, updateSharePassword } from '@/api/share'
 import type { ShareInfo } from '@/types'
-import { formatDate, getShareUrl, generateRandomPassword } from '@/utils'
-import { copyToClipboard } from '@/utils'
+import { formatDate, getShareUrl, generateRandomPassword, copyToClipboard } from '@/utils'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+
+// 使用响应式检测 composable
+const { isMobile } = useResponsive()
 
 const loading = ref(false)
 const shareList = ref<ShareInfo[]>([])
@@ -132,6 +259,16 @@ const showPasswordDialog = ref(false)
 const updating = ref(false)
 const newPassword = ref('')
 const currentShare = reactive<Partial<ShareInfo>>({})
+const copyingId = ref<number | null>(null)
+
+onMounted(() => {
+  loadShareList()
+})
+
+// 检查是否过期
+const isExpired = (expiresAt: string): boolean => {
+  return new Date(expiresAt) < new Date()
+}
 
 // 加载分享列表
 const loadShareList = async () => {
@@ -153,6 +290,7 @@ const loadShareList = async () => {
 
 // 复制分享链接
 const copyShareLink = async (share: ShareInfo) => {
+  copyingId.value = share.id
   const shareUrl = getShareUrl(share.token)
   const success = await copyToClipboard(shareUrl)
   if (success) {
@@ -160,6 +298,9 @@ const copyShareLink = async (share: ShareInfo) => {
   } else {
     proxy?.$modal.msgError('复制失败')
   }
+  setTimeout(() => {
+    copyingId.value = null
+  }, 500)
 }
 
 // 删除分享
@@ -194,16 +335,11 @@ const handleGenerateRandomPassword = () => {
 
 // 确认修改密码
 const handleConfirmUpdatePassword = async () => {
-  if (!newPassword.value) {
-    proxy?.$modal.msgWarning('请输入新密码')
-    return
-  }
-  
   updating.value = true
   try {
-    const res = await updateSharePassword(currentShare.id!, newPassword.value)
+    const res = await updateSharePassword(currentShare.id!, newPassword.value || '')
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('修改密码成功')
+      proxy?.$modal.msgSuccess(newPassword.value ? '修改密码成功' : '已取消密码')
       showPasswordDialog.value = false
       loadShareList()
     } else {
@@ -215,10 +351,6 @@ const handleConfirmUpdatePassword = async () => {
     updating.value = false
   }
 }
-
-onMounted(() => {
-  loadShareList()
-})
 </script>
 
 <style scoped>
@@ -266,13 +398,24 @@ onMounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
+.share-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
 .table-card {
   flex: 1;
   border-radius: 16px;
-  padding: 8px; /* Inner padding for glass effect */
+  padding: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* PC端表格样式 */
+.desktop-table {
+  display: table;
 }
 
 :deep(.el-table) {
@@ -306,15 +449,35 @@ onMounted(() => {
 .file-name {
   font-weight: 500;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-:deep(.el-button-group) {
+.link-cell {
+  width: 100%;
+}
+
+.share-link-input {
+  width: 100%;
+}
+
+.share-link-input :deep(.el-input__inner) {
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+}
+
+.action-buttons {
   display: flex;
-  gap: 4px;
+  gap: 8px;
+  justify-content: center;
 }
 
 :deep(.el-tag) {
   border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .time-cell {
@@ -326,11 +489,285 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.link-cell {
+.expired-text {
+  color: var(--el-color-danger) !important;
+  font-weight: 500;
+}
+
+/* PC端状态徽章样式 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-badge.has-password {
+  background: rgba(230, 162, 60, 0.1);
+  color: var(--el-color-warning);
+}
+
+.status-badge.has-password:hover {
+  background: rgba(230, 162, 60, 0.2);
+  transform: scale(1.1);
+}
+
+.status-badge.no-password {
+  background: rgba(144, 147, 153, 0.1);
+  color: var(--el-color-info);
+}
+
+.status-badge.no-password:hover {
+  background: rgba(144, 147, 153, 0.2);
+  transform: scale(1.1);
+}
+
+.download-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(144, 147, 153, 0.1);
+  color: var(--el-color-info);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+
+.download-badge:hover {
+  background: rgba(144, 147, 153, 0.2);
+  transform: translateY(-1px);
+}
+
+.download-count-text {
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* 移动端卡片列表 */
+.mobile-share-list {
+  display: none;
+}
+
+.mobile-share-item {
+  padding: 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  transition: background-color 0.2s;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.mobile-share-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.mobile-share-item:active {
+  background-color: var(--el-fill-color-light);
+}
+
+.share-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.share-item-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.share-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.share-name-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.share-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 移动端状态徽章样式 */
+.mobile-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mobile-status-badge.has-password {
+  background: rgba(230, 162, 60, 0.1);
+  color: var(--el-color-warning);
+}
+
+.mobile-status-badge.no-password {
+  background: rgba(144, 147, 153, 0.1);
+  color: var(--el-color-info);
+}
+
+.status-text {
+  font-size: 11px;
+}
+
+.mobile-download-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(144, 147, 153, 0.1);
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.download-text {
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.share-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.action-btn {
+  padding: 4px;
+  min-width: auto;
+}
+
+.action-btn :deep(.el-icon) {
+  font-size: 18px;
+}
+
+.share-link-wrapper {
+  margin-bottom: 12px;
+}
+
+.mobile-share-link-input {
   width: 100%;
 }
 
-/* 表格移动端优化 */
+.mobile-share-link-input :deep(.el-input__inner) {
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+}
+
+.share-time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.time-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 移动端响应式 */
+@media (max-width: 1024px) {
+  .desktop-table {
+    display: none !important;
+  }
+  
+  .mobile-share-list {
+    display: block;
+  }
+  
+  .header-card {
+    padding: 12px 16px;
+  }
+  
+  .title-section h2 {
+    font-size: 18px;
+  }
+  
+  .share-count {
+    font-size: 12px;
+    margin-left: 4px;
+  }
+  
+  .password-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 0 auto;
+  }
+  
+  .password-dialog :deep(.el-form-item__label) {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-share-item {
+    padding: 12px;
+  }
+  
+  .share-name {
+    font-size: 14px;
+  }
+  
+  .share-meta {
+    font-size: 11px;
+  }
+  
+  .share-time-info {
+    font-size: 11px;
+  }
+  
+  .mobile-share-link-input :deep(.el-input__inner) {
+    font-size: 11px;
+  }
+  
+  .password-dialog :deep(.el-dialog) {
+    width: 100% !important;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .password-dialog :deep(.el-form-item__label) {
+    font-size: 13px;
+  }
+}
+
+/* 表格移动端隐藏列 */
 .shares-table :deep(.mobile-hide) {
   display: table-cell;
 }
@@ -346,32 +783,5 @@ onMounted(() => {
 .shares-table :deep(.mobile-actions-column) {
   width: auto;
   min-width: 120px;
-}
-
-/* 移动端响应式 - 组件特定样式 */
-@media (max-width: 1024px) {
-  /* 链接单元格特定样式 */
-  .link-cell :deep(.el-input) {
-    font-size: 12px;
-  }
-  
-  .link-cell :deep(.el-button) {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .link-cell :deep(.el-input) {
-    font-size: 11px;
-  }
-  
-  .link-cell :deep(.el-button) {
-    padding: 4px;
-  }
-  
-  .link-cell :deep(.el-button span) {
-    display: none;
-  }
 }
 </style>

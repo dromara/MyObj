@@ -1,4 +1,3 @@
-import { ref, reactive, getCurrentInstance, ComponentInternalInstance, type Ref } from 'vue'
 import { renameFile } from '@/api/file'
 import { renameDir, deleteFolder } from '@/api/folder'
 import type { FileItem, FolderItem } from '@/types'
@@ -163,14 +162,7 @@ export function useRename(
   const handleDeleteDir = async (folder: FolderItem) => {
     try {
       await proxy?.$modal.confirm(
-        '删除目录',
-        `确定要删除目录 "${folder.name.replace(/^\//, '')}" 吗？删除后，该目录下的所有文件和子目录都将被删除，且无法恢复。`,
-        {
-          confirmButtonText: '确定删除',
-          cancelButtonText: '取消',
-          type: 'warning',
-          dangerouslyUseHTMLString: false
-        }
+        `确定要删除目录 "${folder.name.replace(/^\//, '')}" 吗？删除后，该目录下的所有文件和子目录都将被删除，且无法恢复。`
       )
       
       try {

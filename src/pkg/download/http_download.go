@@ -53,38 +53,72 @@ type chunkInfo struct {
 
 // downloadProgress 下载进度管理器
 type downloadProgress struct {
-	TaskID         string
-	TotalSize      int64
-	DownloadedSize int64
-	Speed          int64
-	LastUpdate     time.Time
-	RepoFactory    *impl.RepositoryFactory
-	mu             sync.RWMutex
+	TaskID            string
+	TotalSize         int64
+	DownloadedSize    int64
+	LastDownloadedSize int64 // 上次下载量，用于计算实时速度
+	Speed             int64
+	LastUpdate        time.Time
+	SpeedHistory      []int64 // 速度历史记录（最多10条），用于平滑显示
+	RepoFactory       *impl.RepositoryFactory
+	mu                sync.RWMutex
 }
 
 // newDownloadProgress 创建进度管理器
 func newDownloadProgress(taskID string, totalSize int64, repoFactory *impl.RepositoryFactory) *downloadProgress {
 	return &downloadProgress{
-		TaskID:      taskID,
-		TotalSize:   totalSize,
-		LastUpdate:  time.Now(),
-		RepoFactory: repoFactory,
+		TaskID:            taskID,
+		TotalSize:         totalSize,
+		LastDownloadedSize: 0,
+		LastUpdate:        time.Now(),
+		SpeedHistory:      make([]int64, 0, 10),
+		RepoFactory:       repoFactory,
 	}
 }
 
-// updateProgress 更新下载进度
+// updateProgress 更新下载进度（计算实时速度）
 func (dp *downloadProgress) updateProgress(downloaded int64) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 
-	dp.DownloadedSize = downloaded
 	now := time.Now()
 	elapsed := now.Sub(dp.LastUpdate).Seconds()
 
 	// 每秒更新一次速度
 	if elapsed >= 1.0 {
-		dp.Speed = int64(float64(downloaded) / elapsed)
+		// 计算实时速度（增量/时间差）
+		sizeDiff := downloaded - dp.LastDownloadedSize
+		if sizeDiff > 0 && elapsed > 0 {
+			currentSpeed := int64(float64(sizeDiff) / elapsed)
+			
+			// 添加到速度历史记录（最多保留10条）
+			dp.SpeedHistory = append(dp.SpeedHistory, currentSpeed)
+			if len(dp.SpeedHistory) > 10 {
+				dp.SpeedHistory = dp.SpeedHistory[1:]
+			}
+			
+			// 计算平均速度（平滑显示）
+			var totalSpeed int64 = 0
+			validCount := 0
+			for _, speed := range dp.SpeedHistory {
+				if speed >= 0 {
+					totalSpeed += speed
+					validCount++
+				}
+			}
+			if validCount > 0 {
+				dp.Speed = totalSpeed / int64(validCount)
+			} else {
+				dp.Speed = currentSpeed
+			}
+		} else if sizeDiff == 0 {
+			// 如果没有下载进度，速度设为0
+			dp.Speed = 0
+		}
+		
 		dp.LastUpdate = now
+		dp.LastDownloadedSize = downloaded
+		dp.DownloadedSize = downloaded
 
 		// 更新数据库
 		ctx := context.Background()

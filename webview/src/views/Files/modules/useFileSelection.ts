@@ -1,5 +1,3 @@
-import { ref, computed } from 'vue'
-
 export function useFileSelection() {
   const selectedFolderIds = ref<number[]>([])
   const selectedFileIds = ref<string[]>([])

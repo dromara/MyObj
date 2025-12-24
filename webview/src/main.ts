@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
@@ -27,8 +28,15 @@ import { loadLoggerConfigFromEnv } from '@/utils/logger-config'
 loadLoggerConfigFromEnv()
 
 const app = createApp(App)
+const pinia = createPinia()
 
+app.use(pinia)
 app.use(router)
+
+// 设置 router 实例，以便在插件中使用
+import { setRouter } from './plugins/index'
+setRouter(router)
+
 app.use(ElementPlus, {
   locale: zhCn,
 })

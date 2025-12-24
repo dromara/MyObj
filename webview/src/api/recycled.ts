@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/request'
+import { filterParams } from '@/utils/params'
 import { API_ENDPOINTS } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
@@ -32,7 +33,8 @@ export interface RecycledListResponse {
  * 获取回收站列表
  */
 export const getRecycledList = (params: RecycledListRequest) => {
-  return get<ApiResponse<RecycledListResponse>>(API_ENDPOINTS.RECYCLED.LIST, params)
+  const filteredParams = filterParams(params)
+  return get<ApiResponse<RecycledListResponse>>(API_ENDPOINTS.RECYCLED.LIST, filteredParams)
 }
 
 /**

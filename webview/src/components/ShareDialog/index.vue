@@ -61,7 +61,7 @@
           clearable
         >
           <template #append>
-            <el-button @click="generateRandomPassword" :icon="Refresh">随机生成</el-button>
+            <el-button @click="generateRandomPassword" icon="Refresh">随机生成</el-button>
           </template>
         </el-input>
         <div class="form-tip">设置密码后，访问者需要输入密码才能下载文件；不设置密码则任何人都可以通过链接下载</div>
@@ -154,10 +154,8 @@
 
 <script setup lang="ts">
 import { createShare } from '@/api/share'
-import { API_BASE_URL } from '@/config/api'
 import type { CreateShareRequest } from '@/types'
-import { formatSize, generateRandomPassword as generatePassword, copyToClipboard } from '@/utils'
-import { Document, Refresh, Clock } from '@element-plus/icons-vue'
+import { formatSize, generateRandomPassword as generatePassword, copyToClipboard, getShareUrl } from '@/utils'
 
 interface Props {
   modelValue: boolean
@@ -246,7 +244,7 @@ const handleConfirmShare = async () => {
     if (res.code === 200) {
       // 后端返回的 token，构建分享链接
       const token = res.data.split('/').pop()
-      const shareUrl = `${window.location.origin}${API_BASE_URL}/share/download?token=${token}`
+      const shareUrl = getShareUrl(token || '')
       
       const expireText = shareForm.expire_days === 0 
         ? '永久有效' 

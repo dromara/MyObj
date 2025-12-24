@@ -79,3 +79,13 @@ func (r *uploadTaskRepository) DeleteExpiredByUserID(ctx context.Context, userID
 	return result.RowsAffected, result.Error
 }
 
+// GetExpiredByUserID 根据用户ID获取过期的上传任务
+func (r *uploadTaskRepository) GetExpiredByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error) {
+	var tasks []*models.UploadTask
+	now := time.Now()
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND expire_time < ? AND status IN (?)", userID, now, []string{"pending", "uploading", "aborted"}).
+		Order("expire_time ASC").Find(&tasks).Error
+	return tasks, err
+}
+

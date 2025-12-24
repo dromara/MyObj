@@ -414,7 +414,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 	}
 
 	// 2. 验证权限（用户自己的文件或公开文件）
-	if userFile.UserID != userID && !userFile.Public {
+	if userFile.UserID != userID && !userFile.IsPublic {
 		c.JSON(200, models.NewJsonResponse(403, "无权限访问此文件", nil))
 		return
 	}

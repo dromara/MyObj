@@ -205,6 +205,7 @@ type UploadTaskRepository interface {
 	GetByID(ctx context.Context, id string) (*models.UploadTask, error)
 	GetByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error)
 	GetUncompletedByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error)
+	GetExpiredByUserID(ctx context.Context, userID string) ([]*models.UploadTask, error) // 获取过期任务
 	Update(ctx context.Context, task *models.UploadTask) error
 	Delete(ctx context.Context, id string) error
 	DeleteExpired(ctx context.Context) (int64, error)

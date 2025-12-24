@@ -57,12 +57,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, getCurrentInstance, ComponentInternalInstance } from 'vue'
+import { useUserStore } from '@/stores/user'
 import { updateUser } from '@/api/user'
-import type { FormInstance, FormRules } from 'element-plus'
-import type { UserInfo } from '@/types'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const userStore = useUserStore()
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
@@ -89,18 +88,20 @@ const rules: FormRules = {
 
 // 加载用户信息
 const loadUserInfo = () => {
-  try {
-    const user = proxy?.$cache.local.getJSON('userInfo') as UserInfo | null
-    if (user) {
-      userForm.username = user.user_name || ''
-      userForm.nickname = user.name || ''
-      userForm.email = user.email || ''
-      userForm.phone = user.phone || ''
-    }
-  } catch (error) {
-    proxy?.$log.error('加载用户信息失败', error)
+  if (userStore.userInfo) {
+    userForm.username = userStore.username
+    userForm.nickname = userStore.nickname
+    userForm.email = userStore.email
+    userForm.phone = userStore.phone
   }
 }
+
+// 监听 store 中的用户信息变化
+watch(() => userStore.userInfo, (newUserInfo) => {
+  if (newUserInfo) {
+    loadUserInfo()
+  }
+}, { immediate: true })
 
 // 保存修改
 const handleSave = async () => {
@@ -120,18 +121,14 @@ const handleSave = async () => {
       
       if (result.code === 200) {
         proxy?.$modal.msgSuccess('用户信息更新成功')
-        // 更新本地缓存的用户信息
-        try {
-          const user = proxy?.$cache.local.getJSON('userInfo') as UserInfo | null
-          if (user) {
-            user.user_name = userForm.username
-            user.name = userForm.nickname
-            user.email = userForm.email
-            user.phone = userForm.phone
-            proxy?.$cache.local.setJSON('userInfo', user)
-          }
-        } catch (error) {
-          proxy?.$log.warn('更新本地用户信息失败', error)
+        // 更新 store 中的用户信息
+        if (userStore.userInfo) {
+          userStore.updateUserInfo({
+            user_name: userForm.username,
+            name: userForm.nickname,
+            email: userForm.email,
+            phone: userForm.phone
+          })
         }
       } else {
         proxy?.$modal.msgError(result.message || '更新失败')

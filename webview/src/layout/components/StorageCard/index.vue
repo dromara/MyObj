@@ -20,21 +20,9 @@
 </template>
 
 <script setup lang="ts">
-const { proxy } = getCurrentInstance() as ComponentInternalInstance
+import { useUserStore } from '@/stores/user'
 
-interface StorageInfo {
-  used: number
-  total: number
-  percentage: number
-  isUnlimited: boolean
-}
-
-const storageInfo = ref<StorageInfo>({
-  used: 0,
-  total: 0,
-  percentage: 0,
-  isUnlimited: false
-})
+const userStore = useUserStore()
 
 const customColors = [
   { color: '#10b981', percentage: 60 },
@@ -50,62 +38,8 @@ const formatStorageSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const updateStorageInfo = (info: any) => {
-  // 基于 UserInfo 接口映射: space (总容量), free_space (剩余空间)
-  if (info.space !== undefined) {
-    const total = Number(info.space)
-    const free = Number(info.free_space || 0)
-    let used = 0
-    
-    // 如果有总容量和剩余空间，计算已用空间
-    if (info.free_space !== undefined) {
-      used = total - free
-    } else if (info.used !== undefined) {
-      used = Number(info.used)
-    }
-
-    // 将 0 或 -1 视为无限容量
-    storageInfo.value.isUnlimited = total === 0 || total === -1
-    storageInfo.value.total = total
-    storageInfo.value.used = used > 0 ? used : 0
-    
-    // 重新计算百分比
-    if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-      storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
-    } else {
-      storageInfo.value.percentage = 0
-    }
-  } else {
-    const capacity = info.capacity || info.storage_limit
-    if (capacity !== undefined) {
-       const capNum = Number(capacity)
-       storageInfo.value.isUnlimited = capNum === 0 || capNum === -1
-       storageInfo.value.total = capNum
-       storageInfo.value.used = Number(info.used || info.used_storage || 0)
-       
-       if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-         storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
-       } else {
-         storageInfo.value.percentage = 0
-       }
-    }
-  }
-}
-
-const initStorageInfo = () => {
-  try {
-    const user = proxy?.$cache.local.getJSON('userInfo')
-    if (user) {
-      updateStorageInfo(user)
-    }
-  } catch (error) {
-    proxy?.$log.error('获取存储信息失败', error)
-  }
-}
-
-onMounted(() => {
-  initStorageInfo()
-})
+// 使用 store 中的 storageInfo
+const storageInfo = computed(() => userStore.storageInfo)
 </script>
 
 <style scoped>

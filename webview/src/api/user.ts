@@ -46,6 +46,13 @@ export interface GenerateApiKeyResponse {
 }
 
 /**
+ * 获取用户信息
+ */
+export const getUserInfo = () => {
+  return get<ApiResponse>(API_ENDPOINTS.USER.INFO)
+}
+
+/**
  * 更新用户信息
  */
 export const updateUser = (data: UpdateUserRequest) => {

@@ -47,21 +47,25 @@
     
     <!-- 筛选栏 -->
     <div class="filter-bar">
-      <el-radio-group v-model="fileTypeFilter" @change="handleFilterChange">
-        <el-radio-button label="all">全部文件</el-radio-button>
-        <el-radio-button label="image">图片</el-radio-button>
-        <el-radio-button label="video">视频</el-radio-button>
-        <el-radio-button label="doc">文档</el-radio-button>
-        <el-radio-button label="audio">音频</el-radio-button>
-        <el-radio-button label="archive">压缩包</el-radio-button>
-        <el-radio-button label="other">其他</el-radio-button>
-      </el-radio-group>
+      <div class="filter-type-group">
+        <el-radio-group v-model="fileTypeFilter" @change="handleFilterChange" class="type-radio-group">
+          <el-radio-button label="all">全部</el-radio-button>
+          <el-radio-button label="image">图片</el-radio-button>
+          <el-radio-button label="video">视频</el-radio-button>
+          <el-radio-button label="doc">文档</el-radio-button>
+          <el-radio-button label="audio">音频</el-radio-button>
+          <el-radio-button label="archive">压缩包</el-radio-button>
+          <el-radio-button label="other">其他</el-radio-button>
+        </el-radio-group>
+      </div>
       
-      <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px" @change="handleSortChange">
-        <el-option label="最新上传" value="time" />
-        <el-option label="文件大小" value="size" />
-        <el-option label="文件名称" value="name" />
-      </el-select>
+      <div class="filter-sort-group">
+        <el-select v-model="sortBy" placeholder="排序方式" class="sort-select" @change="handleSortChange">
+          <el-option label="最新上传" value="time" />
+          <el-option label="文件大小" value="size" />
+          <el-option label="文件名称" value="name" />
+        </el-select>
+      </div>
     </div>
     
     <!-- 文件网格视图 -->
@@ -104,8 +108,9 @@
     </div>
     
     <!-- 文件列表视图 -->
+    <!-- PC端：表格布局 -->
     <el-table
-      v-else
+      v-else-if="!isMobile"
       :data="filteredFiles"
       v-loading="loading"
       @row-click="handleFileClick"
@@ -140,17 +145,59 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 移动端：卡片列表布局 -->
+    <div v-else class="mobile-file-list" v-loading="loading">
+      <div
+        v-for="file in filteredFiles"
+        :key="file.uf_id"
+        class="mobile-file-item"
+        @click="handleFileClick(file)"
+      >
+        <div class="mobile-item-content">
+          <div class="mobile-item-icon">
+            <el-icon :size="40" :color="getFileIconColor(file.mime_type)">
+              <component :is="getFileIconName(file.mime_type)" />
+            </el-icon>
+          </div>
+          <div class="mobile-item-info">
+            <div class="mobile-item-name-row">
+              <span class="mobile-item-name">{{ file.file_name }}</span>
+            </div>
+            <div class="mobile-item-meta">
+              <span class="mobile-item-size">{{ formatFileSize(file.file_size) }}</span>
+              <span class="mobile-item-owner">{{ file.owner_name }}</span>
+              <span class="mobile-item-time">{{ formatTime(file.created_at) }}</span>
+            </div>
+          </div>
+          <div class="mobile-item-actions" @click.stop>
+            <el-button
+              type="primary"
+              size="small"
+              icon="Download"
+              class="mobile-download-btn"
+              @click.stop="handleDownload(file)"
+            >
+              下载
+            </el-button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 空状态 -->
+      <div v-if="filteredFiles.length === 0 && !loading" class="mobile-empty-state">
+        <el-empty description="暂无公开文件" />
+      </div>
+    </div>
     
     <!-- 分页 -->
     <div class="pagination">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
+      <Pagination
+        v-model:page="currentPage"
+        v-model:limit="pageSize"
         :total="total"
         :page-sizes="[20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-        @size-change="handleSizeChange"
+        @pagination="handlePagination"
       />
     </div>
 
@@ -161,17 +208,20 @@
 
 <script setup lang="ts">
 import { formatSize, formatDate } from '@/utils'
+import { useResponsive } from '@/composables/useResponsive'
 import Preview from '@/components/Preview/index.vue'
-import { getPublicFileList, type PublicFileItem } from '@/api/file'
-import type { ComponentInternalInstance } from 'vue'
+import Pagination from '@/components/Pagination/index.vue'
+import { getPublicFileList, type PublicFileItem, type PublicFileListParams } from '@/api/file'
 import { getFileIcon } from '@/utils/fileIcon'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
-
 const route = useRoute()
 
+// 使用响应式检测 composable
+const { isMobile } = useResponsive()
+
 // 响应式数据
-const viewMode = ref<'grid' | 'list'>('grid')
+const viewMode = ref<'grid' | 'list'>(isMobile.value ? 'list' : 'grid')
 const searchKeyword = ref('')
 const fileTypeFilter = ref('all')
 const sortBy = ref('time')
@@ -261,14 +311,9 @@ const handleDownload = (file: PublicFileItem) => {
 }
 
 // 分页处理
-const handlePageChange = (page: number) => {
+const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
   currentPage.value = page
-  loadPublicFiles()
-}
-
-const handleSizeChange = (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1
+  pageSize.value = limit
   loadPublicFiles()
 }
 
@@ -276,12 +321,18 @@ const handleSizeChange = (size: number) => {
 const loadPublicFiles = async () => {
   loading.value = true
   try {
-    const response = await getPublicFileList({
-      type: fileTypeFilter.value === 'all' ? undefined : fileTypeFilter.value,
+    // 构建请求参数，只有当类型不是 'all' 时才传递 type
+    const params: PublicFileListParams = {
       sortBy: sortBy.value,
       page: currentPage.value,
       pageSize: pageSize.value
-    })
+    }
+    // 只有当类型不是 'all' 时才添加 type 参数
+    if (fileTypeFilter.value !== 'all') {
+      params.type = fileTypeFilter.value
+    }
+    
+    const response = await getPublicFileList(params)
     
     if (response.code === 200 && response.data) {
       // 确保 files 是数组，如果为 null 或 undefined 则使用空数组
@@ -367,6 +418,26 @@ watch(() => route.query.keyword, (newKeyword) => {
   padding: 16px 24px;
   background: var(--el-fill-color-light);
   border-bottom: 1px solid var(--el-border-color);
+  gap: 16px;
+}
+
+.filter-type-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.type-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-sort-group {
+  flex-shrink: 0;
+}
+
+.sort-select {
+  width: 150px;
 }
 
 .file-grid {
@@ -537,16 +608,20 @@ watch(() => route.query.keyword, (newKeyword) => {
   
   .filter-bar {
     padding: 12px 16px;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 12px;
   }
-  
-  .filter-bar :deep(.el-radio-group) {
-    flex: 1;
-    min-width: 0;
+
+  .filter-type-group {
+    width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .type-radio-group {
     display: flex;
-    gap: 4px;
+    gap: 6px;
+    min-width: max-content;
   }
   
   .filter-bar :deep(.el-radio-button) {
@@ -556,9 +631,14 @@ watch(() => route.query.keyword, (newKeyword) => {
   .filter-bar :deep(.el-radio-button__inner) {
     padding: 8px 12px;
     font-size: 12px;
+    white-space: nowrap;
   }
   
-  .filter-bar :deep(.el-select) {
+  .filter-sort-group {
+    width: 100%;
+  }
+
+  .sort-select {
     width: 100%;
   }
   
@@ -617,6 +697,156 @@ watch(() => route.query.keyword, (newKeyword) => {
   .filter-bar :deep(.el-radio-button__inner) {
     padding: 6px 10px;
     font-size: 11px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .breadcrumb {
+    width: 100%;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+  }
+}
+
+/* 移动端卡片列表布局 */
+.mobile-file-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.mobile-file-item {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  border: 1px solid var(--el-border-color-lighter);
+  cursor: pointer;
+}
+
+.mobile-file-item:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  background: var(--el-fill-color-light);
+}
+
+.mobile-item-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-item-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  flex-wrap: wrap;
+}
+
+.mobile-item-size {
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.mobile-item-owner {
+  color: var(--el-text-color-secondary);
+}
+
+.mobile-item-time {
+  color: var(--el-text-color-placeholder);
+}
+
+.mobile-item-actions {
+  flex-shrink: 0;
+}
+
+.mobile-download-btn {
+  padding: 8px 16px;
+}
+
+.mobile-empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 0;
+  min-height: 200px;
+}
+
+@media (max-width: 480px) {
+  .mobile-file-list {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .mobile-file-item {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .mobile-item-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mobile-item-name {
+    font-size: 14px;
+  }
+
+  .mobile-item-meta {
+    font-size: 11px;
+    gap: 8px;
+  }
+
+  .mobile-download-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 </style>

@@ -36,11 +36,11 @@
       <!-- 图片工具栏 -->
       <div class="preview-toolbar">
         <el-button-group>
-          <el-button :icon="ZoomIn" @click="zoomImage(0.1)">放大</el-button>
-          <el-button :icon="ZoomOut" @click="zoomImage(-0.1)">缩小</el-button>
-          <el-button :icon="RefreshRight" @click="rotateImage(90)">旋转</el-button>
-          <el-button :icon="Refresh" @click="resetImageZoom">重置</el-button>
-          <el-button :icon="Download" @click="handleDownload">下载</el-button>
+          <el-button icon="ZoomIn" @click="zoomImage(0.1)">放大</el-button>
+          <el-button icon="ZoomOut" @click="zoomImage(-0.1)">缩小</el-button>
+          <el-button icon="RefreshRight" @click="rotateImage(90)">旋转</el-button>
+          <el-button icon="Refresh" @click="resetImageZoom">重置</el-button>
+          <el-button icon="Download" @click="handleDownload">下载</el-button>
         </el-button-group>
       </div>
     </div>
@@ -59,7 +59,7 @@
         您的浏览器不支持视频播放
       </video>
       <div class="preview-toolbar">
-        <el-button :icon="Download" @click="handleDownload">下载</el-button>
+        <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
 
@@ -81,7 +81,7 @@
         </audio>
       </div>
       <div class="preview-toolbar">
-        <el-button :icon="Download" @click="handleDownload">下载</el-button>
+        <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
 
@@ -101,7 +101,7 @@
         @error="handlePdfError"
       ></iframe>
       <div class="preview-toolbar">
-        <el-button :icon="Download" @click="handleDownload">下载</el-button>
+        <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
 
@@ -111,7 +111,7 @@
         <span class="text-type-label">
           {{ previewType === 'code' ? '代码预览' : '文本预览' }}
         </span>
-        <el-button :icon="Download" size="small" @click="handleDownload">下载</el-button>
+        <el-button icon="Download" size="small" @click="handleDownload">下载</el-button>
       </div>
       <pre
         :class="['preview-text-content', previewType === 'code' ? `language-${codeLanguage}` : '']"
@@ -125,8 +125,33 @@
       <p class="unsupported-desc">
         文件类型: {{ currentFile?.mime_type || '未知' }}
       </p>
-      <el-button type="primary" :icon="Download" @click="handleDownload">下载文件</el-button>
+      <el-button type="primary" icon="Download" @click="handleDownload">下载文件</el-button>
     </div>
+    
+    <!-- 下载密码对话框 -->
+    <el-dialog
+      v-model="showDownloadPasswordDialog"
+      title="输入文件密码"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="download-password-form">
+        <el-text>{{ downloadPasswordForm.file_name }}</el-text>
+        <el-form-item label="文件密码" style="margin-top: 16px;">
+          <el-input
+            v-model="downloadPasswordForm.file_password"
+            type="password"
+            placeholder="请输入文件密码"
+            show-password
+            @keyup.enter="confirmDownloadPassword"
+          />
+        </el-form-item>
+      </div>
+      <template #footer>
+        <el-button @click="showDownloadPasswordDialog = false">取消</el-button>
+        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">确定</el-button>
+      </template>
+    </el-dialog>
   </el-dialog>
 </template>
 
@@ -134,8 +159,8 @@
 import type { FileItem } from '@/types'
 import type { PreviewType, PreviewOptions } from '@/types/preview'
 import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage } from '@/utils/preview'
+import { useFileDownload } from '@/composables/useFileDownload'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
-import { ZoomIn, ZoomOut, RefreshRight, Refresh, Download, Loading, WarningFilled, Headset, Document } from '@element-plus/icons-vue'
 
 interface Props {
   modelValue: boolean
@@ -173,6 +198,15 @@ const options = ref<PreviewOptions>({
   zoom: 1,
   rotate: 0
 })
+
+// 使用统一的文件下载 composable（Preview 组件不需要跳转到任务中心）
+const {
+  showDownloadPasswordDialog,
+  downloadPasswordForm,
+  downloadingFile,
+  handleDownload: handleFileDownload,
+  confirmDownloadPassword
+} = useFileDownload()
 
 const imageUrl = ref('')
 const videoUrl = ref('')
@@ -283,40 +317,7 @@ const rotateImage = (angle: number) => {
 // 下载文件
 const handleDownload = async () => {
   if (!currentFile.value) return
-  const fileId = currentFile.value.file_id
-  const fileName = currentFile.value.file_name
-  
-  try {
-    // 使用预览接口下载文件（带认证）
-    const token = localStorage.getItem('token')
-    const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : ''
-      }
-    })
-    
-    if (!response.ok) {
-      throw new Error('下载失败: ' + response.status)
-    }
-    
-    const blob = await response.blob()
-    const downloadUrl = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = downloadUrl
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(downloadUrl)
-    
-    proxy?.$modal.msgSuccess('下载完成')
-  } catch (error: any) {
-    proxy?.$log.error('下载文件失败:', error)
-    proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))
-  }
+  await handleFileDownload(currentFile.value)
 }
 
 // 重试

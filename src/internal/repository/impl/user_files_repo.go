@@ -56,7 +56,7 @@ func (r *userFilesRepository) Count(ctx context.Context, userID string) (int64, 
 // ListPublicFiles 获取所有公开文件
 func (r *userFilesRepository) ListPublicFiles(ctx context.Context, offset, limit int) ([]*models.UserFiles, error) {
 	var userFiles []*models.UserFiles
-	err := r.db.WithContext(ctx).Where("public = ?", true).
+	err := r.db.WithContext(ctx).Where("is_public = ?", true).
 		Offset(offset).Limit(limit).Find(&userFiles).Error
 	return userFiles, err
 }
@@ -65,7 +65,7 @@ func (r *userFilesRepository) ListPublicFiles(ctx context.Context, offset, limit
 func (r *userFilesRepository) CountPublicFiles(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&models.UserFiles{}).
-		Where("public = ?", true).Count(&count).Error
+		Where("is_public = ?", true).Count(&count).Error
 	return count, err
 }
 
@@ -74,7 +74,7 @@ func (r *userFilesRepository) SearchPublicFiles(ctx context.Context, keyword str
 	var userFiles []*models.UserFiles
 	err := r.db.WithContext(ctx).
 		Joins("JOIN file_info ON user_files.file_id = file_info.id").
-		Where("user_files.public = ? AND file_info.name LIKE ?", true, "%"+keyword+"%").
+		Where("user_files.is_public = ? AND file_info.name LIKE ?", true, "%"+keyword+"%").
 		Offset(offset).Limit(limit).
 		Find(&userFiles).Error
 	return userFiles, err
@@ -85,7 +85,7 @@ func (r *userFilesRepository) CountPublicFilesByKeyword(ctx context.Context, key
 	var count int64
 	err := r.db.WithContext(ctx).Model(&models.UserFiles{}).
 		Joins("JOIN file_info ON user_files.file_id = file_info.id").
-		Where("user_files.public = ? AND file_info.name LIKE ?", true, "%"+keyword+"%").
+		Where("user_files.is_public = ? AND file_info.name LIKE ?", true, "%"+keyword+"%").
 		Count(&count).Error
 	return count, err
 }

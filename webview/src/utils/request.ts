@@ -1,5 +1,6 @@
 // HTTP请求工具
 import { API_BASE_URL } from '@/config/api'
+import cache from '@/plugins/cache'
 
 interface RequestConfig extends RequestInit {
   params?: Record<string, any>
@@ -7,7 +8,7 @@ interface RequestConfig extends RequestInit {
 
 // 请求拦截器 - 添加token
 const requestInterceptor = (config: RequestConfig): RequestConfig => {
-  const token = localStorage.getItem('token')
+  const token = cache.local.get('token')
   if (token) {
     config.headers = {
       ...config.headers,
@@ -30,15 +31,14 @@ const responseInterceptor = async <T = any>(response: Response): Promise<T> => {
   if (!response.ok) {
     // 处理 HTTP 错误
     if (response.status === 401) {
-      // 检查是否是权限不足（通过错误消息判断）
-      if (data.message && data.message.includes('用户无权限')) {
-        // 权限不足，不跳转登录页
-        throw new Error(data.message || '权限不足')
-      }
-      // token过期，跳转登录
-      localStorage.removeItem('token')
+      // 401: 未授权，需要登录
+      cache.local.remove('token')
       window.location.href = '/login'
       throw new Error(data.message || '登录已过期，请重新登录')
+    }
+    if (response.status === 403) {
+      // 403: 禁止访问，已登录但无权限
+      throw new Error(data.message || '权限不足')
     }
     throw new Error(data.message || '请求失败')
   }
@@ -47,16 +47,14 @@ const responseInterceptor = async <T = any>(response: Response): Promise<T> => {
   if (data.code && data.code !== 200) {
     // 业务错误
     if (data.code === 401) {
-      // 区分"用户未登录"和"用户无权限"
-      // 如果是权限不足，不跳转登录页，而是抛出错误让调用方处理
-      if (data.message && data.message.includes('用户无权限')) {
-        // 权限不足，不跳转登录页
-        throw new Error(data.message || '权限不足')
-      }
-      // token无效或过期，跳转登录
-      localStorage.removeItem('token')
+      // 401: 未授权，需要登录
+      cache.local.remove('token')
       window.location.href = '/login'
       throw new Error(data.message || '登录已过期，请重新登录')
+    }
+    if (data.code === 403) {
+      // 403: 禁止访问，已登录但无权限
+      throw new Error(data.message || '权限不足')
     }
     return data
   }
@@ -140,7 +138,7 @@ export const upload = <T = any>(
   const formData = outerParams;
   formData.append('file', file)
   
-  const token = localStorage.getItem('token')
+  const token = cache.local.get('token')
   
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -160,11 +158,39 @@ export const upload = <T = any>(
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const response = JSON.parse(xhr.responseText)
+          // 检查业务状态码
+          if (response.code && response.code !== 200) {
+            if (response.code === 401) {
+              // 401: 未授权，需要登录
+              cache.local.remove('token')
+              window.location.href = '/login'
+              reject(new Error(response.message || '登录已过期，请重新登录'))
+              return
+            }
+            if (response.code === 403) {
+              // 403: 禁止访问，已登录但无权限
+              reject(new Error(response.message || '权限不足'))
+              return
+            }
+            reject(new Error(response.message || '上传失败'))
+            return
+          }
           resolve(response)
         } catch (e) {
           resolve(xhr.responseText as any)
         }
       } else {
+        // 处理 HTTP 状态码错误
+        if (xhr.status === 401) {
+          cache.local.remove('token')
+          window.location.href = '/login'
+          reject(new Error('登录已过期，请重新登录'))
+          return
+        }
+        if (xhr.status === 403) {
+          reject(new Error('权限不足'))
+          return
+        }
         try {
           const error = JSON.parse(xhr.responseText)
           reject(new Error(error.message || '上传失败'))
@@ -200,7 +226,7 @@ export const upload = <T = any>(
 
 // 文件下载
 export const download = async (url: string, filename: string): Promise<void> => {
-  const token = localStorage.getItem('token')
+  const token = cache.local.get('token')
   
   try {
     const response = await fetch(API_BASE_URL + url, {
@@ -211,7 +237,22 @@ export const download = async (url: string, filename: string): Promise<void> => 
     })
     
     if (!response.ok) {
-      throw new Error('下载失败')
+      // 处理 HTTP 状态码错误
+      if (response.status === 401) {
+        cache.local.remove('token')
+        window.location.href = '/login'
+        throw new Error('登录已过期，请重新登录')
+      }
+      if (response.status === 403) {
+        throw new Error('权限不足')
+      }
+      // 尝试解析错误消息
+      try {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '下载失败')
+      } catch (e) {
+        throw new Error('下载失败')
+      }
     }
     
     const blob = await response.blob()

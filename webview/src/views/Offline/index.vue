@@ -9,14 +9,20 @@
         </div>
         <div class="header-right">
           <el-button type="primary" icon="Link" @click="showUrlDialog = true">新建 URL 下载</el-button>
-          <el-button icon="Refresh" @click="refreshTaskList" circle />
+          <el-button icon="Refresh" @click="refreshTaskList">刷新</el-button>
         </div>
       </div>
     </el-card>
 
     <!-- 任务列表 -->
     <el-card shadow="never" class="task-list-card">
-      <el-table :data="taskList" v-loading="loading" style="width: 100%" class="offline-table">
+      <!-- PC端：表格布局 -->
+      <el-table 
+        :data="taskList" 
+        v-loading="loading" 
+        class="offline-table desktop-table"
+        empty-text="暂无下载任务"
+      >
         <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
@@ -62,12 +68,14 @@
         
         <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
           <template #default="{ row }">
-            <el-button-group>
+            <div class="action-buttons">
               <el-button 
                 v-if="row.state === 1"
                 link 
                 icon="VideoPause" 
+                type="warning"
                 @click="pauseTask(row.id)"
+                size="small"
               >
                 暂停
               </el-button>
@@ -75,17 +83,19 @@
                 v-if="row.state === 2"
                 link 
                 icon="VideoPlay" 
-                type="success"
+                type="primary"
                 @click="resumeTask(row.id)"
+                size="small"
               >
                 继续
               </el-button>
               <el-button 
-                v-if="row.state === 0 || row.state === 1"
+                v-if="row.state === 0 || row.state === 1 || row.state === 2"
                 link 
                 icon="Close" 
-                type="warning"
+                type="danger"
                 @click="cancelTask(row.id)"
+                size="small"
               >
                 取消
               </el-button>
@@ -95,19 +105,99 @@
                 icon="Delete" 
                 type="danger"
                 @click="deleteTask(row.id)"
+                size="small"
               >
                 删除
               </el-button>
-            </el-button-group>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 移动端：卡片布局 -->
+      <div class="mobile-task-list" v-loading="loading">
+        <div 
+          v-for="row in taskList" 
+          :key="row.id" 
+          class="mobile-task-item"
+        >
+          <div class="task-item-header">
+            <div class="task-item-info">
+              <el-icon :size="24" color="#409EFF" class="task-icon"><Document /></el-icon>
+              <div class="task-name-wrapper">
+                <div class="task-name">{{ row.file_name || row.url || '未知文件' }}</div>
+                <div class="task-meta">
+                  <el-tag :type="getStatusType(row.state)" size="small" effect="plain">
+                    {{ row.state_text }}
+                  </el-tag>
+                  <span class="task-size">{{ formatSize(row.downloaded_size) }} / {{ formatSize(row.file_size) }}</span>
+                  <span v-if="row.state === 1" class="task-speed">{{ formatSpeed(row.speed) }}</span>
+                </div>
+                <div v-if="row.url" class="task-url">{{ truncateUrl(row.url, 40) }}</div>
+              </div>
+            </div>
+            <div class="task-actions">
+              <el-button 
+                v-if="row.state === 1"
+                link 
+                type="warning"
+                @click.stop="pauseTask(row.id)"
+                class="action-btn"
+              >
+                <el-icon><VideoPause /></el-icon>
+              </el-button>
+              <el-button 
+                v-if="row.state === 2"
+                link 
+                type="primary"
+                @click.stop="resumeTask(row.id)"
+                class="action-btn"
+              >
+                <el-icon><VideoPlay /></el-icon>
+              </el-button>
+              <el-button 
+                v-if="row.state === 0 || row.state === 1 || row.state === 2"
+                link 
+                type="danger"
+                @click.stop="cancelTask(row.id)"
+                class="action-btn"
+              >
+                <el-icon><Close /></el-icon>
+              </el-button>
+              <el-button 
+                v-if="row.state === 3 || row.state === 4"
+                link 
+                type="danger"
+                @click.stop="deleteTask(row.id)"
+                class="action-btn"
+              >
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <div class="task-progress-wrapper">
+            <el-progress 
+              :percentage="row.progress" 
+              :status="row.state === 3 ? 'success' : row.state === 4 ? 'exception' : undefined"
+              :stroke-width="6"
+              text-inside
+              class="task-progress"
+            />
+          </div>
+        </div>
+      </div>
       
       <el-empty v-if="taskList.length === 0 && !loading" description="暂无下载任务" />
     </el-card>
 
     <!-- URL 下载对话框 -->
-    <el-dialog v-model="showUrlDialog" title="新建 URL 下载" width="600px" @open="buildFolderTree">
+    <el-dialog 
+      v-model="showUrlDialog" 
+      title="新建 URL 下载" 
+      :width="isMobile ? '95%' : '600px'"
+      @open="buildFolderTree"
+      class="url-download-dialog"
+    >
       <el-form :model="urlForm" :rules="urlRules" ref="urlFormRef" label-width="100px">
         <el-form-item label="下载链接" prop="url">
           <el-input 
@@ -156,13 +246,18 @@ import {
 import { getVirtualPathTree } from '@/api/file'
 import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
 
+import { useResponsive } from '@/composables/useResponsive'
+
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+
+// 使用响应式检测 composable
+const { isMobile } = useResponsive()
 
 const loading = ref(false)
 const creating = ref(false)
 const taskList = ref<OfflineDownloadTask[]>([])
 const showUrlDialog = ref(false)
-let refreshTimer: number | null = null
+let refreshTimer: number | null = null // 支持 setTimeout 和 setInterval
 const loadingTree = ref(false)
 const folderTreeData = ref<any[]>([])
 
@@ -183,7 +278,13 @@ const urlRules: FormRules = {
 
 // 加载任务列表
 const loadTaskList = async () => {
-  loading.value = true
+  // 智能刷新时不显示 loading，避免频繁闪烁
+  // 只在手动刷新或首次加载时显示 loading
+  const isManualRefresh = !refreshTimer
+  if (isManualRefresh) {
+    loading.value = true
+  }
+  
   try {
     // 查询所有类型的离线下载任务（type < 7），不包含网盘文件下载（type=7）
     // 由于后端不支持 type < 7 的查询，这里先查询所有任务，然后在前端过滤
@@ -199,15 +300,25 @@ const loadTaskList = async () => {
       taskList.value = (res.data.tasks || []).filter((task: any) => task.type !== 7)
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '加载任务列表失败')
+    // 智能刷新时静默处理错误，避免频繁弹窗
+    if (isManualRefresh) {
+      proxy?.$modal.msgError(error.message || '加载任务列表失败')
+    } else {
+      proxy?.$log.warn('刷新任务列表失败:', error)
+    }
   } finally {
-    loading.value = false
+    if (isManualRefresh) {
+      loading.value = false
+    }
   }
 }
 
 // 刷新任务列表
 const refreshTaskList = () => {
-  loadTaskList()
+  loadTaskList().then(() => {
+    // 刷新后重新启动智能刷新
+    startSmartRefresh()
+  })
 }
 
 // 构建文件夹树结构
@@ -376,20 +487,49 @@ const deleteTask = async (taskId: string) => {
 // 使用 getTaskStatusType 作为 getStatusType 的别名
 const getStatusType = getTaskStatusType
 
+// 智能刷新：根据任务状态使用不同的刷新频率
+const startSmartRefresh = () => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    clearInterval(refreshTimer)
+  }
+  
+  const refresh = async () => {
+    await loadTaskList()
+    
+    // 检查是否有正在下载的任务
+    const hasActiveTasks = taskList.value.some((task: any) => task.state === 1) // state=1 表示下载中
+    
+    if (hasActiveTasks) {
+      // 有正在下载的任务，1秒后再次刷新（快速更新）
+      refreshTimer = window.setTimeout(refresh, 1000)
+    } else {
+      // 没有正在下载的任务，3秒后再次刷新（节省资源）
+      refreshTimer = window.setTimeout(refresh, 3000)
+    }
+  }
+  
+  // 初始延迟1秒后开始刷新
+  refreshTimer = window.setTimeout(refresh, 1000)
+}
+
 // 页面加载时获取任务列表
 onMounted(() => {
   loadTaskList()
   
-  // 每 3 秒自动刷新任务状态
-  refreshTimer = window.setInterval(() => {
-    loadTaskList()
-  }, 3000)
+  // 启动智能刷新
+  startSmartRefresh()
 })
 
 // 页面销毁时清除定时器
 onBeforeUnmount(() => {
   if (refreshTimer) {
-    clearInterval(refreshTimer)
+    // 支持 setTimeout 和 setInterval
+    if (typeof refreshTimer === 'number') {
+      clearTimeout(refreshTimer)
+      clearInterval(refreshTimer)
+    }
+    refreshTimer = null
   }
 })
 </script>
@@ -473,7 +613,18 @@ onBeforeUnmount(() => {
   color: var(--el-text-color-secondary);
 }
 
-/* 表格移动端优化 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* PC端表格样式 */
+.desktop-table {
+  display: table;
+}
+
+/* 表格移动端隐藏列 */
 .offline-table :deep(.mobile-hide) {
   display: table-cell;
 }
@@ -491,15 +642,160 @@ onBeforeUnmount(() => {
   min-width: 120px;
 }
 
-/* 移动端响应式 - 组件特定样式 */
+/* 移动端卡片列表 */
+.mobile-task-list {
+  display: none;
+}
+
+.mobile-task-item {
+  padding: 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  transition: background-color 0.2s;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.mobile-task-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.mobile-task-item:active {
+  background-color: var(--el-fill-color-light);
+}
+
+.task-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.task-item-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.task-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.task-name-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 4px;
+}
+
+.task-size {
+  white-space: nowrap;
+}
+
+.task-speed {
+  color: var(--el-color-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.task-url {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.action-btn {
+  padding: 4px;
+  min-width: auto;
+}
+
+.action-btn :deep(.el-icon) {
+  font-size: 18px;
+}
+
+.task-progress-wrapper {
+  width: 100%;
+}
+
+.task-progress {
+  width: 100%;
+}
+
+/* 移动端响应式 */
 @media (max-width: 1024px) {
+  .desktop-table {
+    display: none !important;
+  }
+  
+  .mobile-task-list {
+    display: block;
+  }
+  
   .header-card {
-    padding: 12px;
+    padding: 12px 16px;
   }
   
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .header-left h2 {
+    font-size: 18px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .header-right .el-button:first-child {
+    flex: 1;
+  }
+  
+  .header-right .el-button:last-child {
+    flex-shrink: 0;
+    min-width: auto;
   }
   
   .file-info {
@@ -508,6 +804,43 @@ onBeforeUnmount(() => {
   
   .file-url {
     font-size: 11px;
+  }
+  
+  .url-download-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 0 auto;
+  }
+  
+  .url-download-dialog :deep(.el-form-item__label) {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-task-item {
+    padding: 12px;
+  }
+  
+  .task-name {
+    font-size: 14px;
+  }
+  
+  .task-meta {
+    font-size: 11px;
+  }
+  
+  .task-url {
+    font-size: 10px;
+  }
+  
+  .url-download-dialog :deep(.el-dialog) {
+    width: 100% !important;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .url-download-dialog :deep(.el-form-item__label) {
+    font-size: 13px;
   }
 }
 </style>

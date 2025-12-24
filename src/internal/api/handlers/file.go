@@ -48,8 +48,12 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.GET("/upload/progress", middleware.PowerVerify("file:upload"), f.GetUploadProgress)
 		// 查询未完成的上传任务列表
 		fileGroup.GET("/upload/uncompleted", middleware.PowerVerify("file:upload"), f.ListUncompletedUploads)
+		// 查询过期的上传任务列表
+		fileGroup.GET("/upload/expired", middleware.PowerVerify("file:upload"), f.ListExpiredUploads)
 		// 删除上传任务
 		fileGroup.POST("/upload/delete", middleware.PowerVerify("file:upload"), f.DeleteUploadTask)
+		// 延期过期任务（恢复任务）
+		fileGroup.POST("/upload/renew", middleware.PowerVerify("file:upload"), f.RenewExpiredTask)
 		// 清理过期的上传任务（用户可清理自己的，系统自动清理所有）
 		fileGroup.POST("/upload/clean-expired", middleware.PowerVerify("file:upload"), f.CleanExpiredUploads)
 		// 文件上传接口
@@ -560,6 +564,56 @@ func (f *FileHandler) CleanExpiredUploads(c *gin.Context) {
 	result, err := f.service.CleanExpiredUploads(userID)
 	if err != nil {
 		c.JSON(500, models.NewJsonResponse(500, "清理失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ListExpiredUploads godoc
+// @Summary 查询过期的上传任务列表
+// @Description 查询当前用户所有过期的上传任务
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse{data=[]object} "过期的上传任务列表"
+// @Failure 500 {object} models.JsonResponse "查询失败"
+// @Router /file/upload/expired [get]
+func (f *FileHandler) ListExpiredUploads(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := f.service.ListExpiredUploads(userID)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "查询失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// RenewExpiredTask godoc
+// @Summary 延期过期任务（恢复任务）
+// @Description 延期过期的上传任务，延长过期时间使其可以继续上传
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.RenewExpiredTaskRequest true "延期请求"
+// @Success 200 {object} models.JsonResponse{data=object} "延期成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 403 {object} models.JsonResponse "无权操作"
+// @Failure 404 {object} models.JsonResponse "任务不存在"
+// @Failure 500 {object} models.JsonResponse "延期失败"
+// @Router /file/upload/renew [post]
+func (f *FileHandler) RenewExpiredTask(c *gin.Context) {
+	req := new(request.RenewExpiredTaskRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := f.service.RenewExpiredTask(req.TaskID, userID, req.Days)
+	if err != nil {
+		c.JSON(500, models.NewJsonResponse(500, "延期失败", err.Error()))
 		return
 	}
 	c.JSON(200, result)

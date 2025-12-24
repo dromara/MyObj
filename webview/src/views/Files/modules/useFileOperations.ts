@@ -1,7 +1,5 @@
-import { ref, reactive, getCurrentInstance, ComponentInternalInstance, type Ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { deleteFiles } from '@/api/file'
-import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
+import { deleteFiles, setFilePublic } from '@/api/file'
+import { useFileDownload } from '@/composables/useFileDownload'
 import type { FileItem, FileListResponse } from '@/types'
 
 export function useFileOperations(
@@ -21,13 +19,23 @@ export function useFileOperations(
     file_name: '',
     file_size: 0
   })
-  const showDownloadPasswordDialog = ref(false)
-  const downloadPasswordForm = reactive({
-    file_id: '',
-    file_name: '',
-    file_password: ''
+  
+  // 使用统一的文件下载 composable（Files 页面需要跳转到任务中心）
+  const {
+    showDownloadPasswordDialog,
+    downloadPasswordForm,
+    downloadingFile,
+    handleDownload: handleFileDownload,
+    confirmDownloadPassword
+  } = useFileDownload({
+    onTaskReady: () => {
+      // 任务准备完成时，跳转到任务中心
+      router.push({
+        path: '/tasks',
+        query: { tab: 'download' }
+      })
+    }
   })
-  const downloadingFile = ref(false)
 
   const getFileSize = (fileId: string): number => {
     const file = fileListData.value.files.find((f: any) => f.file_id === fileId)
@@ -51,156 +59,7 @@ export function useFileOperations(
   }
 
   const handleDownloadFile = async (file: FileItem) => {
-    if (file.is_enc) {
-      downloadPasswordForm.file_id = file.file_id
-      downloadPasswordForm.file_name = file.file_name
-      downloadPasswordForm.file_password = ''
-      showDownloadPasswordDialog.value = true
-    } else {
-      await executeDownload(file.file_id, '')
-    }
-  }
-
-  const executeDownload = async (fileId: string, password: string) => {
-    try {
-      downloadingFile.value = true
-      const res = await createLocalFileDownload({
-        file_id: fileId,
-        file_password: password
-      })
-      
-      if (res.code === 200) {
-        const taskId = res.data?.task_id
-        if (!taskId) {
-          proxy?.$modal.msgError('任务创建失败')
-          downloadingFile.value = false
-          return
-        }
-        
-        proxy?.$modal.msgSuccess('准备下载中，请稍候...')
-        showDownloadPasswordDialog.value = false
-        
-        let retryCount = 0
-        const maxRetries = 30
-        
-        const checkTaskStatus = async () => {
-          try {
-            const taskRes = await getDownloadTaskList({ page: 1, pageSize: 100, state: -1 })
-            if (taskRes.code === 200 && taskRes.data) {
-              const task = taskRes.data.tasks?.find((t: any) => t.id === taskId)
-              
-              if (!task) {
-                proxy?.$log.error('未找到任务:', taskId)
-                retryCount++
-                if (retryCount < maxRetries) {
-                  setTimeout(checkTaskStatus, 1000)
-                } else {
-                  proxy?.$modal.msgError('未找到下载任务')
-                  downloadingFile.value = false
-                }
-                return
-              }
-              
-              proxy?.$log.debug('任务状态:', task.state, '任务信息:', task)
-              
-              if (task.state === 3) {
-                router.push({
-                  path: '/tasks',
-                  query: { tab: 'download' }
-                })
-                
-                const token = proxy?.$cache.local.get('token')
-                const downloadUrl = getLocalFileDownloadUrl(taskId)
-                
-                proxy?.$log.debug('开始下载文件:', downloadUrl)
-                
-                try {
-                  const response = await fetch(downloadUrl, {
-                    method: 'GET',
-                    headers: {
-                      'Authorization': token ? `Bearer ${token}` : ''
-                    }
-                  })
-                  
-                  if (!response.ok) {
-                    throw new Error('下载失败: ' + response.status)
-                  }
-                  
-                  const blob = await response.blob()
-                  proxy?.$log.debug('下载完成，文件大小:', blob.size)
-                  
-                  const url = window.URL.createObjectURL(blob)
-                  const link = document.createElement('a')
-                  link.href = url
-                  link.download = task.file_name || 'download'
-                  link.style.display = 'none'
-                  document.body.appendChild(link)
-                  link.click()
-                  document.body.removeChild(link)
-                  window.URL.revokeObjectURL(url)
-                  
-                  proxy?.$modal.msgSuccess('下载完成')
-                } catch (error: any) {
-                  proxy?.$log.error('下载文件失败:', error)
-                  proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))
-                }
-                
-                downloadingFile.value = false
-                return
-              } else if (task.state === 4) {
-                proxy?.$log.error('任务失败:', task.error_msg)
-                proxy?.$modal.msgError(task.error_msg || '下载准备失败')
-                downloadingFile.value = false
-                return
-              }
-              
-              retryCount++
-              if (retryCount < maxRetries) {
-                setTimeout(checkTaskStatus, 1000)
-              } else {
-                proxy?.$modal.msgWarning('准备超时，请到任务中心查看')
-                downloadingFile.value = false
-              }
-            } else {
-              proxy?.$log.error('获取任务列表失败:', taskRes)
-              retryCount++
-              if (retryCount < maxRetries) {
-                setTimeout(checkTaskStatus, 1000)
-              } else {
-                proxy?.$modal.msgError('获取任务状态失败')
-                downloadingFile.value = false
-              }
-            }
-          } catch (error: any) {
-            proxy?.$log.error('查询任务状态异常:', error)
-            retryCount++
-            if (retryCount < maxRetries) {
-              setTimeout(checkTaskStatus, 1000)
-            } else {
-              proxy?.$modal.msgError('查询任务状态失败')
-              downloadingFile.value = false
-            }
-          }
-        }
-        
-        setTimeout(checkTaskStatus, 1000)
-      } else {
-        proxy?.$modal.msgError(res.message || '创建下载任务失败')
-        downloadingFile.value = false
-      }
-    } catch (error: any) {
-      proxy?.$log.error('创建下载任务异常:', error)
-      proxy?.$modal.msgError(error.message || '创建下载任务失败')
-      downloadingFile.value = false
-    }
-  }
-
-  const confirmDownloadPassword = async () => {
-    if (!downloadPasswordForm.file_password) {
-      proxy?.$modal.msgWarning('请输入文件密码')
-      return
-    }
-    await executeDownload(downloadPasswordForm.file_id, downloadPasswordForm.file_password)
+    await handleFileDownload(file)
   }
 
   const handleDeleteFile = async (file: FileItem) => {
@@ -304,6 +163,31 @@ export function useFileOperations(
     }
   }
 
+  const handleSetFilePublic = async (file: FileItem, isPublic: boolean) => {
+    try {
+      // 如果要设置为公开，检查文件是否加密
+      if (isPublic && file.is_enc) {
+        proxy?.$modal.msgError('加密文件不能设置为公开')
+        return
+      }
+
+      const result = await setFilePublic({
+        file_id: file.file_id,
+        public: isPublic
+      })
+
+      if (result.code === 200) {
+        proxy?.$modal.msgSuccess(isPublic ? '文件已公开' : '文件已取消公开')
+        await loadFileList()
+      } else {
+        proxy?.$modal.msgError(result.message || '操作失败')
+      }
+    } catch (error: any) {
+      proxy?.$log.error('设置文件公开状态失败:', error)
+      proxy?.$modal.msgError(error.message || '操作失败')
+    }
+  }
+
   const handleFileAction = (command: string, file: FileItem): void => {
     switch (command) {
       case 'download':
@@ -314,6 +198,12 @@ export function useFileOperations(
         break
       case 'delete':
         handleDeleteFile(file)
+        break
+      case 'setPublic':
+        handleSetFilePublic(file, true)
+        break
+      case 'setPrivate':
+        handleSetFilePublic(file, false)
         break
     }
   }
@@ -333,6 +223,7 @@ export function useFileOperations(
     handleDownloadFile,
     confirmDownloadPassword,
     handleDeleteFile,
+    handleSetFilePublic,
     handleToolbarDownload,
     handleToolbarShare,
     handleToolbarDelete,
