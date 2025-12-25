@@ -8,6 +8,8 @@ type CreateOfflineDownloadRequest struct {
 	VirtualPath string `json:"virtual_path"`
 	// 是否加密存储
 	EnableEncryption bool `json:"enable_encryption"`
+	// 文件密码（加密文件必需）
+	FilePassword string `json:"file_password"`
 }
 
 // DownloadTaskListRequest 下载任务列表请求

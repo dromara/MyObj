@@ -51,6 +51,12 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 		virtualPath = "/离线下载/"
 	}
 
+	if req.EnableEncryption {
+		if req.FilePassword == "" {
+			return nil, fmt.Errorf("加密存储密码不能为空")
+		}
+	}
+
 	// 3. 创建下载任务记录
 	taskID := uuid.Must(uuid.NewV7()).String()
 	task := &models.DownloadTask{
@@ -80,6 +86,7 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 			ChunkSize:        10 * 1024 * 1024, // 10MB
 			MaxConcurrent:    4,
 			Timeout:          300,
+			FilePassword:     req.FilePassword,
 		}
 
 		_, err := download.DownloadHTTP(taskID, req.URL, userID, d.tempDir, d.factory, opts)

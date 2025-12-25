@@ -33,6 +33,7 @@ type HTTPDownloadOptions struct {
 	ChunkSize        int64  // 分片大小（字节），默认10MB
 	MaxConcurrent    int    // 最大并发数，默认4
 	Timeout          int    // 超时时间（秒），默认300
+	FilePassword     string //加密文件密码（加密存储必备）
 }
 
 // HTTPDownloadResult HTTP下载结果
@@ -53,26 +54,26 @@ type chunkInfo struct {
 
 // downloadProgress 下载进度管理器
 type downloadProgress struct {
-	TaskID            string
-	TotalSize         int64
-	DownloadedSize    int64
+	TaskID             string
+	TotalSize          int64
+	DownloadedSize     int64
 	LastDownloadedSize int64 // 上次下载量，用于计算实时速度
-	Speed             int64
-	LastUpdate        time.Time
-	SpeedHistory      []int64 // 速度历史记录（最多10条），用于平滑显示
-	RepoFactory       *impl.RepositoryFactory
-	mu                sync.RWMutex
+	Speed              int64
+	LastUpdate         time.Time
+	SpeedHistory       []int64 // 速度历史记录（最多10条），用于平滑显示
+	RepoFactory        *impl.RepositoryFactory
+	mu                 sync.RWMutex
 }
 
 // newDownloadProgress 创建进度管理器
 func newDownloadProgress(taskID string, totalSize int64, repoFactory *impl.RepositoryFactory) *downloadProgress {
 	return &downloadProgress{
-		TaskID:            taskID,
-		TotalSize:         totalSize,
+		TaskID:             taskID,
+		TotalSize:          totalSize,
 		LastDownloadedSize: 0,
-		LastUpdate:        time.Now(),
-		SpeedHistory:      make([]int64, 0, 10),
-		RepoFactory:       repoFactory,
+		LastUpdate:         time.Now(),
+		SpeedHistory:       make([]int64, 0, 10),
+		RepoFactory:        repoFactory,
 	}
 }
 
@@ -90,13 +91,13 @@ func (dp *downloadProgress) updateProgress(downloaded int64) {
 		sizeDiff := downloaded - dp.LastDownloadedSize
 		if sizeDiff > 0 && elapsed > 0 {
 			currentSpeed := int64(float64(sizeDiff) / elapsed)
-			
+
 			// 添加到速度历史记录（最多保留10条）
 			dp.SpeedHistory = append(dp.SpeedHistory, currentSpeed)
 			if len(dp.SpeedHistory) > 10 {
 				dp.SpeedHistory = dp.SpeedHistory[1:]
 			}
-			
+
 			// 计算平均速度（平滑显示）
 			var totalSpeed int64 = 0
 			validCount := 0
@@ -115,7 +116,7 @@ func (dp *downloadProgress) updateProgress(downloaded int64) {
 			// 如果没有下载进度，速度设为0
 			dp.Speed = 0
 		}
-		
+
 		dp.LastUpdate = now
 		dp.LastDownloadedSize = downloaded
 		dp.DownloadedSize = downloaded
@@ -273,6 +274,7 @@ func DownloadHTTP(
 		UserID:       userID,
 		IsEnc:        opts.EnableEncryption,
 		IsChunk:      false,
+		FilePassword: opts.FilePassword,
 	}
 
 	fileID, err := upload.ProcessUploadedFile(uploadData, repoFactory)
