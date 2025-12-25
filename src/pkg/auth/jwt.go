@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"myobj/src/config"
 	"myobj/src/core/domain/response"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -49,4 +50,21 @@ func ParseToken(tokenString string) (*CustomClaims, error) {
 
 func transition(token *jwt.Token) *CustomClaims {
 	return token.Claims.(*CustomClaims)
+}
+
+// GetCookieDomain 获取 Cookie 的 domain
+func GetCookieDomain(host string) string {
+	// 如果是本地开发环境
+	if strings.Contains(host, "localhost") || strings.Contains(host, "127.0.0.1") {
+		return "" // 不设置 domain
+	}
+
+	// 解析域名，设置顶级域名
+	// 例如：api.example.com → .example.com
+	parts := strings.Split(host, ".")
+	if len(parts) >= 2 {
+		return "." + parts[len(parts)-2] + "." + parts[len(parts)-1]
+	}
+
+	return ""
 }

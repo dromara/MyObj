@@ -3,8 +3,10 @@ package handlers
 import (
 	"errors"
 	"myobj/src/core/domain/request"
+	"myobj/src/core/domain/response"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
+	"myobj/src/pkg/auth"
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
@@ -78,6 +80,8 @@ func (u *UserHandler) Login(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
+	data := login.Data.(response.UserLoginResponse)
+	c.SetCookie("Authorization", data.Token, 7*24*3600, "/", auth.GetCookieDomain(c.Request.Host), false, true)
 	c.JSON(200, login)
 }
 

@@ -51,7 +51,6 @@ func (m *AuthMiddleware) Verify() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 尝试从Authorization头获取JWT Token
 		authorization := c.Request.Header.Get("Authorization")
-
 		if authorization != "" {
 			// JWT认证流程
 			if err := m.handleJWTAuth(c, authorization); err != nil {
@@ -62,8 +61,20 @@ func (m *AuthMiddleware) Verify() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		// 2. 尝试从Cookie中获取JWT
+		cookie, err := c.Request.Cookie("Authorization")
+		if err == nil && cookie.Value != "" {
+			// JWT认证流程
+			if err := m.handleJWTAuth(c, "Bearer "+cookie.Value); err != nil {
+				c.JSON(200, models.NewJsonResponse(401, err.Error(), nil))
+				c.Abort()
+				return
+			}
+			c.Next()
+			return
+		}
 
-		// 2. 如果没有JWT,检查是否启用了API Key
+		// 3. 如果没有JWT,检查是否启用了API Key
 		if config.CONFIG.Auth.ApiKey {
 			// API Key认证流程
 			if err := m.handleAPIKeyAuth(c); err != nil {
@@ -75,7 +86,7 @@ func (m *AuthMiddleware) Verify() gin.HandlerFunc {
 			return
 		}
 
-		// 3. 没有任何认证信息
+		// 4. 没有任何认证信息
 		c.JSON(200, models.NewJsonResponse(401, "未授权:缺少认证信息", nil))
 		c.Abort()
 	}
@@ -94,8 +105,20 @@ func (m *AuthMiddleware) VerifyOptional() gin.HandlerFunc {
 				return
 			}
 		}
+		// 2. 尝试从Cookie中获取JWT
+		cookie, err := c.Request.Cookie("Authorization")
+		if err == nil && cookie.Value != "" {
+			// JWT认证流程
+			if err := m.handleJWTAuth(c, "Bearer "+cookie.Value); err != nil {
+				c.JSON(200, models.NewJsonResponse(401, err.Error(), nil))
+				c.Abort()
+				return
+			}
+			c.Next()
+			return
+		}
 
-		// 2. 如果没有JWT,检查是否启用了API Key
+		// 3. 如果没有JWT,检查是否启用了API Key
 		if config.CONFIG.Auth.ApiKey {
 			// API Key认证流程（如果失败，不阻止请求，只是不设置用户信息）
 			if err := m.handleAPIKeyAuth(c); err == nil {
@@ -104,7 +127,7 @@ func (m *AuthMiddleware) VerifyOptional() gin.HandlerFunc {
 			}
 		}
 
-		// 3. 没有任何认证信息，继续执行（允许未登录访问）
+		// 4. 没有任何认证信息，继续执行（允许未登录访问）
 		c.Next()
 	}
 }
@@ -145,7 +168,8 @@ func (m *AuthMiddleware) handleJWTAuth(c *gin.Context, authorization string) err
 			newToken, err := auth.GenerateJWT(claims.UserID, claims.SessionID, claims.UserLogin)
 			if err == nil {
 				// 更新缓存中的token
-				_ = m.cache.Set(token, newToken, 5*60)
+				_ = m.cache.Set(token, newToken, 2*60*60)
+				c.SetCookie("Authorization", newToken, 2*60*60, "/", auth.GetCookieDomain(c.Request.Host), false, true)
 			}
 		}
 	}
