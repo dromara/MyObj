@@ -95,7 +95,7 @@ func (r *userFilesRepository) SearchUserFiles(ctx context.Context, userID, keywo
 	var userFiles []*models.UserFiles
 	err := r.db.WithContext(ctx).
 		Joins("JOIN file_info ON user_files.file_id = file_info.id").
-		Where("user_files.user_id = ? AND file_info.name LIKE ?", userID, "%"+keyword+"%").
+		Where("user_files.user_id = ? AND user_files.name LIKE ?", userID, "%"+keyword+"%").
 		Offset(offset).Limit(limit).
 		Find(&userFiles).Error
 	return userFiles, err

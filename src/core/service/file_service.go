@@ -65,7 +65,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		return nil, err
 	}
 	if len(req.FilesMd5) >= 3 {
-		if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] {
+		if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] && signature.IsEnc == false {
 			userFile := &models.UserFiles{
 				UserID:      user.ID,
 				FileID:      signature.ID,
@@ -83,7 +83,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 			return models.NewJsonResponse(200, "秒传成功", nil), nil
 		}
 	} else {
-		if signature.FileHash == req.FilesMd5[0] {
+		if signature.FileHash == req.FilesMd5[0] && signature.IsEnc == false {
 			userFile := &models.UserFiles{
 				UserID:      user.ID,
 				FileID:      signature.ID,
