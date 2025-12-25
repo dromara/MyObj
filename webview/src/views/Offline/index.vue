@@ -224,6 +224,22 @@
         <el-form-item label="加密存储">
           <el-switch v-model="urlForm.enable_encryption" />
         </el-form-item>
+        <el-form-item 
+          v-if="urlForm.enable_encryption" 
+          label="加密密码" 
+          prop="file_password"
+        >
+          <el-input 
+            v-model="urlForm.file_password" 
+            type="password"
+            placeholder="请输入加密密码"
+            show-password
+            maxlength="32"
+          />
+          <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
+            下载文件时需要使用此密码解密
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showUrlDialog = false">取消</el-button>
@@ -265,13 +281,28 @@ const urlFormRef = ref<FormInstance>()
 const urlForm = reactive({
   url: '',
   virtual_path: '',
-  enable_encryption: false
+  enable_encryption: false,
+  file_password: ''
 })
 
 const urlRules: FormRules = {
   url: [
     { required: true, message: '请输入下载链接', trigger: 'blur' },
     { pattern: /^https?:\/\//, message: '请输入正确的 HTTP/HTTPS 链接', trigger: 'blur' }
+  ],
+  file_password: [
+    { 
+      validator: (rule: any, value: any, callback: any) => {
+        if (urlForm.enable_encryption && !value) {
+          callback(new Error('加密存储时必须设置密码'))
+        } else if (value && value.length < 6) {
+          callback(new Error('密码长度至少为6位'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -411,7 +442,8 @@ const handleCreateUrlDownload = async () => {
         const res = await createOfflineDownload({
           url: urlForm.url,
           virtual_path: urlForm.virtual_path || undefined,
-          enable_encryption: urlForm.enable_encryption
+          enable_encryption: urlForm.enable_encryption,
+          file_password: urlForm.enable_encryption ? urlForm.file_password : undefined
         })
         
         if (res.code === 200) {
@@ -420,6 +452,7 @@ const handleCreateUrlDownload = async () => {
           urlForm.url = ''
           urlForm.virtual_path = ''
           urlForm.enable_encryption = false
+          urlForm.file_password = ''
           loadTaskList()
         }
       } catch (error: any) {

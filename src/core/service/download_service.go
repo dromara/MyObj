@@ -571,6 +571,13 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 		virtualPath = "/离线下载/"
 	}
 
+	// 验证加密存储密码
+	if req.EnableEncryption {
+		if req.FilePassword == "" {
+			return nil, fmt.Errorf("加密存储密码不能为空")
+		}
+	}
+
 	// 5. 为每个文件创建下载任务
 	taskIDs := make([]string, 0, len(req.FileIndexes))
 	for _, fileIndex := range req.FileIndexes {
@@ -616,6 +623,7 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 				VirtualPath:        virtualPath,
 				TorrentName:        parseResult.Name,
 				InfoHash:           parseResult.InfoHash,
+				FilePassword:       req.FilePassword,
 			}
 
 			fileID, err := download.DownloadTorrentSingleFile(

@@ -30,6 +30,7 @@ export interface CreateOfflineDownloadRequest {
   url: string
   virtual_path?: string
   enable_encryption?: boolean
+  file_password?: string
 }
 
 // 下载任务列表响应

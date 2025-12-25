@@ -555,6 +555,7 @@ type TorrentSingleFileDownloadOptions struct {
 	VirtualPath        string // 虚拟路径
 	TorrentName        string // 种子名称
 	InfoHash           string // InfoHash
+	FilePassword       string // 文件密码（加密存储时必需）
 }
 
 // DownloadTorrentSingleFile 下载种子中的单个文件
@@ -820,6 +821,7 @@ DownloadComplete:
 		UserID:       userID,
 		IsEnc:        opts.EnableEncryption,
 		IsChunk:      false,
+		FilePassword: opts.FilePassword,
 	}
 
 	// 调用上传处理
