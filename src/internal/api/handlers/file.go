@@ -386,11 +386,13 @@ func (f *FileHandler) DeleteDir(c *gin.Context) {
 func (f *FileHandler) SetFilePublic(c *gin.Context) {
 	req := new(request.SetFilePublicRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
+		logger.LOG.Error("参数错误", "err", err)
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
 	result, err := f.service.SetFilePublic(req, c.GetString("userID"))
 	if err != nil {
+		logger.LOG.Error("设置文件公开状态失败", "err", err)
 		c.JSON(200, models.NewJsonResponse(500, "设置文件公开状态失败", err.Error()))
 		return
 	}

@@ -139,7 +139,7 @@ type SetFilePublicRequest struct {
 	// 文件ID（uf_id）
 	FileID string `json:"file_id" binding:"required"`
 	// 是否公开
-	Public bool `json:"public" binding:"required"`
+	Public bool `json:"public"`
 }
 
 // DeleteDirRequest 删除目录请求
