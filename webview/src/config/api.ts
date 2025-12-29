@@ -79,7 +79,8 @@ export const API_ENDPOINTS = {
   // 离线下载
   DOWNLOAD: {
     CREATE_OFFLINE: '/download/offline/create',
-    CREATE_TORRENT: '/download/torrent/create',
+    TORRENT_PARSE: '/download/torrent/parse',
+    TORRENT_START: '/download/torrent/start',
     LIST: '/download/list',
     CANCEL: '/download/cancel',
     DELETE: '/download/delete',
