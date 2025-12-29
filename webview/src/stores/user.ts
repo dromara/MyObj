@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import type { UserInfo } from '@/types'
 import { getUserInfo } from '@/api/user'
 import cache from '@/plugins/cache'
+import logger from '@/plugins/logger'
 
 interface StorageInfo {
   used: number
@@ -41,7 +42,7 @@ export const useUserStore = defineStore('user', () => {
         updateStorageInfo(userInfo.value)
       }
     } catch (error) {
-      console.error('加载用户信息失败:', error)
+      logger.error('加载用户信息失败:', error)
     }
   }
 
@@ -114,7 +115,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       cache.local.setJSON('userInfo', info)
     } catch (error) {
-      console.error('保存用户信息到缓存失败:', error)
+      logger.error('保存用户信息到缓存失败:', error)
     }
   }
 
@@ -129,7 +130,7 @@ export const useUserStore = defineStore('user', () => {
       try {
         cache.local.setJSON('userInfo', userInfo.value)
       } catch (error) {
-        console.error('更新用户信息到缓存失败:', error)
+        logger.error('更新用户信息到缓存失败:', error)
       }
     }
   }
@@ -146,7 +147,7 @@ export const useUserStore = defineStore('user', () => {
       }
       return null
     } catch (error) {
-      console.error('获取用户信息失败:', error)
+      logger.error('获取用户信息失败:', error)
       return null
     }
   }

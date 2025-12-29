@@ -2,6 +2,7 @@ import { get, post } from '@/utils/request'
 import { filterParams } from '@/utils/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { ApiResponse } from '@/types'
+import cache from '@/plugins/cache'
 
 // 离线下载任务类型
 export interface OfflineDownloadTask {
@@ -120,6 +121,6 @@ export const createLocalFileDownload = (data: CreateLocalFileDownloadRequest) =>
  * 获取网盘文件下载链接
  */
 export const getLocalFileDownloadUrl = (taskId: string) => {
-  const token = localStorage.getItem('token')
+  const token = cache.local.get('token')
   return `${API_BASE_URL}/download/local/file/${taskId}?token=${token}`
 }

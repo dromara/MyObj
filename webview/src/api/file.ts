@@ -3,6 +3,7 @@ import { filterParams } from '@/utils/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { FileListRequest, FileListResponse, ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
+import cache from '@/plugins/cache'
 
 // 文件搜索请求参数
 export interface FileSearchParams {
@@ -55,7 +56,7 @@ export const getThumbnail = async (fileId: string): Promise<string> => {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}` || ''
+        'Authorization': `Bearer ${cache.local.get('token') || ''}`
       }
     })
 

@@ -122,6 +122,7 @@
 <script setup lang="ts">
 import { login, register, getChallenge, getSysInfo } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
+import { useAuthStore } from '@/stores'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const activeTab = ref('login')
@@ -170,7 +171,6 @@ const handleLogin = async () => {
         })
         if (res.data?.token) {
           // 使用 store 管理登录状态
-          const { useAuthStore } = await import('@/stores')
           const authStore = useAuthStore()
           authStore.login(res.data.token, res.data.user_info)
           proxy?.$modal.msgSuccess('登录成功')

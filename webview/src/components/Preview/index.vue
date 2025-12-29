@@ -47,17 +47,15 @@
 
     <!-- 视频预览 -->
     <div v-else-if="previewType === 'video'" class="preview-video-container">
-      <video
+      <plyr-player
+        v-if="videoUrl"
         :src="videoUrl"
         :autoplay="options.autoplay"
         :loop="options.loop"
-        :controls="options.controls"
-        class="preview-video"
-        @loadstart="handleVideoLoad"
+        class="preview-video-plyr"
+        @ready="handleVideoReady"
         @error="handleVideoError"
-      >
-        您的浏览器不支持视频播放
-      </video>
+      />
       <div class="preview-toolbar">
         <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
@@ -161,6 +159,7 @@ import type { PreviewType, PreviewOptions } from '@/types/preview'
 import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage } from '@/utils/preview'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
+import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
 
 interface Props {
   modelValue: boolean
@@ -243,7 +242,7 @@ const loadFileContent = async () => {
         if (file.has_thumbnail) {
           // 缩略图也需要通过fetch获取（带认证），然后创建blob URL
           try {
-            const token = localStorage.getItem('token')
+            const token = proxy?.$cache.local.get('token')
             const thumbnailUrl = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
             const response = await fetch(thumbnailUrl, {
               headers: {
@@ -266,8 +265,20 @@ const loadFileContent = async () => {
         }
         break
       case 'video':
-        // 视频使用 /video/stream 接口（支持 Range 请求，每次最大 2MB）
-        videoUrl.value = await getFilePreviewUrl(fileId, 'video')
+        // 视频使用 Plyr 播放器（支持 Range 请求）
+        try {
+          const res = await createVideoPlayPrecheck(fileId)
+          if (res.code === 200 && res.data) {
+            // 获取 JWT token 并添加到 URL 参数中
+            const jwtToken = proxy?.$cache.local.get('token')
+            // 构建视频流 URL（包含 playToken 和 JWT token）
+            videoUrl.value = getVideoStreamUrl(res.data.play_token, jwtToken || undefined)
+          } else {
+            throw new Error(res.message || '获取视频播放 Token 失败')
+          }
+        } catch (err) {
+          error.value = err instanceof Error ? err.message : '加载视频失败'
+        }
         break
       case 'audio':
         audioUrl.value = await getFilePreviewUrl(fileId)
@@ -373,16 +384,7 @@ const handleImageError = () => {
   error.value = '图片加载失败'
 }
 
-// 视频加载
-const handleVideoLoad = () => {
-  loading.value = false
-}
-
-// 视频加载错误
-const handleVideoError = () => {
-  loading.value = false
-  error.value = '视频加载失败'
-}
+// 视频加载错误（已由 Plyr 内部处理，不需要单独处理）
 
 // 音频加载
 const handleAudioLoad = () => {
@@ -406,6 +408,18 @@ const handlePdfError = () => {
   error.value = 'PDF 加载失败'
 }
 
+// 视频播放器就绪
+const handleVideoReady = () => {
+  loading.value = false
+}
+
+// 视频播放错误
+const handleVideoError = (errorMessage: string) => {
+  loading.value = false
+  error.value = errorMessage
+  proxy?.$log.error('视频播放错误', errorMessage)
+}
+
 // 监听文件变化
 watch(() => currentFile.value, async (newFile) => {
   if (newFile && visible.value) {
@@ -420,6 +434,11 @@ watch(visible, async (newVisible) => {
   } else {
     handleClose()
   }
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  cleanupBlobUrls()
 })
 </script>
 
@@ -483,6 +502,43 @@ watch(visible, async (newVisible) => {
   max-height: 70vh;
   background: #000;
   border-radius: 8px;
+}
+
+.preview-video-plyr {
+  width: 100%;
+  height: 70vh;
+  max-height: 70vh;
+  min-height: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+
+.preview-video-plyr :deep(.plyr) {
+  height: 100%;
+}
+
+.preview-video-plyr :deep(.plyr__video-wrapper) {
+  height: 100%;
+}
+
+.preview-video-plyr :deep(video) {
+  width: 100%;
+  height: 100%;
+}
+
+/* 确保预览窗口内容可见 */
+.file-preview-dialog :deep(.el-dialog__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.preview-video-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .audio-wrapper {

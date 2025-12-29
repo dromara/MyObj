@@ -1,6 +1,6 @@
 import { uploadTaskManager } from '@/utils/uploadTaskManager'
 import { loadAndSyncBackendTasks, findBackendTask } from '@/utils/uploadTaskSync'
-import { deleteUploadTask, getUploadProgress } from '@/api/file'
+import { deleteUploadTask, getUploadProgress, listExpiredUploads } from '@/api/file'
 import { formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/upload'
 
@@ -223,7 +223,6 @@ export function useUploadTasks() {
   const expiredTaskCount = ref(0)
   const getExpiredTaskCount = async () => {
     try {
-      const { listExpiredUploads } = await import('@/api/file')
       const res = await listExpiredUploads()
       if (res.code === 200 && res.data) {
         expiredTaskCount.value = res.data.length

@@ -6,6 +6,8 @@ import type { FileItem } from '@/types'
 import type { PreviewType } from '@/types/preview'
 import { API_BASE_URL } from '@/config/api'
 import { API_ENDPOINTS } from '@/config/api'
+import cache from '@/plugins/cache'
+import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
 
 /**
  * 检测文件类型
@@ -76,7 +78,6 @@ export const getFilePreviewUrl = async (fileId: string, fileType?: string): Prom
   try {
     // 如果是视频类型，使用视频流接口（支持 Range 请求）
     if (fileType === 'video') {
-      const { createVideoPlayPrecheck, getVideoStreamUrl } = await import('@/api/video')
       const res = await createVideoPlayPrecheck(fileId)
       if (res.code === 200 && res.data) {
         // 直接返回视频流 URL，浏览器会自动处理 Range 请求
@@ -87,7 +88,7 @@ export const getFilePreviewUrl = async (fileId: string, fileType?: string): Prom
     }
     
     // 其他类型文件使用预览接口
-    const token = localStorage.getItem('token')
+    const token = cache.local.get('token')
     const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
     
     const response = await fetch(url, {
@@ -135,7 +136,7 @@ export const getThumbnailUrl = (fileId: string): string => {
 export const getFileTextContent = async (fileId: string): Promise<string> => {
   try {
     const url = getFileDownloadUrl(fileId)
-    const token = localStorage.getItem('token')
+    const token = cache.local.get('token')
     
     const response = await fetch(url, {
       method: 'GET',

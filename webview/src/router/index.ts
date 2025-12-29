@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -71,8 +72,6 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach(async (to, _from, next) => {
-  // 动态导入 store 避免循环依赖
-  const { useAuthStore } = await import('@/stores/auth')
   const authStore = useAuthStore()
   
   if (to.meta.requiresAuth && !authStore.token) {

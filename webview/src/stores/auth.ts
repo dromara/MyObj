@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import cache from '@/plugins/cache'
+import logger from '@/plugins/logger'
 
 /**
  * 认证 Store
@@ -26,7 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
         token.value = cached
       }
     } catch (error) {
-      console.error('加载 token 失败:', error)
+      logger.error('加载 token 失败:', error)
     }
   }
 
@@ -38,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       cache.local.set('token', newToken)
     } catch (error) {
-      console.error('保存 token 到缓存失败:', error)
+      logger.error('保存 token 到缓存失败:', error)
     }
   }
 
@@ -50,7 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       cache.local.remove('token')
     } catch (error) {
-      console.error('清除 token 失败:', error)
+      logger.error('清除 token 失败:', error)
     }
   }
 

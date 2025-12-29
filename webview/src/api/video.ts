@@ -31,9 +31,14 @@ export const createVideoPlayPrecheck = (fileId: string, sharePassword?: string) 
 /**
  * 获取视频流 URL（支持 Range 请求，每次最大 2MB）
  * @param token 播放 Token
+ * @param jwtToken JWT Token（可选，如果提供会添加到 URL 参数中）
  * @returns 视频流 URL
  */
-export const getVideoStreamUrl = (token: string): string => {
-  return `${API_BASE_URL}/video/stream?token=${token}`
+export const getVideoStreamUrl = (token: string, jwtToken?: string): string => {
+  let url = `${API_BASE_URL}/video/stream?token=${token}`
+  if (jwtToken) {
+    url += `&jwt=${encodeURIComponent(jwtToken)}`
+  }
+  return url
 }
 
