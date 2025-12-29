@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/custom_type"
+	"myobj/src/pkg/enum"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/upload"
@@ -98,6 +99,7 @@ func DownloadTorrent(
 	cfg.DataDir = sessionTempDir
 	cfg.NoUpload = false // 允许上传以提高下载速度
 	cfg.Seed = false     // 下载完成后不做种
+	cfg.Debug = false    // 禁用调试日志
 
 	// 配置并发连接数
 	if opts.MaxConcurrentPeers > 0 {
@@ -449,11 +451,17 @@ func ParseTorrent(content string, timeout int) (*ParseTorrentResult, error) {
 	}
 	defer os.RemoveAll(sessionTempDir)
 
-	// 配置torrent客户端
+	// 配置torrent客户端(优化DHT和Tracker配置)
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = sessionTempDir
-	cfg.NoUpload = true // 解析时不上传
-	cfg.Seed = false
+	cfg.NoUpload = true    // 仅解析,不上传
+	cfg.Seed = true        // 不做种
+	cfg.NoDHT = false      // 启用DHT
+	cfg.DisableIPv6 = true // 禁用IPv6(国内网络环境优化)
+	cfg.DisableTCP = false
+	cfg.DisableUTP = false
+	cfg.ListenPort = 0 // 系统自动分配端口,避免多用户冲突
+	cfg.Debug = false  // 禁用调试日志
 
 	// 创建torrent客户端
 	client, err := torrent.NewClient(cfg)
@@ -461,6 +469,18 @@ func ParseTorrent(content string, timeout int) (*ParseTorrentResult, error) {
 		return nil, fmt.Errorf("创建torrent客户端失败: %w", err)
 	}
 	defer client.Close()
+
+	// 添加公共DHT节点
+	// BitTorrent官方DHT节点
+	client.AddDhtNodes([]string{
+		"87.98.162.88:6881",   // router.bittorrent.com
+		"82.221.103.244:6881", // router.utorrent.com
+		"87.98.162.88:6969",   // 备用节点
+		"91.121.145.85:6881",  // dht.transmissionbt.com
+		"67.215.246.10:6881",  // dht.libtorrent.org
+		"176.9.47.217:6881",   // 欧洲节点
+		"176.9.47.217:6969",   // 欧洲节点备用
+	})
 
 	// 判断是磁力链还是种子文件
 	var t *torrent.Torrent
@@ -471,6 +491,21 @@ func ParseTorrent(content string, timeout int) (*ParseTorrentResult, error) {
 			return nil, fmt.Errorf("添加磁力链接失败: %w", err)
 		}
 		logger.LOG.Info("添加磁力链接成功", "magnet", content)
+
+		// 添加公共Tracker服务器(加速解析)
+		t.AddTrackers([][]string{
+			{
+				"udp://tracker.opentrackr.org:1337/announce",
+				"udp://9.rarbg.com:2810/announce",
+				"udp://opentracker.i2p.rocks:6969/announce",
+				"https://opentracker.i2p.rocks:443/announce",
+				"udp://tracker.openbittorrent.com:6969/announce",
+				"udp://tracker.torrent.eu.org:451/announce",
+				"udp://open.stealth.si:80/announce",
+				"udp://exodus.desync.com:6969/announce",
+				"http://tracker.opentrackr.org:1337/announce",
+			},
+		})
 	} else {
 		// Base64编码的种子文件
 		torrentData, err := base64.StdEncoding.DecodeString(content)
@@ -511,19 +546,38 @@ func ParseTorrent(content string, timeout int) (*ParseTorrentResult, error) {
 	}
 
 	// 构建文件列表
-	files := make([]TorrentFileInfo, 0, len(info.Files))
+	var files []TorrentFileInfo
 	var totalSize int64
-	for i, file := range info.Files {
-		fileName := filepath.Base(file.Path[len(file.Path)-1])
-		filePath := filepath.Join(file.Path...)
 
-		files = append(files, TorrentFileInfo{
-			Index: i,
-			Name:  fileName,
-			Size:  file.Length,
-			Path:  filePath,
-		})
-		totalSize += file.Length
+	// 检查是单文件种子还是多文件种子
+	if len(info.Files) == 0 {
+		// 单文件种子(info.Files为空,使用info.Length)
+		logger.LOG.Info("检测到单文件种子", "name", info.Name, "size", info.Length)
+		files = []TorrentFileInfo{
+			{
+				Index: 0,
+				Name:  info.Name,
+				Size:  info.Length,
+				Path:  info.Name,
+			},
+		}
+		totalSize = info.Length
+	} else {
+		// 多文件种子
+		logger.LOG.Info("检测到多文件种子", "fileCount", len(info.Files))
+		files = make([]TorrentFileInfo, 0, len(info.Files))
+		for i, file := range info.Files {
+			fileName := filepath.Base(file.Path[len(file.Path)-1])
+			filePath := filepath.Join(file.Path...)
+
+			files = append(files, TorrentFileInfo{
+				Index: i,
+				Name:  fileName,
+				Size:  file.Length,
+				Path:  filePath,
+			})
+			totalSize += file.Length
+		}
 	}
 
 	// 获取InfoHash
@@ -607,27 +661,33 @@ func DownloadTorrentSingleFile(
 		}
 	}
 
-	// 创建唯一的临时子目录
-	sessionID := uuid.New().String()[:8]
-	sessionTempDir := filepath.Join(tempDir, fmt.Sprintf("torrent_%s", sessionID))
+	// 使用taskID作为临时目录名，支持断点续传
+	sessionTempDir := filepath.Join(tempDir, fmt.Sprintf("torrent_%s", taskID))
 	if err := os.MkdirAll(sessionTempDir, 0755); err != nil {
 		return "", fmt.Errorf("创建临时目录失败: %w", err)
 	}
 
-	// 确保临时目录在结束时清理
-	defer func() {
-		if err := os.RemoveAll(sessionTempDir); err != nil {
-			logger.LOG.Warn("清理临时目录失败", "path", sessionTempDir, "error", err)
-		}
-	}()
+	// 注意：不在这里使用defer清理，由删除任务时手动清理
 
-	// 配置torrent客户端
+	// 配置torrent客户端（优化DHT和Tracker配置）
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = sessionTempDir
 	cfg.NoUpload = false
 	cfg.Seed = false
+	cfg.NoDHT = false      // 启用DHT
+	cfg.DisableIPv6 = true // 禁用IPv6（国内网络环境优化）
+	cfg.DisableTCP = false
+	cfg.DisableUTP = false
+	cfg.ListenPort = 0 // 系统自动分配端口,避免多用户冲突
+	cfg.Debug = false  // 禁用调试日志
 
-	// 配置并发连接数
+	// 优化并发下载性能
+	cfg.EstablishedConnsPerTorrent = 200 // 增加并发连接数
+	cfg.HalfOpenConnsPerTorrent = 50     // 半开连接数
+	cfg.TorrentPeersHighWater = 200      // peer池上限
+	cfg.TorrentPeersLowWater = 50        // peer池下限
+
+	// 配置并发连接数（如果用户指定）
 	if opts.MaxConcurrentPeers > 0 {
 		cfg.EstablishedConnsPerTorrent = opts.MaxConcurrentPeers
 	}
@@ -649,6 +709,17 @@ func DownloadTorrentSingleFile(
 	}
 	defer client.Close()
 
+	// 添加公共DHT节点(使用IP地址,国内可用)
+	client.AddDhtNodes([]string{
+		"87.98.162.88:6881",   // router.bittorrent.com
+		"82.221.103.244:6881", // router.utorrent.com
+		"87.98.162.88:6969",   // 备用节点
+		"91.121.145.85:6881",  // dht.transmissionbt.com
+		"67.215.246.10:6881",  // dht.libtorrent.org
+		"176.9.47.217:6881",   // 欧洲节点
+		"176.9.47.217:6969",   // 欧洲节点备用
+	})
+
 	// 判断是磁力链还是种子文件
 	var t *torrent.Torrent
 	if strings.HasPrefix(content, "magnet:") {
@@ -658,6 +729,21 @@ func DownloadTorrentSingleFile(
 			return "", fmt.Errorf("添加磁力链接失败: %w", err)
 		}
 		logger.LOG.Info("添加磁力链接成功", "taskID", taskID)
+
+		// 添加公共Tracker服务器(加速解析)
+		t.AddTrackers([][]string{
+			{
+				"udp://tracker.opentrackr.org:1337/announce",
+				"udp://9.rarbg.com:2810/announce",
+				"udp://opentracker.i2p.rocks:6969/announce",
+				"https://opentracker.i2p.rocks:443/announce",
+				"udp://tracker.openbittorrent.com:6969/announce",
+				"udp://tracker.torrent.eu.org:451/announce",
+				"udp://open.stealth.si:80/announce",
+				"udp://exodus.desync.com:6969/announce",
+				"http://tracker.opentrackr.org:1337/announce",
+			},
+		})
 	} else {
 		// Base64编码的种子文件
 		torrentData, err := base64.StdEncoding.DecodeString(content)
@@ -683,28 +769,49 @@ func DownloadTorrentSingleFile(
 	case <-t.GotInfo():
 		logger.LOG.Info("种子元数据获取成功", "taskID", taskID)
 	case <-ctx.Done():
-		return "", fmt.Errorf("任务已取消")
+		// 暂停时不返回错误，直接退出
+		logger.LOG.Info("任务已暂停，等待恢复", "taskID", taskID)
+		return "", nil
 	case <-time.After(2 * time.Minute):
 		return "", fmt.Errorf("获取种子元数据超时")
 	}
 
 	info := t.Info()
 
-	// 验证文件索引
-	if fileIndex < 0 || fileIndex >= len(info.Files) {
-		return "", fmt.Errorf("文件索引无效: %d, 总文件数: %d", fileIndex, len(info.Files))
-	}
+	// 判断是单文件还是多文件种子
+	var fileName string
+	var fileSize int64
 
-	fileInfo := info.Files[fileIndex]
-	fileName := filepath.Base(fileInfo.Path[len(fileInfo.Path)-1])
-
-	// 只下载指定的文件
-	for i := range info.Files {
-		if i == fileIndex {
-			t.Files()[i].Download()
-		} else {
-			t.Files()[i].SetPriority(torrent.PiecePriorityNone)
+	if len(info.Files) == 0 {
+		// 单文件种子
+		if fileIndex != 0 {
+			return "", fmt.Errorf("单文件种子的文件索引必须为0, 当前: %d", fileIndex)
 		}
+		fileName = info.Name
+		fileSize = info.Length
+
+		// 下载全部内容
+		t.DownloadAll()
+		logger.LOG.Info("开始下载单文件种子", "taskID", taskID, "fileName", fileName, "size", fileSize)
+	} else {
+		// 多文件种子
+		if fileIndex < 0 || fileIndex >= len(info.Files) {
+			return "", fmt.Errorf("文件索引无效: %d, 总文件数: %d", fileIndex, len(info.Files))
+		}
+
+		fileInfo := info.Files[fileIndex]
+		fileName = filepath.Base(fileInfo.Path[len(fileInfo.Path)-1])
+		fileSize = fileInfo.Length
+
+		// 只下载指定的文件
+		for i := range info.Files {
+			if i == fileIndex {
+				t.Files()[i].Download()
+			} else {
+				t.Files()[i].SetPriority(torrent.PiecePriorityNone)
+			}
+		}
+		logger.LOG.Info("开始下载多文件种子中的指定文件", "taskID", taskID, "fileName", fileName, "fileIndex", fileIndex)
 	}
 
 	// 获取下载任务
@@ -713,9 +820,10 @@ func DownloadTorrentSingleFile(
 		return "", fmt.Errorf("获取下载任务失败: %w", err)
 	}
 
-	// 更新任务信息
+	// 更新任务信息和状态为"下载中"
 	task.FileName = fileName
-	task.FileSize = fileInfo.Length
+	task.FileSize = fileSize
+	task.State = enum.DownloadTaskStateDownloading.Value() // 设置为下载中
 	task.UpdateTime = custom_type.Now()
 	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
 		logger.LOG.Warn("更新任务信息失败", "taskID", taskID, "error", err)
@@ -726,18 +834,31 @@ func DownloadTorrentSingleFile(
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	targetFile := t.Files()[fileIndex]
+	// 获取目标文件
+	var targetFile *torrent.File
+	var targetTotalSize int64
+	if len(info.Files) == 0 {
+		// 单文件种子
+		targetFile = t.Files()[0]
+		targetTotalSize = info.Length
+	} else {
+		// 多文件种子
+		targetFile = t.Files()[fileIndex]
+		targetTotalSize = info.Files[fileIndex].Length
+	}
 	var lastCompleted int64
 	lastUpdate := time.Now()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return "", fmt.Errorf("任务已取消")
+			// 暂停时不返回错误，直接退出
+			logger.LOG.Info("任务已暂停，等待恢复", "taskID", taskID)
+			return "", nil
 		case <-ticker.C:
 			// 获取当前文件的完成字节数
 			completed := targetFile.BytesCompleted()
-			totalSize := fileInfo.Length
+			totalSize := targetTotalSize
 
 			// 计算进度和速度
 			progress := int(float64(completed) / float64(totalSize) * 100)
@@ -790,13 +911,21 @@ DownloadComplete:
 	}
 
 	// 构建完整的虚拟路径（基础路径/种子名称/文件相对路径）
+	// 注意：虚拟路径始终使用 / 作为分隔符，不使用 filepath.Join（它会在Windows下转换为\）
 	var relativeDir string
-	if len(fileInfo.Path) > 1 {
-		relativeDir = filepath.Join(fileInfo.Path[:len(fileInfo.Path)-1]...)
+	if len(info.Files) > 0 && len(info.Files[fileIndex].Path) > 1 {
+		// 多文件种子,提取相对目录（使用/作为分隔符）
+		pathParts := info.Files[fileIndex].Path[:len(info.Files[fileIndex].Path)-1]
+		relativeDir = strings.Join(pathParts, "/")
 	}
+	// 单文件种子relativeDir保持为空
 
-	torrentVirtualPath := filepath.Join(opts.VirtualPath, torrentName)
-	fileVirtualPath := filepath.Join(torrentVirtualPath, relativeDir)
+	// 使用 / 拼接虚拟路径
+	torrentVirtualPath := strings.TrimSuffix(opts.VirtualPath, "/") + "/" + torrentName
+	fileVirtualPath := torrentVirtualPath
+	if relativeDir != "" {
+		fileVirtualPath = torrentVirtualPath + "/" + relativeDir
+	}
 
 	// 确保虚拟路径存在
 	if err := ensureVirtualPath(ctx, userID, fileVirtualPath, repoFactory); err != nil {
@@ -804,7 +933,27 @@ DownloadComplete:
 	}
 
 	// 下载后的文件实际路径
-	downloadedPath := filepath.Join(sessionTempDir, filepath.Join(fileInfo.Path...))
+	// 注意：t.Files()[index].Path() 返回的是相对于 DataDir 的路径
+	var downloadedPath string
+	if len(info.Files) == 0 {
+		// 单文件种子
+		// 构建绝对路径：DataDir + 相对路径
+		relativePath := t.Files()[0].Path()
+		downloadedPath = filepath.Join(sessionTempDir, relativePath)
+	} else {
+		// 多文件种子
+		// 构建绝对路径：DataDir + 相对路径
+		relativePath := t.Files()[fileIndex].Path()
+		downloadedPath = filepath.Join(sessionTempDir, relativePath)
+	}
+
+	// 转换为绝对路径（防止相对路径问题）
+	downloadedPath, err = filepath.Abs(downloadedPath)
+	if err != nil {
+		return "", fmt.Errorf("转换绝对路径失败: %w", err)
+	}
+
+	logger.LOG.Debug("文件下载路径", "taskID", taskID, "path", downloadedPath)
 
 	// 检查文件是否存在
 	fileStat, err := os.Stat(downloadedPath)
@@ -827,6 +976,7 @@ DownloadComplete:
 	// 调用上传处理
 	fileID, err := upload.ProcessUploadedFile(uploadData, repoFactory)
 	if err != nil {
+		os.Remove(downloadedPath)
 		return "", fmt.Errorf("上传文件失败: %w", err)
 	}
 
@@ -886,7 +1036,8 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 		return fmt.Errorf("任务状态不允许恢复")
 	}
 
-	task.State = 1 // 1=下载中
+	task.State = 1     // 1=下载中
+	task.ErrorMsg = "" // 清除错误信息
 	task.UpdateTime = custom_type.Now()
 
 	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
@@ -897,7 +1048,7 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 	// 重新启动下载（异步）
 	go func() {
 		opts := &TorrentSingleFileDownloadOptions{
-			MaxConcurrentPeers: 100,
+			MaxConcurrentPeers: 200, // 提高并发连接数以加速下载
 			EnableEncryption:   task.EnableEncryption,
 			VirtualPath:        task.VirtualPath,
 			TorrentName:        task.TorrentName,
@@ -915,11 +1066,23 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 		)
 		if err != nil {
 			logger.LOG.Error("恢复种子下载失败", "taskID", taskID, "error", err)
-			// 更新任务为失败状态
-			task.State = 4 // 4=失败
-			task.ErrorMsg = err.Error()
-			task.UpdateTime = custom_type.Now()
-			repoFactory.DownloadTask().Update(context.Background(), task)
+			// 获取最新任务状态，防止覆盖暂停状态
+			task, getErr := repoFactory.DownloadTask().GetByID(context.Background(), taskID)
+			if getErr == nil && task != nil && task.State != 2 {
+				// 只有当任务不是暂停状态时，才更新为失败
+				task.State = 4 // 4=失败
+				task.ErrorMsg = err.Error()
+				task.UpdateTime = custom_type.Now()
+				repoFactory.DownloadTask().Update(context.Background(), task)
+			}
+		} else if err == nil {
+			// 成功完成下载，但需要检查是否被暂停
+			task, getErr := repoFactory.DownloadTask().GetByID(context.Background(), taskID)
+			if getErr == nil && task != nil && task.State != 2 {
+				// 只有当任务不是暂停状态时，才更新为完成
+				// 注意：err==nil且fileID为空表示暂停，不应该更新为完成
+				logger.LOG.Debug("任务正常退出，不更新状态", "taskID", taskID)
+			}
 		}
 	}()
 

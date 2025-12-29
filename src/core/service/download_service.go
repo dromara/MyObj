@@ -12,6 +12,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -24,9 +25,29 @@ type DownloadService struct {
 }
 
 func NewDownloadService(factory *impl.RepositoryFactory) *DownloadService {
+	// 选择最大磁盘创建临时目录
+	tempDir := "./obj_temp/downloads" // 默认值
+
+	ctx := context.Background()
+	disk, err := factory.Disk().GetBigDisk(ctx)
+	if err == nil && disk != nil {
+		// 在最大磁盘的data_path下创建 temp 目录
+		tempDir = filepath.Join(disk.DataPath, "temp", "downloads")
+		logger.LOG.Info("使用最大磁盘创建临时目录", "disk", disk.DiskPath, "tempDir", tempDir)
+	} else {
+		logger.LOG.Warn("获取最大磁盘失败，使用默认临时目录", "error", err)
+	}
+
+	// 确保临时目录存在
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		logger.LOG.Error("创建临时目录失败", "tempDir", tempDir, "error", err)
+	} else {
+		logger.LOG.Info("临时目录初始化成功", "tempDir", tempDir)
+	}
+
 	return &DownloadService{
 		factory: factory,
-		tempDir: "./obj_temp/downloads", // 可以从配置文件读取
+		tempDir: tempDir,
 	}
 }
 
@@ -325,6 +346,17 @@ func (d *DownloadService) DeleteTask(req *request.DeleteTaskRequest, userID stri
 		}
 	}
 
+	// 如果是种子下载任务，清理对应的临时目录
+	if task.Type == enum.DownloadTaskTypeBtp.Value() || task.Type == enum.DownloadTaskTypeMagnet.Value() {
+		torrentTempDir := filepath.Join(d.tempDir, fmt.Sprintf("torrent_%s", req.TaskID))
+		if _, err := os.Stat(torrentTempDir); err == nil {
+			logger.LOG.Info("删除种子下载临时目录", "taskID", req.TaskID, "path", torrentTempDir)
+			if err := os.RemoveAll(torrentTempDir); err != nil {
+				logger.LOG.Warn("清理种子临时目录失败", "error", err, "path", torrentTempDir)
+			}
+		}
+	}
+
 	if err := d.factory.DownloadTask().Delete(ctx, req.TaskID); err != nil {
 		logger.LOG.Error("删除下载任务失败", "error", err, "taskID", req.TaskID)
 		return nil, fmt.Errorf("删除任务失败: %w", err)
@@ -568,7 +600,7 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 	// 4. 设置默认虚拟路径
 	virtualPath := req.VirtualPath
 	if virtualPath == "" {
-		virtualPath = "/离线下载/"
+		virtualPath = filepath.Join("离线下载/")
 	}
 
 	// 验证加密存储密码
@@ -618,13 +650,15 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 		// 异步启动下载任务
 		go func(tid string, fIndex int) {
 			opts := &download.TorrentSingleFileDownloadOptions{
-				MaxConcurrentPeers: 100,
+				MaxConcurrentPeers: 200, // 提高并发连接数以加速下载
 				EnableEncryption:   req.EnableEncryption,
 				VirtualPath:        virtualPath,
 				TorrentName:        parseResult.Name,
 				InfoHash:           parseResult.InfoHash,
 				FilePassword:       req.FilePassword,
 			}
+
+			logger.LOG.Debug("启动种子下载任务", "taskID", tid, "tempDir", d.tempDir)
 
 			fileID, err := download.DownloadTorrentSingleFile(
 				context.Background(),
@@ -639,18 +673,20 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 
 			if err != nil {
 				logger.LOG.Error("种子文件下载失败", "taskID", tid, "error", err)
-				// 更新任务为失败状态
+				// 获取最新任务状态，防止覆盖暂停状态
 				task, _ := d.factory.DownloadTask().GetByID(context.Background(), tid)
-				if task != nil {
+				if task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
+					// 只有当任务不是暂停状态时，才更新为失败
 					task.State = enum.DownloadTaskStateFailed.Value()
 					task.ErrorMsg = err.Error()
 					task.UpdateTime = custom_type.Now()
 					d.factory.DownloadTask().Update(context.Background(), task)
 				}
 			} else {
-				// 更新任务为完成状态
+				// 获取最新任务状态，防止覆盖暂停状态
 				task, _ := d.factory.DownloadTask().GetByID(context.Background(), tid)
-				if task != nil {
+				if task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
+					// 只有当任务不是暂停状态时，才更新为完成
 					task.FileID = fileID
 					task.State = enum.DownloadTaskStateFinished.Value()
 					task.Progress = 100

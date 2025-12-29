@@ -67,6 +67,15 @@
           </template>
         </el-table-column>
         
+        <el-table-column label="错误信息" min-width="200" class-name="mobile-hide">
+          <template #default="{ row }">
+            <el-tooltip v-if="row.error_msg" :content="row.error_msg" placement="top">
+              <span class="error-msg-text">{{ row.error_msg }}</span>
+            </el-tooltip>
+            <span v-else class="no-error-text">-</span>
+          </template>
+        </el-table-column>
+        
         <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
           <template #default="{ row }">
             <div class="action-buttons">
@@ -1059,6 +1068,21 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+.error-msg-text {
+  color: var(--el-color-danger);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  cursor: pointer;
+}
+
+.no-error-text {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
 }
 
 /* PC端表格样式 */
