@@ -69,6 +69,8 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 		handlers.NewRecycledHandler(factory.RecycledService(), cache).Router(api)
 		// 视频播放路由
 		handlers.NewVideoHandler(factory.FileService(), cache).Router(api)
+		// 管理路由
+		handlers.NewAdminHandler(factory.AdminService(), cache).Router(api)
 		// TODO: 这里可以注册更多的路由处理器
 	}
 

@@ -82,6 +82,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/setPublic", f.SetFilePublic)
 		// 获取虚拟路径
 		fileGroup.GET("/virtualPath", middleware.PowerVerify("file:preview"), f.GetVirtualPath)
+		// 打包下载
+		fileGroup.POST("/package/create", middleware.PowerVerify("file:download"), f.CreatePackage)
+		fileGroup.GET("/package/progress", middleware.PowerVerify("file:download"), f.GetPackageProgress)
+		fileGroup.GET("/package/download", middleware.PowerVerify("file:download"), f.DownloadPackage)
 	}
 
 	logger.LOG.Info("[路由] 文件路由注册完成✔️")

@@ -56,6 +56,45 @@ const routes: RouteRecordRaw[] = [
         name: 'Settings',
         component: () => import('@/views/Settings/index.vue'),
         meta: { title: '系统设置' }
+      },
+      {
+        path: '/admin',
+        name: 'Admin',
+        component: () => import('@/views/Admin/index.vue'),
+        meta: { title: '系统管理', requiresAdmin: true },
+        redirect: '/admin/users',
+        children: [
+          {
+            path: 'users',
+            name: 'AdminUsers',
+            component: () => import('@/views/Admin/Users/index.vue'),
+            meta: { title: '用户管理' }
+          },
+          {
+            path: 'groups',
+            name: 'AdminGroups',
+            component: () => import('@/views/Admin/Groups/index.vue'),
+            meta: { title: '组管理' }
+          },
+          {
+            path: 'permissions',
+            name: 'AdminPermissions',
+            component: () => import('@/views/Admin/Permissions/index.vue'),
+            meta: { title: '权限管理' }
+          },
+          {
+            path: 'disks',
+            name: 'AdminDisks',
+            component: () => import('@/views/Admin/Disks/index.vue'),
+            meta: { title: '磁盘管理' }
+          },
+          {
+            path: 'system',
+            name: 'AdminSystem',
+            component: () => import('@/views/Admin/System/index.vue'),
+            meta: { title: '系统配置' }
+          }
+        ]
       }
     ]
   },
@@ -78,6 +117,15 @@ router.beforeEach(async (to, _from, next) => {
     next('/login')
   } else if (to.path === '/login' && authStore.token) {
     next('/files')
+  } else if (to.meta.requiresAdmin) {
+    // 检查管理员权限
+    const { useAdmin } = await import('@/composables/useAdmin')
+    const { isAdmin } = useAdmin()
+    if (!isAdmin.value) {
+      next('/files')
+    } else {
+      next()
+    }
   } else {
     next()
   }

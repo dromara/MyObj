@@ -68,8 +68,8 @@ export const updateFilePassword = (data: UpdatePasswordRequest): Promise<ApiResp
 }
 
 /**
- * 获取系统信息（判断是否首次使用）
+ * 获取系统信息（判断是否首次使用和注册配置）
  */
-export const getSysInfo = (): Promise<ApiResponse<{ is_first_use: boolean }>> => {
+export const getSysInfo = (): Promise<ApiResponse<{ is_first_use: boolean; allow_register: boolean }>> => {
   return get(API_ENDPOINTS.USER.SYS_INFO)
 }

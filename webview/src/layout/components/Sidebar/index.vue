@@ -44,6 +44,10 @@
           <el-icon><Grid /></el-icon>
           <span>文件广场</span>
         </el-menu-item>
+        <el-menu-item v-if="isAdmin" index="/admin">
+          <el-icon><Setting /></el-icon>
+          <span>系统管理</span>
+        </el-menu-item>
       </el-menu>
       
       <div class="storage-card-wrapper">
@@ -89,6 +93,10 @@
         <el-icon><Grid /></el-icon>
         <span>文件广场</span>
       </el-menu-item>
+      <el-menu-item v-if="isAdmin" index="/admin">
+        <el-icon><Setting /></el-icon>
+        <span>系统管理</span>
+      </el-menu-item>
     </el-menu>
     
     <StorageCard />
@@ -97,8 +105,10 @@
 
 <script setup lang="ts">
 import StorageCard from '../StorageCard/index.vue'
+import { useAdmin } from '@/composables/useAdmin'
 
 const route = useRoute()
+const { isAdmin } = useAdmin()
 
 const currentRoute = computed(() => route.path)
 const sidebarVisible = ref(false)

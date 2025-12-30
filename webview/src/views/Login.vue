@@ -110,8 +110,26 @@
           <span class="switch-text">
             {{ activeTab === 'login' ? '还没有账号？' : '已有账号？' }}
           </span>
-          <span class="switch-link" @click="toggleMode">
-            {{ activeTab === 'login' ? '免费注册' : '返回登录' }}
+          <span 
+            v-if="activeTab === 'login' && (allowRegister || isFirstUse)"
+            class="switch-link" 
+            @click="toggleMode"
+          >
+            免费注册
+          </span>
+          <span 
+            v-else-if="activeTab === 'register'"
+            class="switch-link" 
+            @click="toggleMode"
+          >
+            返回登录
+          </span>
+          <span 
+            v-else
+            class="switch-link disabled"
+            @click="toggleMode"
+          >
+            注册已关闭
           </span>
         </div>
       </div>
@@ -129,6 +147,7 @@ const activeTab = ref('login')
 const loading = ref(false)
 const isFirstUse = ref(false)
 const hasUsers = ref(true)
+const allowRegister = ref(true) // 是否允许注册
 
 const loginFormRef = ref<FormInstance>()
 const registerFormRef = ref<FormInstance>()
@@ -149,6 +168,11 @@ const registerRules: FormRules = {
 
 const toggleMode = () => {
   if (isFirstUse.value) return 
+  // 如果不允许注册，禁止切换到注册页面
+  if (!allowRegister.value && activeTab.value === 'login') {
+    proxy?.$modal.msgWarning('系统已关闭用户注册功能，请联系管理员')
+    return
+  }
   activeTab.value = activeTab.value === 'login' ? 'register' : 'login'
 }
 
@@ -223,9 +247,23 @@ const checkSysInfo = async () => {
     if (res.code === 200 && res.data) {
       isFirstUse.value = res.data.is_first_use
       hasUsers.value = !res.data.is_first_use
-      if (isFirstUse.value) activeTab.value = 'register'
+      allowRegister.value = res.data.allow_register ?? true
+      
+      if (isFirstUse.value) {
+        activeTab.value = 'register'
+        // 首次使用，允许注册
+        allowRegister.value = true
+      } else {
+        // 如果不允许注册且当前在注册页面，切换回登录页面
+        if (!allowRegister.value && activeTab.value === 'register') {
+          activeTab.value = 'login'
+        }
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    // 如果获取失败，默认允许注册（向后兼容）
+    allowRegister.value = true
+  }
 }
 
 onMounted(() => checkSysInfo())
@@ -424,6 +462,17 @@ onMounted(() => checkSysInfo())
 .switch-link:hover {
   color: #1d4ed8;
   text-decoration: underline;
+}
+
+.switch-link.disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.switch-link.disabled:hover {
+  color: #9ca3af;
+  text-decoration: none;
 }
 
 /* 移动端响应式 */

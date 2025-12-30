@@ -115,6 +115,49 @@ export const API_ENDPOINTS = {
   PREVIEW: {
     PREVIEW: '/download/preview',
   },
+  
+  // 管理相关
+  ADMIN: {
+    USER: {
+      LIST: '/admin/user/list',
+      CREATE: '/admin/user/create',
+      UPDATE: '/admin/user/update',
+      DELETE: '/admin/user/delete',
+      TOGGLE_STATE: '/admin/user/toggle-state',
+    },
+    GROUP: {
+      LIST: '/admin/group/list',
+      CREATE: '/admin/group/create',
+      UPDATE: '/admin/group/update',
+      DELETE: '/admin/group/delete',
+    },
+    POWER: {
+      LIST: '/admin/power/list',
+      CREATE: '/admin/power/create',
+      UPDATE: '/admin/power/update',
+      DELETE: '/admin/power/delete',
+      BATCH_DELETE: '/admin/power/batch-delete',
+      ASSIGN: '/admin/power/assign',
+      GROUP_POWERS: '/admin/power/group-powers',
+    },
+    DISK: {
+      LIST: '/admin/disk/list',
+      CREATE: '/admin/disk/create',
+      UPDATE: '/admin/disk/update',
+      DELETE: '/admin/disk/delete',
+    },
+    SYSTEM: {
+      CONFIG: '/admin/system/config',
+      UPDATE_CONFIG: '/admin/system/update-config',
+    },
+  },
+  
+  // 打包下载
+  PACKAGE: {
+    CREATE: '/file/package/create',
+    DOWNLOAD: '/file/package/download',
+    PROGRESS: '/file/package/progress',
+  },
 }
 
 // 请求超时配置
