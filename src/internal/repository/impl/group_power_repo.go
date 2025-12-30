@@ -27,6 +27,12 @@ func (r *groupPowerRepository) GetByGroupID(ctx context.Context, groupID int) ([
 	return groupPowers, err
 }
 
+func (r *groupPowerRepository) GetByPowerID(ctx context.Context, powerID int) ([]*models.GroupPower, error) {
+	var groupPowers []*models.GroupPower
+	err := r.db.WithContext(ctx).Where("power_id = ?", powerID).Find(&groupPowers).Error
+	return groupPowers, err
+}
+
 func (r *groupPowerRepository) Delete(ctx context.Context, groupID, powerID int) error {
 	return r.db.WithContext(ctx).Where("group_id = ? AND power_id = ?", groupID, powerID).
 		Delete(&models.GroupPower{}).Error

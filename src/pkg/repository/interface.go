@@ -107,6 +107,7 @@ type PowerRepository interface {
 type GroupPowerRepository interface {
 	Create(ctx context.Context, groupPower *models.GroupPower) error
 	GetByGroupID(ctx context.Context, groupID int) ([]*models.GroupPower, error)
+	GetByPowerID(ctx context.Context, powerID int) ([]*models.GroupPower, error)
 	Delete(ctx context.Context, groupID, powerID int) error
 	DeleteByGroupID(ctx context.Context, groupID int) error
 	BatchCreate(ctx context.Context, groupPowers []*models.GroupPower) error

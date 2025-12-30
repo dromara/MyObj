@@ -84,3 +84,23 @@ export const formatFileSizeForDisplay = (bytes: number, useGB: boolean = true): 
   return `${mb.toFixed(2)} MB`
 }
 
+/**
+ * 将字节转换为 GB
+ * @param bytes 字节数
+ * @returns GB 数值（保留2位小数）
+ */
+export const bytesToGB = (bytes: number): number => {
+  if (!bytes || bytes === 0) return 0
+  return Math.round((bytes / (1024 * 1024 * 1024)) * 100) / 100
+}
+
+/**
+ * 将 GB 转换为字节
+ * @param gb GB 数值
+ * @returns 字节数
+ */
+export const GBToBytes = (gb: number): number => {
+  if (!gb || gb === 0) return 0
+  return Math.round(gb * 1024 * 1024 * 1024)
+}
+

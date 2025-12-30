@@ -3,10 +3,31 @@
     <!-- 头部卡片 -->
     <div class="header-card glass-panel">
       <div class="header">
-        <div class="title-section">
-          <el-icon :size="24" class="title-icon"><Share /></el-icon>
-          <h2>我的分享</h2>
-          <span class="share-count">共 {{ shareList.length }} 个分享</span>
+        <div class="header-left">
+          <div class="title-section">
+            <el-icon :size="24" class="title-icon"><Share /></el-icon>
+            <h2>我的分享</h2>
+            <span class="share-count">共 {{ shareList.length }} 个分享</span>
+          </div>
+          <div v-if="selectedShares.length > 0" class="batch-selection-info">
+            <span class="selected-count">已选择 {{ selectedShares.length }} 项</span>
+            <el-button 
+              type="danger" 
+              icon="Delete" 
+              size="small"
+              @click="handleBatchDelete"
+              :loading="batchDeleting"
+            >
+              批量删除
+            </el-button>
+            <el-button 
+              link
+              size="small"
+              @click="clearSelection"
+            >
+              取消选择
+            </el-button>
+          </div>
         </div>
         <el-button type="primary" icon="Refresh" @click="loadShareList" :loading="loading">刷新</el-button>
       </div>
@@ -15,11 +36,14 @@
     <!-- PC端：表格布局 -->
     <div class="table-card glass-panel">
       <el-table 
+        ref="tableRef"
         :data="shareList" 
         v-loading="loading" 
         class="shares-table desktop-table"
         empty-text="暂无分享记录"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="文件名" min-width="250" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
@@ -128,8 +152,14 @@
           v-for="row in shareList" 
           :key="row.id" 
           class="mobile-share-item"
+          :class="{ 'selected': isShareSelected(row.id) }"
         >
           <div class="share-item-header">
+            <el-checkbox 
+              :model-value="isShareSelected(row.id)"
+              @change="toggleShareSelection(row)"
+              class="mobile-checkbox"
+            />
             <div class="share-item-info">
               <el-icon :size="24" color="#409EFF" class="share-icon"><Document /></el-icon>
               <div class="share-name-wrapper">
@@ -260,6 +290,9 @@ const updating = ref(false)
 const newPassword = ref('')
 const currentShare = reactive<Partial<ShareInfo>>({})
 const copyingId = ref<number | null>(null)
+const selectedShares = ref<ShareInfo[]>([])
+const batchDeleting = ref(false)
+const tableRef = ref()
 
 onMounted(() => {
   loadShareList()
@@ -310,6 +343,11 @@ const handleDelete = async (share: ShareInfo) => {
     const res = await deleteShare(share.id)
     if (res.code === 200) {
       proxy?.$modal.msgSuccess('删除成功')
+      // 从选中列表中移除
+      const index = selectedShares.value.findIndex(s => s.id === share.id)
+      if (index > -1) {
+        selectedShares.value.splice(index, 1)
+      }
       loadShareList()
     } else {
       proxy?.$modal.msgError(res.message || '删除失败')
@@ -351,6 +389,59 @@ const handleConfirmUpdatePassword = async () => {
     updating.value = false
   }
 }
+
+// 表格选择变化
+const handleSelectionChange = (selection: ShareInfo[]) => {
+  selectedShares.value = selection
+}
+
+// 检查分享是否被选中（移动端）
+const isShareSelected = (shareId: number): boolean => {
+  return selectedShares.value.some(share => share.id === shareId)
+}
+
+// 切换分享选择状态（移动端）
+const toggleShareSelection = (share: ShareInfo) => {
+  const index = selectedShares.value.findIndex(s => s.id === share.id)
+  if (index > -1) {
+    selectedShares.value.splice(index, 1)
+  } else {
+    selectedShares.value.push(share)
+  }
+}
+
+// 清空选择
+const clearSelection = () => {
+  selectedShares.value = []
+  // 清空表格多选框
+  tableRef.value?.clearSelection()
+}
+
+// 批量删除
+const handleBatchDelete = async () => {
+  if (selectedShares.value.length === 0) {
+    proxy?.$modal.msgWarning('请先选择要删除的分享')
+    return
+  }
+  
+  try {
+    await proxy?.$modal.confirm(`确定要删除选中的 ${selectedShares.value.length} 个分享吗？`)
+    batchDeleting.value = true
+    
+    // 提示开发中
+    proxy?.$modal.msg('批量删除功能开发中')
+    
+    // 清空选择（包括表格多选框）
+    selectedShares.value = []
+    tableRef.value?.clearSelection()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      proxy?.$modal.msgError(error.message || '操作失败')
+    }
+  } finally {
+    batchDeleting.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -372,14 +463,24 @@ const handleConfirmUpdatePassword = async () => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .title-section {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .title-icon {
@@ -402,6 +503,22 @@ const handleConfirmUpdatePassword = async () => {
   font-size: 14px;
   color: var(--text-secondary);
   margin-left: 8px;
+}
+
+.batch-selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.selected-count {
+  font-size: 14px;
+  color: var(--primary-color);
+  font-weight: 500;
 }
 
 .table-card {
@@ -559,9 +676,20 @@ const handleConfirmUpdatePassword = async () => {
   padding: 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
   background: var(--el-bg-color-overlay);
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   border-radius: 8px;
   margin-bottom: 12px;
+  border: 2px solid transparent;
+}
+
+.mobile-share-item.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--primary-color);
+}
+
+.mobile-checkbox {
+  flex-shrink: 0;
+  margin-right: 12px;
 }
 
 .mobile-share-item:last-child {
@@ -716,6 +844,19 @@ const handleConfirmUpdatePassword = async () => {
     padding: 12px 16px;
   }
   
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .header-left {
+    width: 100%;
+  }
+  
+  .title-section {
+    gap: 8px;
+  }
+  
   .title-section h2 {
     font-size: 18px;
   }
@@ -723,6 +864,20 @@ const handleConfirmUpdatePassword = async () => {
   .share-count {
     font-size: 12px;
     margin-left: 4px;
+  }
+  
+  .batch-selection-info {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  
+  .selected-count {
+    font-size: 13px;
+  }
+  
+  .header .el-button {
+    width: 100%;
+    margin-top: 8px;
   }
   
   .password-dialog :deep(.el-dialog) {
@@ -736,6 +891,36 @@ const handleConfirmUpdatePassword = async () => {
 }
 
 @media (max-width: 480px) {
+  .header-card {
+    padding: 10px 12px;
+  }
+  
+  .title-section {
+    gap: 6px;
+  }
+  
+  .title-section h2 {
+    font-size: 16px;
+  }
+  
+  .share-count {
+    font-size: 11px;
+  }
+  
+  .batch-selection-info {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  
+  .selected-count {
+    font-size: 12px;
+  }
+  
+  .batch-selection-info .el-button {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  
   .mobile-share-item {
     padding: 12px;
   }

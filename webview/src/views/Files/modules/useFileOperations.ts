@@ -1,4 +1,5 @@
 import { deleteFiles, setFilePublic } from '@/api/file'
+import { createPackage, getPackageProgress, downloadPackage } from '@/api/package'
 import { useFileDownload } from '@/composables/useFileDownload'
 import type { FileItem, FileListResponse } from '@/types'
 
@@ -100,8 +101,121 @@ export function useFileOperations(
         await handleDownloadFile(file)
       }
     } else {
-      proxy?.$modal.msg('批量下载功能开发中')
+      // 多文件打包下载
+      await handlePackageDownload()
     }
+  }
+
+  // 打包下载
+  const handlePackageDownload = async () => {
+    if (selectedFileIds.value.length === 0) {
+      proxy?.$modal.msgWarning('请先选择要下载的文件')
+      return
+    }
+
+    try {
+      // 创建打包任务
+      proxy?.$modal.loading('正在创建压缩包，请稍候...')
+      
+      const res = await createPackage({
+        file_ids: selectedFileIds.value,
+        package_name: `files_${Date.now()}.zip`
+      })
+      
+      if (res.code === 200 && res.data) {
+        const packageId = res.data.package_id
+        
+        // 如果状态是 ready，直接下载
+        if (res.data.status === 'ready') {
+          const downloadUrl = downloadPackage(packageId)
+          window.open(downloadUrl, '_blank')
+          proxy?.$modal.closeLoading()
+          proxy?.$modal.msgSuccess('开始下载')
+          return
+        }
+        
+        // 如果状态是 creating，轮询进度
+        if (res.data.status === 'creating') {
+          await pollPackageProgress(packageId)
+        }
+      } else {
+        proxy?.$modal.closeLoading()
+        if (res.code === 404 || res.message?.includes('404')) {
+          proxy?.$modal.msg('打包下载功能开发中')
+        } else {
+          proxy?.$modal.msgError(res.message || '创建打包任务失败')
+        }
+      }
+    } catch (error: any) {
+      proxy?.$modal.closeLoading()
+      if (error.response?.status === 404 || error.message?.includes('404')) {
+        proxy?.$modal.msg('打包下载功能开发中')
+      } else {
+        proxy?.$modal.msgError(error.message || '打包下载失败')
+      }
+      proxy?.$log?.error(error)
+    }
+  }
+
+  // 轮询打包进度
+  const pollPackageProgress = async (packageId: string) => {
+    const maxAttempts = 60 // 最多轮询60次（5分钟）
+    let attempts = 0
+    
+    const poll = async () => {
+      try {
+        const res = await getPackageProgress(packageId)
+        
+        if (res.code === 200 && res.data) {
+          const { status, progress } = res.data
+          
+          if (status === 'ready') {
+            proxy?.$modal.closeLoading()
+            const downloadUrl = downloadPackage(packageId)
+            window.open(downloadUrl, '_blank')
+            proxy?.$modal.msgSuccess('压缩包已创建，开始下载')
+            return
+          }
+          
+          if (status === 'failed') {
+            proxy?.$modal.closeLoading()
+            proxy?.$modal.msgError(res.data.error_msg || '打包失败')
+            return
+          }
+          
+          // 更新进度提示
+          if (progress < 100) {
+            proxy?.$modal.loading(`正在打包... ${progress}%`)
+          }
+          
+          // 继续轮询
+          if (attempts < maxAttempts && status === 'creating') {
+            attempts++
+            setTimeout(poll, 5000) // 每5秒轮询一次
+          } else if (attempts >= maxAttempts) {
+            proxy?.$modal.closeLoading()
+            proxy?.$modal.msgError('打包超时，请稍后重试')
+          }
+        } else {
+          proxy?.$modal.closeLoading()
+          if (res.code === 404 || res.message?.includes('404')) {
+            proxy?.$modal.msg('打包下载功能开发中')
+          } else {
+            proxy?.$modal.msgError(res.message || '获取打包进度失败')
+          }
+        }
+      } catch (error: any) {
+        proxy?.$modal.closeLoading()
+        if (error.response?.status === 404 || error.message?.includes('404')) {
+          proxy?.$modal.msg('打包下载功能开发中')
+        } else {
+          proxy?.$modal.msgError('获取打包进度失败')
+        }
+        proxy?.$log?.error(error)
+      }
+    }
+    
+    poll()
   }
 
   const handleToolbarShare = () => {

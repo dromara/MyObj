@@ -102,6 +102,29 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 
 // Register 用户注册
 func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonResponse, error) {
+	ctx := context.Background()
+	
+	// 检查系统是否允许注册（第一个用户注册除外，用于系统初始化）
+	userCount, err := u.factory.User().Count(ctx)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.LOG.Error("查询用户数量失败", "error", err)
+		return nil, fmt.Errorf("系统错误")
+	}
+	
+	// 如果不是第一个用户，需要检查注册配置
+	if userCount > 0 {
+		allowRegister, err := u.factory.SysConfig().GetByKey(ctx, "allow_register")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.LOG.Error("查询注册配置失败", "error", err)
+			return nil, fmt.Errorf("系统错误")
+		}
+		// 如果配置不存在，默认为不允许注册（安全起见）
+		// 如果配置存在但值为 "false"，也不允许注册
+		if allowRegister == nil || allowRegister.Value != "true" {
+			return nil, fmt.Errorf("系统已关闭用户注册功能，请联系管理员")
+		}
+	}
+	
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
@@ -117,7 +140,6 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		return nil, err
 	}
 	psw := string(decrypt)
-	ctx := context.Background()
 	// 验证用户名和密码
 	if req.Username == "" || psw == "" {
 		return nil, fmt.Errorf("用户名或密码不能为空")
@@ -140,11 +162,36 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		logger.LOG.Error("生成密码失败", "error", err)
 		return nil, err
 	}
-	group, err := u.factory.Group().GetDefaultGroup(ctx)
+	// 检查是否是首次使用（第一个用户注册）
+	// userCount 已在上面查询过，直接使用
+	isFirstUse := userCount == 0
+	
+	var groupID int
+	if isFirstUse {
+		// 首次使用，强制设置为管理员组（ID=1）
+		groupID = 1
+	} else {
+		// 非首次使用，获取默认组
+		group, err := u.factory.Group().GetDefaultGroup(ctx)
+		if err != nil {
+			logger.LOG.Error("查询默认分组失败", "error", err)
+			return nil, err
+		}
+		groupID = group.ID
+		// 安全检查：如果默认组是管理员组（ID=1），不允许注册（防止所有注册用户都成为管理员）
+		if groupID == 1 {
+			logger.LOG.Error("默认组不能是管理员组", "group_id", groupID)
+			return nil, fmt.Errorf("系统配置错误：默认组不能是管理员组，请联系管理员")
+		}
+	}
+	
+	// 获取组信息（用于设置存储空间）
+	group, err := u.factory.Group().GetByID(ctx, groupID)
 	if err != nil {
-		logger.LOG.Error("查询默认分组失败", "error", err)
+		logger.LOG.Error("查询组信息失败", "error", err)
 		return nil, err
 	}
+	
 	user = &models.UserInfo{
 		ID:           v7.String(),
 		Name:         req.Nickname,
@@ -152,21 +199,12 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		Password:     password,
 		Email:        req.Email,
 		Phone:        req.Phone,
-		GroupID:      group.ID,
+		GroupID:      groupID,
 		CreatedAt:    custom_type.Now(),
 		Space:        group.Space,
 		FilePassword: "",
 		FreeSpace:    group.Space,
 		State:        0,
-	}
-	init, err := u.SysInit()
-	if err != nil {
-		logger.LOG.Error("系统初始化失败", "error", err)
-		return nil, err
-	}
-	b := init.Data.(bool)
-	if !b {
-		user.GroupID = 1
 	}
 	err = u.factory.User().Create(ctx, user)
 	if err != nil {
@@ -211,14 +249,37 @@ func (u *UserService) Challenge() (*models.JsonResponse, error) {
 	return models.NewJsonResponse(200, "ok", m), nil
 }
 
-// SysInit 查询系统是否初次使用
+// SysInit 查询系统是否初次使用和注册配置
 func (u *UserService) SysInit() (*models.JsonResponse, error) {
-	count, err := u.factory.User().Count(context.Background())
+	ctx := context.Background()
+	count, err := u.factory.User().Count(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户数量失败", "error", err)
 		return nil, err
 	}
-	return models.NewJsonResponse(200, "ok", count == 0), nil
+	isFirstUse := count == 0
+	
+	// 获取注册配置（如果不是首次使用）
+	allowRegister := true // 首次使用时默认允许注册
+	if !isFirstUse {
+		allowRegisterConfig, err := u.factory.SysConfig().GetByKey(ctx, "allow_register")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.LOG.Error("查询注册配置失败", "error", err)
+			// 如果查询失败，默认不允许注册（安全起见）
+			allowRegister = false
+		} else if allowRegisterConfig != nil {
+			allowRegister = allowRegisterConfig.Value == "true"
+		} else {
+			// 配置不存在，默认不允许注册（安全起见）
+			allowRegister = false
+		}
+	}
+	
+	result := map[string]interface{}{
+		"is_first_use":   isFirstUse,
+		"allow_register": allowRegister,
+	}
+	return models.NewJsonResponse(200, "ok", result), nil
 }
 
 // UpdateUser 修改用户信息
