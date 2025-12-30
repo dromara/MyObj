@@ -153,7 +153,14 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 		logger.LOG.Error("创建用户失败", "error", err)
 		return nil, err
 	}
-
+	if err := a.factory.VirtualPath().Create(ctx, &models.VirtualPath{
+		UserID: user.ID,
+		Path:   "home",
+	}); err != nil {
+		logger.LOG.Error("创建虚拟路径失败", "error", err)
+		a.factory.User().Delete(ctx, user.ID)
+		return nil, err
+	}
 	return models.NewJsonResponse(200, "创建成功", user), nil
 }
 
@@ -601,9 +608,9 @@ func (a *AdminService) AdminBatchDeletePower(req *request.AdminBatchDeletePowerR
 
 	return models.NewJsonResponse(200, message, map[string]interface{}{
 		"success_count": successCount,
-		"total_count":    len(req.IDs),
-		"in_use_items":   inUseItems,
-		"failed_items":   failedItems,
+		"total_count":   len(req.IDs),
+		"in_use_items":  inUseItems,
+		"failed_items":  failedItems,
 	}), nil
 }
 
@@ -794,4 +801,3 @@ func (a *AdminService) AdminUpdateSystemConfig(req *request.AdminUpdateSystemCon
 
 	return a.AdminGetSystemConfig()
 }
-
