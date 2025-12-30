@@ -185,29 +185,16 @@ func (f *FileHandler) GetFileList(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// GetThumbnail 获取文件缩略图
-func (f *FileHandler) GetThumbnail(c *gin.Context) {
-	fileID := c.Param("fileId")
-	if fileID == "" {
-		c.JSON(200, models.NewJsonResponse(400, "文件ID不能为空", nil))
-		return
-	}
-
-	// 查询文件信息
-	fileInfo, err := f.service.GetRepository().FileInfo().GetByID(c.Request.Context(), fileID)
-	if err != nil {
-		c.JSON(200, models.NewJsonResponse(404, "文件不存在", err.Error()))
-		return
-	}
-
+// sendThumbnailResponse 发送缩略图响应（提取的公共逻辑）
+func (f *FileHandler) sendThumbnailResponse(c *gin.Context, thumbnailPath string) {
 	// 检查是否有缩略图
-	if fileInfo.ThumbnailImg == "" {
+	if thumbnailPath == "" {
 		c.JSON(404, models.NewJsonResponse(404, "缩略图不存在", nil))
 		return
 	}
 
 	// 设置响应头
-	ext := filepath.Ext(fileInfo.ThumbnailImg)
+	ext := filepath.Ext(thumbnailPath)
 	contentType := "image/jpeg"
 	switch ext {
 	case ".png":
@@ -217,11 +204,46 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 	case ".webp":
 		contentType = "image/webp"
 	}
-
 	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "public, max-age=86400") // 缓存1天
-	c.File(fileInfo.ThumbnailImg)
+	c.File(thumbnailPath)
+}
 
+// GetThumbnail 获取文件缩略图
+func (f *FileHandler) GetThumbnail(c *gin.Context) {
+	fileID := c.Param("fileId")
+	if fileID == "" {
+		c.JSON(200, models.NewJsonResponse(400, "文件ID不能为空", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	ctx := c.Request.Context()
+
+	// 先通过 uf_id 查询 user_files 表，获取真实的 file_id
+	// 因为前端传递的是 uf_id（用户文件关联表的ID），而不是 file_info 表的 id
+	userFile, err := f.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+	if err != nil {
+		// 如果通过 uf_id 查询失败，尝试直接作为 file_id 查询（兼容旧版本）
+		fileInfo, err2 := f.service.GetRepository().FileInfo().GetByID(ctx, fileID)
+		if err2 != nil {
+			c.JSON(200, models.NewJsonResponse(404, "文件不存在", err.Error()))
+			return
+		}
+		// 发送缩略图响应
+		f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
+		return
+	}
+
+	// 通过 user_files 获取到的 file_id 查询 file_info
+	fileInfo, err := f.service.GetRepository().FileInfo().GetByID(ctx, userFile.FileID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(404, "文件不存在", err.Error()))
+		return
+	}
+
+	// 发送缩略图响应
+	f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
 }
 
 // MakeDir 创建目录
