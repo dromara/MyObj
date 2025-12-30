@@ -9,7 +9,8 @@
         text
         @click="toggleSidebar"
       />
-      <div class="logo-wrapper">
+      <!-- 桌面端 Logo -->
+      <div class="logo-wrapper desktop-logo">
         <el-icon :size="32" class="logo-icon"><Folder /></el-icon>
         <span class="logo-text">MyObj 云盘</span>
       </div>
@@ -31,7 +32,19 @@
     </div>
     
     <div class="header-right">
-      <!-- 移动端只显示头像，隐藏用户名 -->
+      <!-- 移动端：搜索按钮 -->
+      <el-button
+        class="mobile-search-btn"
+        icon="Search"
+        circle
+        text
+        @click="showSearchDialog = true"
+      />
+      <!-- 移动端：Logo -->
+      <div class="mobile-logo">
+        <el-icon :size="28" class="logo-icon"><Folder /></el-icon>
+      </div>
+      <!-- 用户头像（桌面端和移动端共用） -->
       <el-dropdown @command="handleCommand" trigger="click">
         <div class="user-profile glass-hover">
           <el-avatar :size="32" :style="{ background: avatarColor }" class="user-avatar-img">
@@ -54,6 +67,51 @@
         </template>
       </el-dropdown>
     </div>
+    
+    <!-- 移动端搜索对话框 -->
+    <el-dialog
+      v-model="showSearchDialog"
+      width="90%"
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
+      :show-close="false"
+      :append-to-body="true"
+      :center="false"
+      class="search-dialog"
+      @closed="handleSearchDialogClosed"
+    >
+      <template #header>
+        <div class="search-dialog-header">
+          <el-icon class="search-icon"><Search /></el-icon>
+          <span class="search-title">搜索文件</span>
+        </div>
+      </template>
+      
+      <div class="search-dialog-body">
+        <el-input
+          ref="searchDialogInputRef"
+          v-model="searchKeyword"
+          placeholder="输入关键词搜索文件、资料..."
+          prefix-icon="Search"
+          clearable
+          @input="handleSearchInput"
+          @keyup.enter="handleSearchAndClose"
+          @clear="handleSearchClear"
+          class="search-dialog-input"
+          size="large"
+        />
+      </div>
+      
+      <template #footer>
+        <div class="search-dialog-footer">
+          <el-button class="cancel-btn" @click="showSearchDialog = false">取消</el-button>
+          <el-button class="search-btn" type="primary" @click="handleSearchAndClose">
+            <el-icon><Search /></el-icon>
+            搜索
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </el-header>
 </template>
 
@@ -70,14 +128,17 @@ const authStore = useAuthStore()
 
 const searchKeyword = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+const showSearchDialog = ref(false)
+const searchDialogInputRef = ref()
 
 const avatarText = computed(() => {
-  return userStore.nickname ? userStore.nickname.charAt(0).toUpperCase() : 'U'
+  const nickname = userStore.nickname || userStore.username || ''
+  return nickname ? nickname.charAt(0).toUpperCase() : 'U'
 })
 
 const avatarColor = computed(() => {
   const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']
-  const name = userStore.nickname
+  const name = userStore.nickname || userStore.username || 'User'
   let hash = 0
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash)
@@ -146,6 +207,18 @@ const handleSearch = () => {
   triggerSearch(searchKeyword.value)
 }
 
+// 处理搜索并关闭对话框
+const handleSearchAndClose = () => {
+  handleSearch()
+  showSearchDialog.value = false
+}
+
+// 处理搜索对话框关闭事件
+const handleSearchDialogClosed = () => {
+  // 对话框关闭后，如果需要可以清空搜索关键词
+  // 这里不清空，保留搜索关键词以便用户继续搜索
+}
+
 const handleCommand = (command: string) => {
   if (command === 'logout') {
     authStore.logout()
@@ -186,6 +259,15 @@ watch(
     }
   }
 )
+
+// 监听搜索对话框显示，自动聚焦输入框
+watch(showSearchDialog, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      searchDialogInputRef.value?.focus()
+    })
+  }
+})
 
 // 组件卸载时清理定时器
 onBeforeUnmount(() => {
@@ -262,6 +344,21 @@ onBeforeUnmount(() => {
   margin: 0 24px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.mobile-search-btn {
+  display: none !important;
+}
+
+.mobile-logo {
+  display: none !important;
+}
+
 .search-input :deep(.el-input__wrapper) {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(4px);
@@ -307,20 +404,38 @@ onBeforeUnmount(() => {
   display: inline;
 }
 
+.desktop-user {
+  display: block;
+}
+
 /* 移动端响应式 */
 @media (max-width: 1024px) {
   .layout-header {
     padding: 0 12px;
   }
   
+  .header-left {
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  
+  .logo-text {
+    display: none;
+  }
+  
   .header-center {
     flex: 1;
     max-width: none;
     margin: 0 12px;
+    min-width: 0;
+    overflow: hidden;
   }
   
   .header-right {
     flex-shrink: 0;
+    min-width: auto;
+    display: flex;
+    align-items: center;
   }
   
   .user-profile {
@@ -333,10 +448,343 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 480px) {
-  .header-center {
-    display: none;
+@media screen and (max-width: 480px) {
+  .layout-header {
+    padding: 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    overflow: visible !important;
+    flex-wrap: nowrap !important;
   }
+  
+  .header-center {
+    display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 0 !important;
+  }
+  
+  .desktop-logo {
+    display: none !important;
+  }
+  
+  .header-left {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    gap: 8px !important;
+    min-width: auto !important;
+    max-width: none !important;
+    width: auto !important;
+    overflow: visible !important;
+  }
+  
+  .header-right {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    min-width: 120px !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 10 !important;
+  }
+  
+  .header-right > * {
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    flex: 0 0 auto !important;
+  }
+  
+  .header-right .el-button,
+  .header-right .mobile-search-btn {
+    flex: 0 0 auto !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+  }
+  
+  .mobile-search-btn {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  .mobile-search-btn :deep(button),
+  .mobile-search-btn :deep(.el-button) {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+  
+  .mobile-search-btn :deep(.el-icon) {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+  }
+  
+  .mobile-logo {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    max-width: 28px !important;
+    max-height: 28px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  .mobile-logo .logo-icon {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 28px !important;
+    color: var(--primary-color) !important;
+  }
+  
+  .user-profile {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    min-width: auto !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  .user-avatar-img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    max-width: 32px !important;
+    max-height: 32px !important;
+  }
+}
+
+/* 搜索对话框样式 */
+.search-dialog :deep(.el-dialog) {
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%);
+  backdrop-filter: blur(30px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
+  margin-top: 15vh !important;
+  margin-bottom: auto !important;
+  top: 0 !important;
+  transform: translateY(0) !important;
+  position: fixed !important;
+}
+
+.search-dialog :deep(.el-dialog__wrapper) {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding-top: 0 !important;
+}
+
+.search-dialog :deep(.el-dialog__header) {
+  padding: 28px 28px 20px;
+  border-bottom: none;
+  background: transparent;
+}
+
+.search-dialog :deep(.el-dialog__body) {
+  padding: 0 28px 24px;
+}
+
+.search-dialog :deep(.el-dialog__footer) {
+  padding: 20px 28px 28px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.8));
+}
+
+.search-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+}
+
+.search-icon {
+  font-size: 26px;
+  color: var(--primary-color);
+  filter: drop-shadow(0 3px 6px rgba(99, 102, 241, 0.4));
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.search-title {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
+}
+
+.search-dialog-body {
+  padding: 12px 0;
+}
+
+.search-dialog-input {
+  width: 100%;
+}
+
+.search-dialog-input :deep(.el-input__wrapper) {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 1) 100%);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 14px 24px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), inset 0 1px 2px rgba(255, 255, 255, 0.9), inset 0 -1px 2px rgba(0, 0, 0, 0.02);
+  border: 2px solid rgba(99, 102, 241, 0.12);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 60px;
+}
+
+.search-dialog-input :deep(.el-input__inner) {
+  font-size: 17px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.search-dialog-input :deep(.el-input__wrapper):hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 1) 100%);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12), inset 0 1px 2px rgba(255, 255, 255, 0.9), inset 0 -1px 2px rgba(0, 0, 0, 0.02);
+  transform: translateY(-1px);
+}
+
+.search-dialog-input :deep(.el-input__wrapper.is-focus) {
+  background: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.18), 0 0 0 5px rgba(99, 102, 241, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.9), inset 0 -1px 2px rgba(0, 0, 0, 0.02);
+  transform: translateY(-2px);
+}
+
+.search-dialog-input :deep(.el-input__prefix) {
+  color: var(--primary-color);
+  font-size: 22px;
+  margin-right: 12px;
+}
+
+.search-dialog-input :deep(.el-input__suffix) {
+  color: var(--text-secondary);
+}
+
+.search-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 13px 28px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 15px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 1) 100%);
+  color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.cancel-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.05) 100%);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.search-btn {
+  padding: 13px 32px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 15px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  border: none;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35), 0 2px 8px rgba(99, 102, 241, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+}
+
+.search-btn:hover {
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45), 0 4px 12px rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.search-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35), 0 2px 6px rgba(99, 102, 241, 0.2);
+}
+
+.search-btn :deep(.el-icon) {
+  font-size: 18px;
 }
 </style>
 

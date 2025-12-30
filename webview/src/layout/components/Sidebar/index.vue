@@ -1,11 +1,4 @@
 <template>
-  <!-- 移动端遮罩层 -->
-  <div
-    v-if="isMobile && sidebarVisible"
-    class="sidebar-overlay"
-    @click="closeSidebar"
-  ></div>
-  
   <!-- 移动端抽屉式侧边栏 -->
   <el-drawer
     v-if="isMobile"
@@ -15,44 +8,45 @@
     direction="ltr"
     :modal="true"
     :show-close="false"
+    :close-on-click-modal="true"
     class="sidebar-drawer"
+    @close="handleDrawerClose"
   >
-    <div class="drawer-content" @click="handleDrawerBodyClick">
+    <div class="drawer-content">
       <el-menu
         :default-active="currentRoute"
         router
         @select="handleMenuSelect"
         class="premium-menu"
-        @click.stop
       >
-        <el-menu-item index="/files" @click="handleMenuClick">
+        <el-menu-item index="/files">
           <el-icon><Folder /></el-icon>
           <span>我的文件</span>
         </el-menu-item>
-        <el-menu-item index="/shares" @click="handleMenuClick">
+        <el-menu-item index="/shares">
           <el-icon><Share /></el-icon>
           <span>我的分享</span>
         </el-menu-item>
-        <el-menu-item index="/offline" @click="handleMenuClick">
+        <el-menu-item index="/offline">
           <el-icon><Download /></el-icon>
           <span>离线下载</span>
         </el-menu-item>
-        <el-menu-item index="/tasks" @click="handleMenuClick">
+        <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
           <span>传输列表</span>
         </el-menu-item>
-        <el-menu-item index="/trash" @click="handleMenuClick">
+        <el-menu-item index="/trash">
           <el-icon><Delete /></el-icon>
           <span>回收站</span>
         </el-menu-item>
         <div class="menu-divider"></div>
-        <el-menu-item index="/square" @click="handleMenuClick">
+        <el-menu-item index="/square">
           <el-icon><Grid /></el-icon>
           <span>文件广场</span>
         </el-menu-item>
       </el-menu>
       
-      <div class="storage-card-wrapper" @click.stop>
+      <div class="storage-card-wrapper">
         <StorageCard />
       </div>
     </div>
@@ -125,16 +119,11 @@ const checkMobile = () => {
 
 const handleMenuSelect = () => {
   // Router handles navigation automatically
-  // 移动端点击菜单后关闭侧边栏
+  // 移动端点击菜单后关闭侧边栏（使用 nextTick 确保路由跳转完成后再关闭）
   if (isMobile.value) {
-    closeSidebar()
-  }
-}
-
-const handleMenuClick = () => {
-  // 移动端点击菜单项后关闭侧边栏
-  if (isMobile.value) {
-    closeSidebar()
+    nextTick(() => {
+      closeSidebar()
+    })
   }
 }
 
@@ -142,17 +131,10 @@ const closeSidebar = () => {
   sidebarVisible.value = false
 }
 
-// 处理抽屉内容区域点击事件（点击空白处关闭）
-const handleDrawerBodyClick = (event: MouseEvent) => {
-  // 检查点击的目标是否在菜单或 StorageCard 内部
-  const target = event.target as HTMLElement
-  const clickedMenu = target.closest('.premium-menu')
-  const clickedStorageCard = target.closest('.storage-card-wrapper')
-  
-  // 如果点击的不是菜单或 StorageCard，则关闭侧边栏
-  if (!clickedMenu && !clickedStorageCard) {
-    closeSidebar()
-  }
+// 处理抽屉关闭事件
+const handleDrawerClose = () => {
+  // el-drawer 关闭时会触发此事件，确保状态同步
+  sidebarVisible.value = false
 }
 
 // 监听侧边栏切换事件
@@ -185,17 +167,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  backdrop-filter: blur(2px);
-}
-
 .sidebar-drawer :deep(.el-drawer__body) {
   padding: 0;
   display: flex;
@@ -210,7 +181,6 @@ onBeforeUnmount(() => {
   height: 100%;
   flex: 1;
   min-height: 100%;
-  cursor: pointer;
 }
 
 .storage-card-wrapper {

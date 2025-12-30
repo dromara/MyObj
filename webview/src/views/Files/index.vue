@@ -507,9 +507,11 @@ onMounted(() => {
         performSearch(keyword, 1, pageSize.value)
       }
     } else {
-      // 清空搜索
+      // 清空搜索，并重新加载文件列表
       if (hasSearchKeyword.value) {
         clearSearch()
+        // 重新加载当前目录的文件列表
+        loadFileList()
       }
     }
   }
