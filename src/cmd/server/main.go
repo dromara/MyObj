@@ -6,8 +6,10 @@ import (
 	"myobj/src/config"
 	"myobj/src/internal/api/routers"
 	"myobj/src/internal/repository/database"
+	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
+	"myobj/src/pkg/webdav"
 	"os"
 	"os/signal"
 	"syscall"
@@ -50,8 +52,7 @@ func main() {
 		log.Fatalf("日志系统初始化失败: %v", err)
 	}
 
-	logger.LOG.Info("========== MyObj 服务器启动中 ==========")
-	logger.LOG.Info("服务器配置", "host", config.CONFIG.Server.Host, "port", config.CONFIG.Server.Port)
+	logger.LOG.Info("========== MyObj 服务器启动中 ==========", "host", config.CONFIG.Server.Host, "port", config.CONFIG.Server.Port)
 	logger.LOG.Info("数据库类型", "type", config.CONFIG.Database.Type)
 	logger.LOG.Info("日志级别", "level", config.CONFIG.Log.Level)
 
@@ -61,10 +62,25 @@ func main() {
 		os.Exit(1)
 	}
 	localCache := cache.InitCache()
-	// 4. 注册关闭信号处理
+
+	// 4. 启动 WebDAV 服务（如果启用）
+	if config.CONFIG.WebDAV.Enable {
+		logger.LOG.Info("WebDAV 服务已启用，正在启动...")
+		factory := impl.NewRepositoryFactory(database.GetDB())
+		webdavServer := webdav.NewServer(factory)
+		go func() {
+			if err := webdavServer.Start(); err != nil {
+				logger.LOG.Error("WebDAV 服务器启动失败", "error", err)
+			}
+		}()
+	} else {
+		logger.LOG.Info("WebDAV 服务未启用（可在 config.toml 中设置 webdav.enable=true 启用）")
+	}
+
+	// 5. 注册关闭信号处理
 	setupGracefulShutdown(localCache)
 	fmt.Printf("apiKey开启情况: %v", config.CONFIG.Auth.ApiKey)
-	// 5. 启动HTTP服务器
+	// 6. 启动HTTP服务器
 	if err := startServer(localCache); err != nil {
 		logger.LOG.Error("服务器启动失败", "error", err)
 		os.Exit(1)

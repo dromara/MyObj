@@ -21,6 +21,7 @@ type MyObjConfig struct {
 	File     File     `toml:"file"`     // 文件配置
 	Cors     Cors     `toml:"cors"`     // 跨域配置
 	Cache    Cache    `toml:"cache"`    // 缓存配置
+	WebDAV   WebDAV   `toml:"webdav"`   // WebDAV配置
 }
 
 // Server 服务器配置
@@ -120,6 +121,18 @@ type Cache struct {
 type Storage struct {
 	// Driver 存储驱动（local/aliyun/baidu等）
 	Driver string `toml:"driver"`
+}
+
+// WebDAV WebDAV服务配置
+type WebDAV struct {
+	// Enable 是否启用WebDAV服务
+	Enable bool `toml:"enable"`
+	// Host 监听地址
+	Host string `toml:"host"`
+	// Port 监听端口
+	Port int `toml:"port"`
+	// Prefix 路径前缀
+	Prefix string `toml:"prefix"`
 }
 
 // InitConfig 初始化配置

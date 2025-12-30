@@ -65,3 +65,17 @@ port = 6379
 password = ""
 db = 0
 pool_size = 10
+
+[storage]
+driver = "local"
+
+# WebDAV 配置
+[webdav]
+# 是否启用 WebDAV 服务
+enable = true
+# 监听地址（127.0.0.1 仅本地访问，0.0.0.0 允许外部访问）
+host = "0.0.0.0"
+# 监听端口
+port = 8081
+# 路径前缀
+prefix = "/dav"
