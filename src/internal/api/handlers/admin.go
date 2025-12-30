@@ -7,6 +7,7 @@ import (
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"myobj/src/pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -61,6 +62,7 @@ func (a *AdminHandler) Router(c *gin.RouterGroup) {
 		admin.POST("/disk/create", a.CreateDisk)
 		admin.POST("/disk/update", a.UpdateDisk)
 		admin.POST("/disk/delete", a.DeleteDisk)
+		admin.GET("/disk/scan", a.GetDisk)
 
 		// 系统配置
 		admin.GET("/system/config", a.GetSystemConfig)
@@ -363,6 +365,17 @@ func (a *AdminHandler) DeleteDisk(c *gin.Context) {
 	c.JSON(200, res)
 }
 
+// GetDisk 获取扫描到的磁盘信息
+func (a *AdminHandler) GetDisk(c *gin.Context) {
+	info, err := util.GetDiskInfo()
+	if err != nil {
+		logger.LOG.Error("获取磁盘信息失败", "err", err)
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, models.NewJsonResponse(200, "成功", info))
+}
+
 // ========== 系统配置 ==========
 
 // GetSystemConfig 获取系统配置
@@ -389,4 +402,3 @@ func (a *AdminHandler) UpdateSystemConfig(c *gin.Context) {
 	}
 	c.JSON(200, res)
 }
-

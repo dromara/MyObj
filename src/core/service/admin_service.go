@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
@@ -644,7 +645,7 @@ func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*mo
 
 	// 检查路径是否已存在
 	existingDisk, err := a.factory.Disk().GetByPath(ctx, req.DiskPath)
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询磁盘失败", "error", err)
 		return nil, err
 	}
@@ -659,7 +660,7 @@ func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*mo
 		ID:       diskID,
 		DiskPath: req.DiskPath,
 		DataPath: req.DataPath,
-		Size:     req.Size * 1024 * 1024 * 1024, // GB转字节
+		Size:     req.Size,
 	}
 
 	if err = a.factory.Disk().Create(ctx, disk); err != nil {
@@ -732,13 +733,13 @@ func (a *AdminService) AdminGetSystemConfig() (*models.JsonResponse, error) {
 	// 获取统计信息
 	totalUsers, _ := a.factory.User().Count(ctx)
 	totalFiles, _ := a.factory.FileInfo().Count(ctx)
-
 	config := response.AdminSystemConfigResponse{
 		AllowRegister: allowRegister != nil && allowRegister.Value == "true",
 		WebdavEnabled: webdavEnabled != nil && webdavEnabled.Value == "true",
 		Version:       "1.0.0", // TODO: 从配置或构建信息获取
 		TotalUsers:    totalUsers,
 		TotalFiles:    totalFiles,
+		Uptime:        custom_type.GetSystemRuntime().String(),
 	}
 
 	return models.NewJsonResponse(200, "查询成功", config), nil

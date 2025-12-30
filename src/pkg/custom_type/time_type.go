@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var SystemRuntime = JsonTime(time.Now())
+
 type JsonTime time.Time
 
 // MarshalJSON 实现 MarshalJSON 接口
@@ -116,4 +118,9 @@ func TimePtr(t JsonTime) *JsonTime {
 
 func (t JsonTime) ToTime() time.Time {
 	return time.Time(t)
+}
+
+func GetSystemRuntime() time.Duration {
+	now := Now()
+	return now.Sub(SystemRuntime)
 }

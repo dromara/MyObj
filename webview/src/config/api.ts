@@ -145,6 +145,7 @@ export const API_ENDPOINTS = {
       CREATE: '/admin/disk/create',
       UPDATE: '/admin/disk/update',
       DELETE: '/admin/disk/delete',
+      SCAN: '/admin/disk/scan',
     },
     SYSTEM: {
       CONFIG: '/admin/system/config',

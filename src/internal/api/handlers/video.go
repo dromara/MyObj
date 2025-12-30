@@ -90,9 +90,15 @@ func (v *VideoHandler) CreateVideoPlay(c *gin.Context) {
 
 	// 1. 查询文件信息  验证用户权限
 	ctx := context.Background()
-	userFile, err := v.fileService.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+	userFile, err := v.fileService.GetRepository().UserFiles().GetByUfID(ctx, req.FileID)
 	if err != nil {
-		logger.LOG.Error("用户无权访问该文件", "error", err, "userID", userID, "fileID", req.FileID)
+		logger.LOG.Error("文件不存在", "error", err, "fileID", req.FileID)
+		c.JSON(404, models.NewJsonResponse(404, "文件不存在", nil))
+		return
+	}
+	// 验证文件是否属于该用户或是公开文件
+	if !userFile.IsPublic && userFile.UserID != userID {
+		logger.LOG.Error("用户无权访问该文件", "userID", userID, "fileID", req.FileID)
 		c.JSON(403, models.NewJsonResponse(403, "无权访问该文件", nil))
 		return
 	}

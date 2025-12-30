@@ -142,6 +142,15 @@ export interface DiskListResponse {
   total: number
 }
 
+// 扫描磁盘信息类型（对应后端 DiskInfo）
+export interface ScannedDiskInfo {
+  mount: string
+  total: number
+  used: number
+  free: number
+  avail: number
+}
+
 // 系统配置相关类型
 export interface SystemConfig {
   allow_register: boolean
@@ -304,6 +313,13 @@ export const updateAdminDisk = (data: UpdateDiskRequest) => {
  */
 export const deleteAdminDisk = (id: string) => {
   return post<ApiResponse>(API_ENDPOINTS.ADMIN.DISK.DELETE, { id })
+}
+
+/**
+ * 扫描磁盘
+ */
+export const scanDisks = () => {
+  return get<ApiResponse<ScannedDiskInfo[]>>(API_ENDPOINTS.ADMIN.DISK.SCAN)
 }
 
 // ========== 系统配置 API ==========

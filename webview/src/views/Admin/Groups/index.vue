@@ -340,7 +340,8 @@ const formRules = {
 // 格式化存储空间
 const formatStorage = (bytes: number) => {
   if (bytes === 0 || bytes === -1) return '无限'
-  return formatSize(bytes)
+  // return formatSize(bytes)
+  return bytes + 'GB'
 }
 
 // 加载组列表
