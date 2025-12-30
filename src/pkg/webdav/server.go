@@ -23,6 +23,7 @@ func NewServer(factory *impl.RepositoryFactory) *Server {
 		factory.ApiKey(),
 		factory.User(),
 		factory.Power(),
+		factory.SysConfig(),
 	)
 
 	return &Server{

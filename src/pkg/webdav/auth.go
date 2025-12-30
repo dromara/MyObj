@@ -11,9 +11,10 @@ import (
 
 // Authenticator WebDAV 认证器
 type Authenticator struct {
-	apiKeyRepo repository.ApiKeyRepository
-	userRepo   repository.UserRepository
-	powerRepo  repository.PowerRepository
+	apiKeyRepo    repository.ApiKeyRepository
+	userRepo      repository.UserRepository
+	powerRepo     repository.PowerRepository
+	sysConfigRepo repository.SysConfigRepository
 }
 
 // NewAuthenticator 创建 WebDAV 认证器
@@ -21,11 +22,13 @@ func NewAuthenticator(
 	apiKeyRepo repository.ApiKeyRepository,
 	userRepo repository.UserRepository,
 	powerRepo repository.PowerRepository,
+	sysConfigRepo repository.SysConfigRepository,
 ) *Authenticator {
 	return &Authenticator{
-		apiKeyRepo: apiKeyRepo,
-		userRepo:   userRepo,
-		powerRepo:  powerRepo,
+		apiKeyRepo:    apiKeyRepo,
+		userRepo:      userRepo,
+		powerRepo:     powerRepo,
+		sysConfigRepo: sysConfigRepo,
 	}
 }
 
@@ -34,6 +37,13 @@ func NewAuthenticator(
 // password: API Key（直接使用，无需签名）
 func (a *Authenticator) Authenticate(username, password string) (*models.UserInfo, error) {
 	ctx := context.Background()
+
+	// 0. 检查 WebDAV 是否全局启用
+	webdavConfig, err := a.sysConfigRepo.GetByKey(ctx, "webdav_enabled")
+	if err == nil && webdavConfig.Value == "false" {
+		logger.LOG.Warn("WebDAV 认证失败：WebDAV 服务已全局禁用", "username", username)
+		return nil, fmt.Errorf("WebDAV 服务已禁用")
+	}
 
 	// 1. 查询用户
 	user, err := a.userRepo.GetByUserName(ctx, username)
