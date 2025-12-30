@@ -8,8 +8,7 @@
           <el-tag type="info">{{ taskList.length }} 个任务</el-tag>
         </div>
         <div class="header-right">
-          <el-button type="primary" icon="Link" @click="showUrlDialog = true">新建 URL 下载</el-button>
-          <el-button type="primary" icon="Upload" @click="showTorrentDialog = true">新建种子下载</el-button>
+          <el-button type="primary" icon="Plus" @click="showDownloadDialog = true">新建下载</el-button>
           <el-button icon="Refresh" @click="refreshTaskList">刷新</el-button>
         </div>
       </div>
@@ -200,56 +199,120 @@
       <el-empty v-if="taskList.length === 0 && !loading" description="暂无下载任务" />
     </el-card>
 
-    <!-- 种子下载对话框 -->
+    <!-- 统一下载对话框 -->
     <el-dialog 
-      v-model="showTorrentDialog" 
-      title="新建种子下载" 
+      v-model="showDownloadDialog" 
+      title="新建下载" 
       :width="isMobile ? '95%' : '800px'"
-      @open="handleTorrentDialogOpen"
-      @close="handleTorrentDialogClose"
-      class="torrent-download-dialog"
+      @open="handleDownloadDialogOpen"
+      @close="handleDownloadDialogClose"
+      :destroy-on-close="true"
+      class="download-dialog"
     >
-      <el-tabs v-model="torrentInputType" class="torrent-tabs">
-        <el-tab-pane label="上传种子文件" name="file">
-          <el-upload
-            ref="torrentUploadRef"
-            :auto-upload="false"
-            :on-change="handleTorrentFileChange"
-            :limit="1"
-            accept=".torrent"
-            drag
-            class="torrent-upload"
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将种子文件拖到此处，或<em>点击上传</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持 .torrent 文件，最大 10MB
+      <template v-if="showDownloadDialog">
+        <!-- 输入区域：支持文本输入和文件上传 -->
+        <div class="input-section">
+          <el-tabs v-model="inputType" class="input-tabs">
+          <el-tab-pane label="输入链接" name="text">
+            <el-form-item label="下载链接">
+              <el-input 
+                v-model="downloadForm.inputText" 
+                placeholder="支持 HTTP/HTTPS 链接或磁力链接（magnet:?xt=urn:btih:...）"
+                type="textarea"
+                :rows="3"
+                @input="handleInputTextChange"
+              />
+              <div class="input-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>支持 HTTP/HTTPS 下载链接或磁力链接，系统会自动识别类型</span>
               </div>
-            </template>
-          </el-upload>
-          <div v-if="torrentFileName" class="torrent-file-info">
-            <el-icon><Document /></el-icon>
-            <span>{{ torrentFileName }}</span>
-            <el-button link type="danger" @click="clearTorrentFile">清除</el-button>
-          </div>
-        </el-tab-pane>
-        <el-tab-pane label="输入磁力链接" name="magnet">
-          <el-form-item label="磁力链接">
-            <el-input 
-              v-model="torrentForm.magnetLink" 
-              placeholder="请输入磁力链接（magnet:?xt=urn:btih:...）"
-              type="textarea"
-              :rows="3"
-            />
-          </el-form-item>
-        </el-tab-pane>
-      </el-tabs>
+            </el-form-item>
+          </el-tab-pane>
+          <el-tab-pane label="上传种子文件" name="file">
+            <el-upload
+              ref="torrentUploadRef"
+              :auto-upload="false"
+              :on-change="handleTorrentFileChange"
+              :limit="1"
+              accept=".torrent"
+              drag
+              class="torrent-upload"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将种子文件拖到此处，或<em>点击上传</em>
+              </div>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持 .torrent 文件，最大 10MB
+                </div>
+              </template>
+            </el-upload>
+            <div v-if="torrentFileName" class="torrent-file-info">
+              <el-icon><Document /></el-icon>
+              <span>{{ torrentFileName }}</span>
+              <el-button link type="danger" @click="clearTorrentFile">清除</el-button>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+        
+        <!-- 输入类型提示 -->
+        <div v-if="detectedInputType" class="detected-type-tip">
+          <el-icon :color="detectedInputType === 'url' ? '#67C23A' : '#409EFF'" :size="16">
+            <component :is="detectedInputType === 'url' ? 'Check' : 'InfoFilled'" />
+          </el-icon>
+          <span v-if="detectedInputType === 'url'">已识别为：HTTP/HTTPS 下载链接</span>
+          <span v-else-if="detectedInputType === 'magnet'">已识别为：磁力链接</span>
+          <span v-else-if="detectedInputType === 'torrent'">已识别为：种子文件</span>
+        </div>
+      </div>
 
-      <!-- 解析按钮 -->
-      <div v-if="!torrentParseResult" class="parse-section">
+      <!-- URL 下载模式：直接显示表单 -->
+      <el-form 
+        v-if="detectedInputType === 'url' && !torrentParseResult"
+        :model="downloadForm" 
+        :rules="downloadRules" 
+        ref="downloadFormRef" 
+        label-width="100px"
+        style="margin-top: 20px"
+      >
+        <el-form-item label="保存位置">
+          <el-tree-select
+            v-model="downloadForm.virtual_path"
+            :data="folderTreeData"
+            :render-after-expand="false"
+            placeholder="请选择保存目录（默认：/离线下载/）"
+            :loading="loadingTree"
+            style="width: 100%"
+            check-strictly
+            :props="{ label: 'label', value: 'value', children: 'children' }"
+            :default-expand-all="true"
+            node-key="value"
+          />
+        </el-form-item>
+        <el-form-item label="加密存储">
+          <el-switch v-model="downloadForm.enable_encryption" />
+        </el-form-item>
+        <el-form-item 
+          v-if="downloadForm.enable_encryption" 
+          label="加密密码" 
+          prop="file_password"
+        >
+          <el-input 
+            v-model="downloadForm.file_password" 
+            type="password"
+            placeholder="请输入加密密码"
+            show-password
+            maxlength="32"
+          />
+          <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
+            下载文件时需要使用此密码解密
+          </div>
+        </el-form-item>
+      </el-form>
+
+      <!-- 种子/磁力链接模式：解析按钮 -->
+      <div v-if="(detectedInputType === 'magnet' || detectedInputType === 'torrent') && !torrentParseResult" class="parse-section">
         <el-button 
           type="primary" 
           :loading="parsing" 
@@ -310,18 +373,18 @@
         </div>
       </div>
 
-      <!-- 下载配置表单 -->
+      <!-- 种子下载配置表单（解析后显示） -->
       <el-form 
         v-if="torrentParseResult" 
-        :model="torrentForm" 
-        :rules="torrentRules" 
-        ref="torrentFormRef" 
+        :model="downloadForm" 
+        :rules="downloadRules" 
+        ref="downloadFormRef" 
         label-width="100px"
         style="margin-top: 20px"
       >
         <el-form-item label="保存位置">
           <el-tree-select
-            v-model="torrentForm.virtual_path"
+            v-model="downloadForm.virtual_path"
             :data="folderTreeData"
             :render-after-expand="false"
             placeholder="请选择保存目录（默认：/离线下载/）"
@@ -334,15 +397,15 @@
           />
         </el-form-item>
         <el-form-item label="加密存储">
-          <el-switch v-model="torrentForm.enable_encryption" />
+          <el-switch v-model="downloadForm.enable_encryption" />
         </el-form-item>
         <el-form-item 
-          v-if="torrentForm.enable_encryption" 
+          v-if="downloadForm.enable_encryption" 
           label="加密密码" 
           prop="file_password"
         >
           <el-input 
-            v-model="torrentForm.file_password" 
+            v-model="downloadForm.file_password" 
             type="password"
             placeholder="请输入加密密码"
             show-password
@@ -353,11 +416,22 @@
           </div>
         </el-form-item>
       </el-form>
+      </template>
 
       <template #footer>
-        <el-button @click="showTorrentDialog = false">取消</el-button>
+        <el-button @click="showDownloadDialog = false">取消</el-button>
+        <!-- URL 下载模式 -->
         <el-button 
-          v-if="!torrentParseResult" 
+          v-if="detectedInputType === 'url' && !torrentParseResult"
+          type="primary" 
+          :loading="creating" 
+          @click="handleCreateUrlDownload"
+        >
+          创建任务
+        </el-button>
+        <!-- 种子/磁力链接模式：解析按钮 -->
+        <el-button 
+          v-else-if="(detectedInputType === 'magnet' || detectedInputType === 'torrent') && !torrentParseResult"
           type="primary" 
           :loading="parsing" 
           :disabled="!canParse"
@@ -365,8 +439,9 @@
         >
           解析种子
         </el-button>
+        <!-- 种子/磁力链接模式：开始下载按钮 -->
         <el-button 
-          v-else
+          v-else-if="torrentParseResult"
           type="primary" 
           :loading="creatingTorrent" 
           :disabled="selectedFileIndexes.length === 0"
@@ -374,63 +449,6 @@
         >
           开始下载（{{ selectedFileIndexes.length }} 个文件）
         </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- URL 下载对话框 -->
-    <el-dialog 
-      v-model="showUrlDialog" 
-      title="新建 URL 下载" 
-      :width="isMobile ? '95%' : '600px'"
-      @open="buildFolderTree"
-      class="url-download-dialog"
-    >
-      <el-form :model="urlForm" :rules="urlRules" ref="urlFormRef" label-width="100px">
-        <el-form-item label="下载链接" prop="url">
-          <el-input 
-            v-model="urlForm.url" 
-            placeholder="请输入 HTTP/HTTPS 下载链接"
-            type="textarea"
-            :rows="3"
-          />
-        </el-form-item>
-        <el-form-item label="保存位置">
-          <el-tree-select
-            v-model="urlForm.virtual_path"
-            :data="folderTreeData"
-            :render-after-expand="false"
-            placeholder="请选择保存目录（默认：/离线下载/）"
-            :loading="loadingTree"
-            style="width: 100%"
-            check-strictly
-            :props="{ label: 'label', value: 'value', children: 'children' }"
-            :default-expand-all="true"
-            node-key="value"
-          />
-        </el-form-item>
-        <el-form-item label="加密存储">
-          <el-switch v-model="urlForm.enable_encryption" />
-        </el-form-item>
-        <el-form-item 
-          v-if="urlForm.enable_encryption" 
-          label="加密密码" 
-          prop="file_password"
-        >
-          <el-input 
-            v-model="urlForm.file_password" 
-            type="password"
-            placeholder="请输入加密密码"
-            show-password
-            maxlength="32"
-          />
-          <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
-            下载文件时需要使用此密码解密
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showUrlDialog = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreateUrlDownload">创建任务</el-button>
       </template>
     </el-dialog>
   </div>
@@ -462,26 +480,27 @@ const { isMobile } = useResponsive()
 const loading = ref(false)
 const creating = ref(false)
 const taskList = ref<OfflineDownloadTask[]>([])
-const showUrlDialog = ref(false)
-const showTorrentDialog = ref(false)
+const showDownloadDialog = ref(false) // 统一的下载对话框
 let refreshTimer: number | null = null // 支持 setTimeout 和 setInterval
 const loadingTree = ref(false)
 const folderTreeData = ref<any[]>([])
 
-const urlFormRef = ref<FormInstance>()
-const torrentFormRef = ref<FormInstance>()
+const downloadFormRef = ref<FormInstance>()
 const torrentUploadRef = ref()
 const torrentFileTableRef = ref()
 
-const urlForm = reactive({
-  url: '',
+// 输入类型：文本输入或文件上传
+const inputType = ref<'text' | 'file'>('text')
+
+// 统一的下载表单
+const downloadForm = reactive({
+  inputText: '', // 文本输入（URL 或磁力链接）
   virtual_path: '',
   enable_encryption: false,
   file_password: ''
 })
 
 // 种子下载相关状态
-const torrentInputType = ref<'file' | 'magnet'>('file')
 const torrentFileName = ref('')
 const torrentFileContent = ref('') // Base64 编码的种子文件内容
 const parsing = ref(false)
@@ -491,22 +510,29 @@ const selectedFileIndexes = ref<number[]>([])
 const selectAllFiles = ref(false)
 const isIndeterminate = ref(false)
 
-const torrentForm = reactive({
-  magnetLink: '',
-  virtual_path: '',
-  enable_encryption: false,
-  file_password: ''
-})
+// 检测到的输入类型
+const detectedInputType = ref<'url' | 'magnet' | 'torrent' | null>(null)
 
-const urlRules: FormRules = {
-  url: [
-    { required: true, message: '请输入下载链接', trigger: 'blur' },
-    { pattern: /^https?:\/\//, message: '请输入正确的 HTTP/HTTPS 链接', trigger: 'blur' }
+// 统一的表单验证规则
+const downloadRules: FormRules = {
+  inputText: [
+    { 
+      validator: (_rule: any, value: any, callback: any) => {
+        if (inputType.value === 'text' && !value?.trim()) {
+          callback(new Error('请输入下载链接或磁力链接'))
+        } else if (inputType.value === 'text' && detectedInputType.value === 'url' && !/^https?:\/\//.test(value?.trim())) {
+          callback(new Error('请输入正确的 HTTP/HTTPS 链接'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ],
   file_password: [
     { 
       validator: (_rule: any, value: any, callback: any) => {
-        if (urlForm.enable_encryption && !value) {
+        if (downloadForm.enable_encryption && !value) {
           callback(new Error('加密存储时必须设置密码'))
         } else if (value && value.length < 6) {
           callback(new Error('密码长度至少为6位'))
@@ -519,29 +545,42 @@ const urlRules: FormRules = {
   ]
 }
 
-const torrentRules: FormRules = {
-  file_password: [
-    { 
-      validator: (_rule: any, value: any, callback: any) => {
-        if (torrentForm.enable_encryption && !value) {
-          callback(new Error('加密存储时必须设置密码'))
-        } else if (value && value.length < 6) {
-          callback(new Error('密码长度至少为6位'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ]
+// 输入类型识别函数
+const detectInputType = (input: string | File | null): 'url' | 'magnet' | 'torrent' | null => {
+  if (!input) return null
+  
+  if (input instanceof File) {
+    return input.name.toLowerCase().endsWith('.torrent') ? 'torrent' : null
+  }
+  
+  const text = input.trim()
+  if (text.startsWith('magnet:')) {
+    return 'magnet'
+  }
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    return 'url'
+  }
+  
+  return null
+}
+
+// 监听输入变化，自动识别类型
+const handleInputTextChange = () => {
+  if (inputType.value === 'text' && downloadForm.inputText) {
+    detectedInputType.value = detectInputType(downloadForm.inputText)
+  } else if (inputType.value === 'file') {
+    detectedInputType.value = torrentFileContent.value ? 'torrent' : null
+  } else {
+    detectedInputType.value = null
+  }
 }
 
 // 计算是否可以解析种子
 const canParse = computed(() => {
-  if (torrentInputType.value === 'file') {
+  if (inputType.value === 'file') {
     return !!torrentFileContent.value
   } else {
-    return !!torrentForm.magnetLink && torrentForm.magnetLink.trim().startsWith('magnet:')
+    return !!downloadForm.inputText && (detectedInputType.value === 'magnet' || detectedInputType.value === 'url')
   }
 })
 
@@ -692,26 +731,27 @@ const buildFolderTree = async () => {
 
 // 创建 URL 下载任务
 const handleCreateUrlDownload = async () => {
-  if (!urlFormRef.value) return
+  if (!downloadFormRef.value) return
   
-  await urlFormRef.value.validate(async (valid: boolean) => {
+  await downloadFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
+      if (detectedInputType.value !== 'url') {
+        proxy?.$modal.msgWarning('请输入正确的 HTTP/HTTPS 下载链接')
+        return
+      }
+      
       creating.value = true
       try {
         const res = await createOfflineDownload({
-          url: urlForm.url,
-          virtual_path: urlForm.virtual_path || undefined,
-          enable_encryption: urlForm.enable_encryption,
-          file_password: urlForm.enable_encryption ? urlForm.file_password : undefined
+          url: downloadForm.inputText.trim(),
+          virtual_path: downloadForm.virtual_path || undefined,
+          enable_encryption: downloadForm.enable_encryption,
+          file_password: downloadForm.enable_encryption ? downloadForm.file_password : undefined
         })
         
         if (res.code === 200) {
           proxy?.$modal.msgSuccess('任务创建成功')
-          showUrlDialog.value = false
-          urlForm.url = ''
-          urlForm.virtual_path = ''
-          urlForm.enable_encryption = false
-          urlForm.file_password = ''
+          showDownloadDialog.value = false
           loadTaskList()
         }
       } catch (error: any) {
@@ -787,6 +827,8 @@ const handleTorrentFileChange = (file: any) => {
     const base64Content = result.includes(',') ? result.split(',')[1] : result
     torrentFileContent.value = base64Content
     torrentFileName.value = file.name
+    // 自动识别类型
+    detectedInputType.value = detectInputType(file.raw)
   }
   reader.onerror = () => {
     proxy?.$modal.msgError('读取种子文件失败')
@@ -798,30 +840,35 @@ const handleTorrentFileChange = (file: any) => {
 const clearTorrentFile = () => {
   torrentFileContent.value = ''
   torrentFileName.value = ''
+  detectedInputType.value = null
   if (torrentUploadRef.value) {
     torrentUploadRef.value.clearFiles()
   }
 }
 
-// 处理种子对话框打开
-const handleTorrentDialogOpen = () => {
+// 处理下载对话框打开
+const handleDownloadDialogOpen = () => {
   buildFolderTree()
+  // 重置状态
+  inputType.value = 'text'
+  detectedInputType.value = null
 }
 
-// 处理种子对话框关闭
-const handleTorrentDialogClose = () => {
+// 处理下载对话框关闭
+const handleDownloadDialogClose = () => {
   // 重置所有状态
-  torrentInputType.value = 'file'
+  inputType.value = 'text'
+  downloadForm.inputText = ''
+  downloadForm.virtual_path = ''
+  downloadForm.enable_encryption = false
+  downloadForm.file_password = ''
   torrentFileName.value = ''
   torrentFileContent.value = ''
-  torrentForm.magnetLink = ''
-  torrentForm.virtual_path = ''
-  torrentForm.enable_encryption = false
-  torrentForm.file_password = ''
   torrentParseResult.value = null
   selectedFileIndexes.value = []
   selectAllFiles.value = false
   isIndeterminate.value = false
+  detectedInputType.value = null
   if (torrentUploadRef.value) {
     torrentUploadRef.value.clearFiles()
   }
@@ -834,11 +881,16 @@ const handleParseTorrent = async () => {
     return
   }
 
+  if (detectedInputType.value !== 'magnet' && detectedInputType.value !== 'torrent') {
+    proxy?.$modal.msgWarning('请输入磁力链接或上传种子文件')
+    return
+  }
+
   parsing.value = true
   try {
-    const content = torrentInputType.value === 'file' 
+    const content = inputType.value === 'file' 
       ? torrentFileContent.value 
-      : torrentForm.magnetLink.trim()
+      : downloadForm.inputText.trim()
 
     const res = await parseTorrent({ content })
     
@@ -899,32 +951,32 @@ const handleSelectAll = (val: boolean | string | number) => {
 
 // 开始种子下载
 const handleStartTorrentDownload = async () => {
-  if (!torrentFormRef.value || !torrentParseResult.value) return
+  if (!downloadFormRef.value || !torrentParseResult.value) return
   
   if (selectedFileIndexes.value.length === 0) {
     proxy?.$modal.msgWarning('请至少选择一个文件')
     return
   }
 
-  await torrentFormRef.value.validate(async (valid: boolean) => {
+  await downloadFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       creatingTorrent.value = true
       try {
-        const content = torrentInputType.value === 'file' 
+        const content = inputType.value === 'file' 
           ? torrentFileContent.value 
-          : torrentForm.magnetLink.trim()
+          : downloadForm.inputText.trim()
 
         const res = await startTorrentDownload({
           content,
           file_indexes: selectedFileIndexes.value,
-          virtual_path: torrentForm.virtual_path || undefined,
-          enable_encryption: torrentForm.enable_encryption,
-          file_password: torrentForm.enable_encryption ? torrentForm.file_password : undefined
+          virtual_path: downloadForm.virtual_path || undefined,
+          enable_encryption: downloadForm.enable_encryption,
+          file_password: downloadForm.enable_encryption ? downloadForm.file_password : undefined
         })
         
         if (res.code === 200 && res.data) {
           proxy?.$modal.msgSuccess(`任务创建成功，共创建 ${res.data.task_count} 个下载任务`)
-          showTorrentDialog.value = false
+          showDownloadDialog.value = false
           loadTaskList()
         } else {
           proxy?.$modal.msgError(res.message || '创建任务失败')
@@ -1272,12 +1324,12 @@ onBeforeUnmount(() => {
     font-size: 11px;
   }
   
-  .url-download-dialog :deep(.el-dialog) {
+  .download-dialog :deep(.el-dialog) {
     width: 95% !important;
     margin: 0 auto;
   }
   
-  .url-download-dialog :deep(.el-form-item__label) {
+  .download-dialog :deep(.el-form-item__label) {
     font-size: 14px;
   }
 }
@@ -1299,20 +1351,58 @@ onBeforeUnmount(() => {
     font-size: 10px;
   }
   
-  .url-download-dialog :deep(.el-dialog) {
+  .download-dialog :deep(.el-dialog) {
     width: 100% !important;
     margin: 0;
     border-radius: 0;
   }
   
-  .url-download-dialog :deep(.el-form-item__label) {
+  .download-dialog :deep(.el-form-item__label) {
     font-size: 13px;
   }
 }
 
-/* 种子下载对话框样式 */
-.torrent-download-dialog :deep(.el-dialog) {
+/* 统一下载对话框样式 */
+.download-dialog :deep(.el-dialog) {
   border-radius: 8px;
+}
+
+.input-section {
+  margin-bottom: 20px;
+}
+
+.input-tabs {
+  margin-bottom: 16px;
+}
+
+.input-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.input-tip .el-icon {
+  font-size: 14px;
+  color: var(--el-color-info);
+}
+
+.detected-type-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.detected-type-tip .el-icon {
+  font-size: 16px;
 }
 
 .torrent-tabs {
@@ -1408,12 +1498,12 @@ onBeforeUnmount(() => {
 
 /* 移动端响应式 */
 @media (max-width: 1024px) {
-  .torrent-download-dialog :deep(.el-dialog) {
+  .download-dialog :deep(.el-dialog) {
     width: 95% !important;
     margin: 0 auto;
   }
 
-  .torrent-download-dialog :deep(.el-form-item__label) {
+  .download-dialog :deep(.el-form-item__label) {
     font-size: 14px;
   }
 
@@ -1423,13 +1513,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 480px) {
-  .torrent-download-dialog :deep(.el-dialog) {
+  .download-dialog :deep(.el-dialog) {
     width: 100% !important;
     margin: 0;
     border-radius: 0;
   }
 
-  .torrent-download-dialog :deep(.el-form-item__label) {
+  .download-dialog :deep(.el-form-item__label) {
     font-size: 13px;
   }
 
