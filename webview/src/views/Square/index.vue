@@ -184,6 +184,7 @@ import { useResponsive } from '@/composables/useResponsive'
 import { getPublicFileList, searchPublicFiles, type PublicFileItem, type PublicFileListParams } from '@/api/file'
 import { useSearch } from '@/composables/useSearch'
 import { getFileIcon } from '@/utils/fileIcon'
+import { useFileDownload } from '@/composables/useFileDownload'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const route = useRoute()
@@ -286,6 +287,9 @@ const handleSortChange = () => {
 const previewVisible = ref(false)
 const previewFile = ref<any>(null)
 
+// 文件下载
+const { handleDownload: handleFileDownload } = useFileDownload()
+
 // 点击文件
 const handleFileClick = (file: PublicFileItem) => {
   // 将 Square 的文件格式转换为 Preview 组件需要的格式
@@ -303,9 +307,19 @@ const handleFileClick = (file: PublicFileItem) => {
 
 
 // 下载文件
-const handleDownload = (file: PublicFileItem) => {
-  proxy?.$modal.msgSuccess(`开始下载: ${file.file_name}`)
-  // TODO: 调用下载API
+const handleDownload = async (file: PublicFileItem) => {
+  // 将 PublicFileItem 转换为 FileItem 格式
+  const fileItem = {
+    file_id: file.uf_id,
+    file_name: file.file_name,
+    file_size: file.file_size,
+    mime_type: file.mime_type,
+    is_enc: false, // 公开文件默认不加密
+    has_thumbnail: file.has_thumbnail,
+    created_at: file.created_at,
+    public: true // 标记为公开文件
+  }
+  await handleFileDownload(fileItem)
 }
 
 // 分页处理
