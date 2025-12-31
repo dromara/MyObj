@@ -72,8 +72,8 @@ export const API_ENDPOINTS = {
     LIST: '/share/list',
     DELETE: '/share/delete',
     UPDATE_PASSWORD: '/share/updatePassword',
-    ACCESS: '/share/access',
     INFO: '/share/info',
+    DOWNLOAD: '/share/download',
   },
   
   // 离线下载

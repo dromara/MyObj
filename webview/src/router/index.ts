@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/share/:token',
+    name: 'ShareDownload',
+    component: () => import('@/views/ShareDownload/index.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/',
     name: 'Layout',
     component: () => import('@/layout/index.vue'),

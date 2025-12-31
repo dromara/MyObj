@@ -22,3 +22,10 @@ type UpdateSharePasswordRequest struct {
 	// 新密码
 	Password string `json:"password"`
 }
+
+type ShareDownloadRequest struct {
+	// 分享Token
+	Token string `json:"token"`
+	// 分享密码（如果有）
+	Password string `json:"password"`
+}

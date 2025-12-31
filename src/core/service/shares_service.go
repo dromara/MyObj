@@ -71,8 +71,67 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 	return models.NewJsonResponse(200, "ok", fmt.Sprintf("/api/share/download/%s", uid)), nil
 }
 
-// GetShare 获取分享
-func (s *SharesService) GetShare(token, psw string) *response.SharesDownloadResponse {
+// GetShareInfo 获取分享信息（不触发下载）
+// password: 分享密码（如果有密码则必需）
+func (s *SharesService) GetShareInfo(token string, password string) (*response.ShareInfoResponse, error) {
+	ctx := context.Background()
+	byToken, err := s.factory.Share().GetByToken(ctx, token)
+	if err != nil {
+		logger.LOG.Error("获取分享失败", "error", err)
+		return nil, fmt.Errorf("获取分享失败")
+	}
+	if byToken == nil {
+		return nil, fmt.Errorf("分享不存在")
+	}
+
+	// 检查过期时间
+	isExpired := byToken.ExpiresAt.Before(custom_type.Now())
+	if isExpired {
+		return nil, fmt.Errorf("分享已过期")
+	}
+
+	// 如果有密码，验证密码
+	if byToken.PasswordHash != "" {
+		if password == "" {
+			// 只返回基本信息，不返回文件详情
+			return &response.ShareInfoResponse{
+				HasPassword: true,
+				IsExpired:   false,
+			}, nil
+		}
+		if !util.CheckPassword(byToken.PasswordHash, password) {
+			return nil, fmt.Errorf("密码错误")
+		}
+	}
+
+	// 密码验证通过或没有密码，获取文件信息
+	userFile, err := s.factory.UserFiles().GetByUserIDAndFileID(ctx, byToken.UserID, byToken.FileID)
+	if err != nil {
+		logger.LOG.Error("获取文件失败", "error", err)
+		return nil, fmt.Errorf("获取文件失败")
+	}
+
+	// 获取文件详细信息
+	fileInfo, err := s.factory.FileInfo().GetByID(ctx, byToken.FileID)
+	if err != nil {
+		logger.LOG.Error("获取文件信息失败", "error", err)
+		return nil, fmt.Errorf("获取文件信息失败")
+	}
+
+	return &response.ShareInfoResponse{
+		FileID:        byToken.FileID,
+		FileName:      userFile.FileName,
+		FileSize:      int64(fileInfo.Size),
+		MimeType:      fileInfo.Mime,
+		HasPassword:   byToken.PasswordHash != "",
+		ExpiresAt:     byToken.ExpiresAt.Format("2006-01-02 15:04:05"),
+		DownloadCount: byToken.DownloadCount,
+		IsExpired:     false,
+	}, nil
+}
+
+// DownloadShare 下载分享文件
+func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloadResponse {
 	ctx := context.Background()
 	sdr := &response.SharesDownloadResponse{}
 	byToken, err := s.factory.Share().GetByToken(ctx, token)
@@ -209,11 +268,15 @@ func (s *SharesService) UpdateSharePassword(shareID int, password string, userID
 		return nil, fmt.Errorf("无权限修改该分享")
 	}
 
-	// 生成新密码哈希
-	passwordHash, err := util.GeneratePassword(password)
-	if err != nil {
-		logger.LOG.Error("生成密码失败", "error", err)
-		return nil, fmt.Errorf("生成密码失败")
+	// 如果密码为空，不生成哈希，直接设置为空字符串（表示无密码）
+	var passwordHash string
+	if password != "" {
+		hash, err := util.GeneratePassword(password)
+		if err != nil {
+			logger.LOG.Error("生成密码失败", "error", err)
+			return nil, fmt.Errorf("生成密码失败")
+		}
+		passwordHash = hash
 	}
 
 	// 更新密码
