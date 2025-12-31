@@ -6,7 +6,7 @@
     :close-on-click-modal="false"
     :close-on-press-escape="true"
     @close="handleClose"
-    class="file-preview-dialog"
+    :class="['file-preview-dialog', `preview-${previewType}-active`]"
   >
     <!-- 加载状态 -->
     <div v-if="loading" class="preview-loading">
@@ -40,7 +40,7 @@
           <el-button icon="ZoomOut" @click="zoomImage(-0.1)">缩小</el-button>
           <el-button icon="RefreshRight" @click="rotateImage(90)">旋转</el-button>
           <el-button icon="Refresh" @click="resetImageZoom">重置</el-button>
-          <el-button icon="Printer" @click="handlePrint">打印</el-button>
+          <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
           <el-button icon="Download" @click="handleDownload">下载</el-button>
         </el-button-group>
       </div>
@@ -58,7 +58,7 @@
         @error="handleVideoError"
       />
       <div class="preview-toolbar">
-        <el-button icon="Printer" @click="handlePrint">打印</el-button>
+        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
         <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
@@ -101,7 +101,7 @@
         @error="handlePdfError"
       ></iframe>
       <div class="preview-toolbar">
-        <el-button icon="Printer" @click="handlePrint">打印</el-button>
+        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
         <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
@@ -113,7 +113,7 @@
           {{ previewType === 'code' ? '代码预览' : '文本预览' }}
         </span>
         <el-button-group>
-          <el-button icon="Printer" size="small" @click="handlePrint">打印</el-button>
+          <el-button v-if="canPrint" icon="Printer" size="small" @click="handlePrint">打印</el-button>
           <el-button icon="Download" size="small" @click="handleDownload">下载</el-button>
         </el-button-group>
       </div>
@@ -130,7 +130,7 @@
         文件类型: {{ currentFile?.mime_type || '未知' }}
       </p>
       <div class="unsupported-actions">
-        <el-button type="primary" icon="Printer" @click="handlePrint">打印</el-button>
+        <el-button v-if="canPrint" type="primary" icon="Printer" @click="handlePrint">打印</el-button>
         <el-button icon="Download" @click="handleDownload">下载文件</el-button>
       </div>
     </div>
@@ -196,6 +196,14 @@ const currentFile = computed(() => props.file)
 const previewType = computed<PreviewType>(() => {
   if (!currentFile.value) return 'unsupported'
   return detectFileType(currentFile.value)
+})
+
+// 判断当前文件是否支持打印
+const canPrint = computed(() => {
+  if (!currentFile.value) return false
+  const mimeType = currentFile.value.mime_type || ''
+  // isPrintableType 已经包含了图片、PDF、文本、代码、Office文档等所有支持打印的类型
+  return isPrintableType(mimeType)
 })
 
 const loading = ref(false)
@@ -538,8 +546,30 @@ onUnmounted(() => {
 <style scoped>
 .file-preview-dialog :deep(.el-dialog__body) {
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 根据内容类型动态设置高度和滚动 */
   max-height: 80vh;
   overflow-y: auto;
+}
+
+/* 视频预览时，完全禁用滚动条 - 基础覆盖 */
+.file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+}
+
+/* 视频预览时，限制 dialog 整体高度 */
+.file-preview-dialog.preview-video-active :deep(.el-dialog) {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-preview-dialog.preview-video-active :deep(.el-dialog__wrapper) {
+  overflow: hidden;
 }
 
 .preview-loading,
@@ -582,7 +612,6 @@ onUnmounted(() => {
   object-fit: contain;
 }
 
-.preview-video-container,
 .preview-audio-container,
 .preview-pdf-container {
   display: flex;
@@ -599,40 +628,68 @@ onUnmounted(() => {
 
 .preview-video-plyr {
   width: 100%;
-  height: 70vh;
-  max-height: 70vh;
-  min-height: 400px;
+  flex: 1;
+  min-height: 0;
+  /* 根据浏览器视口高度自适应，而不是根据视频比例 */
+  height: 100%;
   border-radius: 8px;
   overflow: hidden;
   background: #000;
+  /* 最小高度确保在小屏幕上也能正常显示 */
+  min-height: 400px;
 }
 
 .preview-video-plyr :deep(.plyr) {
+  width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .preview-video-plyr :deep(.plyr__video-wrapper) {
+  width: 100%;
   height: 100%;
+  position: relative;
 }
 
 .preview-video-plyr :deep(video) {
   width: 100%;
   height: 100%;
+  object-fit: contain; /* 视频适应容器，保持原始比例 */
 }
 
-/* 确保预览窗口内容可见 */
-.file-preview-dialog :deep(.el-dialog__body) {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
+/* 视频预览容器：使用 flexbox 自适应高度，避免滚动条 */
 .preview-video-container {
   flex: 1;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  gap: 0; /* 移除 gap，避免额外空间 */
+  /* 确保容器不会超出父元素 */
+  box-sizing: border-box;
+  /* 让播放器根据可用空间自适应 */
+  height: 100%;
 }
+
+/* 视频预览时，el-dialog__body 不显示滚动条 - 使用更高优先级覆盖全局样式 */
+.file-preview-dialog.preview-video-active :deep(.el-dialog__body),
+.file-preview-dialog.preview-video-active.el-dialog .el-dialog__body {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  /* 使用固定高度：视口高度 - header高度(约60px) */
+  height: calc(80vh - 60px) !important;
+  max-height: calc(80vh - 60px) !important;
+  padding: 20px;
+  display: flex !important;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* 确保内容不会溢出 */
+  position: relative;
+}
+
 
 .audio-wrapper {
   display: flex;
@@ -701,8 +758,12 @@ onUnmounted(() => {
 .preview-toolbar {
   display: flex;
   justify-content: center;
-  padding-top: 16px;
+  padding: 16px 0;
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0; /* 工具栏不收缩，保持固定高度 */
+  margin-top: auto; /* 在 flex 容器中自动推到底部 */
+  min-height: 54px; /* 确保工具栏有最小高度：按钮高度(32px) + padding(16px) + border(1px) */
+  box-sizing: border-box;
 }
 
 .unsupported-title {
@@ -755,6 +816,15 @@ onUnmounted(() => {
   
   .preview-video {
     max-height: 60vh;
+  }
+  
+  /* 移动端视频预览时，el-dialog__body 不显示滚动条 */
+  .file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    height: calc(85vh - 60px) !important;
+    max-height: calc(85vh - 60px) !important;
   }
   
   .preview-pdf {
@@ -826,6 +896,16 @@ onUnmounted(() => {
     max-height: 50vh;
   }
   
+  /* 小屏幕视频预览时，el-dialog__body 不显示滚动条 */
+  .file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    height: calc(100vh - 120px) !important;
+    max-height: calc(100vh - 120px) !important;
+    padding: 8px;
+  }
+  
   .preview-pdf {
     height: 50vh;
   }
@@ -833,6 +913,44 @@ onUnmounted(() => {
   .preview-text-content {
     max-height: 45vh;
     font-size: 11px;
+  }
+}
+</style>
+
+<!-- 非 scoped 样式，用于覆盖全局样式 -->
+<style>
+/* 视频预览弹窗：覆盖全局的 el-dialog__body 样式 */
+/* 使用多种选择器确保能够匹配到，包括可能的 DOM 结构变化 */
+.file-preview-dialog.preview-video-active .el-dialog__body,
+.el-dialog.file-preview-dialog.preview-video-active .el-dialog__body,
+.file-preview-dialog.preview-video-active.el-dialog .el-dialog__body,
+.el-overlay-dialog .file-preview-dialog.preview-video-active .el-dialog__body,
+.el-overlay-dialog .el-dialog.file-preview-dialog.preview-video-active .el-dialog__body {
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  height: calc(80vh - 60px) !important;
+  max-height: calc(80vh - 60px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+/* 移动端视频预览 */
+@media (max-width: 1024px) {
+  .file-preview-dialog.preview-video-active .el-dialog__body,
+  .el-dialog.file-preview-dialog.preview-video-active .el-dialog__body {
+    height: calc(85vh - 60px) !important;
+    max-height: calc(85vh - 60px) !important;
+  }
+}
+
+/* 小屏幕视频预览 */
+@media (max-width: 480px) {
+  .file-preview-dialog.preview-video-active .el-dialog__body,
+  .el-dialog.file-preview-dialog.preview-video-active .el-dialog__body {
+    height: calc(100vh - 120px) !important;
+    max-height: calc(100vh - 120px) !important;
   }
 }
 </style>

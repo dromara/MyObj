@@ -93,38 +93,22 @@ export function useFileDownload(options?: {
                   options.onTaskReady()
                 }
                 
-                // 开始下载文件
-                const token = proxy?.$cache.local.get('token')
+                // 开始下载文件 - 直接使用浏览器下载
                 const downloadUrl = getLocalFileDownloadUrl(taskId)
                 
                 proxy?.$log.debug('开始下载文件:', downloadUrl)
                 
                 try {
-                  const response = await fetch(downloadUrl, {
-                    method: 'GET',
-                    headers: {
-                      'Authorization': token ? `Bearer ${token}` : ''
-                    }
-                  })
-                  
-                  if (!response.ok) {
-                    throw new Error('下载失败: ' + response.status)
-                  }
-                  
-                  const blob = await response.blob()
-                  proxy?.$log.debug('下载完成，文件大小:', blob.size)
-                  
-                  const url = window.URL.createObjectURL(blob)
+                  // 直接创建下载链接，让浏览器处理下载
                   const link = document.createElement('a')
-                  link.href = url
+                  link.href = downloadUrl
                   link.download = task.file_name || 'download'
                   link.style.display = 'none'
                   document.body.appendChild(link)
                   link.click()
                   document.body.removeChild(link)
-                  window.URL.revokeObjectURL(url)
                   
-                  proxy?.$modal.msgSuccess('下载完成')
+                  proxy?.$modal.msgSuccess('下载已开始')
                 } catch (error: any) {
                   proxy?.$log.error('下载文件失败:', error)
                   proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))

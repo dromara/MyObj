@@ -290,8 +290,6 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
   }
   
   try {
-    ElMessage.info(`开始处理文件: ${file.name}`)
-
     const fileMD5 = await calculateFileMD5(file, uploadConfig.chunkSize, (md5Progress) => {
       const progress = Math.floor(md5Progress * 0.1)
       if (taskId) {
@@ -322,7 +320,6 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     const precheckResponse = await uploadPrecheck(precheckParams)
 
     if (precheckResponse.code === 200) {
-      ElMessage.success(`文件 ${file.name} 秒传成功`)
       onSuccess?.(file.name)
       return precheckResponse
     }
@@ -384,8 +381,6 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       }
     }
 
-    ElMessage.success(`文件 ${file.name} 预检成功`)
-
     const uploadedChunks = new Set<number>()
     const concurrentUploader = new ConcurrentUploader(uploadConfig.maxConcurrentChunks, taskId || undefined)
     
@@ -432,7 +427,6 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
           uploadTaskManager.completeTask(taskId)
         }
         onProgress?.(100, file.name)
-        ElMessage.success(`文件 ${file.name} 上传成功`)
         onSuccess?.(file.name)
       } else {
         if (taskId) {
@@ -585,7 +579,6 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         uploadTaskManager.completeTask(taskId)
       }
       onProgress?.(100, file.name)
-      ElMessage.success(`文件 ${file.name} 上传成功`)
       onSuccess?.(file.name)
     }
   } catch (error: any) {
@@ -723,8 +716,6 @@ export const handleFileUpload = async (
       onFilesSelected()
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-
-    ElMessage.info(`开始上传 ${files.length} 个文件`)
 
     await uploadMultipleFiles(files, pathId, config, onProgress, onSuccess, onError)
   } catch (error: any) {

@@ -26,7 +26,7 @@
           </div>
         </div>
         
-        <div class="toolbar-right" v-if="selectedCount > 0">
+        <div class="toolbar-right" :class="{ 'is-visible': selectedCount > 0 }">
           <span class="selection-info desktop-only">已选 {{ selectedCount }} 项</span>
           <el-button icon="Download" @click="handleToolbarDownload" plain circle />
           <el-button icon="Share" @click="handleToolbarShare" plain circle />
@@ -576,6 +576,25 @@ watch(
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 40px; /* 确保工具栏有最小高度，避免高度变化 */
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0; /* 允许收缩 */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none; /* 隐藏时禁用交互 */
+}
+
+.toolbar-right.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto; /* 显示时启用交互 */
 }
 
 .selection-info {
@@ -735,4 +754,5 @@ watch(
     font-size: 11px;
   }
 }
+
 </style>
