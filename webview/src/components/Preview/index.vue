@@ -40,6 +40,7 @@
           <el-button icon="ZoomOut" @click="zoomImage(-0.1)">缩小</el-button>
           <el-button icon="RefreshRight" @click="rotateImage(90)">旋转</el-button>
           <el-button icon="Refresh" @click="resetImageZoom">重置</el-button>
+          <el-button icon="Printer" @click="handlePrint">打印</el-button>
           <el-button icon="Download" @click="handleDownload">下载</el-button>
         </el-button-group>
       </div>
@@ -57,6 +58,7 @@
         @error="handleVideoError"
       />
       <div class="preview-toolbar">
+        <el-button icon="Printer" @click="handlePrint">打印</el-button>
         <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
@@ -99,6 +101,7 @@
         @error="handlePdfError"
       ></iframe>
       <div class="preview-toolbar">
+        <el-button icon="Printer" @click="handlePrint">打印</el-button>
         <el-button icon="Download" @click="handleDownload">下载</el-button>
       </div>
     </div>
@@ -109,7 +112,10 @@
         <span class="text-type-label">
           {{ previewType === 'code' ? '代码预览' : '文本预览' }}
         </span>
-        <el-button icon="Download" size="small" @click="handleDownload">下载</el-button>
+        <el-button-group>
+          <el-button icon="Printer" size="small" @click="handlePrint">打印</el-button>
+          <el-button icon="Download" size="small" @click="handleDownload">下载</el-button>
+        </el-button-group>
       </div>
       <pre
         :class="['preview-text-content', previewType === 'code' ? `language-${codeLanguage}` : '']"
@@ -123,7 +129,10 @@
       <p class="unsupported-desc">
         文件类型: {{ currentFile?.mime_type || '未知' }}
       </p>
-      <el-button type="primary" icon="Download" @click="handleDownload">下载文件</el-button>
+      <div class="unsupported-actions">
+        <el-button type="primary" icon="Printer" @click="handlePrint">打印</el-button>
+        <el-button icon="Download" @click="handleDownload">下载文件</el-button>
+      </div>
     </div>
     
     <!-- 下载密码对话框 -->
@@ -160,6 +169,7 @@ import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage 
 import { useFileDownload } from '@/composables/useFileDownload'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
 import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
+import { printImage, printPDF, printText, printOfficeDocument, isPrintableType, isOfficeDocument } from '@/utils/print'
 
 interface Props {
   modelValue: boolean
@@ -329,6 +339,89 @@ const rotateImage = (angle: number) => {
 const handleDownload = async () => {
   if (!currentFile.value) return
   await handleFileDownload(currentFile.value)
+}
+
+// 打印文件
+const handlePrint = async () => {
+  if (!currentFile.value) return
+  
+  try {
+    const file = currentFile.value
+    const mimeType = file.mime_type || ''
+    
+    // 检查是否为Office文档（Excel、Word、PowerPoint等）
+    if (isOfficeDocument(mimeType)) {
+      // Office文档：获取文件URL并尝试打印
+      try {
+        const fileUrl = await getFilePreviewUrl(file.file_id)
+        await printOfficeDocument(fileUrl, file.file_name, {
+          title: file.file_name
+        })
+      } catch (error: any) {
+        proxy?.$log.error('打印Office文档失败', error)
+        // 如果打印失败，提示用户下载后打印
+        proxy?.$modal.msgWarning('无法直接打印此文档类型，请先下载文件，然后用相应的Office软件（如Excel、Word）打开并打印。')
+      }
+      return
+    }
+    
+    // 检查是否支持打印
+    if (!isPrintableType(mimeType)) {
+      proxy?.$modal.msgWarning('该文件类型不支持打印')
+      return
+    }
+    
+    switch (previewType.value) {
+      case 'image':
+        // 打印时始终使用原图，不使用缩略图
+        try {
+          const originalImageUrl = await getFilePreviewUrl(file.file_id)
+          await printImage(originalImageUrl, {
+            title: file.file_name
+          })
+        } catch (error: any) {
+          proxy?.$log.error('获取原图失败', error)
+          proxy?.$modal.msgError('获取原图失败，无法打印')
+        }
+        break
+        
+      case 'pdf':
+        if (pdfUrl.value) {
+          await printPDF(pdfUrl.value, {
+            title: file.file_name
+          })
+        } else {
+          proxy?.$modal.msgWarning('PDF未加载完成，请稍候再试')
+        }
+        break
+        
+      case 'text':
+      case 'code':
+        if (textContent.value) {
+          await printText(textContent.value, file.file_name, {
+            title: file.file_name
+          })
+        } else {
+          proxy?.$modal.msgWarning('文本内容未加载完成，请稍候再试')
+        }
+        break
+        
+      default:
+        // 对于其他不支持预览的文件，尝试直接打印文件URL
+        try {
+          const fileUrl = await getFilePreviewUrl(file.file_id)
+          await printOfficeDocument(fileUrl, file.file_name, {
+            title: file.file_name
+          })
+        } catch (error: any) {
+          proxy?.$log.error('打印失败', error)
+          proxy?.$modal.msgWarning('无法直接打印此文件类型，请先下载文件，然后用相应的软件打开并打印。')
+        }
+    }
+  } catch (error: any) {
+    proxy?.$log.error('打印失败', error)
+    proxy?.$modal.msgError(error.message || '打印失败')
+  }
 }
 
 // 重试
@@ -623,6 +716,13 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0;
+}
+
+.unsupported-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
 }
 
 /* 移动端响应式 */

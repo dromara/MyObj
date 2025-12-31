@@ -180,7 +180,7 @@ import {
   type AdminGroup,
   type AdminPower
 } from '@/api/admin'
-import { formatSize, bytesToGB, GBToBytes } from '@/utils'
+import { bytesToGB, GBToBytes } from '@/utils'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
@@ -340,8 +340,7 @@ const formRules = {
 // 格式化存储空间
 const formatStorage = (bytes: number) => {
   if (bytes === 0 || bytes === -1) return '无限'
-  // return formatSize(bytes)
-  return bytes + 'GB'
+  return bytesToGB(bytes) + ' GB'
 }
 
 // 加载组列表
