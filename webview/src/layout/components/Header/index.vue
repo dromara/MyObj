@@ -50,7 +50,7 @@
           <el-avatar :size="32" :style="{ background: avatarColor }" class="user-avatar-img">
             {{ avatarText }}
           </el-avatar>
-          <span class="username desktop-only">{{ userStore.nickname }}</span>
+          <span class="username desktop-only">{{ userStore.nickname || userStore.username }}</span>
           <el-icon class="el-icon--right desktop-only"><CaretBottom /></el-icon>
         </div>
         <template #dropdown>
