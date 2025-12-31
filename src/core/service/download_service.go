@@ -447,10 +447,14 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 	}
 
 	// 2. 验证文件是否存在
-	userFile, err := d.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+	userFile, err := d.factory.UserFiles().GetByUfID(ctx, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取用户文件信息失败", "error", err, "fileID", req.FileID)
 		return nil, err
+	}
+	if !userFile.IsPublic && userFile.UserID != userID {
+		logger.LOG.Warn("用户尝试下载非公开文件", "userID", userID, "fileID", req.FileID)
+		return nil, fmt.Errorf("无权下载此文件")
 	}
 	fileInfo, err := d.factory.FileInfo().GetByID(ctx, userFile.FileID)
 	if err != nil {

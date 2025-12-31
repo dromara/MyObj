@@ -11,6 +11,7 @@ import (
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/task"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,7 +50,16 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 
 	// 注册路由组
 	logger.LOG.Info("[路由] 正在注册API路由...")
-	r.LoadHTMLGlob("templates/*")
+	// 尝试加载 HTML 模板（如果存在）
+	if _, err := os.Stat("templates"); err == nil {
+		r.LoadHTMLGlob("templates/*")
+		logger.LOG.Info("[路由] HTML模板已加载")
+	}
+
+	// 托管前端静态文件
+	r.Static("/assets", "./webview/dist/assets")
+	r.StaticFile("/vite.svg", "./webview/dist/vite.svg")
+	logger.LOG.Info("[路由] 前端静态资源已注册")
 
 	// Swagger API 文档路由（根据配置决定是否启用）
 	if config.CONFIG.Server.Swagger {
@@ -74,7 +84,21 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 		// TODO: 这里可以注册更多的路由处理器
 	}
 
+	// 前端路由处理（SPA支持）
+	// 所有非API、非静态资源请求都返回 index.html，由前端路由处理
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// API路径和静态资源路径不处理
+		if len(path) >= 4 && path[:4] == "/api" || len(path) >= 7 && path[:7] == "/assets" || path == "/vite.svg" || len(path) >= 8 && path[:8] == "/swagger" {
+			c.Next()
+			return
+		}
+		// 其他所有请求返回前端首页
+		c.File("./webview/dist/index.html")
+	})
+
 	logger.LOG.Info("[路由] 路由初始化完成 ✔️")
+	logger.LOG.Info("[路由] 前端页面访问地址", "url", "http://"+config.CONFIG.Server.Host+fmt.Sprintf(":%d", config.CONFIG.Server.Port))
 	return r
 }
 
