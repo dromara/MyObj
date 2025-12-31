@@ -52,6 +52,14 @@
       </el-table-column>
     </el-table>
 
+    <!-- 分页组件 -->
+    <Pagination
+      v-model:page="pagination.page"
+      v-model:limit="pagination.pageSize"
+      :total="pagination.total"
+      @pagination="handlePagination"
+    />
+
     <!-- 创建/编辑权限对话框 -->
     <el-dialog
       v-model="showDialog"
@@ -115,6 +123,13 @@ const formData = ref<CreatePowerRequest & { id?: number }>({
   characteristic: ''
 })
 
+// 分页数据
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0
+})
+
 const formRules: FormRules = {
   name: [
     { required: true, message: '请输入权限名称', trigger: 'blur' }
@@ -131,19 +146,33 @@ const formRules: FormRules = {
 const loadPowerList = async () => {
   loading.value = true
   try {
-    const res = await getAdminPowerList()
+    const res = await getAdminPowerList({
+      page: pagination.page,
+      pageSize: pagination.pageSize
+    })
     if (res.code === 200 && res.data) {
       powerList.value = res.data.powers || []
+      pagination.total = res.data.total || 0
     } else {
       proxy?.$modal.msgError('加载权限列表失败')
       powerList.value = []
+      pagination.total = 0
     }
   } catch (error: any) {
     proxy?.$modal.msgError('加载权限列表失败')
     proxy?.$log?.error(error)
+    powerList.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
+}
+
+// 分页变化处理
+const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+  pagination.page = page
+  pagination.pageSize = limit
+  loadPowerList()
 }
 
 // 新建权限

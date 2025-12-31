@@ -210,7 +210,12 @@ func (a *AdminHandler) DeleteGroup(c *gin.Context) {
 
 // PowerList 获取权限列表
 func (a *AdminHandler) PowerList(c *gin.Context) {
-	res, err := a.service.AdminPowerList()
+	req := new(request.AdminPowerListRequest)
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+	res, err := a.service.AdminPowerList(req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return

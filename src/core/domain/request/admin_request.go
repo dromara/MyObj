@@ -65,8 +65,11 @@ type AdminDeleteGroupRequest struct {
 	ID int `json:"id" binding:"required"`
 }
 
-// AdminPowerListRequest 管理员权限列表请求（暂无参数）
-type AdminPowerListRequest struct{}
+// AdminPowerListRequest 管理员权限列表请求
+type AdminPowerListRequest struct {
+	Page     int `json:"page" form:"page" binding:"omitempty,min=1"`
+	PageSize int `json:"pageSize" form:"pageSize" binding:"omitempty,min=1,max=100"`
+}
 
 // AdminCreatePowerRequest 管理员创建权限请求
 type AdminCreatePowerRequest struct {

@@ -239,8 +239,8 @@ export const deleteAdminGroup = (id: number) => {
 /**
  * 获取权限列表
  */
-export const getAdminPowerList = () => {
-  return get<ApiResponse<PowerListResponse>>(API_ENDPOINTS.ADMIN.POWER.LIST)
+export const getAdminPowerList = (params?: { page?: number; pageSize?: number }) => {
+  return get<ApiResponse<PowerListResponse>>(API_ENDPOINTS.ADMIN.POWER.LIST, params)
 }
 
 /**

@@ -404,18 +404,31 @@ func (a *AdminService) AdminDeleteGroup(req *request.AdminDeleteGroupRequest) (*
 // ========== 权限管理 ==========
 
 // AdminPowerList 获取权限列表
-func (a *AdminService) AdminPowerList() (*models.JsonResponse, error) {
+func (a *AdminService) AdminPowerList(req *request.AdminPowerListRequest) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	powers, err := a.factory.Power().List(ctx, 0, 1000)
-	if err != nil {
-		logger.LOG.Error("查询权限列表失败", "error", err)
-		return nil, err
+	// 默认分页参数
+	page := req.Page
+	if page < 1 {
+		page = 1
 	}
+	pageSize := req.PageSize
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
 
+	// 获取总数
 	total, err := a.factory.Power().Count(ctx)
 	if err != nil {
 		logger.LOG.Error("统计权限数量失败", "error", err)
+		return nil, err
+	}
+
+	// 获取列表
+	powers, err := a.factory.Power().List(ctx, offset, pageSize)
+	if err != nil {
+		logger.LOG.Error("查询权限列表失败", "error", err)
 		return nil, err
 	}
 
