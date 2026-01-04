@@ -9,6 +9,9 @@ echo Windows 编译 Linux 版本
 echo ========================================
 echo.
 
+REM 切换到项目根目录
+cd ..
+
 REM 设置目标平台
 SET GOOS=linux
 SET GOARCH=amd64
@@ -27,6 +30,13 @@ echo [2/5] 构建前端项目...
 cd webview
 if exist dist (
     rmdir /s /q dist
+)
+echo 安装前端依赖...
+call npm install
+if %ERRORLEVEL% NEQ 0 (
+    echo 前端依赖安装失败！
+    cd ..
+    exit /b 1
 )
 call npm run build
 if %ERRORLEVEL% NEQ 0 (

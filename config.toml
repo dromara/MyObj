@@ -14,8 +14,8 @@ max_age = 7
 
 [database]
 type = "sqlite"
-# host = "./libs/my_obj.db"
-host = "E:\\codes\\myobj\\libs\\my_obj.db"
+host = "./libs/my_obj.db"
+# host = "E:\\codes\\myobj\\libs\\my_obj.db"
 # port = 3306
 # user = "root"
 # password = "password"

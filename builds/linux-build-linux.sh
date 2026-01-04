@@ -9,6 +9,11 @@ echo "Linux 编译 Linux 版本"
 echo "========================================"
 echo ""
 
+# 获取脚本所在目录的父目录（项目根目录）
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+cd "$PROJECT_ROOT"
+
 # 设置目标平台
 export GOOS=linux
 export GOARCH=amd64
@@ -26,6 +31,13 @@ cd webview
 if [ -d "dist" ]; then
     echo "清理旧的前端构建文件..."
     rm -rf dist
+fi
+echo "安装前端依赖..."
+npm install
+if [ $? -ne 0 ]; then
+    echo "前端依赖安装失败！"
+    cd ..
+    exit 1
 fi
 npm run build
 if [ $? -ne 0 ]; then
