@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  myobj:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myobj-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # HTTP服务端口
+      - "8081:8081"   # WebDAV服务端口
+    volumes:
+      # 配置文件挂载
+      - ./config.toml:/app/config.toml:ro
+      # 日志目录挂载
+      - ./logs:/app/logs
+      # 数据库目录挂载
+      - ./libs:/app/libs
+      # 文件数据目录挂载
+      - ./obj_data:/app/obj_data
+      # 临时文件目录挂载
+      - ./obj_temp:/app/obj_temp
+    environment:
+      - TZ=Asia/Shanghai
+    depends_on:
+      - redis
+    networks:
+      - myobj-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: myobj-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      # Redis 数据持久化
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - myobj-network
+
+networks:
+  myobj-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
