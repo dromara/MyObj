@@ -33,16 +33,24 @@
               :is-encrypted="row.is_enc"
             />
           </div>
-          <file-name-tooltip
-            v-if="!row.isFolder"
-            :file-name="row.file_name"
-            view-mode="table"
-          />
-          <span v-else class="file-name-text folder-name">{{ row.name }}</span>
-          <el-tag v-if="!row.isFolder && row.is_enc" size="small" type="warning" class="enc-tag-inline">
-            <el-icon :size="12"><Lock /></el-icon>
-            加密
-          </el-tag>
+          <div class="file-name-wrapper">
+            <file-name-tooltip
+              v-if="!row.isFolder"
+              :file-name="row.file_name"
+              view-mode="table"
+            />
+            <span v-else class="file-name-text folder-name">{{ row.name }}</span>
+            <div v-if="!row.isFolder" class="file-tags-inline">
+              <el-tag v-if="row.is_enc" size="small" type="warning" class="enc-tag-inline">
+                <el-icon :size="12"><Lock /></el-icon>
+                加密
+              </el-tag>
+              <el-tag v-if="row.public" size="small" type="success" class="public-tag-inline" effect="plain">
+                <el-icon :size="12"><Share /></el-icon>
+                公开
+              </el-tag>
+            </div>
+          </div>
         </div>
       </template>
     </el-table-column>
@@ -141,10 +149,16 @@
                 custom-class="mobile-item-name"
               />
               <span v-else class="mobile-item-name folder-name">{{ row.name }}</span>
-              <el-tag v-if="!row.isFolder && row.is_enc" size="small" type="warning" class="mobile-enc-tag">
-                <el-icon :size="10"><Lock /></el-icon>
-                加密
-              </el-tag>
+              <div v-if="!row.isFolder" class="mobile-file-tags">
+                <el-tag v-if="row.is_enc" size="small" type="warning" class="mobile-enc-tag">
+                  <el-icon :size="10"><Lock /></el-icon>
+                  加密
+                </el-tag>
+                <el-tag v-if="row.public" size="small" type="success" class="mobile-public-tag">
+                  <el-icon :size="10"><Share /></el-icon>
+                  公开
+                </el-tag>
+              </div>
             </div>
             <div class="mobile-item-meta">
               <span v-if="!row.isFolder" class="mobile-item-size">{{ formatSize(row.file_size) }}</span>
@@ -385,6 +399,15 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   cursor: default;
 }
 
+.file-name-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
 .file-name-text {
   flex: 1;
   min-width: 0;
@@ -394,12 +417,19 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   color: var(--el-text-color-primary, #303133) !important;
   font-size: 14px;
   line-height: 1.5;
-  display: inline-block;
 }
 
 .file-name-text.folder-name {
   color: var(--el-color-primary) !important;
   font-weight: 500;
+}
+
+.file-tags-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .enc-tag-inline {
@@ -409,10 +439,49 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   font-size: 11px;
   padding: 2px 8px;
   height: 20px;
-  margin-left: 8px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.public-tag-inline {
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  font-size: 11px;
+  padding: 2px 6px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.public-tag-inline :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.public-tag-inline :deep(.el-icon) {
+  flex-shrink: 0;
+}
+
+.public-tag-inline:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.public-tag-inline .el-icon {
+  color: #10b981;
 }
 
 .list-file-icon {
@@ -569,6 +638,14 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   font-weight: 600;
 }
 
+.mobile-file-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
 .mobile-enc-tag {
   border: none;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -576,7 +653,18 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   font-size: 10px;
   padding: 2px 6px;
   height: 18px;
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mobile-public-tag {
+  border: none;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   gap: 2px;

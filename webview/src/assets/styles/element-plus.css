@@ -2,7 +2,6 @@
 .el-button {
   font-weight: 500;
   border-radius: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .el-button:not(.is-disabled):active {
@@ -12,14 +11,12 @@
 .el-button--primary {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
 .el-button--primary:hover,
 .el-button--primary:focus {
   background-color: var(--primary-hover);
   border-color: var(--primary-hover);
-  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
 }
 
 .el-input__wrapper,
@@ -83,6 +80,7 @@
 }
 
 .el-dialog__body {
+  margin-top: 12px;
   max-height: calc(90vh - 111px);
   overflow-y: auto;
   overflow-x: hidden;

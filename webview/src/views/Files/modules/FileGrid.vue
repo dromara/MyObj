@@ -86,10 +86,16 @@
       </div>
       <file-name-tooltip :file-name="file.file_name" view-mode="grid" tag="div" custom-class="file-name" />
       <div class="file-info">
-        {{ formatSize(file.file_size) }} · {{ formatDate(file.created_at) }}
-        <el-tag v-if="file.is_enc" size="small" type="warning" class="enc-tag">
-          <el-icon><Lock /></el-icon>
-        </el-tag>
+        <div class="file-info-text">{{ formatSize(file.file_size) }} · {{ formatDate(file.created_at) }}</div>
+        <div class="file-tags">
+          <el-tag v-if="file.is_enc" size="small" type="warning" class="enc-tag">
+            <el-icon><Lock /></el-icon>
+          </el-tag>
+          <el-tag v-if="file.public" size="small" type="success" class="public-tag" effect="plain">
+            <el-icon><Share /></el-icon>
+            公开
+          </el-tag>
+        </div>
       </div>
     </div>
   </div>
@@ -245,6 +251,21 @@ const handleFileAction = (command: string, file: FileItem) => {
   color: var(--text-placeholder);
   text-align: center;
   margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.file-info-text {
+  line-height: 1.4;
+}
+
+.file-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
 }
 
 .enc-tag {
@@ -257,6 +278,41 @@ const handleFileAction = (command: string, file: FileItem) => {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.public-tag {
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  font-size: 11px;
+  padding: 2px 6px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.public-tag:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.public-tag .el-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.public-tag :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 @media (max-width: 1024px) {

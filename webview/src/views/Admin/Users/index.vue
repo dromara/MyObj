@@ -103,13 +103,13 @@
         <el-form-item label="密码" prop="password" v-if="!isEdit">
           <el-input v-model="formData.password" type="password" show-password />
         </el-form-item>
-        <el-form-item label="昵称" prop="name">
+        <el-form-item label="昵称">
           <el-input v-model="formData.name" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email">
+        <el-form-item label="邮箱">
           <el-input v-model="formData.email" />
         </el-form-item>
-        <el-form-item label="手机号" prop="phone">
+        <el-form-item label="手机号">
           <el-input v-model="formData.phone" />
         </el-form-item>
         <el-form-item label="用户组" prop="group_id">

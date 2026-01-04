@@ -38,7 +38,8 @@ func (s *SharesHandler) Router(c *gin.RouterGroup) {
 		s.service.GetRepository().Power())
 	share := c.Group("/share")
 	{
-		share.GET("/download", s.GetShare)
+		share.GET("/info", s.GetShareInfo)      // 获取分享信息（不触发下载）
+		share.GET("/download", s.DownloadShare) // 下载分享文件（GET请求，直接触发下载）
 	}
 	ver := c.Group("/share")
 	ver.Use(verify.Verify())
@@ -69,43 +70,53 @@ func (s *SharesHandler) CreateShare(c *gin.Context) {
 	c.JSON(200, createShare)
 }
 
-// GetShare 获取分享
-func (s *SharesHandler) GetShare(c *gin.Context) {
+// GetShareInfo 获取分享信息（不触发下载）
+func (s *SharesHandler) GetShareInfo(c *gin.Context) {
 	token := c.Query("token")
-	psw := c.Query("psw")
-
-	// 先查询分享信息，检查是否需要密码
-	ctx := c.Request.Context()
-	shareInfo, err := s.service.GetRepository().Share().GetByToken(ctx, token)
-	if err != nil || shareInfo == nil {
-		c.HTML(200, "404.html", gin.H{"message": "分享不存在或已失效"})
+	password := c.Query("password") // 可选，如果有密码则必需
+	
+	if token == "" {
+		c.JSON(400, models.NewJsonResponse(400, "token参数不能为空", nil))
 		return
 	}
 
-	// 如果分享设置了密码，但没有提供密码参数，返回密码输入页面
-	if shareInfo.PasswordHash != "" && psw == "" {
-		c.HTML(200, "share_password.html", gin.H{"token": token})
+	shareInfo, err := s.service.GetShareInfo(token, password)
+	if err != nil {
+		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
 
-	// 调用服务获取分享文件
-	share := s.service.GetShare(token, psw)
+	c.JSON(200, models.NewJsonResponse(200, "ok", shareInfo))
+}
+
+// DownloadShare 下载分享文件（GET请求，直接触发浏览器下载）
+func (s *SharesHandler) DownloadShare(c *gin.Context) {
+	token := c.Query("token")
+	password := c.Query("password") // 可选，如果有密码则必需
+
+	if token == "" {
+		c.JSON(400, models.NewJsonResponse(400, "token参数不能为空", nil))
+		return
+	}
+
+	// 调用服务下载分享文件
+	share := s.service.DownloadShare(token, password)
 	if share.Err != "" {
-		c.HTML(200, "404.html", gin.H{"message": share.Err})
+		c.JSON(400, models.NewJsonResponse(400, share.Err, nil))
 		return
 	}
 	
 	// 检查返回的数据是否有效
 	if share.Path == "" {
 		logger.LOG.Error("分享文件路径为空", "token", token)
-		c.HTML(200, "404.html", gin.H{"message": "文件路径无效"})
+		c.JSON(400, models.NewJsonResponse(400, "文件路径无效", nil))
 		return
 	}
 	
 	// 检查文件是否存在
 	if _, err := os.Stat(share.Path); os.IsNotExist(err) {
 		logger.LOG.Error("分享文件不存在", "path", share.Path, "error", err)
-		c.HTML(200, "404.html", gin.H{"message": "文件不存在或已被删除"})
+		c.JSON(404, models.NewJsonResponse(404, "文件不存在或已被删除", nil))
 		return
 	}
 	
@@ -128,7 +139,7 @@ func (s *SharesHandler) GetShare(c *gin.Context) {
 		fileName, url.QueryEscape(fileName)))
 	c.Header("Content-Type", "application/octet-stream")
 	
-	// 使用 c.File 发送文件
+	// 使用 c.File 发送文件，直接触发浏览器下载
 	c.File(share.Path)
 }
 

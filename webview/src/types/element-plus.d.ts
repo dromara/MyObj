@@ -1,6 +1,6 @@
 import type * as ep from 'element-plus'
 
-declare module 'element-plus/dist/locale/zh-cn.mjs';
+declare module 'element-plus/dist/locale/zh-cn';
 declare global {
   // Element Plus 类型声明
   declare type FormInstance = ep.FormInstance
