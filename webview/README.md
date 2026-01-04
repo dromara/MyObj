@@ -1,3 +1,4 @@
+![输入图片说明](src/assets/images/LOGO.png)
 # MyObj 网盘系统 - 前端项目
 
 基于Vue3 + Vite构建的现代化网盘系统前端界面。

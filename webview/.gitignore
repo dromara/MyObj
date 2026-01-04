@@ -32,6 +32,8 @@ components.d.ts
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+.yarn
+.yarnrc.yml
 
 # Environment variables
 .env
