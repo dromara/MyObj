@@ -245,8 +245,10 @@ import {
 } from '@/api/recycled'
 import { getThumbnailUrl } from '@/api/file'
 import { formatSize, formatDate } from '@/utils'
+import { useUserStore } from '@/stores/user'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const userStore = useUserStore()
 
 // 数据
 const loading = ref(false)
@@ -428,6 +430,8 @@ const handleDeletePermanently = async () => {
     
     if (successCount > 0) {
       proxy?.$modal.msgSuccess(`成功删除 ${successCount} 个文件`)
+      // 永久删除成功后刷新用户信息，更新存储空间显示
+      await userStore.fetchUserInfo()
     }
     if (failedCount > 0) {
       proxy?.$modal.msgWarning(`${failedCount} 个文件删除失败`)
@@ -450,6 +454,8 @@ const handleDeleteFilepermanently = async (item: RecycledItem) => {
     if (res.code === 200) {
       proxy?.$modal.msgSuccess('删除成功')
       await loadRecycledList()
+      // 永久删除成功后刷新用户信息，更新存储空间显示
+      await userStore.fetchUserInfo()
     } else {
       proxy?.$modal.msgError(res.message || '删除失败')
     }
@@ -475,6 +481,8 @@ const handleEmptyTrash = async () => {
       if (res.code === 200) {
         proxy?.$modal.msgSuccess(res.message || '清空成功')
         await loadRecycledList()
+        // 清空回收站成功后刷新用户信息，更新存储空间显示
+        await userStore.fetchUserInfo()
       } else {
         proxy?.$modal.msgError(res.message || '清空失败')
       }

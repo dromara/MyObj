@@ -269,6 +269,7 @@
 
 <script setup lang="ts">
 import { handleFileUpload } from '@/utils/upload'
+import { useUserStore } from '@/stores/user'
 import FileGrid from './modules/FileGrid.vue'
 import FileList from './modules/FileList.vue'
 import Breadcrumb from './modules/Breadcrumb.vue'
@@ -285,6 +286,8 @@ import { useFileSearch } from './modules/useFileSearch'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const route = useRoute()
+const router = useRouter()
+const userStore = useUserStore()
 
 const viewMode = ref<'grid' | 'list'>('grid')
 
@@ -454,7 +457,6 @@ const getFileNameForMove = (fileId: string): string => {
 }
 
 // 上传文件
-const router = useRouter()
 const handleUpload = async () => {
   await handleFileUpload(
     currentPath.value,
@@ -462,9 +464,11 @@ const handleUpload = async () => {
     (progress, fileName) => {
       proxy?.$log.debug(`文件 ${fileName} 上传进度: ${progress}%`)
     },
-    (fileName) => {
+    async (fileName) => {
       proxy?.$modal.msgSuccess(`文件 ${fileName} 上传成功`)
-      loadFileList()
+      await loadFileList()
+      // 上传成功后刷新用户信息，更新存储空间显示
+      await userStore.fetchUserInfo()
     },
     (error, fileName) => {
       proxy?.$log.error(`文件 ${fileName} 上传失败:`, error)

@@ -1,6 +1,7 @@
 import { deleteFiles, setFilePublic } from '@/api/file'
 import { createPackage, getPackageProgress, downloadPackage } from '@/api/package'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { useUserStore } from '@/stores/user'
 import type { FileItem, FileListResponse } from '@/types'
 
 export function useFileOperations(
@@ -11,6 +12,7 @@ export function useFileOperations(
 ) {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const router = useRouter()
+  const userStore = useUserStore()
 
   const previewVisible = ref(false)
   const previewFile = ref<FileItem | null>(null)
@@ -73,6 +75,8 @@ export function useFileOperations(
           selectedFileIds.value = []
           selectedFolderIds.value = []
           await loadFileList()
+          // 删除成功后刷新用户信息，更新存储空间显示
+          await userStore.fetchUserInfo()
         } else {
           proxy?.$modal.msgError(result.message || '删除失败')
         }
@@ -253,6 +257,8 @@ export function useFileOperations(
           const result = await deleteFiles({ file_ids: selectedFileIds.value })
           if (result.code === 200) {
             proxy?.$modal.msgSuccess(result.message || '删除成功')
+            // 删除成功后刷新用户信息，更新存储空间显示
+            await userStore.fetchUserInfo()
           } else {
             proxy?.$modal.msgError(result.message || '删除失败')
           }
