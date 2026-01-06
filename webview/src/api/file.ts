@@ -200,6 +200,7 @@ export interface uploadParams {
   total_chunks: number,
   chunk_md5: string,
   is_enc: boolean,
+  file_password: string
 }
 
 /**
@@ -216,6 +217,9 @@ export const uploadFile = (
   formData.append('total_chunks', data.total_chunks.toString());
   formData.append('chunk_md5', data.chunk_md5);
   formData.append('is_enc', data.is_enc.toString());
+  if (data.is_enc && data.file_password) {
+    formData.append('file_password', data.file_password);
+  }
   return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData, onProgress, options)
 }
 

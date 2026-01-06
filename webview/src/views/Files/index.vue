@@ -123,6 +123,12 @@
       </template>
     </el-dialog>
     
+    <!-- 上传加密配置弹窗 -->
+    <UploadEncryptDialog
+      v-model="showUploadEncryptDialog"
+      @confirm="handleUploadEncryptConfirm"
+    />
+    
     <!-- 移动文件对话框 -->
     <el-dialog 
       v-model="showMoveDialog" 
@@ -273,6 +279,7 @@ import { useUserStore } from '@/stores/user'
 import FileGrid from './modules/FileGrid.vue'
 import FileList from './modules/FileList.vue'
 import Breadcrumb from './modules/Breadcrumb.vue'
+import UploadEncryptDialog from '@/components/UploadEncryptDialog/index.vue'
 import type { FileItem, FolderItem } from '@/types'
 
 // 导入 composables
@@ -456,8 +463,17 @@ const getFileNameForMove = (fileId: string): string => {
   return getFileName(fileId, fileListData)
 }
 
+// 上传加密配置弹窗显示状态
+const showUploadEncryptDialog = ref(false)
+
 // 上传文件
 const handleUpload = async () => {
+  // 先显示加密配置弹窗
+  showUploadEncryptDialog.value = true
+}
+
+// 处理上传加密配置确认
+const handleUploadEncryptConfirm = async (encryptConfig: { is_enc: boolean; file_password: string }) => {
   await handleFileUpload(
     currentPath.value,
     { chunkSize: 5 * 1024 * 1024 },
@@ -480,7 +496,8 @@ const handleUpload = async () => {
         path: '/tasks',
         query: { tab: 'upload' }
       })
-    }
+    },
+    encryptConfig
   )
 }
 
