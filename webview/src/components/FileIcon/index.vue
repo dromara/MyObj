@@ -1,8 +1,8 @@
 <template>
-  <div class="file-icon-wrapper" :class="{ 'has-thumbnail': showThumbnail }">
-    <!-- 缩略图 -->
+  <div class="file-icon-wrapper" :class="{ 'has-thumbnail': showThumbnail && !isEncrypted }">
+    <!-- 缩略图（加密文件不显示缩略图） -->
     <img 
-      v-if="showThumbnail && thumbnailUrl" 
+      v-if="showThumbnail && thumbnailUrl && !isEncrypted" 
       :src="thumbnailUrl" 
       class="thumbnail-image"
       @error="handleImageError"
