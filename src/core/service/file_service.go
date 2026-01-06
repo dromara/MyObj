@@ -80,6 +80,22 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
 				return nil, err
 			}
+			// 秒传成功后扣除用户空间（只对非无限空间用户）
+			if user.Space > 0 {
+				user.FreeSpace -= req.FileSize
+				if err := f.factory.User().Update(ctx, user); err != nil {
+					logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
+					// 回滚：删除刚创建的用户文件关联
+					if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
+						logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
+					}
+					return nil, err
+				}
+				logger.LOG.Debug("秒传扣除用户空间",
+					"user_id", user.ID,
+					"file_size", req.FileSize,
+					"new_free_space", user.FreeSpace)
+			}
 			return models.NewJsonResponse(200, "秒传成功", nil), nil
 		}
 	} else {
@@ -97,6 +113,22 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 			if err != nil {
 				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
 				return nil, err
+			}
+			// 秒传成功后扣除用户空间（只对非无限空间用户）
+			if user.Space > 0 {
+				user.FreeSpace -= req.FileSize
+				if err := f.factory.User().Update(ctx, user); err != nil {
+					logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
+					// 回滚：删除刚创建的用户文件关联
+					if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
+						logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
+					}
+					return nil, err
+				}
+				logger.LOG.Debug("秒传扣除用户空间",
+					"user_id", user.ID,
+					"file_size", req.FileSize,
+					"new_free_space", user.FreeSpace)
 			}
 			return models.NewJsonResponse(200, "秒传成功", nil), nil
 		}
