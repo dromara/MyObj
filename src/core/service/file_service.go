@@ -133,9 +133,9 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 			return models.NewJsonResponse(200, "秒传成功", nil), nil
 		}
 	}
-	//无法触发秒传，但可上传，返回校验ID
-	key := fmt.Sprintf("fileUpload:%s", user.ID)
 	uid := uuid.New().String()
+	//无法触发秒传，但可上传，返回校验ID
+	key := fmt.Sprintf("fileUpload:%s", uid)
 	res := new(response.FilePrecheckResponse)
 	res.PrecheckID = uid
 	chunks, err := f.factory.UploadChunk().GetByUserIDAndFileName(ctx, user.ID, req.FileName)
@@ -190,7 +190,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	}
 
 	// 存储预检请求信息到缓存（用于后续查询进度）
-	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", uid)
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
 		logger.LOG.Error("序列化预检请求失败", "error", err)
@@ -213,7 +213,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		return nil, err
 	}
 	// 保存原始请求数据到缓存，供上传时使用
-	reqKey := fmt.Sprintf("fileUploadReq:%s", user.ID)
+	reqKey := fmt.Sprintf("fileUploadReq:%s", uid)
 	reqJSON, err = json.Marshal(req)
 	if err != nil {
 		logger.LOG.Error("序列化预检请求失败", "error", err)
@@ -1069,7 +1069,7 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 	ctx := context.Background()
 
 	// 1. 从缓存获取预检信息
-	cacheKey := fmt.Sprintf("fileUpload:%s", userID)
+	cacheKey := fmt.Sprintf("fileUpload:%s", req.PrecheckID)
 	precheckData, err := f.cacheLocal.Get(cacheKey)
 	if err != nil {
 		logger.LOG.Error("获取预检信息失败", "error", err, "precheckID", req.PrecheckID)
