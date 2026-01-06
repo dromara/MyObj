@@ -144,10 +144,14 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 		Email:     req.Email,
 		Phone:     req.Phone,
 		GroupID:   req.GroupID,
-		CreatedAt: custom_type.Now(),
 		Space:     req.Space,
 		FreeSpace: req.Space,
+		CreatedAt: custom_type.Now(),
 		State:     0,
+	}
+	if req.Space == 0 && group.Space > 0 {
+		user.Space = group.Space * 1024 * 1024 * 1024
+		user.FreeSpace = group.Space * 1024 * 1024 * 1024 // Convert to bytes (GB)
 	}
 
 	if err = a.factory.User().Create(ctx, user); err != nil {
