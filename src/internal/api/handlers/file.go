@@ -249,7 +249,10 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(404, "文件不存在", err.Error()))
 		return
 	}
-
+	if fileInfo.IsEnc {
+		c.JSON(200, models.NewJsonResponse(400, "加密文件无法获取缩略图", nil))
+		return
+	}
 	// 发送缩略图响应
 	f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
 }
