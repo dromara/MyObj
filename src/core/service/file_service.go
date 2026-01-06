@@ -1101,7 +1101,7 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 	// 3. 选择合适的磁盘（按剩余空间最大原则）
 	// 获取预检请求中的文件大小
 	var fileSize int64
-	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 	reqData, err := f.cacheLocal.Get(reqCacheKey)
 	if err != nil {
 		logger.LOG.Error("获取预检请求失败", "error", err)
