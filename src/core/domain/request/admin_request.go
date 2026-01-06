@@ -13,9 +13,9 @@ type AdminUserListRequest struct {
 type AdminCreateUserRequest struct {
 	UserName string `json:"user_name" binding:"required"`
 	Password string `json:"password" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Phone    string `json:"phone" binding:"required"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 	GroupID  int    `json:"group_id" binding:"required"`
 	Space    int64  `json:"space"` // 存储空间（字节），0表示无限
 }
@@ -47,17 +47,17 @@ type AdminGroupListRequest struct{}
 
 // AdminCreateGroupRequest 管理员创建组请求
 type AdminCreateGroupRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Space       int64  `json:"space"`        // 存储空间（字节），0表示无限
-	GroupDefault int   `json:"group_default"` // 0-否 1-是
+	Name         string `json:"name" binding:"required"`
+	Space        int64  `json:"space"`         // 存储空间（字节），0表示无限
+	GroupDefault int    `json:"group_default"` // 0-否 1-是
 }
 
 // AdminUpdateGroupRequest 管理员更新组请求
 type AdminUpdateGroupRequest struct {
-	ID          int    `json:"id" binding:"required"`
-	Name        string `json:"name"`
-	Space       int64  `json:"space"`
-	GroupDefault int   `json:"group_default"` // 0-否 1-是
+	ID           int    `json:"id" binding:"required"`
+	Name         string `json:"name"`
+	Space        int64  `json:"space"`
+	GroupDefault int    `json:"group_default"` // 0-否 1-是
 }
 
 // AdminDeleteGroupRequest 管理员删除组请求
@@ -154,4 +154,3 @@ type PackageProgressRequest struct {
 type PackageDownloadRequest struct {
 	PackageID string `json:"package_id" form:"package_id" binding:"required"`
 }
-
