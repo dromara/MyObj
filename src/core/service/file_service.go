@@ -212,17 +212,17 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		logger.LOG.Error("缓存设置失败", "error", err, "key", key)
 		return nil, err
 	}
-	// 保存原始请求数据到缓存，供上传时使用
-	reqKey := fmt.Sprintf("fileUploadReq:%s", uid)
-	reqJSON, err = json.Marshal(req)
-	if err != nil {
-		logger.LOG.Error("序列化预检请求失败", "error", err)
-		return nil, err
-	}
-	if err := c.Set(reqKey, string(reqJSON), 12*60*60); err != nil {
-		logger.LOG.Error("保存上传请求失败", "error", err, "key", reqKey)
-		return nil, err
-	}
+	//// 保存原始请求数据到缓存，供上传时使用
+	//reqKey := fmt.Sprintf("fileUploadReq:%s", uid)
+	//reqJSON, err = json.Marshal(req)
+	//if err != nil {
+	//	logger.LOG.Error("序列化预检请求失败", "error", err)
+	//	return nil, err
+	//}
+	//if err := c.Set(reqKey, string(reqJSON), 12*60*60); err != nil {
+	//	logger.LOG.Error("保存上传请求失败", "error", err, "key", reqKey)
+	//	return nil, err
+	//}
 	return models.NewJsonResponse(201, "预检通过", uid), nil
 }
 
@@ -1273,7 +1273,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 
 	// 获取预检请求中的原始数据
 	var precheckReq request.UploadPrecheckRequest
-	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 	reqData, err := f.cacheLocal.Get(reqCacheKey)
 	if err != nil {
 		logger.LOG.Error("获取预检请求失败", "error", err)
@@ -1370,7 +1370,7 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 
 	// 2. 获取预检请求中的原始数据
 	var precheckReq request.UploadPrecheckRequest
-	cacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+	cacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 	reqData, err := f.cacheLocal.Get(cacheKey)
 	if err != nil {
 		logger.LOG.Error("获取预检请求失败", "error", err)
@@ -1636,7 +1636,7 @@ func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, user
 		logger.LOG.Warn("数据库中没有找到上传任务，使用缓存数据", "precheckID", req.PrecheckID, "error", err)
 
 		// 从缓存获取预检请求信息（包含文件大小、文件名等）
-		reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+		reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 		reqData, err := f.cacheLocal.Get(reqCacheKey)
 		if err != nil {
 			logger.LOG.Error("获取预检请求失败", "error", err)
@@ -1709,7 +1709,7 @@ func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID s
 		// 如果任务不存在，尝试创建（可能是从缓存恢复的场景）
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 从缓存获取预检请求信息
-			reqCacheKey := fmt.Sprintf("fileUploadReq:%s", userID)
+			reqCacheKey := fmt.Sprintf("fileUploadReq:%s", precheckID)
 			reqData, err := f.cacheLocal.Get(reqCacheKey)
 			if err != nil {
 				return fmt.Errorf("无法获取预检请求信息: %w", err)
