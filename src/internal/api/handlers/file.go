@@ -226,7 +226,7 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 
 	// 先通过 uf_id 查询 user_files 表，获取真实的 file_id
 	// 因为前端传递的是 uf_id（用户文件关联表的ID），而不是 file_info 表的 id
-	userFile, err := f.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+	userFile, err := f.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
 	if err != nil {
 		// 如果通过 uf_id 查询失败，尝试直接作为 file_id 查询（兼容旧版本）
 		fileInfo, err2 := f.service.GetRepository().FileInfo().GetByID(ctx, fileID)
@@ -238,7 +238,10 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 		f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
 		return
 	}
-
+	if !userFile.IsPublic && userFile.UserID != userID {
+		c.JSON(200, models.NewJsonResponse(403, "文件不存在", nil))
+		return
+	}
 	// 通过 user_files 获取到的 file_id 查询 file_info
 	fileInfo, err := f.service.GetRepository().FileInfo().GetByID(ctx, userFile.FileID)
 	if err != nil {
