@@ -103,14 +103,14 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 // Register 用户注册
 func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonResponse, error) {
 	ctx := context.Background()
-	
+
 	// 检查系统是否允许注册（第一个用户注册除外，用于系统初始化）
 	userCount, err := u.factory.User().Count(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户数量失败", "error", err)
 		return nil, fmt.Errorf("系统错误")
 	}
-	
+
 	// 如果不是第一个用户，需要检查注册配置
 	if userCount > 0 {
 		allowRegister, err := u.factory.SysConfig().GetByKey(ctx, "allow_register")
@@ -124,7 +124,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 			return nil, fmt.Errorf("系统已关闭用户注册功能，请联系管理员")
 		}
 	}
-	
+
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
@@ -165,7 +165,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	// 检查是否是首次使用（第一个用户注册）
 	// userCount 已在上面查询过，直接使用
 	isFirstUse := userCount == 0
-	
+
 	var groupID int
 	if isFirstUse {
 		// 首次使用，强制设置为管理员组（ID=1）
@@ -184,14 +184,14 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 			return nil, fmt.Errorf("系统配置错误：默认组不能是管理员组，请联系管理员")
 		}
 	}
-	
+
 	// 获取组信息（用于设置存储空间）
 	group, err := u.factory.Group().GetByID(ctx, groupID)
 	if err != nil {
 		logger.LOG.Error("查询组信息失败", "error", err)
 		return nil, err
 	}
-	
+
 	user = &models.UserInfo{
 		ID:           v7.String(),
 		Name:         req.Nickname,
@@ -258,7 +258,7 @@ func (u *UserService) SysInit() (*models.JsonResponse, error) {
 		return nil, err
 	}
 	isFirstUse := count == 0
-	
+
 	// 获取注册配置（如果不是首次使用）
 	allowRegister := true // 首次使用时默认允许注册
 	if !isFirstUse {
@@ -274,7 +274,7 @@ func (u *UserService) SysInit() (*models.JsonResponse, error) {
 			allowRegister = false
 		}
 	}
-	
+
 	result := map[string]interface{}{
 		"is_first_use":   isFirstUse,
 		"allow_register": allowRegister,
@@ -596,4 +596,21 @@ func maskApiKey(key string) string {
 		return "****"
 	}
 	return key[:8] + "****" + key[len(key)-4:]
+}
+
+func (u *UserService) GetUserInfo(userID string) (*models.JsonResponse, error) {
+	id, err := u.factory.User().GetByID(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+	return models.NewJsonResponse(200, "ok", response.UserInfoResponse{
+		ID:        id.ID,
+		Name:      id.Name,
+		Email:     id.Email,
+		Phone:     id.Phone,
+		State:     id.State,
+		Space:     id.Space,
+		FreeSpace: id.FreeSpace,
+		UserName:  id.UserName,
+	}), nil
 }

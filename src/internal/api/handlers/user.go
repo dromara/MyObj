@@ -47,6 +47,7 @@ func (u *UserHandler) Router(c *gin.RouterGroup) {
 		r.POST("/updatePassword", middleware.PowerVerify("user:update:password"), u.UpdatePassword)
 		r.POST("/setFilePassword", middleware.PowerVerify("file:update:filePassword"), u.SetFilePassword)
 		r.POST("/updateFilePassword", middleware.PowerVerify("file:update:filePassword"), u.UserUpdateFilePassword)
+		r.GET("/info", u.GetUserInfo)
 		// API Key 相关路由
 		r.POST("/apiKey/generate", middleware.PowerVerify("user:update"), u.GenerateApiKey)
 		r.GET("/apiKey/list", middleware.PowerVerify("user:update"), u.ListApiKeys)
@@ -327,4 +328,25 @@ func (u *UserHandler) DeleteApiKey(c *gin.Context) {
 		return
 	}
 	c.JSON(200, result)
+}
+
+// GetUserInfo godoc
+// @Summary 获取用户信息
+// @Description 获取当前用户的信息
+// @Tags 用户管理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse{data=object} "获取成功"
+// @Failure 400 {object} models.JsonResponse "获取失败"
+// @Router /user/info [get]
+func (u *UserHandler) GetUserInfo(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := u.service.GetUserInfo(userID)
+	if err != nil {
+		logger.LOG.Error("获取用户信息失败", "userID", userID, "err", err)
+		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+	return
 }
