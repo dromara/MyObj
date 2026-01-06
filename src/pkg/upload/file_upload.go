@@ -175,20 +175,6 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 			return "", fmt.Errorf("加密文件必须提供密码")
 		}
 
-		// 查询用户信息（用于验证密码和获取用户ID作为盐）
-		user, err := repoFactory.User().GetByID(ctx, data.UserID)
-		if err != nil {
-			return "", fmt.Errorf("查询用户信息失败: %w", err)
-		}
-		if user.FilePassword == "" {
-			return "", fmt.Errorf("用户未设置文件加密密码")
-		}
-
-		// 验证用户输入的密码是否正确
-		if !util.CheckPassword(user.FilePassword, data.FilePassword) {
-			return "", fmt.Errorf("文件密码错误")
-		}
-
 		// 使用PBKDF2从明文密码和用户ID派生加密密钥
 		// 这确保相同的密码+用户ID总是生成相同的密钥
 		encryptionKey := util.DeriveEncryptionKey(data.FilePassword, data.UserID)
