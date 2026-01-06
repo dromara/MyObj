@@ -1,310 +1,660 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"fmt"
 	"log"
 	"myobj/src/config"
 	"myobj/src/internal/repository/database"
 	"myobj/src/internal/repository/impl"
+	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
+	"myobj/src/pkg/models"
+	"myobj/src/pkg/util"
 	"os"
+	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/pterm/pterm"
+	"github.com/urfave/cli/v2"
 )
 
-// CLI 命令行参数
-var (
-	// 数据库操作相关
-	migrate  = flag.Bool("migrate", false, "执行数据库迁移")
-	seed     = flag.Bool("seed", false, "执行数据库种子数据填充")
-	rollback = flag.Bool("rollback", false, "回滚数据库迁移")
-
-	// 用户管理相关
-	createUser = flag.String("create-user", "", "创建用户（格式：username:password:email）")
-	deleteUser = flag.String("delete-user", "", "删除用户（指定用户名）")
-	listUsers  = flag.Bool("list-users", false, "列出所有用户")
-
-	// 系统工具
-	version = flag.Bool("version", false, "显示版本信息")
-	help    = flag.Bool("help", false, "显示帮助信息")
-)
-
-// 版本信息
 const (
 	AppName    = "MyObj CLI"
 	AppVersion = "1.0.0"
-	BuildDate  = "2025-11-12"
 )
 
-// main CLI工具主入口
-// 提供数据库迁移、用户管理等命令行功能
+var (
+	db         *impl.RepositoryFactory
+	cacheStore cache.Cache
+)
+
 func main() {
-	// 解析命令行参数
-	flag.Parse()
-
-	// 处理帮助和版本信息
-	if *help {
-		printHelp()
-		return
+	app := &cli.App{
+		Name:    AppName,
+		Version: AppVersion,
+		Usage:   "MyObj 系统管理工具",
+		Before:  initialize,
+		Commands: []*cli.Command{
+			{
+				Name:    "user",
+				Aliases: []string{"u"},
+				Usage:   "用户管理",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "list",
+						Aliases: []string{"ls"},
+						Usage:   "列出所有用户",
+						Action:  listUsersAction,
+					},
+					{
+						Name:      "detail",
+						Aliases:   []string{"info"},
+						Usage:     "查看用户详情",
+						ArgsUsage: "<username>",
+						Action:    userDetailAction,
+					},
+					{
+						Name:      "reset-password",
+						Aliases:   []string{"resetpwd", "pwd"},
+						Usage:     "重置用户密码",
+						ArgsUsage: "<username> <new-password>",
+						Action:    resetPasswordAction,
+					},
+					{
+						Name:      "change-group",
+						Aliases:   []string{"chgrp"},
+						Usage:     "修改用户组（交互式选择）",
+						ArgsUsage: "<username>",
+						Action:    changeGroupAction,
+					},
+					{
+						Name:      "ban",
+						Usage:     "封禁用户",
+						ArgsUsage: "<username>",
+						Action:    banUserAction,
+					},
+					{
+						Name:      "unban",
+						Usage:     "解封用户",
+						ArgsUsage: "<username>",
+						Action:    unbanUserAction,
+					},
+					{
+						Name:      "kick",
+						Usage:     "踢出用户登录会话",
+						ArgsUsage: "<username>",
+						Action:    kickUserAction,
+					},
+				},
+			},
+			{
+				Name:    "group",
+				Aliases: []string{"g"},
+				Usage:   "组管理",
+				Subcommands: []*cli.Command{
+					{
+						Name:    "list",
+						Aliases: []string{"ls"},
+						Usage:   "列出所有用户组",
+						Action:  listGroupsAction,
+					},
+				},
+			},
+			{
+				Name:    "system",
+				Aliases: []string{"sys"},
+				Usage:   "系统信息",
+				Subcommands: []*cli.Command{
+					{
+						Name:   "info",
+						Usage:  "查看系统信息",
+						Action: systemInfoAction,
+					},
+					{
+						Name:   "stats",
+						Usage:  "查看系统统计",
+						Action: systemStatsAction,
+					},
+				},
+			},
+		},
 	}
 
-	if *version {
-		printVersion()
-		return
-	}
-
-	// 初始化基础组件
-	if err := initialize(); err != nil {
-		log.Fatalf("初始化失败: %v", err)
-	}
-
-	logger.LOG.Info("========== MyObj CLI 工具启动 ==========")
-
-	// 根据命令执行相应操作
-	if err := executeCommand(); err != nil {
-		logger.LOG.Error("命令执行失败", "error", err)
+	if err := app.Run(os.Args); err != nil {
+		pterm.Error.Println(err)
 		os.Exit(1)
 	}
-
-	logger.LOG.Info("========== 操作完成 ==========")
 }
 
-// initialize 初始化CLI工具所需的基础组件
-func initialize() error {
-	log.Println("[CLI] 正在初始化配置...")
+// initialize 初始化系统组件
+func initialize(c *cli.Context) error {
+	pterm.DefaultHeader.WithFullWidth().Println("MyObj CLI 管理工具")
+	pterm.Info.Println("正在初始化...")
 
-	// 1. 加载配置文件
+	// 加载配置
 	if err := loadConfig(); err != nil {
 		return fmt.Errorf("配置加载失败: %w", err)
 	}
 
-	// 2. 初始化日志系统
+	// 初始化日志
 	if err := setupLogger(); err != nil {
-		return fmt.Errorf("日志系统初始化失败: %w", err)
+		return fmt.Errorf("日志初始化失败: %w", err)
 	}
 
-	// 3. 初始化数据库连接（如果需要）
-	if needsDatabase() {
-		if err := setupDatabase(); err != nil {
-			return fmt.Errorf("数据库初始化失败: %w", err)
-		}
+	// 初始化数据库
+	if err := setupDatabase(); err != nil {
+		return fmt.Errorf("数据库连接失败: %w", err)
 	}
 
+	// 初始化缓存
+	cacheStore = cache.InitCache()
+
+	pterm.Success.Println("初始化完成")
+	fmt.Println()
 	return nil
 }
 
-// loadConfig 加载配置文件
 func loadConfig() error {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[错误] 配置加载异常: %v\n", r)
 		}
 	}()
-
 	config.InitConfig()
-	log.Println("[成功] 配置文件加载完成")
 	return nil
 }
 
-// setupLogger 初始化日志系统
 func setupLogger() error {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[错误] 日志系统初始化异常: %v\n", r)
 		}
 	}()
-
 	logger.InitLogger()
-	log.Println("[成功] 日志系统初始化完成")
 	return nil
 }
 
-// setupDatabase 初始化数据库连接
 func setupDatabase() error {
-	logger.LOG.Info("[CLI] 正在连接数据库...", "type", config.CONFIG.Database.Type)
 	defer func() {
 		if r := recover(); r != nil {
 			logger.LOG.Error("[错误] 数据库连接异常", "panic", r)
 		}
 	}()
-
 	database.InitDataBase()
-	logger.LOG.Info("[成功] 数据库连接已建立")
+	db = impl.NewRepositoryFactory(database.GetDB())
 	return nil
 }
 
-// needsDatabase 判断当前命令是否需要数据库连接
-func needsDatabase() bool {
-	return *migrate || *seed || *rollback || *createUser != "" || *deleteUser != "" || *listUsers
-}
+// ========== 用户管理命令 ==========
 
-// executeCommand 根据命令行参数执行相应的操作
-func executeCommand() error {
-	// 数据库操作
-	if *migrate {
-		return executeMigrate()
+// listUsersAction 列出所有用户
+func listUsersAction(c *cli.Context) error {
+	ctx := context.Background()
+
+	spinner, _ := pterm.DefaultSpinner.Start("正在获取用户列表...")
+	users, err := db.User().List(ctx, 0, 10000)
+	spinner.Stop()
+
+	if err != nil {
+		return fmt.Errorf("查询用户失败: %w", err)
 	}
 
-	if *seed {
-		return executeSeed()
+	if len(users) == 0 {
+		pterm.Warning.Println("暂无用户")
+		return nil
 	}
 
-	if *rollback {
-		return executeRollback()
+	// 构建表格数据
+	tableData := pterm.TableData{
+		{"ID", "用户名", "昵称", "邮箱", "组ID", "状态", "空间(GB)", "创建时间"},
 	}
 
-	// 用户管理
-	if *createUser != "" {
-		return executeCreateUser(*createUser)
+	for _, user := range users {
+		status := "正常"
+		if user.State == 1 {
+			status = pterm.Red("封禁")
+		} else {
+			status = pterm.Green("正常")
+		}
+
+		spaceGB := fmt.Sprintf("%.2f", float64(user.Space)/1024/1024/1024)
+		tableData = append(tableData, []string{
+			user.ID[:8] + "...",
+			user.UserName,
+			user.Name,
+			user.Email,
+			fmt.Sprintf("%d", user.GroupID),
+			status,
+			spaceGB,
+			user.CreatedAt.Format("2006-01-02"),
+		})
 	}
 
-	if *deleteUser != "" {
-		return executeDeleteUser(*deleteUser)
-	}
-
-	if *listUsers {
-		return executeListUsers()
-	}
-
-	// 如果没有指定任何命令，显示帮助
-	printHelp()
+	pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
+	pterm.Info.Printf("共 %d 个用户\n", len(users))
 	return nil
 }
 
-// executeMigrate 执行数据库迁移
-func executeMigrate() error {
-	logger.LOG.Info("[数据库] 开始执行数据库迁移...")
-
-	// TODO: 实现数据库迁移逻辑
-	// 这里应该调用 GORM 的 AutoMigrate 或自定义迁移脚本
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// userDetailAction 查看用户详情
+func userDetailAction(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("请指定用户名")
 	}
 
-	logger.LOG.Info("[提示] 数据库迁移功能待实现")
-	logger.LOG.Info("[成功] 数据库迁移完成")
+	username := c.Args().Get(0)
+	ctx := context.Background()
+
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	// 获取组信息
+	group, _ := db.Group().GetByID(ctx, user.GroupID)
+	groupName := "未知"
+	if group != nil {
+		groupName = group.Name
+	}
+
+	status := "正常"
+	statusColor := pterm.Green
+	if user.State == 1 {
+		status = "封禁"
+		statusColor = pterm.Red
+	}
+
+	// 显示用户详情
+	pterm.DefaultSection.Println("用户详情")
+	fmt.Println()
+
+	details := [][]string{
+		{"用户ID", user.ID},
+		{"用户名", user.UserName},
+		{"昵称", user.Name},
+		{"邮箱", user.Email},
+		{"手机", user.Phone},
+		{"用户组", fmt.Sprintf("%s (ID: %d)", groupName, user.GroupID)},
+		{"状态", statusColor(status)},
+		{"总空间", fmt.Sprintf("%.2f GB", float64(user.Space)/1024/1024/1024)},
+		{"剩余空间", fmt.Sprintf("%.2f GB", float64(user.FreeSpace)/1024/1024/1024)},
+		{"创建时间", user.CreatedAt.Format("2006-01-02 15:04:05")},
+	}
+
+	for _, detail := range details {
+		pterm.Printf("  %s: %s\n", pterm.Bold.Sprint(detail[0]), detail[1])
+	}
+
 	return nil
 }
 
-// executeSeed 执行数据库种子数据填充
-func executeSeed() error {
-	logger.LOG.Info("[数据库] 开始填充种子数据...")
-
-	// TODO: 实现种子数据填充逻辑
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// resetPasswordAction 重置用户密码
+func resetPasswordAction(c *cli.Context) error {
+	if c.NArg() < 2 {
+		return fmt.Errorf("用法: reset-password <username> <new-password>")
 	}
 
-	logger.LOG.Info("[提示] 种子数据填充功能待实现")
-	logger.LOG.Info("[成功] 种子数据填充完成")
+	username := c.Args().Get(0)
+	newPassword := c.Args().Get(1)
+
+	if len(newPassword) < 6 {
+		return fmt.Errorf("密码长度不能少于6位")
+	}
+
+	ctx := context.Background()
+
+	// 查询用户
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	// 确认操作
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("确定要重置用户 '%s' 的密码吗？", username),
+	}
+	if err := survey.AskOne(prompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		pterm.Info.Println("操作已取消")
+		return nil
+	}
+
+	// Hash密码
+	hashedPassword, err := util.GeneratePassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	user.Password = hashedPassword
+
+	// 更新数据库
+	if err := db.User().Update(ctx, user); err != nil {
+		return fmt.Errorf("更新密码失败: %w", err)
+	}
+
+	pterm.Success.Printf("用户 '%s' 的密码已重置\n", username)
 	return nil
 }
 
-// executeRollback 执行数据库回滚
-func executeRollback() error {
-	logger.LOG.Info("[数据库] 开始回滚数据库...")
-
-	// TODO: 实现数据库回滚逻辑
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// changeGroupAction 修改用户组（交互式）
+func changeGroupAction(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("请指定用户名")
 	}
 
-	logger.LOG.Info("[提示] 数据库回滚功能待实现")
-	logger.LOG.Info("[成功] 数据库回滚完成")
+	username := c.Args().Get(0)
+	ctx := context.Background()
+
+	// 查询用户
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	// 获取所有组
+	groups, err := db.Group().List(ctx, 0, 1000)
+	if err != nil {
+		return fmt.Errorf("获取组列表失败: %w", err)
+	}
+
+	if len(groups) == 0 {
+		return fmt.Errorf("系统中没有可用的用户组")
+	}
+
+	// 构建选项
+	groupOptions := make([]string, len(groups))
+	groupMap := make(map[string]*models.Group)
+
+	for i, group := range groups {
+		option := fmt.Sprintf("%s (ID:%d)", group.Name, group.ID)
+		groupOptions[i] = option
+		groupMap[option] = group
+	}
+
+	// 交互式选择
+	var selectedOption string
+	prompt := &survey.Select{
+		Message: fmt.Sprintf("请选择用户 '%s' 的新用户组:", username),
+		Options: groupOptions,
+	}
+
+	if err := survey.AskOne(prompt, &selectedOption); err != nil {
+		return err
+	}
+
+	selectedGroup := groupMap[selectedOption]
+
+	// 确认操作
+	confirm := false
+	confirmPrompt := &survey.Confirm{
+		Message: fmt.Sprintf("确定将用户 '%s' 从组 %d 改为 '%s' (ID:%d) 吗？",
+			username, user.GroupID, selectedGroup.Name, selectedGroup.ID),
+	}
+	if err := survey.AskOne(confirmPrompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		pterm.Info.Println("操作已取消")
+		return nil
+	}
+
+	// 更新用户组
+	oldGroupID := user.GroupID
+	user.GroupID = selectedGroup.ID
+
+	if err := db.User().Update(ctx, user); err != nil {
+		return fmt.Errorf("更新用户组失败: %w", err)
+	}
+
+	pterm.Success.Printf("用户 '%s' 已从组 %d 变更为 '%s' (ID:%d)\n",
+		username, oldGroupID, selectedGroup.Name, selectedGroup.ID)
 	return nil
 }
 
-// executeCreateUser 创建用户
-func executeCreateUser(userInfo string) error {
-	logger.LOG.Info("[用户管理] 开始创建用户...", "info", userInfo)
-
-	// TODO: 解析 userInfo (格式：username:password:email)
-	// TODO: 调用仓储层创建用户
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// banUserAction 封禁用户
+func banUserAction(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("请指定用户名")
 	}
 
-	// 获取用户仓储
-	factory := impl.NewRepositoryFactory(db)
-	_ = factory.User() // 示例：获取用户仓储
+	username := c.Args().Get(0)
+	ctx := context.Background()
 
-	logger.LOG.Info("[提示] 用户创建功能待实现")
-	logger.LOG.Info("[成功] 用户创建完成")
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	if user.State == 1 {
+		pterm.Warning.Printf("用户 '%s' 已经处于封禁状态\n", username)
+		return nil
+	}
+
+	// 确认操作
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("确定要封禁用户 '%s' 吗？", username),
+	}
+	if err := survey.AskOne(prompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		pterm.Info.Println("操作已取消")
+		return nil
+	}
+
+	user.State = 1
+
+	if err := db.User().Update(ctx, user); err != nil {
+		return fmt.Errorf("封禁用户失败: %w", err)
+	}
+
+	pterm.Success.Printf("用户 '%s' 已被封禁\n", username)
 	return nil
 }
 
-// executeDeleteUser 删除用户
-func executeDeleteUser(username string) error {
-	logger.LOG.Info("[用户管理] 开始删除用户...", "username", username)
-
-	// TODO: 调用仓储层删除用户
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// unbanUserAction 解封用户
+func unbanUserAction(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("请指定用户名")
 	}
 
-	factory := impl.NewRepositoryFactory(db)
-	_ = factory.User()
+	username := c.Args().Get(0)
+	ctx := context.Background()
 
-	logger.LOG.Info("[提示] 用户删除功能待实现")
-	logger.LOG.Info("[成功] 用户删除完成")
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	if user.State == 0 {
+		pterm.Warning.Printf("用户 '%s' 当前未被封禁\n", username)
+		return nil
+	}
+
+	// 确认操作
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("确定要解封用户 '%s' 吗？", username),
+	}
+	if err := survey.AskOne(prompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		pterm.Info.Println("操作已取消")
+		return nil
+	}
+
+	user.State = 0
+
+	if err := db.User().Update(ctx, user); err != nil {
+		return fmt.Errorf("解封用户失败: %w", err)
+	}
+
+	pterm.Success.Printf("用户 '%s' 已解封\n", username)
 	return nil
 }
 
-// executeListUsers 列出所有用户
-func executeListUsers() error {
-	logger.LOG.Info("[用户管理] 获取用户列表...")
-
-	// TODO: 调用仓储层查询所有用户
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库连接未初始化")
+// kickUserAction 踢出用户登录
+func kickUserAction(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return fmt.Errorf("请指定用户名")
 	}
 
-	factory := impl.NewRepositoryFactory(db)
-	_ = factory.User()
+	username := c.Args().Get(0)
+	ctx := context.Background()
 
-	logger.LOG.Info("[提示] 用户列表功能待实现")
+	user, err := db.User().GetByUserName(ctx, username)
+	if err != nil {
+		return fmt.Errorf("用户不存在: %w", err)
+	}
+
+	// 确认操作
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("确定要踢出用户 '%s' 的所有登录会话吗？", username),
+	}
+	if err := survey.AskOne(prompt, &confirm); err != nil {
+		return err
+	}
+
+	if !confirm {
+		pterm.Info.Println("操作已取消")
+		return nil
+	}
+
+	// 清除缓存中与该用户相关的JWT tokens
+	// 由于缓存中key是token本身，我们需要清除所有缓存（或使用特定前缀）
+	// 这里采用简单策略：清除所有缓存
+	cacheStore.Clear()
+
+	pterm.Success.Printf("用户 '%s' (ID: %s) 的所有登录会话已被清除\n", username, user.ID)
+	pterm.Info.Println("注意：为确保完全清除，已清空所有缓存")
 	return nil
 }
 
-// printHelp 打印帮助信息
-func printHelp() {
-	fmt.Printf(`
-%s - 命令行工具
+// ========== 组管理命令 ==========
 
-用法:
-  myobj-cli [选项]
+// listGroupsAction 列出所有组
+func listGroupsAction(c *cli.Context) error {
+	ctx := context.Background()
 
-数据库操作:
-  -migrate              执行数据库迁移
-  -seed                 执行数据库种子数据填充
-  -rollback             回滚数据库迁移
+	spinner, _ := pterm.DefaultSpinner.Start("正在获取组列表...")
+	groups, err := db.Group().List(ctx, 0, 1000)
+	spinner.Stop()
 
-用户管理:
-  -create-user <info>   创建用户（格式：username:password:email）
-  -delete-user <name>   删除用户（指定用户名）
-  -list-users           列出所有用户
+	if err != nil {
+		return fmt.Errorf("查询组失败: %w", err)
+	}
 
-系统工具:
-  -version              显示版本信息
-  -help                 显示此帮助信息
+	if len(groups) == 0 {
+		pterm.Warning.Println("暂无用户组")
+		return nil
+	}
 
-示例:
-  myobj-cli -migrate                              # 执行数据库迁移
-  myobj-cli -create-user "admin:123456:admin@example.com"  # 创建用户
-  myobj-cli -list-users                           # 列出所有用户
+	// 统计每个组的用户数
+	users, _ := db.User().List(ctx, 0, 10000)
+	groupUserCount := make(map[int]int)
+	for _, user := range users {
+		groupUserCount[user.GroupID]++
+	}
 
-`, AppName)
+	// 构建表格
+	tableData := pterm.TableData{
+		{"ID", "组名", "默认组", "空间(GB)", "用户数", "创建时间"},
+	}
+
+	for _, group := range groups {
+		isDefault := "否"
+		if group.GroupDefault == 1 {
+			isDefault = pterm.Green("是")
+		}
+
+		spaceGB := fmt.Sprintf("%.2f", float64(group.Space)/1024/1024/1024)
+		userCount := groupUserCount[group.ID]
+
+		tableData = append(tableData, []string{
+			fmt.Sprintf("%d", group.ID),
+			group.Name,
+			isDefault,
+			spaceGB,
+			fmt.Sprintf("%d", userCount),
+			group.CreatedAt.Format("2006-01-02"),
+		})
+	}
+
+	pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
+	pterm.Info.Printf("共 %d 个用户组\n", len(groups))
+	return nil
 }
 
-// printVersion 打印版本信息
-func printVersion() {
-	fmt.Printf("%s\n", AppName)
-	fmt.Printf("版本: %s\n", AppVersion)
-	fmt.Printf("构建日期: %s\n", BuildDate)
-	fmt.Printf("Go版本: %s\n", "1.25+")
+// ========== 系统信息命令 ==========
+
+// systemInfoAction 查看系统信息
+func systemInfoAction(c *cli.Context) error {
+	pterm.DefaultSection.Println("系统信息")
+	fmt.Println()
+
+	cfg := config.GetConfig()
+
+	info := [][]string{
+		{"数据库类型", strings.ToUpper(cfg.Database.Type)},
+		{"缓存类型", strings.ToUpper(cfg.Cache.Type)},
+		{"应用名称", AppName},
+		{"应用版本", AppVersion},
+	}
+
+	for _, item := range info {
+		pterm.Printf("  %s: %s\n", pterm.Bold.Sprint(item[0]), item[1])
+	}
+
+	return nil
+}
+
+// systemStatsAction 查看系统统计
+func systemStatsAction(c *cli.Context) error {
+	ctx := context.Background()
+
+	spinner, _ := pterm.DefaultSpinner.Start("正在统计系统数据...")
+
+	// 统计用户数
+	totalUsers, _ := db.User().Count(ctx)
+	users, _ := db.User().List(ctx, 0, 10000)
+	activeUsers := 0
+	bannedUsers := 0
+	for _, user := range users {
+		if user.State == 0 {
+			activeUsers++
+		} else {
+			bannedUsers++
+		}
+	}
+
+	// 统计组数
+	totalGroups, _ := db.Group().Count(ctx)
+
+	spinner.Stop()
+
+	pterm.DefaultSection.Println("系统统计")
+	fmt.Println()
+
+	stats := [][]string{
+		{"总用户数", fmt.Sprintf("%d", totalUsers)},
+		{"正常用户", pterm.Green(fmt.Sprintf("%d", activeUsers))},
+		{"封禁用户", pterm.Red(fmt.Sprintf("%d", bannedUsers))},
+		{"用户组数", fmt.Sprintf("%d", totalGroups)},
+	}
+
+	for _, stat := range stats {
+		pterm.Printf("  %s: %s\n", pterm.Bold.Sprint(stat[0]), stat[1])
+	}
+
+	return nil
 }

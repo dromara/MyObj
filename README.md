@@ -8,7 +8,7 @@
 [![Vue Version](https://img.shields.io/badge/Vue-3.5+-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [文档](#-文档) • [贡献指南](#-贡献指南) • [许可证](#-许可证)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [CLI 工具](#-cli-工具使用) • [API 文档](#api-文档) • [贡献指南](#-贡献指南) • [许可证](#-开源协议)
 
 </div>
 
@@ -300,15 +300,21 @@ max_age = 7                 # 日志保留天数
 
 ```bash
 # 编译 CLI 工具
-go build -o bin/cli ./src/cmd/cli
+go build -buildvcs=false -o myobj-cli ./src/cmd/cli
 
-# 执行数据库迁移
-./bin/cli -migrate
+# 执行数据库迁移（首次运行时会自动创建表）
+# 注意：当前 CLI 工具已重构，数据库初始化会在首次启动时自动完成
+
+# 也可以查看 CLI 工具功能：
+./myobj-cli --help
+./myobj-cli user list  # 查看用户列表
 
 # Windows 用户使用:
-# go build -o bin\cli.exe .\src\cmd\cli
-# .\bin\cli.exe -migrate
+go build -buildvcs=false -o myobj-cli.exe .\src\cmd\cli
+.\myobj-cli.exe --help
 ```
+
+> 💡 **提示**: CLI 工具现已重构，提供更多管理功能，详见 [CLI 工具使用文档](#-cli-工具使用)。
 
 #### 4. 启动开发服务器
 
@@ -368,25 +374,92 @@ chmod +x *.sh                 # 添加执行权限
 
 ## 📚 使用指南
 
-### CLI 工具命令
+### 🔧 CLI 工具使用
 
-MyObj 提供了强大的命令行工具用于系统管理：
+MyObj 提供了强大的命令行工具用于系统管理。CLI 工具使用 [urfave/cli](https://github.com/urfave/cli) 框架构建，界面美观，功能完善。
+
+#### 构建 CLI 工具
 
 ```bash
-# 查看帮助信息
-./bin/cli -help
+# 编译 CLI 工具
+go build -buildvcs=false -o myobj-cli ./src/cmd/cli
+
+# Windows 用户
+go build -buildvcs=false -o myobj-cli.exe .\src\cmd\cli
+```
+
+#### 查看帮助
+
+```bash
+# 查看全局帮助
+./myobj-cli --help
 
 # 查看版本信息
-./bin/cli -version
+./myobj-cli --version
 
-# 数据库操作
-./bin/cli -migrate              # 执行数据库迁移（创建表结构）
-
-# 用户管理
-./bin/cli -create-user "username:password:email@example.com"
-./bin/cli -list-users           # 列出所有用户
-./bin/cli -delete-user "username"  # 删除指定用户
+# 查看特定命令的帮助
+./myobj-cli user --help
+./myobj-cli group --help
+./myobj-cli system --help
 ```
+
+#### 用户管理命令
+
+```bash
+# 列出所有用户（表格形式展示）
+./myobj-cli user list
+./myobj-cli user ls              # 使用别名
+
+# 查看用户详细信息
+./myobj-cli user detail <username>
+./myobj-cli user info admin      # 示例：查看 admin 用户信息
+
+# 重置用户密码
+./myobj-cli user reset-password <username> <new-password>
+./myobj-cli user pwd admin 123456        # 示例：重置 admin 密码
+
+# 修改用户组（交互式选择）
+./myobj-cli user change-group <username>
+./myobj-cli user chgrp admin             # 示例：修改 admin 的用户组
+
+# 封禁用户
+./myobj-cli user ban <username>
+./myobj-cli user ban test                # 示例：封禁 test 用户
+
+# 解封用户
+./myobj-cli user unban <username>
+./myobj-cli user unban test              # 示例：解封 test 用户
+
+# 踢出用户所有登录会话
+./myobj-cli user kick <username>
+./myobj-cli user kick admin              # 示例：踢出 admin 的所有登录
+```
+
+#### 用户组管理命令
+
+```bash
+# 列出所有用户组（包含用户数统计）
+./myobj-cli group list
+./myobj-cli group ls             # 使用别名
+```
+
+#### 系统信息命令
+
+```bash
+# 查看系统配置信息
+./myobj-cli system info
+
+# 查看系统统计数据（用户数、组数等）
+./myobj-cli system stats
+```
+
+#### CLI 特色功能
+
+- ✨ **美观的界面** - 使用 [pterm](https://github.com/pterm/pterm) 提供彩色输出和表格展示
+- 🎯 **交互式操作** - 使用 [survey](https://github.com/AlecAivazis/survey) 提供友好的选择界面
+- 🔒 **安全确认** - 所有危险操作都需要用户确认
+- 📖 **完整的帮助** - 每个命令都有详细的帮助信息
+- ⌨️ **短别名支持** - 命令都有简短的别名（如 `user list` 可以用 `u ls`）
 
 ### API 文档
 
