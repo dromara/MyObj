@@ -223,7 +223,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "解析种子文件或磁力链接，返回文件列表供用户选择,种子文件内容（Base64编码）或磁力链接（magnet:开头）",
+                "description": "解析种子文件或磁力链接，返回文件列表供用户选择 种子文件内容（Base64编码）或磁力链接（magnet:开头）",
                 "consumes": [
                     "application/json"
                 ],
@@ -286,7 +286,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据用户选择的文件索引，创建下载任务并开始下载,种子文件内容（Base64编码）或磁力链接（magnet:开头）",
+                "description": "根据用户选择的文件索引，创建下载任务并开始下载 种子文件内容（Base64编码）或磁力链接（magnet:开头）",
                 "consumes": [
                     "application/json"
                 ],
@@ -910,6 +910,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "是否加密",
                         "name": "is_enc",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "文件加密密码(加密文件必须)",
+                        "name": "file_password",
                         "in": "formData"
                     }
                 ],
@@ -1721,6 +1727,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/user/info": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取当前用户的信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "获取用户信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "获取失败",
+                        "schema": {
+                            "$ref": "#/definitions/myobj_src_pkg_models.JsonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/user/login": {
             "post": {
                 "description": "用户通过用户名和密码登录系统，返回JWT Token",
@@ -2332,8 +2381,7 @@ const docTemplate = `{
         "myobj_src_core_domain_request.SetFilePublicRequest": {
             "type": "object",
             "required": [
-                "file_id",
-                "public"
+                "file_id"
             ],
             "properties": {
                 "file_id": {
@@ -2367,6 +2415,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "file_password": {
+                    "description": "文件密码（加密文件必需）",
+                    "type": "string"
                 },
                 "virtual_path": {
                     "description": "保存的虚拟路径（可选，默认为/离线下载/）",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"myobj/src/core/domain/request"
+	_ "myobj/src/core/domain/response" // 导入用于Swagger文档生成
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
 	"myobj/src/pkg/cache"

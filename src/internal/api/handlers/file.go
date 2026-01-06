@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"myobj/src/core/domain/request"
+	_ "myobj/src/core/domain/response" // 导入用于Swagger文档生成
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
 	"myobj/src/pkg/cache"
@@ -441,6 +442,7 @@ func (f *FileHandler) SetFilePublic(c *gin.Context) {
 // @Param total_chunks formData int false "总分片数"
 // @Param chunk_md5 formData string false "分片MD5"
 // @Param is_enc formData boolean false "是否加密"
+// @Param file_password formData string false "文件加密密码(加密文件必须)"
 // @Success 200 {object} models.JsonResponse{data=object} "上传成功"
 // @Failure 400 {object} models.JsonResponse "上传失败"
 // @Router /file/upload [post]

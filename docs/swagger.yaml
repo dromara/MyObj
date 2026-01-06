@@ -139,7 +139,6 @@ definitions:
         type: boolean
     required:
     - file_id
-    - public
     type: object
   myobj_src_core_domain_request.StartTorrentDownloadRequest:
     properties:
@@ -154,6 +153,9 @@ definitions:
         items:
           type: integer
         type: array
+      file_password:
+        description: 文件密码（加密文件必需）
+        type: string
       virtual_path:
         description: 保存的虚拟路径（可选，默认为/离线下载/）
         type: string
@@ -505,7 +507,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 解析种子文件或磁力链接，返回文件列表供用户选择,种子文件内容（Base64编码）或磁力链接（magnet:开头）
+      description: 解析种子文件或磁力链接，返回文件列表供用户选择 种子文件内容（Base64编码）或磁力链接（magnet:开头）
       parameters:
       - description: 解析请求
         in: body
@@ -913,6 +915,10 @@ paths:
         in: formData
         name: is_enc
         type: boolean
+      - description: 文件加密密码(加密文件必须)
+        in: formData
+        name: file_password
+        type: string
       produces:
       - application/json
       responses:
@@ -1397,6 +1403,30 @@ paths:
           schema:
             $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
       summary: 获取登录挑战值
+      tags:
+      - 用户管理
+  /user/info:
+    get:
+      description: 获取当前用户的信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/myobj_src_pkg_models.JsonResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取用户信息
       tags:
       - 用户管理
   /user/login:
