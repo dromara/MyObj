@@ -192,7 +192,7 @@ func DownloadHTTP(
 
 	// 1. 获取文件信息
 	logger.LOG.Info("开始获取文件信息", "url", url)
-	fileInfo, supportRange, err := getFileInfo(url, opts.Timeout)
+	fileInfo, supportRange, err := GetFileInfo(url, opts.Timeout)
 	if err != nil {
 		return nil, fmt.Errorf("获取文件信息失败: %w", err)
 	}
@@ -315,14 +315,15 @@ func DownloadHTTP(
 	}, nil
 }
 
-// fileInfoResult 文件信息结果
-type fileInfoResult struct {
+// FileInfoResult 文件信息结果
+type FileInfoResult struct {
 	FileName string
 	FileSize int64
+	Size     int64 // 别名，与FileSize一致
 }
 
-// getFileInfo 获取文件信息（文件名和大小）
-func getFileInfo(url string, timeout int) (*fileInfoResult, bool, error) {
+// GetFileInfo 获取文件信息（文件名和大小）
+func GetFileInfo(url string, timeout int) (*FileInfoResult, bool, error) {
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
@@ -351,9 +352,10 @@ func getFileInfo(url string, timeout int) (*fileInfoResult, bool, error) {
 	// 获取文件名
 	fileName := extractFileName(url, resp.Header.Get("Content-Disposition"))
 
-	return &fileInfoResult{
+	return &FileInfoResult{
 		FileName: fileName,
 		FileSize: fileSize,
+		Size:     fileSize, // 设置别名
 	}, supportRange, nil
 }
 

@@ -59,8 +59,8 @@ func (d *DownloadService) GetRepository() *impl.RepositoryFactory {
 func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownloadRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 1. 验证用户是否存在
-	_, err := d.factory.User().GetByID(ctx, userID)
+	// 1. 验证用户是否存在并获取用户信息
+	user, err := d.factory.User().GetByID(ctx, userID)
 	if err != nil {
 		logger.LOG.Error("获取用户信息失败", "error", err, "userID", userID)
 		return nil, fmt.Errorf("用户不存在")
@@ -78,7 +78,26 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 		}
 	}
 
-	// 3. 创建下载任务记录
+	// 3. 获取文件信息并检查用户空间
+	fileInfo, _, err := download.GetFileInfo(req.URL, 300)
+	if err != nil {
+		// 无法获取文件大小时，仍然允许创建任务（可能是动态内容）
+		logger.LOG.Warn("无法获取文件信息，跳过空间检查", "url", req.URL, "error", err)
+	} else if fileInfo.Size > 0 {
+		// 检查用户可用空间（只对非无限空间用户）
+		if user.Space > 0 && user.FreeSpace < fileInfo.Size {
+			return models.NewJsonResponse(400, "用户可用空间不足", map[string]interface{}{
+				"required_size": fileInfo.Size,
+				"free_space":    user.FreeSpace,
+			}), nil
+		}
+		logger.LOG.Info("空间检查通过",
+			"file_size", fileInfo.Size,
+			"free_space", user.FreeSpace,
+			"user_id", userID)
+	}
+
+	// 4. 创建下载任务记录
 	taskID := uuid.Must(uuid.NewV7()).String()
 	task := &models.DownloadTask{
 		ID:               taskID,
@@ -98,7 +117,7 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 		return nil, fmt.Errorf("创建任务失败: %w", err)
 	}
 
-	// 4. 异步启动下载任务
+	// 5. 异步启动下载任务
 	go func() {
 		opts := &download.HTTPDownloadOptions{
 			EnableEncryption: req.EnableEncryption,
@@ -580,8 +599,8 @@ func (d *DownloadService) ParseTorrent(req *request.ParseTorrentRequest) (*model
 func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownloadRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 1. 验证用户是否存在
-	_, err := d.factory.User().GetByID(ctx, userID)
+	// 1. 验证用户是否存在并获取用户信息
+	user, err := d.factory.User().GetByID(ctx, userID)
 	if err != nil {
 		logger.LOG.Error("获取用户信息失败", "error", err, "userID", userID)
 		return nil, fmt.Errorf("用户不存在")
@@ -594,14 +613,30 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 		return nil, fmt.Errorf("解析种子失败: %w", err)
 	}
 
-	// 3. 验证文件索引
+	// 3. 验证文件索引并计算总大小
+	var totalSize int64 = 0
 	for _, idx := range req.FileIndexes {
 		if idx < 0 || idx >= len(parseResult.Files) {
 			return nil, fmt.Errorf("文件索引无效: %d", idx)
 		}
+		totalSize += parseResult.Files[idx].Size
 	}
 
-	// 4. 设置默认虚拟路径
+	// 4. 检查用户可用空间（只对非无限空间用户）
+	if user.Space > 0 && user.FreeSpace < totalSize {
+		return models.NewJsonResponse(400, "用户可用空间不足", map[string]interface{}{
+			"required_size": totalSize,
+			"free_space":    user.FreeSpace,
+			"file_count":    len(req.FileIndexes),
+		}), nil
+	}
+	logger.LOG.Info("种子下载空间检查通过",
+		"total_size", totalSize,
+		"free_space", user.FreeSpace,
+		"file_count", len(req.FileIndexes),
+		"user_id", userID)
+
+	// 5. 设置默认虚拟路径
 	virtualPath := req.VirtualPath
 	if virtualPath == "" {
 		virtualPath = filepath.Join("离线下载/")
@@ -614,7 +649,7 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 		}
 	}
 
-	// 5. 为每个文件创建下载任务
+	// 6. 为每个文件创建下载任务
 	taskIDs := make([]string, 0, len(req.FileIndexes))
 	for _, fileIndex := range req.FileIndexes {
 		fileInfo := parseResult.Files[fileIndex]
