@@ -48,6 +48,43 @@
 
     <!-- 视频预览 -->
     <div v-else-if="previewType === 'video'" class="preview-video-container">
+      <!-- 加密视频密码输入提示 -->
+      <div v-if="currentFile?.is_enc && !videoUrl" class="video-password-prompt">
+        <el-icon :size="48" color="#409EFF"><Lock /></el-icon>
+        <p class="prompt-text">该视频已加密，请输入密码后播放</p>
+        <el-form 
+          :model="videoPasswordForm" 
+          :rules="videoPasswordRules" 
+          ref="videoPasswordFormRef"
+          @submit.prevent="confirmVideoPassword"
+          style="width: 100%; max-width: 400px;"
+        >
+          <el-form-item prop="password">
+            <el-input
+              v-model="videoPasswordForm.password"
+              type="password"
+              placeholder="请输入视频密码"
+              show-password
+              clearable
+              @keyup.enter="confirmVideoPassword"
+              @input="videoPasswordError = ''"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="loadingVideo" @click="confirmVideoPassword" style="width: 100%;">
+              确认播放
+            </el-button>
+          </el-form-item>
+        </el-form>
+        <el-alert
+          v-if="videoPasswordError"
+          :title="videoPasswordError"
+          type="error"
+          :closable="false"
+          style="margin-top: 16px;"
+        />
+      </div>
+      <!-- 视频播放器 -->
       <plyr-player
         v-if="videoUrl"
         :src="videoUrl"
@@ -170,6 +207,8 @@ import { useFileDownload } from '@/composables/useFileDownload'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
 import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
 import { printImage, printPDF, printText, printOfficeDocument, isPrintableType, isOfficeDocument } from '@/utils/print'
+import { Lock } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 
 interface Props {
   modelValue: boolean
@@ -232,6 +271,59 @@ const pdfUrl = ref('')
 const textContent = ref('')
 const codeLanguage = ref('')
 
+// 视频播放密码相关
+const videoPasswordForm = reactive({
+  password: ''
+})
+const videoPasswordFormRef = ref<FormInstance>()
+const videoPasswordError = ref('')
+const loadingVideo = ref(false)
+const videoPasswordRules: FormRules = {
+  password: [
+    { required: true, message: '请输入视频密码', trigger: 'blur' }
+  ]
+}
+
+// 确认视频播放密码
+const confirmVideoPassword = async () => {
+  if (!videoPasswordFormRef.value || !currentFile.value) return
+  
+  await videoPasswordFormRef.value.validate(async (valid) => {
+    if (valid) {
+      loadingVideo.value = true
+      videoPasswordError.value = ''
+      
+      try {
+        await loadVideoContent(currentFile.value.file_id, videoPasswordForm.password)
+      } catch (err: any) {
+        videoPasswordError.value = err.message || '密码错误，请重新输入'
+        videoPasswordForm.password = ''
+      } finally {
+        loadingVideo.value = false
+      }
+    }
+  })
+}
+
+// 加载视频内容（支持密码）
+const loadVideoContent = async (fileId: string, password?: string) => {
+  try {
+    const res = await createVideoPlayPrecheck(fileId, password)
+    if (res.code === 200 && res.data) {
+      // 获取 JWT token 并添加到 URL 参数中
+      const jwtToken = proxy?.$cache.local.get('token')
+      // 构建视频流 URL（包含 playToken 和 JWT token）
+      videoUrl.value = getVideoStreamUrl(res.data.play_token, jwtToken || undefined)
+      videoPasswordError.value = ''
+    } else {
+      throw new Error(res.message || '获取视频播放 Token 失败')
+    }
+  } catch (err: any) {
+    const errorMessage = err?.response?.data?.message || err?.message || '加载视频失败'
+    throw new Error(errorMessage)
+  }
+}
+
 // 图片样式
 const imageStyle = computed(() => {
   const zoom = options.value.zoom || 1
@@ -284,18 +376,19 @@ const loadFileContent = async () => {
         break
       case 'video':
         // 视频使用 Plyr 播放器（支持 Range 请求）
-        try {
-          const res = await createVideoPlayPrecheck(fileId)
-          if (res.code === 200 && res.data) {
-            // 获取 JWT token 并添加到 URL 参数中
-            const jwtToken = proxy?.$cache.local.get('token')
-            // 构建视频流 URL（包含 playToken 和 JWT token）
-            videoUrl.value = getVideoStreamUrl(res.data.play_token, jwtToken || undefined)
-          } else {
-            throw new Error(res.message || '获取视频播放 Token 失败')
+        // 如果是加密视频，不在这里加载，等待用户输入密码
+        if (file.is_enc) {
+          // 重置视频URL，显示密码输入界面
+          videoUrl.value = ''
+          videoPasswordForm.password = ''
+          videoPasswordError.value = ''
+        } else {
+          // 非加密视频直接加载
+          try {
+            await loadVideoContent(fileId)
+          } catch (err) {
+            error.value = err instanceof Error ? err.message : '加载视频失败'
           }
-        } catch (err) {
-          error.value = err instanceof Error ? err.message : '加载视频失败'
         }
         break
       case 'audio':
@@ -472,6 +565,11 @@ const handleClose = () => {
     zoom: 1,
     rotate: 0
   }
+  // 重置视频密码相关状态
+  videoPasswordForm.password = ''
+  videoPasswordError.value = ''
+  loadingVideo.value = false
+  videoPasswordFormRef.value?.clearValidate()
 }
 
 // 图片加载完成
@@ -671,6 +769,25 @@ onUnmounted(() => {
   box-sizing: border-box;
   /* 让播放器根据可用空间自适应 */
   height: 100%;
+}
+
+/* 视频密码输入提示 */
+.video-password-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px 20px;
+  min-height: 400px;
+  flex: 1;
+}
+
+.video-password-prompt .prompt-text {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin: 0;
+  font-weight: 500;
 }
 
 /* 视频预览时，el-dialog__body 不显示滚动条 - 使用更高优先级覆盖全局样式 */

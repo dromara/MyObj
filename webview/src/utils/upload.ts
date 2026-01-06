@@ -27,6 +27,8 @@ export interface UploadParams {
   onSuccess?: (fileName: string) => void
   onError?: (error: Error, fileName: string) => void
   taskId?: string | null
+  is_enc?: boolean
+  file_password?: string
 }
 
 /**
@@ -272,7 +274,9 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     onProgress,
     onSuccess,
     onError,
-    taskId: providedTaskId
+    taskId: providedTaskId,
+    is_enc = false,
+    file_password = ''
   } = params
 
   const uploadConfig = { ...DEFAULT_UPLOAD_CONFIG, ...config }
@@ -412,7 +416,8 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         chunk_index: 0,
         total_chunks: 1,
         chunk_md5: fileMD5,
-        is_enc: false
+        is_enc: is_enc,
+        file_password: file_password
       }
 
       const uploadResponse = await uploadFile(uploadParams, (_percent, loaded, _total) => {
@@ -493,7 +498,8 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
                 chunk_index: chunkIndex,
                 total_chunks: totalChunks,
                 chunk_md5: chunkMD5,
-                is_enc: false
+                is_enc: is_enc,
+                file_password: file_password
               }, (_percent, loaded, _total) => {
                 if (taskId) {
                   const task = uploadTaskManager.getTask(taskId)
@@ -621,7 +627,9 @@ export const uploadMultipleFiles = async (
   config?: Partial<UploadConfig>,
   onProgress?: (progress: number, fileName: string) => void,
   onSuccess?: (fileName: string) => void,
-  onError?: (error: Error, fileName: string) => void
+  onError?: (error: Error, fileName: string) => void,
+  is_enc?: boolean,
+  file_password?: string
 ): Promise<void> => {
   const MAX_CONCURRENT_FILES = 5
   const DEFAULT_CONCURRENT_FILES = 2
@@ -642,7 +650,9 @@ export const uploadMultipleFiles = async (
           config,
           onProgress,
           onSuccess,
-          onError
+          onError,
+          is_enc,
+          file_password
         })
       } catch (error) {
         logger.error(`文件 ${file.name} 上传失败:`, error)
@@ -703,7 +713,8 @@ export const handleFileUpload = async (
   onSuccess?: (fileName: string) => void,
   onError?: (error: Error, fileName: string) => void,
   multiple: boolean = true,
-  onFilesSelected?: () => void
+  onFilesSelected?: () => void,
+  encryptConfig?: { is_enc: boolean; file_password: string }
 ): Promise<void> => {
   try {
     const files = await openFileDialog(multiple)
@@ -717,7 +728,16 @@ export const handleFileUpload = async (
       await new Promise(resolve => setTimeout(resolve, 100))
     }
 
-    await uploadMultipleFiles(files, pathId, config, onProgress, onSuccess, onError)
+    await uploadMultipleFiles(
+      files, 
+      pathId, 
+      config, 
+      onProgress, 
+      onSuccess, 
+      onError,
+      encryptConfig?.is_enc,
+      encryptConfig?.file_password
+    )
   } catch (error: any) {
     logger.error('处理文件上传时出错:', error)
     ElMessage.error(`处理文件上传时出错: ${error.message}`)
