@@ -11,7 +11,13 @@
       />
       <!-- 桌面端 Logo -->
       <div class="logo-wrapper desktop-logo">
-        <el-icon :size="32" class="logo-icon"><Folder /></el-icon>
+        <el-image
+          :src="logoImage"
+          alt="MyObj Logo"
+          class="logo-image"
+          fit="contain"
+          :lazy="false"
+        />
         <span class="logo-text">MyObj 云盘</span>
       </div>
     </div>
@@ -42,7 +48,13 @@
       />
       <!-- 移动端：Logo -->
       <div class="mobile-logo">
-        <el-icon :size="28" class="logo-icon"><Folder /></el-icon>
+        <el-image
+          :src="logoImage"
+          alt="MyObj Logo"
+          class="logo-image-mobile"
+          fit="contain"
+          :lazy="false"
+        />
       </div>
       <!-- 用户头像（桌面端和移动端共用） -->
       <el-dropdown @command="handleCommand" trigger="click">
@@ -118,6 +130,7 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
+import logoImage from '@/assets/images/LOGO.png'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 
@@ -323,8 +336,35 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.logo-icon {
-  color: var(--primary-color);
+.logo-image {
+  width: 65px;
+  height: 65px;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.logo-image :deep(.el-image__inner) {
+  width: 65px;
+  height: 65px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
+  transition: transform 0.2s ease;
+}
+
+.logo-image:hover :deep(.el-image__inner) {
+  transform: scale(1.05);
+}
+
+.logo-image-mobile {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+.logo-image-mobile :deep(.el-image__inner) {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
 }
 
@@ -560,12 +600,12 @@ onBeforeUnmount(() => {
     opacity: 1 !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 28px !important;
-    height: 28px !important;
-    min-width: 28px !important;
-    min-height: 28px !important;
-    max-width: 28px !important;
-    max-height: 28px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -573,14 +613,17 @@ onBeforeUnmount(() => {
     z-index: 1 !important;
   }
   
-  .mobile-logo .logo-icon {
+  .mobile-logo .logo-image-mobile {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 28px !important;
-    color: var(--primary-color) !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+  
+  .mobile-logo .logo-image-mobile :deep(.el-image__inner) {
+    width: 36px !important;
+    height: 36px !important;
   }
   
   .user-profile {
