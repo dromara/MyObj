@@ -14,7 +14,11 @@ type SQLite struct {
 
 func (sql *SQLite) InitDatabase() {
 	host := config.CONFIG.Database.Host
-	db, err := gorm.Open(sqlite.Open(host), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(host), &gorm.Config{
+		Logger: &GormSlogAdapter{
+			level: logLevel(config.CONFIG.Log.Level),
+		},
+	})
 	if err != nil {
 		logger.LOG.Error("failed to connect database", "err", err)
 		panic("failed to connect database")

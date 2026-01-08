@@ -937,19 +937,18 @@ ERROR: upload failed: connection timeout
 
 特别感谢所有为本项目做出贡献的开发者！
 
-<a href="https://github.com/your-repo/myobj/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=your-repo/myobj" />
+<a href="https://gitee.com/dromara/my-obj/contributors?ref=master">
+  <img src="https://contrib.rocks/image?repo=https://gitee.com/dromara/my-ob" />
 </a>
 
 ---
 
 ## 📮 联系方式
 
-- 🏠 **项目主页**: [https://github.com/your-repo/myobj](https://github.com/your-repo/myobj)
-- 🐛 **问题反馈**: [GitHub Issues](https://github.com/your-repo/myobj/issues)
-- 💬 **讨论区**: [GitHub Discussions](https://github.com/your-repo/myobj/discussions)
-- 📧 **邮件**: your-email@example.com
-- 🌐 **官方网站**: [https://myobj.example.com](https://myobj.example.com)
+- 🏠 **项目主页**: [https://gitee.com/dromara/my-ob](https://gitee.com/dromara/my-ob)
+- 🐛 **问题反馈**: [Gitee Issues](https://gitee.com/dromara/my-ob/issues)
+- 💬 **讨论区**: [Gitee Discussions](https://gitee.com/dromara/my-ob/discussions)
+- 🌐 **官方网站**: [https://gitee.com/dromara/my-ob](https://gitee.com/dromara/my-ob)
 
 ---
 
