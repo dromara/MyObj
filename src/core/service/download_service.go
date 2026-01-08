@@ -449,6 +449,8 @@ func (d *DownloadService) getTypeText(taskType int) string {
 		return "本地文件"
 	case enum.DownloadTaskTypeLocalFile.Value():
 		return "网盘下载"
+	case enum.DownloadTaskTypePackage.Value():
+		return "打包下载"
 	default:
 		return "未知"
 	}

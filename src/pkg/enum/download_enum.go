@@ -38,6 +38,8 @@ const (
 	DownloadTaskTypeLocal
 	// DownloadTaskTypeLocalFile 网盘文件下载
 	DownloadTaskTypeLocalFile
+	// DownloadTaskTypePackage 打包下载
+	DownloadTaskTypePackage
 )
 
 func (t DownloadTaskType) Value() int {

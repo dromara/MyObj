@@ -7,7 +7,9 @@ import (
 	"io"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/download"
+	"myobj/src/pkg/enum"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
@@ -28,8 +30,8 @@ type PackageTask struct {
 	PackageName string
 	UserID      string
 	FileIDs     []string
-	Status      string    // creating, ready, failed
-	Progress    int       // 0-100
+	Status      string // creating, ready, failed
+	Progress    int    // 0-100
 	TotalSize   int64
 	CreatedSize int64
 	FilePath    string
@@ -92,7 +94,6 @@ func (f *FileService) CreatePackage(req *request.PackageCreateRequest, userID st
 			}
 		}
 	}
-
 	return models.NewJsonResponse(200, "创建成功", response.PackageCreateResponse{
 		PackageID:   packageID,
 		PackageName: packageName,
@@ -227,6 +228,9 @@ func (f *FileService) createZipPackage(ctx context.Context, task *PackageTask) {
 	task.mu.Unlock()
 
 	logger.LOG.Info("打包完成", "packageID", task.PackageID, "filePath", zipPath)
+
+	// 为每个文件创建下载任务记录
+	f.createDownloadTasksForPackage(ctx, task)
 }
 
 // GetPackageProgress 获取打包进度
@@ -308,3 +312,48 @@ func (f *FileService) DownloadPackage(packageID, userID string) (string, string,
 	return task.FilePath, task.PackageName, nil
 }
 
+// createDownloadTasksForPackage 为打包中的每个文件创建下载任务记录
+func (f *FileService) createDownloadTasksForPackage(ctx context.Context, task *PackageTask) {
+	for _, fileID := range task.FileIDs {
+		// 获取用户文件（前端传递的是 uf_id）
+		userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, task.UserID, fileID)
+		if err != nil {
+			logger.LOG.Warn("获取用户文件失败", "fileID", fileID, "error", err)
+			continue
+		}
+
+		// 获取文件信息
+		fileInfo, err := f.factory.FileInfo().GetByID(ctx, userFile.FileID)
+		if err != nil {
+			logger.LOG.Warn("获取文件信息失败", "fileID", fileID, "error", err)
+			continue
+		}
+
+		// 创建下载任务记录
+		taskID := uuid.Must(uuid.NewV7()).String()
+		downloadTask := &models.DownloadTask{
+			ID:               taskID,
+			UserID:           task.UserID,
+			Type:             enum.DownloadTaskTypePackage.Value(),
+			URL:              task.PackageID, // 在URL字段存储打包ID
+			FileName:         userFile.FileName,
+			FileSize:         int64(fileInfo.Size),
+			FileID:           userFile.FileID,
+			VirtualPath:      "", // 打包下载不需要虚拟路径
+			EnableEncryption: false,
+			State:            enum.DownloadTaskStateFinished.Value(), // 直接设置为已完成
+			Progress:         100,
+			DownloadedSize:   int64(fileInfo.Size),
+			CreateTime:       custom_type.Now(),
+			UpdateTime:       custom_type.Now(),
+			FinishTime:       custom_type.Now(),
+		}
+
+		if err := f.factory.DownloadTask().Create(ctx, downloadTask); err != nil {
+			logger.LOG.Error("创建打包下载任务记录失败", "fileID", fileID, "error", err)
+			continue
+		}
+
+		logger.LOG.Info("创建打包下载任务记录成功", "taskID", taskID, "fileName", userFile.FileName, "packageID", task.PackageID)
+	}
+}
