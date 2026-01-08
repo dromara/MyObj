@@ -64,7 +64,7 @@
     <el-dialog
       v-model="showDialog"
       :title="dialogTitle"
-      width="600px"
+      :width="dialogWidth"
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
@@ -107,8 +107,10 @@ import {
   type UpdatePowerRequest
 } from '@/api/admin'
 import type { FormRules, FormInstance } from 'element-plus'
+import { useResponsive } from '@/composables/useResponsive'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { isMobile, isPhone } = useResponsive()
 
 const loading = ref(false)
 const powerList = ref<AdminPower[]>([])
@@ -128,6 +130,13 @@ const pagination = reactive({
   page: 1,
   pageSize: 20,
   total: 0
+})
+
+// 对话框宽度响应式
+const dialogWidth = computed(() => {
+  if (isPhone.value) return '90%'
+  if (isMobile.value) return '80%'
+  return '600px'
 })
 
 const formRules: FormRules = {
@@ -306,6 +315,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .toolbar {
@@ -313,6 +324,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .toolbar-left {
@@ -322,11 +334,46 @@ onMounted(() => {
 
 .admin-table {
   flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
-/* 移动端适配 */
+/* 分页组件样式 */
+.admin-permissions :deep(.pagination-container) {
+  flex-shrink: 0;
+  margin-top: 16px;
+}
+
+/* 平板端适配 (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .toolbar {
+    gap: 10px;
+  }
+
+  .toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .admin-table {
+    font-size: 13px;
+  }
+
+  .admin-table :deep(.el-table__cell) {
+    padding: 10px 6px;
+  }
+
+  /* 对话框适配 */
+  .admin-permissions :deep(.el-dialog) {
+    margin: 5vh auto;
+  }
+}
+
+/* 移动端/平板端适配 (≤768px) */
 @media (max-width: 768px) {
+  .admin-permissions {
+    gap: 12px;
+  }
+
   .toolbar {
     flex-wrap: wrap;
     gap: 8px;
@@ -335,11 +382,13 @@ onMounted(() => {
   .toolbar-left {
     flex: 1;
     min-width: 0;
+    width: 100%;
   }
 
   .toolbar-left .el-button {
     flex: 1;
     min-width: 0;
+    font-size: 13px;
   }
 
   .admin-table {
@@ -349,12 +398,90 @@ onMounted(() => {
   .admin-table :deep(.el-table__cell) {
     padding: 8px 4px;
   }
+
+  /* 表格列优化 */
+  .admin-table :deep(.el-table-column--selection) {
+    width: 45px !important;
+  }
+
+  /* 分页组件优化 */
+  .admin-permissions :deep(.pagination-container) {
+    margin-top: 12px;
+  }
+
+  /* 对话框适配 */
+  .admin-permissions :deep(.el-dialog) {
+    margin: 5vh auto;
+    max-height: 90vh;
+  }
+
+  .admin-permissions :deep(.el-dialog__body) {
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+  }
 }
 
+/* 手机端适配 (≤480px) */
 @media (max-width: 480px) {
+  .admin-permissions {
+    gap: 10px;
+  }
+
+  .toolbar {
+    gap: 6px;
+  }
+
+  .toolbar-left .el-button {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  /* 按钮文字优化 */
+  .toolbar-left .el-button span {
+    font-size: 12px;
+  }
+
+  .admin-table {
+    font-size: 11px;
+  }
+
   .admin-table :deep(.el-table__cell) {
     padding: 6px 2px;
-    font-size: 11px;
+  }
+
+  .admin-table :deep(.el-table-column--selection) {
+    width: 40px !important;
+  }
+
+  /* 隐藏部分表格列在极小屏幕上 */
+  .admin-table :deep(.el-table__header-wrapper),
+  .admin-table :deep(.el-table__body-wrapper) {
+    overflow-x: auto;
+  }
+
+  /* 对话框进一步优化 */
+  .admin-permissions :deep(.el-dialog) {
+    width: 90% !important;
+    margin: 3vh auto;
+  }
+
+  .admin-permissions :deep(.el-dialog__header) {
+    padding: 15px;
+  }
+
+  .admin-permissions :deep(.el-dialog__body) {
+    padding: 15px;
+    max-height: calc(90vh - 100px);
+  }
+
+  .admin-permissions :deep(.el-form-item__label) {
+    font-size: 13px;
+    width: 80px !important;
+  }
+
+  .admin-permissions :deep(.el-input),
+  .admin-permissions :deep(.el-textarea) {
+    font-size: 14px;
   }
 }
 </style>
