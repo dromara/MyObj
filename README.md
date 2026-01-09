@@ -9,8 +9,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [CLI 工具](#-cli-工具使用) • [API 文档](#api-文档) • [贡献指南](#-贡献指南) • [许可证](#-开源协议)  
-[仓库地址](https://gitee.com/dromara/my-obj) •
-[docker](https://hub.docker.com/r/myobj/myobj)
+仓库地址:[gitee](https://gitee.com/dromara/my-obj) [github](https://github.com/dromara/MyObj)  
+镜像：[docker](https://hub.docker.com/r/myobj/myobj)
 </div>
 
 ---
@@ -809,7 +809,7 @@ feat: 添加文件批量下载功能
 
 ### 报告问题
 
-发现 Bug 或有功能建议？请创建 [Issue](https://github.com/your-repo/myobj/issues/new) 并提供：
+发现 Bug 或有功能建议？请创建 [Issue](https://gitee.com/dromara/my-obj/issues/new) 并提供：
 
 - 📋 **问题的详细描述**
 - 🔄 **复现步骤**（如果是 Bug）
@@ -853,7 +853,7 @@ ERROR: upload failed: connection timeout
 如果你在贡献过程中遇到问题：
 
 1. 📖 查看项目文档和示例代码
-2. 🔍 搜索已有的 [Issues](https://github.com/your-repo/myobj/issues)
+2. 🔍 搜索已有的 [Issues](https://gitee.com/dromara/my-obj/issues)
 3. 💬 在 Issue 中提问
 4. 📧 联系项目维护者
 
@@ -937,8 +937,8 @@ ERROR: upload failed: connection timeout
 
 特别感谢所有为本项目做出贡献的开发者！
 
-<a href="https://gitee.com/dromara/my-obj/contributors?ref=master">
-  <img src="https://contrib.rocks/image?repo=https://gitee.com/dromara/my-ob" />
+<a href="https://github.com/dromara/MyObj/contributors?ref=master">
+  <img src="https://contrib.rocks/image?repo=https://github.com/dromara/MyObj" />
 </a>
 
 ---
@@ -951,10 +951,6 @@ ERROR: upload failed: connection timeout
 - 🌐 **官方网站**: [https://gitee.com/dromara/my-ob](https://gitee.com/dromara/my-ob)
 
 ---
-
-## 📊 项目统计
-
-![Alt](https://repobeats.axiom.co/api/embed/your-repo-id.svg "Repobeats analytics image")
 
 ---
 
