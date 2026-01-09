@@ -203,6 +203,12 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 				return nil, fmt.Errorf("创建管理员组失败: %w", err)
 			}
 			group = adminGroup
+			
+			// 首次使用，自动创建默认权限并分配给管理员组
+			if err = u.initDefaultPowersForAdminGroup(ctx); err != nil {
+				logger.LOG.Warn("初始化默认权限失败", "error", err)
+				// 不阻止用户注册，只记录警告
+			}
 		} else {
 			logger.LOG.Error("查询组信息失败", "error", err)
 			return nil, err
@@ -244,6 +250,131 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "注册成功", user), nil
+}
+
+// initDefaultPowersForAdminGroup 初始化默认权限并分配给管理员组
+// 此方法在首次注册时调用，为第一个用户（管理员）创建并分配所有权限
+// 管理员需要拥有所有权限才能正常管理系统
+func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error {
+	logger.LOG.Info("首次注册：开始初始化所有权限并分配给管理员组")
+	
+	// 定义所有权限列表（根据数据库中的权限定义）
+	// 管理员应该拥有所有权限，包括用户管理、文件操作、磁盘管理等
+	allPowers := []struct {
+		Name           string
+		Description    string
+		Characteristic string
+	}{
+		// 用户管理权限
+		{"用户查看", "查看系统所有用户", "user:get"},
+		{"用户修改", "修改系统用户信息", "user:update"},
+		{"用户删除", "删除系统用户", "user:delete"},
+		{"用户停用", "暂停用户所有功能", "user:state"},
+		{"用户空间分配", "分配用户可用空间大小", "user:space"},
+		{"修改其他用户信息", "修改其他用户信息，包括密码", "user:update:else"},
+		{"用户密码修改", "修改用户自身密码", "user:update:password"},
+		
+		// 磁盘管理权限
+		{"挂载磁盘", "挂载系统可用磁盘", "disk:mount"},
+		{"删除挂载磁盘", "删除已经挂载的磁盘", "disk:delete"},
+		{"查看挂载磁盘", "查看已经挂载磁盘的信息", "disk:get"},
+		
+		// 文件操作权限
+		{"文件上传", "上传文件到磁盘", "file:upload"},
+		{"重命名文件", "重命名磁盘文件", "file:rechristen"},
+		{"分享文件", "创建文件分享链接", "file:share"},
+		{"文件下载", "下载磁盘中的文件", "file:download"},
+		{"离线下载", "离线下载文件到磁盘", "file:offLine"},
+		{"文件保险箱", "加密文件的上传修改下载", "file:insurance"},
+		{"文件预览", "查看文件和预览支持格式的文件", "file:preview"},
+		{"用户文件密码", "设置，修改文件密码", "file:update:filePassword"},
+		{"移动文件", "移动文件至其他虚拟目录", "file:move"},
+		{"删除文件", "删除文件（移动到回收站）", "file:delete"},
+		
+		// 目录操作权限
+		{"创建目录", "创建文件目录", "dir:create"},
+		{"删除目录", "删除已经存在的目录", "dir:delete"},
+		
+		// API Key管理权限
+		{"创建apikey", "创建当前用户权限的apikey", "apikey:create"},
+		{"删除apikey", "删除当前用户已存在的apikey", "apikey:delete"},
+		
+		// WebDAV访问权限
+		{"WebDAV访问", "允许通过WebDAV协议访问文件系统", "webdav:access"},
+	}
+	
+	// 获取所有现有权限
+	existingPowers, err := u.factory.Power().List(ctx, 0, 1000)
+	if err != nil {
+		logger.LOG.Error("查询现有权限失败", "error", err)
+		return fmt.Errorf("查询现有权限失败: %w", err)
+	}
+	
+	// 创建 characteristic 到 power 的映射
+	powerMap := make(map[string]*models.Power)
+	for _, p := range existingPowers {
+		powerMap[p.Characteristic] = p
+	}
+	
+	// 创建或获取权限，收集权限ID
+	powerIDs := make([]int, 0, len(allPowers))
+	maxID := 0
+	// 先计算最大ID
+	for _, p := range existingPowers {
+		if p.ID > maxID {
+			maxID = p.ID
+		}
+	}
+	
+	for _, dp := range allPowers {
+		var power *models.Power
+		
+		// 检查权限是否已存在
+		if existingPower, ok := powerMap[dp.Characteristic]; ok {
+			power = existingPower
+			logger.LOG.Debug("权限已存在，跳过创建", "characteristic", dp.Characteristic)
+		} else {
+			// 创建新权限
+			maxID++
+			power = &models.Power{
+				ID:             maxID,
+				Name:           dp.Name,
+				Description:    dp.Description,
+				Characteristic: dp.Characteristic,
+				CreatedAt:      custom_type.Now(),
+			}
+			
+			if err = u.factory.Power().Create(ctx, power); err != nil {
+				logger.LOG.Error("创建权限失败", "error", err, "characteristic", dp.Characteristic)
+				return fmt.Errorf("创建权限失败: %w", err)
+			}
+			
+			logger.LOG.Info("创建默认权限", "name", dp.Name, "characteristic", dp.Characteristic, "id", maxID)
+			// 更新 powerMap 以便后续检查
+			powerMap[dp.Characteristic] = power
+		}
+		
+		powerIDs = append(powerIDs, power.ID)
+	}
+	
+	// 将权限分配给管理员组（group_id=1）
+	groupPowers := make([]*models.GroupPower, 0, len(powerIDs))
+	for _, powerID := range powerIDs {
+		groupPowers = append(groupPowers, &models.GroupPower{
+			GroupID: 1,
+			PowerID: powerID,
+		})
+	}
+	
+	if len(groupPowers) > 0 {
+		if err = u.factory.GroupPower().BatchCreate(ctx, groupPowers); err != nil {
+			logger.LOG.Error("分配权限给管理员组失败", "error", err)
+			return fmt.Errorf("分配权限给管理员组失败: %w", err)
+		}
+		logger.LOG.Info("成功将默认权限分配给管理员组", "count", len(groupPowers))
+	}
+	
+	return nil
 }
 
 // Challenge 密码挑战
