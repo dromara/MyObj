@@ -506,6 +506,10 @@ const handleAssignPower = async (group: AdminGroup) => {
     expandedCategories.value[key] = true
   })
   
+  // 刷新权限列表（确保获取最新的所有权限）
+  await loadPowerList()
+  
+  // 获取该组已拥有的权限ID
   try {
     const res = await getGroupPowers(group.id)
     if (res.code === 200 && res.data) {

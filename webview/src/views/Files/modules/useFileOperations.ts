@@ -2,6 +2,7 @@ import { deleteFiles, setFilePublic } from '@/api/file'
 import { createPackage, getPackageProgress, downloadPackage } from '@/api/package'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useUserStore } from '@/stores/user'
+import cache from '@/plugins/cache'
 import type { FileItem, FileListResponse } from '@/types'
 
 export function useFileOperations(
@@ -117,13 +118,15 @@ export function useFileOperations(
       return
     }
 
+    const packageName = `files_${Date.now()}.zip`
+
     try {
       // 创建打包任务
       proxy?.$modal.loading('正在创建压缩包，请稍候...')
-      
+
       const res = await createPackage({
         file_ids: selectedFileIds.value,
-        package_name: `files_${Date.now()}.zip`
+        package_name: packageName
       })
       
       if (res.code === 200 && res.data) {
@@ -132,15 +135,50 @@ export function useFileOperations(
         // 如果状态是 ready，直接下载
         if (res.data.status === 'ready') {
           const downloadUrl = downloadPackage(packageId)
-          window.open(downloadUrl, '_blank')
-          proxy?.$modal.closeLoading()
-          proxy?.$modal.msgSuccess('开始下载')
+          // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
+          try {
+            // 获取 token 用于 Authorization header
+            const token = cache.local.get('token')
+            const response = await fetch(downloadUrl, {
+              method: 'GET',
+              headers: {
+                'Authorization': token ? `Bearer ${token}` : '',
+              },
+              credentials: 'include', // 同时携带 Cookie 作为备用
+            })
+            
+            // 检查响应类型，如果是 JSON 错误则显示错误信息
+            const contentType = response.headers.get('content-type') || ''
+            if (contentType.includes('application/json') || !response.ok) {
+              const errorData = await response.json()
+              proxy?.$modal.closeLoading()
+              proxy?.$modal.msgError(errorData.message || '下载失败')
+              return
+            }
+            
+            // 是文件，创建 blob 并下载
+            const blob = await response.blob()
+            const blobUrl = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = blobUrl
+            a.download = res.data.package_name || packageName
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            window.URL.revokeObjectURL(blobUrl)
+            proxy?.$modal.closeLoading()
+            proxy?.$modal.msgSuccess('开始下载')
+          } catch (error: any) {
+            proxy?.$modal.closeLoading()
+            proxy?.$modal.msgError(error.message || '下载失败')
+          }
           return
         }
         
         // 如果状态是 creating，轮询进度
         if (res.data.status === 'creating') {
-          await pollPackageProgress(packageId)
+          await pollPackageProgress(packageId, packageName)
         }
       } else {
         proxy?.$modal.closeLoading()
@@ -162,7 +200,7 @@ export function useFileOperations(
   }
 
   // 轮询打包进度
-  const pollPackageProgress = async (packageId: string) => {
+  const pollPackageProgress = async (packageId: string, packageName: string) => {
     const maxAttempts = 60 // 最多轮询60次（5分钟）
     let attempts = 0
     
@@ -176,8 +214,41 @@ export function useFileOperations(
           if (status === 'ready') {
             proxy?.$modal.closeLoading()
             const downloadUrl = downloadPackage(packageId)
-            window.open(downloadUrl, '_blank')
-            proxy?.$modal.msgSuccess('压缩包已创建，开始下载')
+            // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
+            try {
+              // 获取 token 用于 Authorization header
+              const token = cache.local.get('token')
+              const response = await fetch(downloadUrl, {
+                method: 'GET',
+                headers: {
+                  'Authorization': token ? `Bearer ${token}` : '',
+                },
+                credentials: 'include', // 同时携带 Cookie 作为备用
+              })
+              
+              // 检查响应类型，如果是 JSON 错误则显示错误信息
+              const contentType = response.headers.get('content-type') || ''
+              if (contentType.includes('application/json') || !response.ok) {
+                const errorData = await response.json()
+                proxy?.$modal.msgError(errorData.message || '下载失败')
+                return
+              }
+              
+              // 是文件，创建 blob 并下载
+              const blob = await response.blob()
+              const blobUrl = window.URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = blobUrl
+              a.download = packageName
+              a.style.display = 'none'
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              window.URL.revokeObjectURL(blobUrl)
+              proxy?.$modal.msgSuccess('压缩包已创建，开始下载')
+            } catch (error: any) {
+              proxy?.$modal.msgError(error.message || '下载失败')
+            }
             return
           }
           
