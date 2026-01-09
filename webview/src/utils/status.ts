@@ -40,6 +40,19 @@ export const getUploadStatusType = (status: string): 'info' | 'primary' | 'warni
  * @param status 状态字符串
  * @returns 状态文本
  */
+// 获取上传阶段文本
+export const getUploadStageText = (stage?: string): string => {
+  if (!stage) return '准备中'
+  const stageMap: Record<string, string> = {
+    'reading': '读取文件',
+    'calculating': '计算MD5',
+    'uploading': '上传中',
+    'completed': '已完成',
+    'failed': '失败'
+  }
+  return stageMap[stage] || '准备中'
+}
+
 export const getUploadStatusText = (status: string): string => {
   const textMap: Record<string, string> = {
     'pending': '等待中',

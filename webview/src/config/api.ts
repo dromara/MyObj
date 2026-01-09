@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
     PRECHECK: '/file/upload/precheck',
     PROGRESS: '/file/upload/progress', // 上传进度查询
     UNCOMPLETED: '/file/upload/uncompleted', // 查询未完成的上传任务列表
+    TASK_LIST: '/file/upload/taskList', // 获取上传任务列表（分页）
     EXPIRED: '/file/upload/expired', // 查询过期的上传任务列表
     DELETE_UPLOAD_TASK: '/file/upload/delete', // 删除上传任务
     RENEW_TASK: '/file/upload/renew', // 延期过期任务（恢复任务）

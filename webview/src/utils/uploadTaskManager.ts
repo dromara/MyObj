@@ -2,6 +2,8 @@ import cache from '@/plugins/cache'
 import logger from '@/plugins/logger'
 import { formatSpeed as formatSpeedUtil } from '@/utils/format'
 
+export type UploadStage = 'reading' | 'calculating' | 'uploading' | 'completed' | 'failed'
+
 export interface UploadTask {
   id: string
   file_name: string
@@ -9,6 +11,7 @@ export interface UploadTask {
   uploaded_size: number
   progress: number
   status: 'pending' | 'uploading' | 'paused' | 'completed' | 'failed' | 'cancelled'
+  stage?: UploadStage // 处理阶段：reading(读取文件) | calculating(计算MD5) | uploading(上传中) | completed(完成) | failed(失败)
   speed: string
   created_at: string
   error?: string
@@ -51,6 +54,7 @@ class UploadTaskManager {
       uploaded_size: 0,
       progress: 0,
       status: 'pending',
+      stage: 'reading', // 初始阶段：读取文件
       speed: '0 KB/s',
       created_at: new Date().toISOString(),
       lastUpdateTime: now,
@@ -62,6 +66,19 @@ class UploadTaskManager {
     this.tasks.set(taskId, task)
     this.notifyListeners()
     return taskId
+  }
+
+  /**
+   * 更新任务阶段
+   * @param taskId 任务ID
+   * @param stage 处理阶段
+   */
+  updateStage(taskId: string, stage: UploadStage) {
+    const task = this.tasks.get(taskId)
+    if (task) {
+      task.stage = stage
+      this.notifyListeners()
+    }
   }
 
   /**

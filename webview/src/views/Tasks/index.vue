@@ -34,7 +34,6 @@
 </template>
 
 <script setup lang="ts">
-import { uploadTaskManager } from '@/utils/uploadTaskManager'
 import UploadTaskTable from './modules/UploadTaskTable.vue'
 import DownloadTaskTable from './modules/DownloadTaskTable.vue'
 import ExpiredTasksDialog from './modules/ExpiredTasksDialog.vue'
@@ -60,19 +59,22 @@ const {
   uploadLoading,
   cleanLoading,
   expiredTaskCount,
+  currentPage,
+  pageSize,
   loadUploadTasks,
   getExpiredTaskCount,
   pauseUpload,
   resumeUpload,
   cancelUpload,
-  deleteUpload
+  deleteUpload,
+  initTaskSubscription
 } = useUploadTasks()
 
 const showExpiredDialog = ref(false)
 
 // 处理过期任务刷新
 const handleExpiredRefresh = () => {
-  loadUploadTasks()
+  loadUploadTasks(currentPage.value, pageSize.value)
   getExpiredTaskCount()
 }
 
@@ -86,27 +88,22 @@ const {
   resumeDownloadTask
 } = useDownloadTasks()
 
-// 订阅上传任务更新
-let unsubscribe: (() => void) | null = null
-
 onMounted(() => {
   loadUploadTasks()
   loadDownloadTasks()
   getExpiredTaskCount() // 加载过期任务数量
   
-  // 订阅上传任务更新
-  unsubscribe = uploadTaskManager.subscribe((tasks) => {
-    uploadTasks.value = tasks
-  })
+  // 初始化本地任务订阅（用于实时显示临时任务）
+  initTaskSubscription()
   
-  // 启动自动同步（30秒）
+  // 启动自动刷新（30秒）
   const startAutoSync = () => {
     if (syncTimer) {
       clearInterval(syncTimer)
     }
     syncTimer = window.setInterval(() => {
       if (activeTab.value === 'upload') {
-        loadUploadTasks()
+        loadUploadTasks(currentPage.value, pageSize.value)
         getExpiredTaskCount() // 定期更新过期任务数量
       }
     }, 30000)
@@ -122,9 +119,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (unsubscribe) {
-    unsubscribe()
-  }
   if (syncTimer) {
     clearInterval(syncTimer)
   }

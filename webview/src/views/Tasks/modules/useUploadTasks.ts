@@ -1,8 +1,31 @@
 import { uploadTaskManager } from '@/utils/uploadTaskManager'
-import { loadAndSyncBackendTasks, findBackendTask } from '@/utils/uploadTaskSync'
-import { deleteUploadTask, getUploadProgress, listExpiredUploads } from '@/api/file'
+import { getUploadProgress, listExpiredUploads, getUploadTaskList, deleteUploadTask, type UploadTaskItem } from '@/api/file'
 import { formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/upload'
+
+// 合并本地临时任务和后端任务列表
+const mergeTasks = (backendTasks: any[], localTasks: any[]): any[] => {
+    // 创建后端任务的 precheckId 集合，用于去重
+    const backendPrecheckIds = new Set(backendTasks.map(t => t.precheckId || t.id))
+    
+    // 过滤出本地任务中不在后端的任务（临时任务或正在进行的任务）
+    const localOnlyTasks = localTasks.filter(t => {
+      const precheckId = t.precheckId || t.id
+      // 只保留未完成的任务（pending, uploading, paused）
+      return !backendPrecheckIds.has(precheckId) && 
+             (t.status === 'pending' || t.status === 'uploading' || t.status === 'paused')
+    })
+    
+    // 合并：本地临时任务在前，后端任务在后，按创建时间倒序
+    const merged = [...localOnlyTasks, ...backendTasks]
+    merged.sort((a, b) => {
+      const timeA = new Date(a.created_at || a.create_time || 0).getTime()
+      const timeB = new Date(b.created_at || b.create_time || 0).getTime()
+      return timeB - timeA
+    })
+    
+  return merged
+}
 
 export function useUploadTasks() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
@@ -10,45 +33,107 @@ export function useUploadTasks() {
   const uploadLoading = ref(false)
   const cleanLoading = ref(false)
   const uploadTasks = ref<any[]>([])
+  const totalTasks = ref(0)
+  const currentPage = ref(1)
+  const pageSize = ref(20)
 
-  // 加载上传任务列表
-  const loadUploadTasks = async () => {
+  // 从后端API加载上传任务列表（分页），并合并本地临时任务
+  const loadUploadTasks = async (page: number = 1, size: number = 20) => {
     uploadLoading.value = true
     try {
+      // 获取本地临时任务
       const localTasks = uploadTaskManager.getAllTasks()
-      uploadTasks.value = localTasks
       
-      const syncResult = await loadAndSyncBackendTasks()
-      
-      if (syncResult.success) {
-        const allTasks = uploadTaskManager.getAllTasks()
-        uploadTasks.value = allTasks
-      } else if (syncResult.error) {
-        proxy?.$log.warn('任务同步失败:', syncResult.error)
+      // 获取后端任务列表
+      const res = await getUploadTaskList({ page, pageSize: size })
+      if (res.code === 200 && res.data) {
+        // 将后端任务转换为前端任务格式
+        const convertedTasks = res.data.tasks.map((task: UploadTaskItem) => {
+          // 计算已上传大小
+          const uploadedSize = task.total_chunks > 0 
+            ? Math.floor((task.uploaded_chunks / task.total_chunks) * task.file_size)
+            : 0
+          
+          // 映射状态
+          let status: 'pending' | 'uploading' | 'paused' | 'completed' | 'failed' | 'cancelled' = 'pending'
+          if (task.status === 'completed') {
+            status = 'completed'
+          } else if (task.status === 'failed' || task.status === 'aborted') {
+            status = 'failed'
+          } else if (task.status === 'uploading') {
+            status = 'uploading'
+          } else if (task.status === 'pending') {
+            status = 'pending'
+          }
+          
+          return {
+            id: task.id,
+            file_name: task.file_name,
+            file_size: task.file_size,
+            uploaded_size: uploadedSize,
+            progress: Math.floor(task.progress),
+            status: status,
+            stage: status === 'uploading' ? 'uploading' : status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'calculating',
+            speed: '0 KB/s',
+            created_at: task.create_time,
+            error: task.error_message,
+            pathId: task.path_id,
+            precheckId: task.id,
+            chunkSignature: task.chunk_signature,
+            filesMd5: [],
+            uploadedChunkMd5s: []
+          }
+        })
+        
+        // 合并本地临时任务和后端任务
+        uploadTasks.value = mergeTasks(convertedTasks, localTasks)
+        totalTasks.value = res.data.total
+        currentPage.value = res.data.page
+        pageSize.value = res.data.page_size
+      } else {
+        // 如果后端请求失败，至少显示本地任务
+        uploadTasks.value = localTasks.filter(t => 
+          t.status === 'pending' || t.status === 'uploading' || t.status === 'paused'
+        )
       }
     } catch (error: any) {
       proxy?.$log.error('加载上传任务失败:', error)
+      // 即使后端失败，也显示本地任务
+      const localTasks = uploadTaskManager.getAllTasks()
+      uploadTasks.value = localTasks.filter(t => 
+        t.status === 'pending' || t.status === 'uploading' || t.status === 'paused'
+      )
+      // 不显示错误提示，避免干扰用户体验
     } finally {
       uploadLoading.value = false
     }
   }
 
-  // 暂停上传
+  // 暂停上传（仅对正在上传的任务有效）
   const pauseUpload = (taskId: string) => {
-    uploadTaskManager.pauseTask(taskId)
-    uploadTaskManager.cancelAllUploads(taskId)
-    proxy?.$modal.msgSuccess('已暂停')
+    // 检查任务是否在活动状态（正在上传）
+    const isTaskActive = isUploadTaskActive(taskId)
+    if (isTaskActive) {
+      uploadTaskManager.pauseTask(taskId)
+      uploadTaskManager.cancelAllUploads(taskId)
+      proxy?.$modal.msgSuccess('已暂停')
+      // 刷新列表以更新状态
+      loadUploadTasks(currentPage.value, pageSize.value)
+    } else {
+      proxy?.$modal.msgError('该任务未在上传中，无法暂停')
+    }
   }
 
   // 恢复上传
   const resumeUpload = async (taskId: string) => {
-    const task = uploadTaskManager.getTask(taskId)
+    // 从列表中找到任务
+    const task = uploadTasks.value.find(t => t.id === taskId || t.precheckId === taskId)
     if (!task) {
       proxy?.$modal.msgError('任务不存在')
       return
     }
 
-    if (task.status !== 'paused') {
+    if (task.status !== 'paused' && task.status !== 'pending') {
       proxy?.$modal.msgError('任务状态不正确，无法恢复')
       return
     }
@@ -59,76 +144,29 @@ export function useUploadTasks() {
     }
 
     try {
-      if (!task.precheckId) {
-        proxy?.$modal.msgError('任务信息不完整（缺少预检ID），无法恢复上传。')
+      const precheckId = task.precheckId || taskId
+      
+      // 获取上传进度
+      const progressResponse = await getUploadProgress(precheckId)
+      
+      if (progressResponse.code !== 200 || !progressResponse.data) {
+        proxy?.$modal.msgError('无法查询上传进度，预检信息可能已过期。')
         return
       }
-
-      let progressData: any = null
-      let uploaded = 0
-      let total = 0
-      let progressPercent = 0
-      
-      try {
-        const backendTask = await findBackendTask(task.precheckId)
-        
-        if (backendTask) {
-          uploaded = backendTask.uploaded_chunks || 0
-          total = backendTask.total_chunks || 0
-          progressPercent = backendTask.progress || 0
-          progressData = {
-            uploaded,
-            total,
-            progress: progressPercent,
-            md5: []
-          }
-        }
-      } catch (error: any) {
-        // 继续尝试使用 getUploadProgress
-      }
-      
-      if (!progressData || !progressData.md5) {
-        const progressResponse = await getUploadProgress(task.precheckId)
-        
-        if (progressResponse.code === 200 && progressResponse.data) {
-          progressData = progressResponse.data as any
-          uploaded = progressData.uploaded || 0
-          total = progressData.total || 0
-          progressPercent = progressData.progress || (total > 0 ? (uploaded / total * 100) : 0)
-        } else {
-          proxy?.$modal.msgError('无法查询上传进度，预检信息可能已过期。')
-          return
-        }
-      }
-      
-      if (!progressData) {
-        proxy?.$modal.msgError('无法获取进度数据，无法恢复上传。')
-        return
-      }
-      
-      // 更新任务的已上传分片MD5列表和进度信息
-      if (progressData.md5 && Array.isArray(progressData.md5) && progressData.md5.length > 0) {
-        uploadTaskManager.updateTask(taskId, { uploadedChunkMd5s: progressData.md5 })
-      }
-      
-      uploadTaskManager.updateTask(taskId, {
-        progress: Math.floor(progressPercent),
-        uploaded_size: Math.floor((uploaded / total) * task.file_size)
-      })
       
       // 检查任务是否在活动状态（文件对象还在内存中或 uploadSingleFile 仍在运行）
       const isTaskActive = isUploadTaskActive(taskId)
       
       if (isTaskActive) {
         // 任务在活动状态，直接恢复任务状态
-        // ConcurrentUploader 会自动检测到状态变化并继续上传
         uploadTaskManager.resumeTask(taskId)
         proxy?.$modal.msgSuccess('已继续上传')
+        // 刷新列表
+        loadUploadTasks(currentPage.value, pageSize.value)
         return
       }
       
       // 如果任务不在活动状态，需要重新选择文件继续上传
-      
       const sizeDisplay = formatFileSizeForDisplay(task.file_size)
       ElMessage.info({
         message: `请选择文件 "${task.file_name}" (${sizeDisplay}) 继续上传`,
@@ -154,16 +192,16 @@ export function useUploadTasks() {
 
       await uploadSingleFile({
         file: selectedFile,
-        pathId: task.pathId!,
-        taskId: taskId,
+        pathId: task.pathId,
+        taskId: precheckId,
         onProgress: () => {},
         onSuccess: (fileName) => {
           proxy?.$modal.msgSuccess(`文件 ${fileName} 上传成功`)
-          loadUploadTasks()
+          loadUploadTasks(currentPage.value, pageSize.value)
         },
         onError: (error, fileName) => {
           proxy?.$modal.msgError(`文件 ${fileName} 上传失败: ${error.message}`)
-          loadUploadTasks()
+          loadUploadTasks(currentPage.value, pageSize.value)
         }
       })
 
@@ -178,10 +216,17 @@ export function useUploadTasks() {
   const cancelUpload = async (taskId: string) => {
     try {
       await proxy?.$modal.confirm('确认取消该上传任务?')
-      uploadTaskManager.cancelTask(taskId)
-      uploadTaskManager.cancelAllUploads(taskId)
+      
+      // 如果任务正在上传，先取消上传
+      const isTaskActive = isUploadTaskActive(taskId)
+      if (isTaskActive) {
+        uploadTaskManager.cancelTask(taskId)
+        uploadTaskManager.cancelAllUploads(taskId)
+      }
+      
       proxy?.$modal.msgSuccess('已取消')
-      loadUploadTasks()
+      // 刷新列表
+      loadUploadTasks(currentPage.value, pageSize.value)
     } catch (error) {
       // 用户取消操作
     }
@@ -190,7 +235,8 @@ export function useUploadTasks() {
   // 删除上传任务
   const deleteUpload = async (taskId: string) => {
     try {
-      const task = uploadTaskManager.getTask(taskId)
+      // 从列表中找到任务
+      const task = uploadTasks.value.find(t => t.id === taskId || t.precheckId === taskId)
       if (!task) {
         proxy?.$modal.msgError('任务不存在')
         return
@@ -198,8 +244,12 @@ export function useUploadTasks() {
       
       if (task.status === 'uploading') {
         await proxy?.$modal.confirm('任务正在上传中，删除将取消上传。确认删除?')
-        uploadTaskManager.cancelTask(taskId)
-        uploadTaskManager.cancelAllUploads(taskId)
+        // 如果任务正在上传，先取消上传
+        const isTaskActive = isUploadTaskActive(taskId)
+        if (isTaskActive) {
+          uploadTaskManager.cancelTask(taskId)
+          uploadTaskManager.cancelAllUploads(taskId)
+        }
       } else {
         await proxy?.$modal.confirm('确认删除该任务记录?')
       }
@@ -207,13 +257,13 @@ export function useUploadTasks() {
       const precheckId = task.precheckId || taskId
       try {
         await deleteUploadTask(precheckId)
+        proxy?.$modal.msgSuccess('已删除')
+        // 刷新列表
+        loadUploadTasks(currentPage.value, pageSize.value)
       } catch (error: any) {
-        proxy?.$log.warn('调用后端删除接口失败:', error)
+        proxy?.$log.error('删除任务失败:', error)
+        proxy?.$modal.msgError('删除任务失败')
       }
-      
-      uploadTaskManager.deleteTask(taskId)
-      proxy?.$modal.msgSuccess('已删除')
-      uploadTasks.value = uploadTaskManager.getAllTasks()
     } catch (error) {
       // 用户取消操作
     }
@@ -239,18 +289,42 @@ export function useUploadTasks() {
     // 保留是为了兼容性
   }
 
+  // 订阅本地任务更新（用于实时显示临时任务）
+  let unsubscribe: (() => void) | null = null
+
+  // 初始化订阅
+  const initTaskSubscription = () => {
+    if (unsubscribe) {
+      unsubscribe()
+    }
+    unsubscribe = uploadTaskManager.subscribe((localTasks) => {
+      // 当本地任务更新时，重新合并任务列表
+      if (uploadTasks.value.length > 0 || localTasks.length > 0) {
+        // 获取当前的后端任务（从现有列表中提取）
+        const backendTasks = uploadTasks.value.filter(t => t.precheckId && 
+          !localTasks.some(lt => (lt.precheckId || lt.id) === (t.precheckId || t.id)))
+        // 重新合并
+        uploadTasks.value = mergeTasks(backendTasks, localTasks)
+      }
+    })
+  }
+
   return {
     uploadTasks,
     uploadLoading,
     cleanLoading,
     expiredTaskCount,
+    totalTasks,
+    currentPage,
+    pageSize,
     loadUploadTasks,
     getExpiredTaskCount,
     pauseUpload,
     resumeUpload,
     cancelUpload,
     deleteUpload,
-    cleanExpiredUploads
+    cleanExpiredUploads,
+    initTaskSubscription
   }
 }
 

@@ -33,6 +33,9 @@
       <el-table-column label="进度" width="250" class-name="mobile-progress-column">
         <template #default="{ row }">
           <div class="progress-cell">
+            <div class="progress-stage" v-if="row.stage && row.status !== 'completed' && row.status !== 'failed'">
+              <el-text type="info" size="small">{{ getUploadStageText(row.stage) }}</el-text>
+            </div>
             <el-progress 
               :percentage="row.progress" 
               :status="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'exception' : undefined"
@@ -150,6 +153,9 @@
           </div>
         </div>
         <div class="task-progress-wrapper">
+          <div class="progress-stage" v-if="row.stage && row.status !== 'completed' && row.status !== 'failed'">
+            <el-text type="info" size="small">{{ getUploadStageText(row.stage) }}</el-text>
+          </div>
           <el-progress 
             :percentage="row.progress" 
             :status="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'exception' : undefined"
@@ -168,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatSize, formatDate, getUploadStatusType, getUploadStatusText } from '@/utils'
+import { formatSize, formatDate, getUploadStatusType, getUploadStatusText, getUploadStageText } from '@/utils'
 
 defineProps<{
   tasks: any[]
@@ -223,6 +229,11 @@ defineEmits<{
 .progress-info {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.progress-stage {
+  margin-bottom: 4px;
+  font-size: 12px;
 }
 
 /* PC端表格样式 */

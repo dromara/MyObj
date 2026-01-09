@@ -288,12 +288,35 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
   
   let taskId: string | null = providedTaskId || null
   
+  // 如果没有提供 taskId，立即创建本地临时任务（在MD5计算前）
+  if (!taskId) {
+    try {
+      taskId = uploadTaskManager.createTask(file.name, file.size)
+      if (taskId) {
+        const task = uploadTaskManager.getTask(taskId)
+        if (task) {
+          task.pathId = pathId
+          task.status = 'pending' // 设置为准备中状态
+          uploadTaskManager.saveTasksToStorage()
+        }
+      }
+    } catch (err) {
+      logger.error('创建上传任务失败:', err)
+      // 不抛出错误，继续执行
+    }
+  }
+  
   // 如果已有 taskId，将任务添加到运行中任务集合（用于跟踪 uploadSingleFile 是否仍在运行）
   if (taskId) {
     runningUploadTasks.add(taskId)
   }
   
   try {
+    // 更新任务阶段为计算MD5
+    if (taskId) {
+      uploadTaskManager.updateStage(taskId, 'calculating')
+    }
+    
     const fileMD5 = await calculateFileMD5(file, uploadConfig.chunkSize, (md5Progress) => {
       const progress = Math.floor(md5Progress * 0.1)
       if (taskId) {
@@ -302,6 +325,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       onProgress?.(progress, file.name)
     })
 
+    // 计算分片MD5
     const totalChunks = Math.ceil(file.size / uploadConfig.chunkSize)
     const filesMD5: string[] = []
     
@@ -324,16 +348,26 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     const precheckResponse = await uploadPrecheck(precheckParams)
 
     if (precheckResponse.code === 200) {
+      // 秒传成功，更新任务阶段为完成
+      if (taskId) {
+        uploadTaskManager.updateStage(taskId, 'completed')
+        uploadTaskManager.completeTask(taskId)
+      }
       onSuccess?.(file.name)
       return precheckResponse
     }
 
     if (precheckResponse.code !== 201) {
       const errorMsg = precheckResponse.message || '预检失败'
+      if (taskId) {
+        uploadTaskManager.updateStage(taskId, 'failed')
+        uploadTaskManager.failTask(taskId, errorMsg)
+      }
       ElMessage.error(`文件 ${file.name} 预检失败: ${errorMsg}`)
       throw new Error(errorMsg)
     }
 
+    // 确保任务存在（如果之前创建失败，这里再试一次）
     if (!taskId) {
       try {
         taskId = uploadTaskManager.createTask(file.name, file.size)
@@ -352,6 +386,13 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     
     if (taskId) {
       activeUploadTasks.set(taskId, true)
+      // 更新任务阶段为上传中
+      uploadTaskManager.updateStage(taskId, 'uploading')
+      const task = uploadTaskManager.getTask(taskId)
+      if (task) {
+        task.status = 'uploading'
+        uploadTaskManager.saveTasksToStorage()
+      }
     }
 
     let precheckId: string
@@ -429,12 +470,14 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
       if (uploadResponse.code === 200) {
         if (taskId) {
+          uploadTaskManager.updateStage(taskId, 'completed')
           uploadTaskManager.completeTask(taskId)
         }
         onProgress?.(100, file.name)
         onSuccess?.(file.name)
       } else {
         if (taskId) {
+          uploadTaskManager.updateStage(taskId, 'failed')
           uploadTaskManager.failTask(taskId, uploadResponse.message || '上传失败')
         }
         throw new Error(uploadResponse.message)
@@ -576,12 +619,14 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         const failedChunks = totalChunks - uploadedChunks.size
         const errorMessage = `部分分片上传失败（${failedChunks}/${totalChunks} 个分片失败），请重试`
         if (taskId) {
+          uploadTaskManager.updateStage(taskId, 'failed')
           uploadTaskManager.failTask(taskId, errorMessage)
         }
         throw new Error(errorMessage)
       }
 
       if (taskId) {
+        uploadTaskManager.updateStage(taskId, 'completed')
         uploadTaskManager.completeTask(taskId)
       }
       onProgress?.(100, file.name)
@@ -591,6 +636,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     if (taskId) {
       const task = uploadTaskManager.getTask(taskId)
       if (task && task.status !== 'completed' && task.status !== 'failed') {
+        uploadTaskManager.updateStage(taskId, 'failed')
         uploadTaskManager.failTask(taskId, error.message || '上传失败')
       }
     }
