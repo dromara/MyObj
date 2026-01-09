@@ -3,6 +3,7 @@
  * 统一处理文件下载逻辑，支持加密文件
  */
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
+import cache from '@/plugins/cache'
 import type { FileItem } from '@/types'
 
 export interface DownloadPasswordForm {
@@ -93,20 +94,42 @@ export function useFileDownload(options?: {
                   options.onTaskReady()
                 }
                 
-                // 开始下载文件 - 直接使用浏览器下载
+                // 开始下载文件 - 使用 fetch 先检查响应
                 const downloadUrl = getLocalFileDownloadUrl(taskId)
                 
                 proxy?.$log.debug('开始下载文件:', downloadUrl)
                 
                 try {
-                  // 直接创建下载链接，让浏览器处理下载
+                  // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
+                  // 获取 token 用于 Authorization header
+                  const token = cache.local.get('token')
+                  const response = await fetch(downloadUrl, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': token ? `Bearer ${token}` : '',
+                    },
+                    credentials: 'include', // 同时携带 Cookie 作为备用
+                  })
+                  
+                  // 检查响应类型，如果是 JSON 错误则显示错误信息
+                  const contentType = response.headers.get('content-type') || ''
+                  if (contentType.includes('application/json') || !response.ok) {
+                    const errorData = await response.json()
+                    proxy?.$modal.msgError(errorData.message || '下载失败')
+                    return
+                  }
+                  
+                  // 是文件，创建 blob 并下载
+                  const blob = await response.blob()
+                  const blobUrl = window.URL.createObjectURL(blob)
                   const link = document.createElement('a')
-                  link.href = downloadUrl
+                  link.href = blobUrl
                   link.download = task.file_name || 'download'
                   link.style.display = 'none'
                   document.body.appendChild(link)
                   link.click()
                   document.body.removeChild(link)
+                  window.URL.revokeObjectURL(blobUrl)
                   
                   proxy?.$modal.msgSuccess('下载已开始')
                 } catch (error: any) {

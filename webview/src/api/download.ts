@@ -119,10 +119,10 @@ export const createLocalFileDownload = (data: CreateLocalFileDownloadRequest) =>
 
 /**
  * 获取网盘文件下载链接
+ * 使用 Cookie 认证，不需要 token 参数
  */
 export const getLocalFileDownloadUrl = (taskId: string) => {
-  const token = cache.local.get('token')
-  return `${API_BASE_URL}/download/local/file/${taskId}?token=${token}`
+  return `${API_BASE_URL}/download/local/file/${taskId}`
 }
 
 // 种子文件信息
