@@ -188,8 +188,25 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	// 获取组信息（用于设置存储空间）
 	group, err := u.factory.Group().GetByID(ctx, groupID)
 	if err != nil {
-		logger.LOG.Error("查询组信息失败", "error", err)
-		return nil, err
+		// 如果是首次使用且管理员组不存在，自动创建管理员组
+		if isFirstUse && errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.LOG.Info("首次使用，自动创建管理员组", "group_id", groupID)
+			adminGroup := &models.Group{
+				ID:           1,
+				Name:         "管理员",
+				GroupDefault: 0, // 管理员组不是默认组
+				Space:        0, // 0 表示无限制
+				CreatedAt:    custom_type.Now(),
+			}
+			if err = u.factory.Group().Create(ctx, adminGroup); err != nil {
+				logger.LOG.Error("创建管理员组失败", "error", err)
+				return nil, fmt.Errorf("创建管理员组失败: %w", err)
+			}
+			group = adminGroup
+		} else {
+			logger.LOG.Error("查询组信息失败", "error", err)
+			return nil, err
+		}
 	}
 
 	user = &models.UserInfo{

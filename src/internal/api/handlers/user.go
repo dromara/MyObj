@@ -104,10 +104,8 @@ func (u *UserHandler) Register(c *gin.Context) {
 	}
 	register, err := u.service.Register(req)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(400, models.NewJsonResponse(400, "用户已存在", nil))
-		}
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
 	}
 	c.JSON(200, register)
 }
