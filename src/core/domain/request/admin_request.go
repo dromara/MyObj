@@ -68,7 +68,7 @@ type AdminDeleteGroupRequest struct {
 // AdminPowerListRequest 管理员权限列表请求
 type AdminPowerListRequest struct {
 	Page     int `json:"page" form:"page" binding:"omitempty,min=1"`
-	PageSize int `json:"pageSize" form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize int `json:"pageSize" form:"pageSize" binding:"omitempty,min=1,max=1000"` // 允许最大1000，用于组管理分配权限时获取所有权限
 }
 
 // AdminCreatePowerRequest 管理员创建权限请求
