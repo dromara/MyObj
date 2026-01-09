@@ -513,6 +513,7 @@ func (a *AdminService) AdminCreatePower(req *request.AdminCreatePowerRequest) (*
 		Name:           req.Name,
 		Description:    req.Description,
 		Characteristic: req.Characteristic,
+		CreatedAt:      custom_type.Now(),
 	}
 
 	if err := a.factory.Power().Create(ctx, power); err != nil {
