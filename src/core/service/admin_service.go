@@ -419,8 +419,12 @@ func (a *AdminService) AdminPowerList(req *request.AdminPowerListRequest) (*mode
 		page = 1
 	}
 	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 {
 		pageSize = 20
+	}
+	// 允许更大的 pageSize（最大 1000），用于组管理分配权限时获取所有权限
+	if pageSize > 1000 {
+		pageSize = 1000
 	}
 	offset := (page - 1) * pageSize
 

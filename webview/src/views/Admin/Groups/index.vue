@@ -369,7 +369,8 @@ const loadGroupList = async () => {
 // 加载权限列表
 const loadPowerList = async () => {
   try {
-    const res = await getAdminPowerList()
+    // 获取所有权限（传递足够大的 pageSize 以获取全部权限）
+    const res = await getAdminPowerList({ page: 1, pageSize: 1000 })
     if (res.code === 200 && res.data) {
       powerList.value = res.data.powers || []
     } else {
