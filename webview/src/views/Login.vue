@@ -225,12 +225,17 @@ const handleRegister = async () => {
           challenge: challengeRes.data.id
         })
         proxy?.$modal.msgSuccess('注册成功')
+        // 切换到登录页面
+        activeTab.value = 'login'
+        // 自动填充用户名和密码
+        loginForm.username = registerForm.username
+        loginForm.password = registerForm.password
+        // 如果是首次使用，尝试自动登录
         if (isFirstUse.value) {
-          loginForm.username = registerForm.username
-          loginForm.password = registerForm.password
-          await handleLogin()
-        } else {
-          activeTab.value = 'login'
+          // 延迟一下，确保tab切换完成
+          setTimeout(async () => {
+            await handleLogin()
+          }, 100)
         }
       } catch (error: any) {
         proxy?.$modal.msgError(error.message || '注册失败')
