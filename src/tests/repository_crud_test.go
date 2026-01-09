@@ -92,17 +92,16 @@ func TestFileInfoRepository_CRUD(t *testing.T) {
 	ctx := context.Background()
 
 	file := &models.FileInfo{
-		ID:          "file001",
-		Name:        "test.txt",
-		RandomName:  "random123",
-		Size:        1024,
-		Mime:        "text/plain",
-		VirtualPath: "/test.txt",
-		Path:        "/data/random123",
-		FileHash:    "hash123",
-		IsChunk:     false,
-		CreatedAt:   custom_type.JsonTime(time.Now()),
-		UpdatedAt:   custom_type.JsonTime(time.Now()),
+		ID:         "file001",
+		Name:       "test.txt",
+		RandomName: "random123",
+		Size:       1024,
+		Mime:       "text/plain",
+		Path:       "/data/random123",
+		FileHash:   "hash123",
+		IsChunk:    false,
+		CreatedAt:  custom_type.JsonTime(time.Now()),
+		UpdatedAt:  custom_type.JsonTime(time.Now()),
 	}
 
 	err := repo.Create(ctx, file)

@@ -147,3 +147,11 @@ type DeleteDirRequest struct {
 	// 目录ID
 	DirID int `json:"dir_id" binding:"required"`
 }
+
+// UploadTaskListRequest 上传任务列表请求
+type UploadTaskListRequest struct {
+	// 页码（从1开始）
+	Page int `form:"page" binding:"required,min=1"`
+	// 每页数量
+	PageSize int `form:"pageSize" binding:"required,min=1,max=100"`
+}

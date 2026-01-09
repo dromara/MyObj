@@ -89,3 +89,24 @@ func (r *uploadTaskRepository) GetExpiredByUserID(ctx context.Context, userID st
 	return tasks, err
 }
 
+// ListByUserID 根据用户ID获取上传任务列表
+func (r *uploadTaskRepository) ListByUserID(ctx context.Context, userID string, offset, limit int) ([]*models.UploadTask, error) {
+	var tasks []*models.UploadTask
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("create_time DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
+
+// CountByUserID 统计用户上传任务总数
+func (r *uploadTaskRepository) CountByUserID(ctx context.Context, userID string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.UploadTask{}).
+		Where("user_id = ?", userID).
+		Count(&count).Error
+	return count, err
+}

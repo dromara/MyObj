@@ -1951,3 +1951,69 @@ func (f *FileService) RenewExpiredTask(taskID string, userID string, days int) (
 		"expire_time": task.ExpireTime,
 	}), nil
 }
+
+// GetUploadTaskList 获取上传任务列表
+func (f *FileService) GetUploadTaskList(req *request.UploadTaskListRequest, userID string) (*models.JsonResponse, error) {
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+
+	ctx := context.Background()
+
+	// 计算偏移量
+	offset := (req.Page - 1) * req.PageSize
+
+	// 获取总数
+	total, err := f.factory.UploadTask().CountByUserID(ctx, userID)
+	if err != nil {
+		logger.LOG.Error("统计上传任务总数失败", "error", err, "userID", userID)
+		return nil, err
+	}
+
+	// 获取任务列表
+	tasks, err := f.factory.UploadTask().ListByUserID(ctx, userID, offset, req.PageSize)
+	if err != nil {
+		logger.LOG.Error("获取上传任务列表失败", "error", err, "userID", userID)
+		return nil, err
+	}
+
+	// 转换为响应结构体（移除敏感信息）
+	taskItems := make([]response.UploadTaskItem, 0, len(tasks))
+	for _, task := range tasks {
+		// 计算进度
+		progress := 0.0
+		if task.TotalChunks > 0 {
+			progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
+		}
+
+		taskItems = append(taskItems, response.UploadTaskItem{
+			ID:             task.ID,
+			FileName:       task.FileName,
+			FileSize:       task.FileSize,
+			ChunkSize:      task.ChunkSize,
+			TotalChunks:    task.TotalChunks,
+			UploadedChunks: task.UploadedChunks,
+			ChunkSignature: task.ChunkSignature,
+			PathID:         task.PathID,
+			Status:         task.Status,
+			ErrorMessage:   task.ErrorMessage,
+			Progress:       progress,
+			CreateTime:     task.CreateTime,
+			UpdateTime:     task.UpdateTime,
+			ExpireTime:     task.ExpireTime,
+		})
+	}
+
+	// 构建响应
+	responseData := response.UploadTaskListResponse{
+		Tasks:    taskItems,
+		Total:    total,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+
+	return models.NewJsonResponse(200, "获取上传任务列表成功", responseData), nil
+}

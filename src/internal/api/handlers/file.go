@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"myobj/src/core/domain/request"
 	_ "myobj/src/core/domain/response" // 导入用于Swagger文档生成
 	"myobj/src/core/service"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type FileHandler struct {
@@ -51,6 +53,8 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.GET("/upload/uncompleted", middleware.PowerVerify("file:upload"), f.ListUncompletedUploads)
 		// 查询过期的上传任务列表
 		fileGroup.GET("/upload/expired", middleware.PowerVerify("file:upload"), f.ListExpiredUploads)
+		// 查询上传任务列表
+		fileGroup.GET("/upload/taskList", middleware.PowerVerify("file:upload"), f.GetUploadTaskList)
 		// 删除上传任务
 		fileGroup.POST("/upload/delete", middleware.PowerVerify("file:upload"), f.DeleteUploadTask)
 		// 延期过期任务（恢复任务）
@@ -502,6 +506,37 @@ func (f *FileHandler) GetUploadProgress(c *gin.Context) {
 		return
 	}
 
+	c.JSON(200, result)
+}
+
+// GetUploadTaskList godoc
+// @Summary 获取上传任务列表
+// @Description 分页获取用户上传任务列表，不返回敏感信息（如临时目录路径）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int true "页码" minimum(1)
+// @Param pageSize query int true "每页数量" minimum(1) maximum(100)
+// @Success 200 {object} models.JsonResponse{data=response.UploadTaskListResponse} "成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Failure 500 {object} models.JsonResponse "失败"
+// @Router /file/upload/taskList [get]
+func (f *FileHandler) GetUploadTaskList(c *gin.Context) {
+	req := new(request.UploadTaskListRequest)
+	if err := c.ShouldBindQuery(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := f.service.GetUploadTaskList(req, c.GetString("userID"))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(200, models.NewJsonResponse(200, "获取上传任务列表成功", new([]string)))
+			return
+		}
+		c.JSON(200, models.NewJsonResponse(500, "获取上传任务列表失败", err.Error()))
+		return
+	}
 	c.JSON(200, result)
 }
 

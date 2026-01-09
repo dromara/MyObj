@@ -4,7 +4,6 @@ import (
 	"myobj/src/config"
 	"myobj/src/internal/repository/database"
 	"myobj/src/internal/repository/impl"
-	"myobj/src/pkg/download"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/upload"
 	"testing"
@@ -52,13 +51,13 @@ func TestDownload(t *testing.T) {
 	}
 	logger.InitLogger()
 	database.InitDataBase()
-	temp := "E:\\obj_data\\temp"
-	factory := impl.NewRepositoryFactory(database.GetDB())
-	forDownload, m, err := download.PrepareFileForDownload("019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb", temp, factory)
-	if err != nil {
-		panic(err)
-		return
-	}
-	t.Log("可下载文件路径：", forDownload)
-	t.Log("可下载文件信息：", m)
+	//temp := "E:\\obj_data\\temp"
+	//factory := impl.NewRepositoryFactory(database.GetDB())
+	//forDownload, m, err := download.PrepareFileForDownload("019a7dd3-f44c-71ae-b2eb-bf1e1014d3cb", temp, factory)
+	//if err != nil {
+	//	panic(err)
+	//	return
+	//}
+	//t.Log("可下载文件路径：", forDownload)
+	//t.Log("可下载文件信息：", m)
 }

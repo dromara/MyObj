@@ -111,10 +111,10 @@ type UploadProgressResponse struct {
 	PrecheckID string   `json:"precheck_id"`
 	FileName   string   `json:"file_name"`
 	FileSize   int64    `json:"file_size"`
-	Uploaded   int      `json:"uploaded"`   // 已上传分片数
-	Total      int      `json:"total"`      // 总分片数
-	Progress   float64  `json:"progress"`   // 进度百分比 (0-100)
-	Md5        []string `json:"md5"`        // 已上传分片的MD5列表
+	Uploaded   int      `json:"uploaded"`    // 已上传分片数
+	Total      int      `json:"total"`       // 总分片数
+	Progress   float64  `json:"progress"`    // 进度百分比 (0-100)
+	Md5        []string `json:"md5"`         // 已上传分片的MD5列表
 	IsComplete bool     `json:"is_complete"` // 是否已完成
 }
 
@@ -162,6 +162,50 @@ type PublicFileItem struct {
 type PublicFileListResponse struct {
 	// 文件列表
 	Files []PublicFileItem `json:"files"`
+	// 总数
+	Total int64 `json:"total"`
+	// 当前页
+	Page int `json:"page"`
+	// 每页数量
+	PageSize int `json:"page_size"`
+}
+
+// UploadTaskItem 上传任务列表项（不包含敏感信息）
+type UploadTaskItem struct {
+	// 任务ID（precheck_id）
+	ID string `json:"id"`
+	// 文件名
+	FileName string `json:"file_name"`
+	// 文件大小（字节）
+	FileSize int64 `json:"file_size"`
+	// 分片大小（字节）
+	ChunkSize int64 `json:"chunk_size"`
+	// 总分片数
+	TotalChunks int `json:"total_chunks"`
+	// 已上传分片数
+	UploadedChunks int `json:"uploaded_chunks"`
+	// 文件hash签名
+	ChunkSignature string `json:"chunk_signature"`
+	// 路径ID
+	PathID string `json:"path_id"`
+	// 任务状态（pending/uploading/completed/failed/aborted）
+	Status string `json:"status"`
+	// 错误信息
+	ErrorMessage string `json:"error_message"`
+	// 上传进度（0-100）
+	Progress float64 `json:"progress"`
+	// 创建时间
+	CreateTime custom_type.JsonTime `json:"create_time"`
+	// 更新时间
+	UpdateTime custom_type.JsonTime `json:"update_time"`
+	// 过期时间
+	ExpireTime custom_type.JsonTime `json:"expire_time"`
+}
+
+// UploadTaskListResponse 上传任务列表响应
+type UploadTaskListResponse struct {
+	// 任务列表
+	Tasks []UploadTaskItem `json:"tasks"`
 	// 总数
 	Total int64 `json:"total"`
 	// 当前页

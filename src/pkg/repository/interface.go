@@ -215,6 +215,8 @@ type UploadTaskRepository interface {
 	Delete(ctx context.Context, id string) error
 	DeleteExpired(ctx context.Context) (int64, error)
 	DeleteExpiredByUserID(ctx context.Context, userID string) (int64, error)
+	ListByUserID(ctx context.Context, userID string, offset, limit int) ([]*models.UploadTask, error)
+	CountByUserID(ctx context.Context, userID string) (int64, error) // 统计用户上传任务总数
 }
 
 // UploadChunkRepository 上传分片信息仓储接口
