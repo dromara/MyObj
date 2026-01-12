@@ -137,18 +137,26 @@ export const useUserStore = defineStore('user', () => {
 
   /**
    * 从服务器获取用户信息
+   * 如果获取失败，保留现有的用户信息，避免菜单消失等问题
    */
   const fetchUserInfo = async () => {
+    // 保存当前用户信息作为后备
+    const currentUserInfo = userInfo.value
+    
     try {
       const res = await getUserInfo()
       if (res.code === 200 && res.data) {
         setUserInfo(res.data)
         return res.data
+      } else {
+        // API 返回失败，保留现有用户信息
+        logger.warn('获取用户信息失败，保留现有用户信息')
+        return currentUserInfo
       }
-      return null
     } catch (error) {
+      // API 调用失败，保留现有用户信息，避免菜单消失
       logger.error('获取用户信息失败:', error)
-      return null
+      return currentUserInfo
     }
   }
 
