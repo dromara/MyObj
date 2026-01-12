@@ -18,26 +18,49 @@
           fit="contain"
           :lazy="false"
         />
-        <span class="logo-text">MyObj 云盘</span>
+        <span class="logo-text">{{ t('header.title') }}</span>
       </div>
     </div>
     
     <div class="header-center">
-      <div class="search-wrapper">
+      <div class="search-wrapper" ref="searchWrapperRef">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索文件、资料..."
+          :placeholder="t('files.searchPlaceholder')"
           prefix-icon="Search"
           clearable
           @input="handleSearchInput"
           @keyup.enter="handleSearch"
+          @keyup.down="handleArrowDown"
+          @keyup.up="handleArrowUp"
+          @focus="showSuggestions = true"
+          @blur="handleSearchBlur"
           @clear="handleSearchClear"
           class="search-input glass-input"
+        />
+        <!-- 搜索建议 -->
+        <SearchSuggestions
+          v-if="showSuggestions"
+          :suggestions="searchSuggestions"
+          :visible="showSuggestions && searchSuggestions.length > 0"
+          @select="handleSuggestionSelect"
+          @clear="handleClearHistory"
+          @delete="handleDeleteHistory"
         />
       </div>
     </div>
     
     <div class="header-right">
+      <!-- 主题切换按钮 -->
+      <el-tooltip :content="isDark ? t('header.switchToLight') : t('header.switchToDark')" placement="bottom">
+        <el-button
+          class="theme-toggle-btn"
+          :icon="isDark ? 'Sunny' : 'Moon'"
+          circle
+          text
+          @click="toggleTheme"
+        />
+      </el-tooltip>
       <!-- 移动端：搜索按钮 -->
       <el-button
         class="mobile-search-btn"
@@ -69,11 +92,11 @@
           <el-dropdown-menu class="premium-dropdown">
             <el-dropdown-item command="settings">
               <el-icon><Setting /></el-icon>
-              系统设置
+              {{ t('menu.settings') }}
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
-              退出登录
+              {{ t('header.logout') }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -95,7 +118,7 @@
       <template #header>
         <div class="search-dialog-header">
           <el-icon class="search-icon"><Search /></el-icon>
-          <span class="search-title">搜索文件</span>
+          <span class="search-title">{{ t('header.search') }}</span>
         </div>
       </template>
       
@@ -103,7 +126,7 @@
         <el-input
           ref="searchDialogInputRef"
           v-model="searchKeyword"
-          placeholder="输入关键词搜索文件、资料..."
+          :placeholder="t('files.searchPlaceholder')"
           prefix-icon="Search"
           clearable
           @input="handleSearchInput"
@@ -116,10 +139,10 @@
       
       <template #footer>
         <div class="search-dialog-footer">
-          <el-button class="cancel-btn" @click="showSearchDialog = false">取消</el-button>
+          <el-button class="cancel-btn" @click="showSearchDialog = false">{{ t('common.cancel') }}</el-button>
           <el-button class="search-btn" type="primary" @click="handleSearchAndClose">
             <el-icon><Search /></el-icon>
-            搜索
+            {{ t('common.search') }}
           </el-button>
         </div>
       </template>
@@ -130,19 +153,27 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
+import { useTheme } from '@/composables/useTheme'
+import { useSearchHistory } from '@/composables/useSearchHistory'
+import { useI18n } from '@/composables/useI18n'
 import logoImage from '@/assets/images/LOGO.png'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const authStore = useAuthStore()
+const { isDark, toggleTheme } = useTheme()
+const { getSuggestions, addHistory, clearHistory, removeHistory } = useSearchHistory()
 
 const searchKeyword = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const showSearchDialog = ref(false)
 const searchDialogInputRef = ref()
+const showSuggestions = ref(false)
+const selectedSuggestionIndex = ref(-1)
 
 const avatarText = computed(() => {
   const nickname = userStore.nickname || userStore.username || ''
@@ -150,7 +181,15 @@ const avatarText = computed(() => {
 })
 
 const avatarColor = computed(() => {
-  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']
+  // 使用 CSS 变量，但需要转换为实际颜色值
+  // 由于 CSS 变量在 style 中可以直接使用，这里返回变量名
+  const colors = [
+    'var(--primary-color)',
+    'var(--secondary-color)',
+    'var(--danger-color)',
+    'var(--success-color)',
+    'var(--warning-color)'
+  ]
   const name = userStore.nickname || userStore.username || 'User'
   let hash = 0
   for (let i = 0; i < name.length; i++) {
@@ -159,30 +198,84 @@ const avatarColor = computed(() => {
   return colors[Math.abs(hash) % colors.length]
 })
 
+// 搜索建议
+const searchSuggestions = computed(() => {
+  return getSuggestions(searchKeyword.value, 5)
+})
+
 // 触发搜索（带防抖）
 const triggerSearch = (keyword: string) => {
+  const trimmedKeyword = keyword.trim()
+  
+  // 添加到搜索历史
+  if (trimmedKeyword) {
+    addHistory(trimmedKeyword)
+  }
+  
   const currentPath = route.path
 
   // 根据当前页面决定搜索行为
   if (currentPath === '/files') {
     // 在 Files 页面，触发搜索事件
-    const event = new CustomEvent('files-search', { detail: { keyword: keyword.trim() } })
+    const event = new CustomEvent('files-search', { detail: { keyword: trimmedKeyword } })
     window.dispatchEvent(event)
   } else if (currentPath === '/square') {
     // 在 Square 页面，触发搜索事件
-    const event = new CustomEvent('square-search', { detail: { keyword: keyword.trim() } })
+    const event = new CustomEvent('square-search', { detail: { keyword: trimmedKeyword } })
     window.dispatchEvent(event)
   } else {
     // 不在 Files 或 Square 页面
-    if (keyword.trim()) {
+    if (trimmedKeyword) {
       // 有关键词，跳转到 Files 页面并搜索
       router.push({
         path: '/files',
-        query: { search: keyword.trim() }
+        query: { search: trimmedKeyword }
       })
     }
     // 没有关键词，不执行任何操作
   }
+  
+  showSuggestions.value = false
+}
+
+// 处理搜索建议选择
+const handleSuggestionSelect = (keyword: string) => {
+  searchKeyword.value = keyword
+  triggerSearch(keyword)
+}
+
+// 处理清除历史
+const handleClearHistory = () => {
+  clearHistory()
+}
+
+// 处理删除历史
+const handleDeleteHistory = (keyword: string) => {
+  removeHistory(keyword)
+}
+
+// 处理搜索框失焦
+const handleSearchBlur = () => {
+  // 延迟隐藏，允许点击建议项
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 200)
+}
+
+// 处理方向键导航
+const handleArrowDown = (e: KeyboardEvent) => {
+  if (searchSuggestions.value.length === 0) return
+  e.preventDefault()
+  selectedSuggestionIndex.value = Math.min(
+    selectedSuggestionIndex.value + 1,
+    searchSuggestions.value.length - 1
+  )
+}
+
+const handleArrowUp = (e: KeyboardEvent) => {
+  if (searchSuggestions.value.length === 0) return
+  e.preventDefault()
+  selectedSuggestionIndex.value = Math.max(selectedSuggestionIndex.value - 1, -1)
 }
 
 // 处理输入事件（带防抖，500ms）
@@ -236,7 +329,7 @@ const handleCommand = (command: string) => {
   if (command === 'logout') {
     authStore.logout()
     router.push('/login')
-    proxy?.$modal.msgSuccess('已退出登录')
+    proxy?.$modal.msgSuccess(t('header.logoutSuccess'))
   } else if (command === 'settings') {
     router.push('/settings')
   }
@@ -399,8 +492,14 @@ onBeforeUnmount(() => {
   display: none !important;
 }
 
+.search-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+}
+
 .search-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-color-glass, rgba(255, 255, 255, 0.5));
   backdrop-filter: blur(4px);
   border-radius: 12px;
   padding-left: 16px;
@@ -411,9 +510,14 @@ onBeforeUnmount(() => {
 
 .search-input :deep(.el-input__wrapper):hover,
 .search-input :deep(.el-input__wrapper.is-focus) {
-  background: white;
+  background: var(--card-bg, var(--el-bg-color));
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   border-color: var(--primary-color);
+}
+
+html.dark .search-input :deep(.el-input__wrapper):hover,
+html.dark .search-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .user-profile {
@@ -429,9 +533,14 @@ onBeforeUnmount(() => {
 }
 
 .user-profile:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--el-fill-color-light, rgba(255, 255, 255, 0.6));
   border-color: var(--border-color);
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+html.dark .user-profile:hover {
+  background: var(--el-fill-color-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .username {
@@ -759,10 +868,14 @@ onBeforeUnmount(() => {
 }
 
 .search-dialog-input :deep(.el-input__wrapper.is-focus) {
-  background: white;
+  background: var(--card-bg, var(--el-bg-color));
   border-color: var(--primary-color);
   box-shadow: 0 12px 32px rgba(99, 102, 241, 0.18), 0 0 0 5px rgba(99, 102, 241, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.9), inset 0 -1px 2px rgba(0, 0, 0, 0.02);
   transform: translateY(-2px);
+}
+
+html.dark .search-dialog-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.3), 0 0 0 5px rgba(99, 102, 241, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.1), inset 0 -1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .search-dialog-input :deep(.el-input__prefix) {
@@ -828,6 +941,26 @@ onBeforeUnmount(() => {
 
 .search-btn :deep(.el-icon) {
   font-size: 18px;
+}
+
+/* 深色模式：下拉菜单 */
+html.dark .premium-dropdown {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .premium-dropdown :deep(.el-dropdown-menu__item) {
+  color: var(--el-text-color-primary);
+  background-color: transparent;
+}
+
+html.dark .premium-dropdown :deep(.el-dropdown-menu__item:hover) {
+  background-color: var(--el-fill-color-light);
+  color: var(--primary-color);
+}
+
+html.dark .premium-dropdown :deep(.el-dropdown-menu__item.is-divided) {
+  border-top-color: var(--el-border-color);
 }
 </style>
 

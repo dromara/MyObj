@@ -1,10 +1,12 @@
 import { createFolder } from '@/api/folder'
+import { useI18n } from '@/composables/useI18n'
 
 export function useFolderOperations(
   currentPath: Ref<string>,
   loadFileList: () => Promise<void>
 ) {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
+  const { t } = useI18n()
 
   const showNewFolderDialog = ref(false)
   const creating = ref(false)
@@ -15,11 +17,11 @@ export function useFolderOperations(
 
   const folderRules: FormRules = {
     dir_path: [
-      { required: true, message: '请输入文件夹名称', trigger: 'blur' },
-      { min: 1, max: 50, message: '文件夹名称长度在1-50个字符', trigger: 'blur' },
+      { required: true, message: t('files.folderNameRequired'), trigger: 'blur' },
+      { min: 1, max: 50, message: t('files.folderNameLength'), trigger: 'blur' },
       { 
         pattern: /^[^\\/:*?"<>|]+$/, 
-        message: '文件夹名称不能包含特殊字符 \\ / : * ? " < > |', 
+        message: t('files.folderNameInvalidChars'), 
         trigger: 'blur' 
       }
     ]
@@ -47,15 +49,15 @@ export function useFolderOperations(
           })
           
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('文件夹创建成功')
+            proxy?.$modal.msgSuccess(t('files.createFolderSuccess'))
             showNewFolderDialog.value = false
             folderForm.dir_path = ''
             loadFileList()
           } else {
-            proxy?.$modal.msgError(res.message || '创建文件夹失败')
+            proxy?.$modal.msgError(res.message || t('files.createFolderFailed'))
           }
         } catch (error: any) {
-          proxy?.$modal.msgError(error.message || '创建文件夹失败')
+          proxy?.$modal.msgError(error.message || t('files.createFolderFailed'))
         } finally {
           creating.value = false
         }

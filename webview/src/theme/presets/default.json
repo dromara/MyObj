@@ -1,0 +1,14 @@
+{
+  "name": "默认预设",
+  "desc": "系统默认主题预设",
+  "theme": "auto",
+  "grayscale": false,
+  "colourWeakness": false,
+  "colors": {
+    "primary": "#2563eb",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#3b82f6"
+  }
+}

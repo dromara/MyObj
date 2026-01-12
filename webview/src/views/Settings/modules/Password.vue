@@ -7,32 +7,32 @@
       label-width="120px"
       label-position="left"
     >
-      <el-form-item label="当前密码" prop="oldPassword">
+      <el-form-item :label="t('settings.password.oldPassword')" prop="oldPassword">
         <el-input
           v-model="passwordForm.oldPassword"
           type="password"
-          placeholder="请输入当前密码"
+          :placeholder="t('settings.password.oldPasswordPlaceholder')"
           show-password
           clearable
         />
       </el-form-item>
       
-      <el-form-item label="新密码" prop="newPassword">
+      <el-form-item :label="t('settings.password.newPassword')" prop="newPassword">
         <el-input
           v-model="passwordForm.newPassword"
           type="password"
-          placeholder="请输入新密码"
+          :placeholder="t('settings.password.newPasswordPlaceholder')"
           show-password
           clearable
         />
-        <div class="form-tip">密码长度至少 6 位</div>
+        <div class="form-tip">{{ t('settings.password.passwordMin') }}</div>
       </el-form-item>
       
-      <el-form-item label="确认新密码" prop="confirmPassword">
+      <el-form-item :label="t('settings.password.confirmPassword')" prop="confirmPassword">
         <el-input
           v-model="passwordForm.confirmPassword"
           type="password"
-          placeholder="请再次输入新密码"
+          :placeholder="t('settings.password.confirmPasswordPlaceholder')"
           show-password
           clearable
         />
@@ -40,9 +40,9 @@
       
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">
-          修改密码
+          {{ t('settings.password.change') }}
         </el-button>
-        <el-button @click="handleReset">重置</el-button>
+        <el-button @click="handleReset">{{ t('common.reset') }}</el-button>
       </el-form-item>
     </el-form>
   </div>
@@ -52,8 +52,10 @@
 import { updatePassword } from '@/api/user'
 import { getChallenge } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
@@ -66,7 +68,7 @@ const passwordForm = reactive({
 
 const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   if (value !== passwordForm.newPassword) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('settings.password.passwordMismatch')))
   } else {
     callback()
   }
@@ -74,14 +76,14 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
 
 const rules: FormRules = {
   oldPassword: [
-    { required: true, message: '请输入当前密码', trigger: 'blur' }
+    { required: true, message: t('settings.password.oldPasswordPlaceholder'), trigger: 'blur' }
   ],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少 6 位', trigger: 'blur' }
+    { required: true, message: t('settings.password.newPasswordPlaceholder'), trigger: 'blur' },
+    { min: 6, message: t('settings.password.passwordMin'), trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    { required: true, message: t('settings.password.confirmPasswordPlaceholder'), trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
@@ -98,7 +100,7 @@ const handleSave = async () => {
       // 获取挑战值
       const challengeRes = await getChallenge()
       if (!challengeRes.data?.publicKey || !challengeRes.data.id) {
-        proxy?.$modal.msgError('获取挑战值失败')
+        proxy?.$modal.msgError(t('settings.password.getChallengeFailed'))
         return
       }
       
@@ -113,7 +115,7 @@ const handleSave = async () => {
       })
       
       if (result.code === 200) {
-        proxy?.$modal.msgSuccess('密码修改成功，请重新登录')
+        proxy?.$modal.msgSuccess(t('settings.password.changeSuccess'))
         // 延迟跳转到登录页
         setTimeout(() => {
           proxy?.$cache.local.remove('token')
@@ -121,10 +123,10 @@ const handleSave = async () => {
           window.location.href = '/login'
         }, 1500)
       } else {
-        proxy?.$modal.msgError(result.message || '密码修改失败')
+        proxy?.$modal.msgError(result.message || t('settings.password.changeFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '密码修改失败')
+      proxy?.$modal.msgError(error.message || t('settings.password.changeFailed'))
     } finally {
       saving.value = false
     }
@@ -152,6 +154,24 @@ const handleReset = () => {
   .password-form :deep(.el-form-item__label) {
     width: 100px !important;
   }
+}
+
+/* 深色模式样式 */
+html.dark .password-form :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .password-form :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .password-form :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .form-tip {
+  color: var(--el-text-color-secondary);
 }
 </style>
 

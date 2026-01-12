@@ -4,6 +4,7 @@ import { UPLOAD_CONFIG } from '@/config/api'
 import type { ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
 import { uploadTaskManager } from './uploadTaskManager'
+import i18n from '@/i18n'
 
 export interface UploadConfig {
   chunkSize: number
@@ -283,7 +284,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
   
   if (file.size > uploadConfig.maxFileSize) {
     const maxSizeMB = Math.round(uploadConfig.maxFileSize / (1024 * 1024))
-    throw new Error(`文件 ${file.name} 大小超过限制（最大 ${maxSizeMB}MB）`)
+    throw new Error(i18n.global.t('upload.fileSizeExceeded', { fileName: file.name, maxSizeMB }) || `文件 ${file.name} 大小超过限制（最大 ${maxSizeMB}MB）`)
   }
   
   let taskId: string | null = providedTaskId || null
@@ -329,8 +330,8 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     }
 
     if (precheckResponse.code !== 201) {
-      const errorMsg = precheckResponse.message || '预检失败'
-      ElMessage.error(`文件 ${file.name} 预检失败: ${errorMsg}`)
+      const errorMsg = precheckResponse.message || i18n.global.t('upload.precheckFailed', { fileName: file.name, errorMsg: '' }) || '预检失败'
+      ElMessage.error(i18n.global.t('upload.precheckFailed', { fileName: file.name, errorMsg }) || `文件 ${file.name} 预检失败: ${errorMsg}`)
       throw new Error(errorMsg)
     }
 
@@ -346,7 +347,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         }
       } catch (err) {
         logger.error('创建上传任务失败:', err)
-        throw new Error('创建上传任务失败')
+        throw new Error(i18n.global.t('upload.createTaskFailed') || '创建上传任务失败')
       }
     }
     
@@ -435,7 +436,7 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         onSuccess?.(file.name)
       } else {
         if (taskId) {
-          uploadTaskManager.failTask(taskId, uploadResponse.message || '上传失败')
+          uploadTaskManager.failTask(taskId, uploadResponse.message || i18n.global.t('upload.uploadFailed') || '上传失败')
         }
         throw new Error(uploadResponse.message)
       }
@@ -591,11 +592,11 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
     if (taskId) {
       const task = uploadTaskManager.getTask(taskId)
       if (task && task.status !== 'completed' && task.status !== 'failed') {
-        uploadTaskManager.failTask(taskId, error.message || '上传失败')
+        uploadTaskManager.failTask(taskId, error.message || i18n.global.t('upload.uploadFailed') || '上传失败')
       }
     }
     logger.error(`处理文件 ${file.name} 时出错:`, error)
-    ElMessage.error(`处理文件 ${file.name} 时出错: ${error.message}`)
+    ElMessage.error(i18n.global.t('upload.processFileError', { fileName: file.name, error: error.message }) || `处理文件 ${file.name} 时出错: ${error.message}`)
     onError?.(error, file.name)
   } finally {
     if (taskId) {
@@ -740,6 +741,6 @@ export const handleFileUpload = async (
     )
   } catch (error: any) {
     logger.error('处理文件上传时出错:', error)
-    ElMessage.error(`处理文件上传时出错: ${error.message}`)
+    ElMessage.error(i18n.global.t('upload.processUploadError', { error: error.message }) || `处理文件上传时出错: ${error.message}`)
   }
 }

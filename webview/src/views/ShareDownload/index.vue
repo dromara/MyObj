@@ -4,35 +4,35 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-container">
         <el-icon class="is-loading" :size="48"><Loading /></el-icon>
-        <p>加载中...</p>
+        <p>{{ t('common.loading') }}</p>
       </div>
 
       <!-- 错误状态（致命错误，如分享不存在、已过期等） -->
       <div v-else-if="error && !needsPassword" class="error-container">
-        <el-icon :size="64" color="#f56c6c"><WarningFilled /></el-icon>
-        <h2>分享不存在或已失效</h2>
+        <el-icon :size="64" class="error-icon"><WarningFilled /></el-icon>
+        <h2>{{ t('shareDownload.error') }}</h2>
         <p>{{ error }}</p>
-        <el-button type="primary" @click="goHome">返回首页</el-button>
+        <el-button type="primary" @click="goHome">{{ t('common.back') }}</el-button>
       </div>
 
       <!-- 密码输入界面 -->
       <div v-else-if="needsPassword" class="password-container">
         <div class="share-header">
           <el-icon :size="48" color="var(--primary-color)"><Lock /></el-icon>
-          <h1>分享需要密码</h1>
+          <h1>{{ t('shareDownload.passwordRequired') }}</h1>
         </div>
         
         <div class="password-form-wrapper">
           <el-form @submit.prevent="handlePasswordSubmit" :model="{ password }">
             <el-form-item 
-              label="分享密码"
+              :label="t('shareDownload.password')"
               :error="passwordError"
               :validate-status="passwordError ? 'error' : ''"
             >
               <el-input
                 v-model="password"
                 type="password"
-                placeholder="请输入分享密码"
+                :placeholder="t('shareDownload.passwordPlaceholder')"
                 show-password
                 size="large"
                 @keyup.enter="handlePasswordSubmit"
@@ -47,7 +47,7 @@
               @click="handlePasswordSubmit"
               style="width: 100%"
             >
-              {{ verifying ? '验证中...' : '验证密码' }}
+              {{ verifying ? t('shareDownload.verifying') : t('shareDownload.verify') }}
             </el-button>
           </el-form>
         </div>
@@ -57,7 +57,7 @@
       <div v-else-if="shareInfo && shareInfo.file_name" class="share-info-container">
         <div class="share-header">
           <el-icon :size="48" color="var(--primary-color)"><Share /></el-icon>
-          <h1>文件分享</h1>
+          <h1>{{ t('shareDownload.title') }}</h1>
         </div>
 
         <div class="file-info-card">
@@ -74,15 +74,15 @@
             <div class="file-meta">
               <div class="meta-item">
                 <el-icon><Document /></el-icon>
-                <span>文件大小：{{ formatSize(shareInfo.file_size) }}</span>
+                <span>{{ t('shareDownload.fileSize') }}：{{ formatSize(shareInfo.file_size) }}</span>
               </div>
               <div class="meta-item">
                 <el-icon><Clock /></el-icon>
-                <span>过期时间：{{ shareInfo.expires_at || '永久有效' }}</span>
+                <span>{{ t('shareDownload.expireTime') }}：{{ shareInfo.expires_at || t('share.permanent') }}</span>
               </div>
               <div class="meta-item" v-if="shareInfo.download_count > 0">
                 <el-icon><Download /></el-icon>
-                <span>已下载：{{ shareInfo.download_count }} 次</span>
+                <span>{{ t('shareDownload.downloadCount') }}：{{ shareInfo.download_count }} {{ t('shareDownload.times') }}</span>
               </div>
             </div>
           </div>
@@ -91,7 +91,7 @@
         <!-- 过期提示 -->
         <el-alert
           v-if="shareInfo.is_expired"
-          title="分享已过期"
+          :title="t('shareDownload.expired')"
           type="warning"
           :closable="false"
           class="expire-alert"
@@ -107,7 +107,7 @@
             style="width: 100%"
             :icon="Download"
           >
-            {{ downloading ? '准备下载中...' : '下载文件' }}
+            {{ downloading ? t('shareDownload.downloading') : t('shareDownload.download') }}
           </el-button>
         </div>
       </div>
@@ -116,15 +116,15 @@
 </template>
 
 <script setup lang="ts">
-import { getCurrentInstance, type ComponentInternalInstance } from 'vue'
+import type { ComponentInternalInstance } from 'vue'
 import { getShareInfo, getShareDownloadUrl, type ShareInfoResponse } from '@/api/share'
 import { formatSize } from '@/utils'
-import FileIcon from '@/components/FileIcon/index.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from '@/composables/useI18n'
 
 const route = useRoute()
 const router = useRouter()
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(true)
 const error = ref('')
@@ -143,7 +143,7 @@ const token = computed(() => {
 // 加载分享信息（不传密码，只检查是否需要密码）
 const loadShareInfo = async () => {
   if (!token.value) {
-    error.value = '分享链接无效'
+    error.value = t('shareDownload.invalidLink')
     loading.value = false
     return
   }
@@ -164,14 +164,14 @@ const loadShareInfo = async () => {
         shareInfo.value = res.data
         // 如果已过期，直接显示错误
         if (res.data.is_expired) {
-          error.value = '分享已过期'
+          error.value = t('shareDownload.expired')
         }
       }
     } else {
-      error.value = res.message || '获取分享信息失败'
+      error.value = res.message || t('shareDownload.refreshFailed')
     }
   } catch (err: any) {
-    error.value = err.message || '获取分享信息失败'
+    error.value = err.message || t('shareDownload.refreshFailed')
   } finally {
     loading.value = false
   }
@@ -196,17 +196,17 @@ const handlePasswordSubmit = async () => {
       shareInfo.value = res.data
       passwordError.value = '' // 清空错误提示
       if (res.data.is_expired) {
-        error.value = '分享已过期'
+        error.value = t('shareDownload.expired')
         needsPassword.value = false // 已过期，不再需要密码
       }
     } else {
       // 密码错误，保持在密码输入界面，只显示错误提示
-      passwordError.value = res.message || '密码错误'
+      passwordError.value = res.message || t('shareDownload.passwordError')
       password.value = ''
     }
   } catch (err: any) {
     // 密码验证失败，保持在密码输入界面
-    passwordError.value = err.message || '密码验证失败'
+    passwordError.value = err.message || t('shareDownload.passwordError')
     password.value = ''
   } finally {
     verifying.value = false
@@ -234,7 +234,7 @@ const handleDownload = () => {
   document.body.removeChild(link)
   
   // 显示成功提示
-  proxy?.$modal.msgSuccess('开始下载')
+  proxy?.$modal.msgSuccess(t('shareDownload.downloadSuccess'))
   
   // 延迟刷新分享信息（更新下载次数），避免影响下载
   setTimeout(async () => {
@@ -247,7 +247,7 @@ const handleDownload = () => {
       }
     } catch (err) {
       // 忽略刷新信息的错误，不影响用户体验
-      console.warn('刷新分享信息失败', err)
+      proxy?.$log.warn('刷新分享信息失败', err)
     }
   }, 1000)
 }
@@ -270,7 +270,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
 }
 
 .share-container {
@@ -392,6 +392,24 @@ onMounted(() => {
   .file-meta {
     align-items: center;
   }
+}
+
+.error-icon {
+  color: var(--el-color-danger);
+}
+
+.square-icon,
+.share-icon,
+.offline-icon {
+  color: var(--el-color-primary);
+}
+
+.input-icon-primary {
+  color: var(--el-color-primary);
+}
+
+.input-icon-success {
+  color: var(--el-color-success);
 }
 </style>
 

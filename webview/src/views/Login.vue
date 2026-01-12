@@ -13,7 +13,7 @@
           <span class="logo-text">MyObj</span>
           <div class="badge">PRO</div>
         </div>
-        <p class="subtitle">下一代智能云存储平台</p>
+        <p class="subtitle">{{ t('login.subtitle') }}</p>
       </div>
 
       <!-- Auth Form -->
@@ -29,21 +29,21 @@
           hide-required-asterisk
         >
           <div class="input-group">
-            <label>账号</label>
+            <label>{{ t('login.username') }}</label>
             <el-input
               v-model="loginForm.username"
-              placeholder="用户名 / 电子邮箱"
+              :placeholder="t('login.usernamePlaceholder')"
               class="custom-input"
             />
           </div>
           <div class="input-group">
             <div class="label-row">
-              <label>密码</label>
+              <label>{{ t('login.password') }}</label>
             </div>
             <el-input
               v-model="loginForm.password"
               type="password"
-              placeholder="请输入密码"
+              :placeholder="t('login.passwordPlaceholder')"
               show-password
               class="custom-input"
             />
@@ -55,7 +55,7 @@
             :class="{ 'is-loading': loading }"
           >
             <el-icon v-if="loading" class="loading-icon"><Loading /></el-icon>
-            <span v-else>立即登录</span>
+            <span v-else>{{ t('login.login') }}</span>
           </button>
         </el-form>
 
@@ -70,27 +70,27 @@
           hide-required-asterisk
         >
           <div class="input-group">
-            <label>新用户名</label>
+            <label>{{ t('login.newUsername') }}</label>
             <el-input
               v-model="registerForm.username"
-              placeholder="设置用户名"
+              :placeholder="t('login.newUsernamePlaceholder')"
               class="custom-input"
             />
           </div>
           <div class="input-group">
-            <label>绑定邮箱</label>
+            <label>{{ t('login.bindEmail') }}</label>
             <el-input
               v-model="registerForm.email"
-              placeholder="name@example.com"
+              :placeholder="t('login.emailPlaceholder')"
               class="custom-input"
             />
           </div>
           <div class="input-group">
-            <label>设置密码</label>
+            <label>{{ t('login.setPassword') }}</label>
             <el-input
               v-model="registerForm.password"
               type="password"
-              placeholder="至少 6 位字符"
+              :placeholder="t('login.passwordPlaceholder2')"
               show-password
               class="custom-input"
             />
@@ -102,34 +102,34 @@
             :class="{ 'is-loading': loading }"
           >
             <el-icon v-if="loading" class="loading-icon"><Loading /></el-icon>
-            <span v-else>创建新账号</span>
+            <span v-else>{{ t('login.register') }}</span>
           </button>
         </el-form>
 
         <div class="auth-switch">
           <span class="switch-text">
-            {{ activeTab === 'login' ? '还没有账号？' : '已有账号？' }}
+            {{ activeTab === 'login' ? t('login.noAccount') : t('login.hasAccount') }}
           </span>
           <span 
             v-if="activeTab === 'login' && (allowRegister || isFirstUse)"
             class="switch-link" 
             @click="toggleMode"
           >
-            免费注册
+            {{ t('login.freeRegister') }}
           </span>
           <span 
             v-else-if="activeTab === 'register'"
             class="switch-link" 
             @click="toggleMode"
           >
-            返回登录
+            {{ t('login.backToLogin') }}
           </span>
           <span 
             v-else
             class="switch-link disabled"
             @click="toggleMode"
           >
-            注册已关闭
+            {{ t('login.registerClosed') }}
           </span>
         </div>
       </div>
@@ -141,6 +141,7 @@
 import { login, register, getChallenge, getSysInfo } from '@/api/auth'
 import { rsaEncrypt } from '@/utils/crypto'
 import { useAuthStore } from '@/stores'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const activeTab = ref('login')
@@ -155,22 +156,24 @@ const registerFormRef = ref<FormInstance>()
 const loginForm = reactive({ username: '', password: '', challenge: '' })
 const registerForm = reactive({ username: '', password: '', email: '', challenge: '' })
 
+const { t } = useI18n()
+
 const loginRules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  username: [{ required: true, message: t('login.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.passwordRequired'), trigger: 'blur' }]
 }
 
 const registerRules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '格式不正确', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '至少6位', trigger: 'blur' }]
+  username: [{ required: true, message: t('login.usernameRequired'), trigger: 'blur' }],
+  email: [{ required: true, message: t('login.emailRequired'), trigger: 'blur' }, { type: 'email', message: t('login.emailFormat'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.passwordRequired'), trigger: 'blur' }, { min: 6, message: t('login.passwordMin'), trigger: 'blur' }]
 }
 
 const toggleMode = () => {
   if (isFirstUse.value) return 
   // 如果不允许注册，禁止切换到注册页面
   if (!allowRegister.value && activeTab.value === 'login') {
-    proxy?.$modal.msgWarning('系统已关闭用户注册功能，请联系管理员')
+    proxy?.$modal.msgWarning(t('login.registerDisabled'))
     return
   }
   activeTab.value = activeTab.value === 'login' ? 'register' : 'login'
@@ -184,7 +187,7 @@ const handleLogin = async () => {
       try {
         const challengeRes = await getChallenge()
         if (!challengeRes.data?.publicKey || !challengeRes.data.id) {
-          proxy?.$modal.msgError('连接失败')
+          proxy?.$modal.msgError(t('login.connectFailed'))
           return
         }
         const encryptedPassword = rsaEncrypt(challengeRes.data.publicKey, loginForm.password)
@@ -197,11 +200,11 @@ const handleLogin = async () => {
           // 使用 store 管理登录状态
           const authStore = useAuthStore()
           authStore.login(res.data.token, res.data.user_info)
-          proxy?.$modal.msgSuccess('登录成功')
+          proxy?.$modal.msgSuccess(t('login.loginSuccess'))
           proxy?.$router.push('/files')
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '登录失败')
+        proxy?.$modal.msgError(error.message || t('login.loginFailed'))
       } finally {
         loading.value = false
       }
@@ -224,7 +227,7 @@ const handleRegister = async () => {
           email: registerForm.email,
           challenge: challengeRes.data.id
         })
-        proxy?.$modal.msgSuccess('注册成功')
+        proxy?.$modal.msgSuccess(t('login.registerSuccess'))
         // 切换到登录页面
         activeTab.value = 'login'
         // 自动填充用户名和密码
@@ -238,7 +241,7 @@ const handleRegister = async () => {
           }, 100)
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '注册失败')
+        proxy?.$modal.msgError(error.message || t('login.registerFailed'))
       } finally {
         loading.value = false
       }
@@ -281,9 +284,13 @@ onMounted(() => checkSysInfo())
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--bg-color, #ffffff);
   position: relative;
   overflow: hidden;
+}
+
+html.dark .login-page {
+  background: var(--bg-color);
 }
 
 /* --- Blue/Indigo Background Blobs --- */
@@ -307,7 +314,7 @@ onMounted(() => checkSysInfo())
   height: 700px;
   top: -250px;
   left: -200px;
-  background: #dbeafe; /* Blue-100 */
+  background: rgba(37, 99, 235, 0.1);
 }
 
 .blob-2 {
@@ -315,7 +322,15 @@ onMounted(() => checkSysInfo())
   height: 600px;
   bottom: -200px;
   right: -150px;
-  background: #ede9fe; /* Violet-100 */
+  background: rgba(79, 70, 229, 0.1);
+}
+
+html.dark .blob-1 {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+html.dark .blob-2 {
+  background: rgba(99, 102, 241, 0.15);
 }
 
 /* --- Content --- */
@@ -345,23 +360,27 @@ onMounted(() => checkSysInfo())
 .logo-text {
   font-size: 36px;
   font-weight: 800;
-  color: #111827; /* Gray-900 */
+  color: var(--text-primary, #111827);
   letter-spacing: -1.5px;
 }
 
 .badge {
-  background: linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: var(--text-primary-inverse, #fff);
   font-size: 10px;
   font-weight: 800;
   padding: 4px 8px;
   border-radius: 6px;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+html.dark .badge {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .subtitle {
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   font-size: 14px;
   font-weight: 500;
 }
@@ -380,14 +399,14 @@ onMounted(() => checkSysInfo())
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-regular, #374151);
   margin-bottom: 8px;
 }
 
 :deep(.custom-input .el-input__wrapper) {
-  background: #f9fafb !important;
+  background: var(--el-fill-color-lighter, #f9fafb) !important;
   box-shadow: none !important;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color, #e5e7eb);
   border-radius: 12px;
   padding: 8px 16px;
   height: 50px;
@@ -395,18 +414,22 @@ onMounted(() => checkSysInfo())
 }
 
 :deep(.custom-input .el-input__wrapper:hover) {
-  background: #f3f4f6 !important;
-  border-color: #d1d5db;
+  background: var(--el-fill-color-light, #f3f4f6) !important;
+  border-color: var(--border-color, #d1d5db);
 }
 
 :deep(.custom-input .el-input__wrapper.is-focus) {
-  background: #fff !important;
-  border-color: #3b82f6 !important; /* Blue-500 */
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
+  background: var(--card-bg, #fff) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
+}
+
+html.dark :deep(.custom-input .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
 }
 
 :deep(.custom-input .el-input__inner) {
-  color: #111827;
+  color: var(--text-primary, #111827);
   font-weight: 500;
 }
 
@@ -414,7 +437,7 @@ onMounted(() => checkSysInfo())
 .submit-btn {
   width: 100%;
   height: 54px;
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); /* Blue to Indigo */
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   border: none;
   border-radius: 14px;
@@ -427,6 +450,10 @@ onMounted(() => checkSysInfo())
   justify-content: center;
   margin-top: 12px;
   box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+}
+
+html.dark .submit-btn {
+  box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5);
 }
 
 .submit-btn:hover {
@@ -453,11 +480,11 @@ onMounted(() => checkSysInfo())
 }
 
 .switch-text {
-  color: #9ca3af;
+  color: var(--text-placeholder, #9ca3af);
 }
 
 .switch-link {
-  color: #2563eb;
+  color: var(--primary-color);
   font-weight: 600;
   cursor: pointer;
   margin-left: 4px;
@@ -465,18 +492,18 @@ onMounted(() => checkSysInfo())
 }
 
 .switch-link:hover {
-  color: #1d4ed8;
+  color: var(--primary-hover);
   text-decoration: underline;
 }
 
 .switch-link.disabled {
-  color: #9ca3af;
+  color: var(--text-placeholder, #9ca3af);
   cursor: not-allowed;
   text-decoration: none;
 }
 
 .switch-link.disabled:hover {
-  color: #9ca3af;
+  color: var(--text-placeholder, #9ca3af);
   text-decoration: none;
 }
 

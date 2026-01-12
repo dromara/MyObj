@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="分享文件"
+    :title="t('share.title')"
     width="600px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -10,9 +10,9 @@
   >
     <!-- 文件信息卡片 -->
     <div class="file-info-card">
-      <el-icon :size="48" color="#409EFF"><Document /></el-icon>
+      <el-icon :size="48" class="share-file-icon"><Document /></el-icon>
       <div class="file-info-content">
-        <div class="file-name">{{ fileInfo.file_name || '未知文件' }}</div>
+        <div class="file-name">{{ fileInfo.file_name || t('common.noData') }}</div>
         <div class="file-size" v-if="fileInfo.file_size">
           {{ formatFileSize(fileInfo.file_size) }}
         </div>
@@ -21,7 +21,7 @@
 
     <!-- 分享设置 -->
     <el-form :model="shareForm" label-width="100px" class="share-form">
-      <el-form-item label="有效期">
+      <el-form-item :label="t('share.expireTime')">
         <!-- 移动端使用下拉选择框 -->
         <el-select 
           v-model="shareForm.expire_days" 
@@ -52,19 +52,19 @@
         </el-radio-group>
       </el-form-item>
       
-      <el-form-item label="访问密码">
+      <el-form-item :label="t('share.sharePassword')">
         <el-input 
           v-model="shareForm.password" 
-          placeholder="请输入访问密码（可选，留空则无需密码）"
+          :placeholder="t('share.sharePassword')"
           maxlength="20"
           show-word-limit
           clearable
         >
           <template #append>
-            <el-button @click="generateRandomPassword" icon="Refresh">随机生成</el-button>
+            <el-button @click="generateRandomPassword" icon="Refresh">{{ t('common.generate') }}</el-button>
           </template>
         </el-input>
-        <div class="form-tip">设置密码后，访问者需要输入密码才能下载文件；不设置密码则任何人都可以通过链接下载</div>
+        <div class="form-tip">{{ t('share.passwordTip') }}</div>
       </el-form-item>
     </el-form>
 
@@ -77,12 +77,12 @@
         class="result-alert"
       >
         <template #title>
-          <div class="result-title">分享创建成功！</div>
+          <div class="result-title">{{ t('share.shareSuccess') }}</div>
         </template>
       </el-alert>
       
       <div class="share-link-section">
-        <div class="link-label">分享链接</div>
+        <div class="link-label">{{ t('share.shareLink') }}</div>
         <div class="link-content">
           <el-input
             :model-value="shareResult.shareUrl"
@@ -95,14 +95,14 @@
                 @click="copyShareLink"
                 :type="shareResult.copied ? 'success' : 'primary'"
               >
-                {{ shareResult.copied ? '已复制' : '复制链接' }}
+                {{ shareResult.copied ? t('common.copied') : t('share.copyLink') }}
               </el-button>
             </template>
           </el-input>
         </div>
         
         <div v-if="shareForm.password" class="password-section">
-          <div class="link-label">访问密码</div>
+          <div class="link-label">{{ t('share.sharePassword') }}</div>
           <div class="link-content">
             <el-input
               :model-value="shareForm.password"
@@ -115,7 +115,7 @@
                   @click="copyPassword"
                   :type="shareResult.passwordCopied ? 'success' : 'primary'"
                 >
-                  {{ shareResult.passwordCopied ? '已复制' : '复制密码' }}
+                  {{ shareResult.passwordCopied ? t('common.copied') : t('share.copyPassword') }}
                 </el-button>
               </template>
             </el-input>
@@ -124,28 +124,28 @@
         
         <div class="expire-info">
           <el-icon><Clock /></el-icon>
-          <span>有效期：{{ shareResult.expireText }}</span>
+          <span>{{ t('share.expireTime') }}：{{ shareResult.expireText }}</span>
         </div>
       </div>
     </div>
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">关闭</el-button>
+        <el-button @click="handleClose">{{ t('common.close') }}</el-button>
         <el-button 
           v-if="!shareResult"
           type="primary" 
           :loading="sharing" 
           @click="handleConfirmShare"
         >
-          创建分享
+          {{ t('share.createShare') }}
         </el-button>
         <el-button 
           v-else
           type="primary" 
           @click="handleCreateAnother"
         >
-          继续分享
+          {{ t('share.createShare') }}
         </el-button>
       </div>
     </template>
@@ -156,6 +156,9 @@
 import { createShare } from '@/api/share'
 import type { CreateShareRequest } from '@/types'
 import { formatSize, generateRandomPassword as generatePassword, copyToClipboard, getShareUrl } from '@/utils'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -200,12 +203,12 @@ const shareResult = ref<{
   passwordCopied: boolean
 } | null>(null)
 
-const expireOptions = [
-  { label: '1天', value: 1 },
-  { label: '7天', value: 7 },
-  { label: '30天', value: 30 },
-  { label: '永久', value: 0 }
-]
+const expireOptions = computed(() => [
+  { label: t('share.expireDays', { days: 1 }), value: 1 },
+  { label: t('share.expireDays', { days: 7 }), value: 7 },
+  { label: t('share.expireDays', { days: 30 }), value: 30 },
+  { label: t('share.permanent'), value: 0 }
+])
 
 const formatFileSize = (size: number) => {
   return formatSize(size)
@@ -247,8 +250,8 @@ const handleConfirmShare = async () => {
       const shareUrl = getShareUrl(token || '')
       
       const expireText = shareForm.expire_days === 0 
-        ? '永久有效' 
-        : `${shareForm.expire_days}天后过期`
+        ? t('share.permanent')
+        : t('share.expireDays', { days: shareForm.expire_days })
       
       shareResult.value = {
         shareUrl,
@@ -262,10 +265,10 @@ const handleConfirmShare = async () => {
       
       emit('success', shareUrl, shareForm.password)
     } else {
-      proxy?.$modal.msgError(res.message || '分享失败')
+      proxy?.$modal.msgError(res.message || t('share.shareFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '分享失败')
+    proxy?.$modal.msgError(error.message || t('share.shareFailed'))
   } finally {
     sharing.value = false
   }
@@ -277,14 +280,14 @@ const copyShareLink = async () => {
   const success = await copyToClipboard(shareResult.value.shareUrl)
   if (success) {
     shareResult.value.copied = true
-    proxy?.$modal.msgSuccess('链接已复制到剪贴板')
+    proxy?.$modal.msgSuccess(t('share.linkCopied'))
     setTimeout(() => {
       if (shareResult.value) {
         shareResult.value.copied = false
       }
     }, 2000)
   } else {
-    proxy?.$modal.msgError('复制失败')
+    proxy?.$modal.msgError(t('common.copyFailed'))
   }
 }
 
@@ -294,14 +297,14 @@ const copyPassword = async () => {
   const success = await copyToClipboard(shareForm.password)
   if (success) {
     shareResult.value.passwordCopied = true
-    proxy?.$modal.msgSuccess('密码已复制到剪贴板')
+    proxy?.$modal.msgSuccess(t('share.passwordCopied'))
     setTimeout(() => {
       if (shareResult.value) {
         shareResult.value.passwordCopied = false
       }
     }, 2000)
   } else {
-    proxy?.$modal.msgError('复制失败')
+    proxy?.$modal.msgError(t('common.copyFailed'))
   }
 }
 
@@ -353,15 +356,24 @@ const handleCreateAnother = () => {
   overflow-x: hidden;
 }
 
+.share-file-icon {
+  color: var(--el-color-primary);
+}
+
 .file-info-card {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%);
   border-radius: 12px;
   margin-bottom: 24px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+html.dark .file-info-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .file-info-content {

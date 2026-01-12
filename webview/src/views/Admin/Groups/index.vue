@@ -1,40 +1,40 @@
 <template>
   <div class="admin-groups">
     <div class="toolbar">
-      <el-button type="primary" icon="Plus" @click="handleCreate">新建组</el-button>
-      <el-button icon="Refresh" @click="loadGroupList">刷新</el-button>
+      <el-button type="primary" icon="Plus" @click="handleCreate">{{ t('admin.groups.newGroup') }}</el-button>
+      <el-button icon="Refresh" @click="loadGroupList">{{ t('common.refresh') }}</el-button>
     </div>
 
     <el-table
       :data="groupList"
       v-loading="loading"
       class="admin-table"
-      empty-text="暂无组"
+      :empty-text="t('admin.groups.noGroups')"
     >
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="组名称" min-width="150" />
-      <el-table-column label="默认组" width="100" align="center">
+      <el-table-column prop="name" :label="t('admin.groups.groupName')" min-width="150" />
+      <el-table-column :label="t('admin.groups.defaultGroup')" width="100" align="center">
         <template #default="{ row }">
           <el-tag :type="row.group_default === 1 ? 'success' : 'info'">
-            {{ row.group_default === 1 ? '是' : '否' }}
+            {{ row.group_default === 1 ? t('admin.groups.yes') : t('admin.groups.no') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="存储空间" width="150">
+      <el-table-column :label="t('admin.users.storageSpace')" width="150">
         <template #default="{ row }">
           {{ formatStorage(row.space) }}
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column prop="created_at" :label="t('admin.users.createTime')" width="180" />
+      <el-table-column :label="t('admin.users.operation')" width="200" fixed="right">
         <template #default="{ row }">
           <template v-if="row.id !== 1">
-            <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="primary" @click="handleAssignPower(row)">分配权限</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button link type="primary" @click="handleEdit(row)">{{ t('admin.users.edit') }}</el-button>
+            <el-button link type="primary" @click="handleAssignPower(row)">{{ t('admin.groups.assignPower') }}</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">{{ t('admin.users.delete') }}</el-button>
           </template>
           <span v-else style="color: var(--el-text-color-secondary); font-size: 12px;">
-            管理员不可操作
+            {{ t('admin.users.adminCannotOperate') }}
           </span>
         </template>
       </el-table-column>
@@ -48,22 +48,22 @@
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item label="组名称" prop="name">
+        <el-form-item :label="t('admin.groups.groupName')" prop="name">
           <el-input v-model="formData.name" />
         </el-form-item>
-        <el-form-item label="存储空间(GB)" prop="space">
+        <el-form-item :label="t('admin.users.storageSpaceGB')" prop="space">
           <el-input-number v-model="formData.space" :min="0" :max="999999" style="width: 100%" />
           <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
-            0 表示无限空间
+            {{ t('admin.users.unlimitedSpace') }}
           </div>
         </el-form-item>
-        <el-form-item label="默认组">
+        <el-form-item :label="t('admin.groups.defaultGroup')">
           <el-switch v-model="formData.group_default" :active-value="1" :inactive-value="0" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
@@ -78,7 +78,7 @@
         <div class="drawer-header">
           <div class="drawer-title">
             <el-icon><Key /></el-icon>
-            <span>为 "{{ currentGroup?.name }}" 分配权限</span>
+            <span>{{ t('admin.groups.assignPowerFor', { name: currentGroup?.name || '' }) }}</span>
           </div>
         </div>
       </template>
@@ -88,7 +88,7 @@
         <div class="power-toolbar">
           <el-input
             v-model="powerSearchKeyword"
-            placeholder="搜索权限名称或特征码..."
+            :placeholder="t('admin.groups.searchPower')"
             clearable
             style="flex: 1; margin-right: 12px;"
           >
@@ -100,7 +100,7 @@
             :icon="isAllSelected ? 'Select' : 'Close'"
             @click="handleToggleSelectAll"
           >
-            {{ isAllSelected ? '取消全选' : '全选' }}
+            {{ isAllSelected ? t('admin.groups.cancelSelectAll') : t('admin.groups.selectAll') }}
           </el-button>
         </div>
 
@@ -138,7 +138,7 @@
                     <el-checkbox :label="power.id">
                       <div class="power-content">
                         <div class="power-name">{{ power.name }}</div>
-                        <div class="power-description">{{ power.description || '暂无描述' }}</div>
+                        <div class="power-description">{{ power.description || t('admin.groups.noDescription') }}</div>
                         <div class="power-characteristic">
                           <el-icon><Key /></el-icon>
                           <code>{{ power.characteristic }}</code>
@@ -155,13 +155,13 @@
         <!-- 已选权限统计 -->
         <div class="power-summary">
           <el-text type="info">
-            已选择 <strong>{{ selectedPowerIds.length }}</strong> / {{ totalPowersCount }} 个权限
+            {{ t('admin.groups.selectedPowers', { count: selectedPowerIds.length, total: totalPowersCount }) }}
           </el-text>
         </div>
       </div>
       <template #footer>
-        <el-button @click="showPowerDrawer = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleAssignPowerSubmit">确定</el-button>
+        <el-button @click="showPowerDrawer = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleAssignPowerSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-drawer>
   </div>
@@ -181,8 +181,10 @@ import {
   type AdminPower
 } from '@/api/admin'
 import { bytesToGB, GBToBytes } from '@/utils'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -205,14 +207,14 @@ const formData = reactive({
 
 // 权限分类映射（根据特征码前缀）
 const categoryMap: Record<string, string> = {
-  'file:': '文件管理',
-  'dir:': '目录管理',
-  'user:': '用户管理',
-  'share:': '分享管理',
-  'download:': '下载管理',
-  'offline:': '离线下载',
-  'admin:': '系统管理',
-  'recycled:': '回收站'
+  'file:': t('route.files'),
+  'dir:': t('route.files'),
+  'user:': t('route.adminUsers'),
+  'share:': t('route.shares'),
+  'download:': t('route.tasks'),
+  'offline:': t('route.offline'),
+  'admin:': t('route.admin'),
+  'recycled:': t('route.trash')
 }
 
 // 计算抽屉大小（响应式）
@@ -246,7 +248,7 @@ const categorizedPowers = computed(() => {
   filteredPowerList.value.forEach(power => {
     // 提取特征码前缀（如 "file:upload" -> "file:"）
     const prefix = power.characteristic.split(':')[0] + ':'
-    const categoryName = categoryMap[prefix] || '其他权限'
+    const categoryName = categoryMap[prefix] || t('admin.groups.otherPowers')
     
     if (!categories[categoryName]) {
       categories[categoryName] = {
@@ -330,16 +332,16 @@ const handleCategorySelect = (categoryKey: string, checked: boolean | string | n
   }
 }
 
-const dialogTitle = computed(() => isEdit.value ? '编辑组' : '新建组')
+const dialogTitle = computed(() => isEdit.value ? t('admin.groups.editGroup') : t('admin.groups.newGroup'))
 
 const formRules = {
-  name: [{ required: true, message: '请输入组名称', trigger: 'blur' }],
-  space: [{ required: true, message: '请输入存储空间', trigger: 'blur' }]
+  name: [{ required: true, message: t('admin.groups.groupNameRequired'), trigger: 'blur' }],
+  space: [{ required: true, message: t('admin.users.spaceRequired'), trigger: 'blur' }]
 }
 
 // 格式化存储空间
 const formatStorage = (bytes: number) => {
-  if (bytes === 0 || bytes === -1) return '无限'
+  if (bytes === 0 || bytes === -1) return t('admin.groups.unlimited')
   return bytesToGB(bytes) + ' GB'
 }
 
@@ -351,14 +353,14 @@ const loadGroupList = async () => {
     if (res.code === 200 && res.data) {
       groupList.value = res.data.groups || []
     } else {
-      proxy?.$modal.msg('组管理功能开发中')
+      proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
       groupList.value = []
     }
   } catch (error: any) {
     if (error.response?.status === 404 || error.message?.includes('404')) {
-      proxy?.$modal.msg('组管理功能开发中')
+      proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
     } else {
-      proxy?.$modal.msgError('加载组列表失败')
+      proxy?.$modal.msgError(t('admin.groups.loadListFailed'))
     }
     proxy?.$log?.error(error)
   } finally {
@@ -374,7 +376,7 @@ const loadPowerList = async () => {
     if (res.code === 200 && res.data) {
       powerList.value = res.data.powers || []
     } else {
-      proxy?.$modal.msg('权限管理功能开发中')
+      proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
       powerList.value = []
     }
   } catch (error: any) {
@@ -398,7 +400,7 @@ const handleCreate = () => {
 const handleEdit = (group: AdminGroup) => {
   // 禁止操作管理员组
   if (group.id === 1) {
-    proxy?.$modal.msgWarning('不能编辑管理员组')
+    proxy?.$modal.msgWarning(t('admin.groups.cannotEditAdmin'))
     return
   }
   isEdit.value = true
@@ -419,7 +421,7 @@ const handleSubmit = async () => {
     if (valid) {
       // 禁止编辑管理员组
       if (isEdit.value && formData.id === 1) {
-        proxy?.$modal.msgWarning('不能编辑管理员组')
+        proxy?.$modal.msgWarning(t('admin.groups.cannotEditAdmin'))
         return
       }
       submitting.value = true
@@ -433,27 +435,27 @@ const handleSubmit = async () => {
         if (isEdit.value) {
           const res = await updateAdminGroup(submitData)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('更新成功')
+            proxy?.$modal.msgSuccess(t('admin.users.updateSuccess'))
             showDialog.value = false
             loadGroupList()
           } else {
-            proxy?.$modal.msgError(res.message || '更新失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.updateFailed'))
           }
         } else {
           const res = await createAdminGroup(submitData)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('创建成功')
+            proxy?.$modal.msgSuccess(t('admin.users.createSuccess'))
             showDialog.value = false
             loadGroupList()
           } else {
-            proxy?.$modal.msgError(res.message || '创建失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.createFailed'))
           }
         }
       } catch (error: any) {
         if (error.response?.status === 404 || error.message?.includes('404')) {
-          proxy?.$modal.msg('组管理功能开发中')
+          proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
         } else {
-          proxy?.$modal.msgError(error.message || '操作失败')
+          proxy?.$modal.msgError(error.message || t('common.operationFailed'))
         }
       } finally {
         submitting.value = false
@@ -466,24 +468,24 @@ const handleSubmit = async () => {
 const handleDelete = async (group: AdminGroup) => {
   // 禁止操作管理员组
   if (group.id === 1) {
-    proxy?.$modal.msgWarning('不能删除管理员组')
+    proxy?.$modal.msgWarning(t('admin.groups.cannotDeleteAdmin'))
     return
   }
   try {
-    await proxy?.$modal.confirm(`确定要删除组 "${group.name}" 吗？`)
+    await proxy?.$modal.confirm(t('admin.groups.confirmDelete', { name: group.name }))
     try {
       const res = await deleteAdminGroup(group.id)
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess('删除成功')
+        proxy?.$modal.msgSuccess(t('admin.users.deleteSuccess'))
         loadGroupList()
       } else {
-        proxy?.$modal.msgError(res.message || '删除失败')
+        proxy?.$modal.msgError(res.message || t('admin.users.deleteFailed'))
       }
     } catch (error: any) {
       if (error.response?.status === 404 || error.message?.includes('404')) {
-        proxy?.$modal.msg('组管理功能开发中')
+        proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
       } else {
-        proxy?.$modal.msgError(error.message || '删除失败')
+        proxy?.$modal.msgError(error.message || t('admin.users.deleteFailed'))
       }
     }
   } catch (error: any) {
@@ -495,7 +497,7 @@ const handleDelete = async (group: AdminGroup) => {
 const handleAssignPower = async (group: AdminGroup) => {
   // 禁止操作管理员组
   if (group.id === 1) {
-    proxy?.$modal.msgWarning('不能修改管理员组权限')
+    proxy?.$modal.msgWarning(t('admin.groups.cannotModifyAdminPower'))
     return
   }
   currentGroup.value = group
@@ -533,16 +535,16 @@ const handleAssignPowerSubmit = async () => {
       power_ids: selectedPowerIds.value
     })
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('权限分配成功')
+      proxy?.$modal.msgSuccess(t('admin.groups.assignPowerSuccess'))
       showPowerDrawer.value = false
     } else {
-      proxy?.$modal.msgError(res.message || '权限分配失败')
+      proxy?.$modal.msgError(res.message || t('admin.groups.assignPowerFailed'))
     }
   } catch (error: any) {
     if (error.response?.status === 404 || error.message?.includes('404')) {
-      proxy?.$modal.msg('权限管理功能开发中')
+      proxy?.$modal.msg(t('admin.groups.featureDeveloping'))
     } else {
-      proxy?.$modal.msgError(error.message || '权限分配失败')
+      proxy?.$modal.msgError(error.message || t('admin.groups.assignPowerFailed'))
     }
   } finally {
     submitting.value = false
@@ -809,6 +811,131 @@ onMounted(() => {
   .power-characteristic {
     font-size: 10px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .admin-groups {
+  background: transparent;
+}
+
+html.dark :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-input-number .el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-drawer) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-drawer__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-drawer__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-drawer__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .power-toolbar {
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .power-category {
+  border-color: var(--el-border-color);
+  background: var(--el-bg-color-page);
+}
+
+html.dark .category-header {
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .category-header:hover {
+  background: var(--el-fill-color-light);
+}
+
+html.dark .category-icon {
+  color: var(--el-text-color-secondary);
+}
+
+html.dark .category-name {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .category-powers {
+  background: var(--el-bg-color-page);
+}
+
+html.dark .power-item {
+  background: var(--el-bg-color);
+}
+
+html.dark .power-item:hover {
+  background: var(--el-fill-color-light);
+}
+
+html.dark .power-name {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .power-description {
+  color: var(--el-text-color-secondary);
+}
+
+html.dark .power-characteristic {
+  color: var(--el-text-color-placeholder);
+}
+
+html.dark .power-characteristic code {
+  background: var(--el-fill-color-light);
+  color: var(--el-color-primary);
+}
+
+html.dark .power-summary {
+  border-top-color: var(--el-border-color);
+  background: var(--el-bg-color);
+}
+
+html.dark .drawer-title {
+  color: var(--el-text-color-primary);
 }
 </style>
 

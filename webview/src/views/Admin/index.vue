@@ -4,26 +4,26 @@
       <div class="admin-header">
         <div class="header-left">
           <el-icon :size="28" class="admin-icon"><Setting /></el-icon>
-          <h2>系统管理</h2>
+          <h2>{{ t('route.admin') }}</h2>
         </div>
       </div>
     </el-card>
 
     <el-card shadow="never" class="admin-content-card">
       <el-tabs v-model="activeTab" class="admin-tabs">
-        <el-tab-pane label="用户管理" name="users">
+        <el-tab-pane :label="t('route.adminUsers')" name="users">
           <AdminUsers />
         </el-tab-pane>
-        <el-tab-pane label="组管理" name="groups">
+        <el-tab-pane :label="t('route.adminGroups')" name="groups">
           <AdminGroups />
         </el-tab-pane>
-        <el-tab-pane label="权限管理" name="permissions">
+        <el-tab-pane :label="t('route.adminPermissions')" name="permissions">
           <AdminPermissions />
         </el-tab-pane>
-        <el-tab-pane label="磁盘管理" name="disks">
+        <el-tab-pane :label="t('route.adminDisks')" name="disks">
           <AdminDisks />
         </el-tab-pane>
-        <el-tab-pane label="系统配置" name="system">
+        <el-tab-pane :label="t('route.adminSystem')" name="system">
           <AdminSystem />
         </el-tab-pane>
       </el-tabs>
@@ -32,16 +32,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import AdminUsers from './Users/index.vue'
 import AdminGroups from './Groups/index.vue'
 import AdminPermissions from './Permissions/index.vue'
 import AdminDisks from './Disks/index.vue'
 import AdminSystem from './System/index.vue'
+import { useI18n } from '@/composables/useI18n'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const activeTab = ref('users')
 
@@ -99,6 +99,10 @@ watch(activeTab, (tab) => {
   filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
 }
 
+html.dark .admin-icon {
+  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.5));
+}
+
 .admin-header h2 {
   margin: 0;
   font-size: 20px;
@@ -122,6 +126,34 @@ watch(activeTab, (tab) => {
 
 .admin-tabs :deep(.el-tab-pane) {
   height: 100%;
+}
+
+/* 深色模式样式 */
+html.dark .admin-header-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .admin-content-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .admin-tabs :deep(.el-tabs__header) {
+  background: transparent;
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .admin-tabs :deep(.el-tabs__item) {
+  color: var(--el-text-color-regular);
+}
+
+html.dark .admin-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--primary-color);
+}
+
+html.dark .admin-tabs :deep(.el-tabs__item:hover) {
+  color: var(--primary-color);
 }
 </style>
 

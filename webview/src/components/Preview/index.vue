@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="currentFile?.file_name || '文件预览'"
+    :title="currentFile?.file_name || t('preview.title')"
     width="90%"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -11,29 +11,29 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="preview-loading">
       <el-icon class="is-loading" :size="48"><Loading /></el-icon>
-      <p>加载中...</p>
+      <p>{{ t('preview.loading') }}</p>
     </div>
 
     <!-- 加密文件提示 -->
     <div v-else-if="currentFile?.is_enc" class="preview-encrypted">
-      <el-icon :size="64" color="#E6A23C"><Lock /></el-icon>
-      <p class="encrypted-title">该文件已加密</p>
-      <p class="encrypted-desc">加密文件不支持预览，请下载后查看</p>
+      <el-icon :size="64" class="encrypted-icon"><Lock /></el-icon>
+      <p class="encrypted-title">{{ t('preview.encrypted.title') }}</p>
+      <p class="encrypted-desc">{{ t('preview.encrypted.desc') }}</p>
       <div class="encrypted-actions">
-        <el-button type="primary" icon="Download" @click="handleDownload">下载文件</el-button>
+        <el-button type="primary" icon="Download" @click="handleDownload">{{ t('preview.encrypted.download') }}</el-button>
       </div>
     </div>
 
     <!-- 错误状态 -->
     <div v-else-if="error" class="preview-error">
-      <el-icon :size="48" color="#f56c6c"><WarningFilled /></el-icon>
+      <el-icon :size="48" class="error-icon"><WarningFilled /></el-icon>
       <p>{{ error }}</p>
-      <el-button type="primary" @click="handleRetry">重试</el-button>
+      <el-button type="primary" @click="handleRetry">{{ t('preview.error.retry') }}</el-button>
     </div>
 
     <!-- 图片预览 -->
     <div v-else-if="previewType === 'image'" class="preview-image-container">
-      <div class="image-wrapper">
+      <div class="image-wrapper" @wheel="handleImageWheel" @dblclick="resetImageZoom">
         <img
           :src="imageUrl"
           :style="imageStyle"
@@ -41,18 +41,34 @@
           :alt="currentFile?.file_name"
           @load="handleImageLoad"
           @error="handleImageError"
+          @mousedown="handleImageMouseDown"
         />
+        <!-- 图片导航提示 -->
+        <div v-if="imageZoom > 1" class="image-nav-hint">
+          <el-icon><InfoFilled /></el-icon>
+          <span>{{ t('preview.image.hint') }}</span>
+        </div>
       </div>
       <!-- 图片工具栏 -->
       <div class="preview-toolbar">
-        <el-button-group>
-          <el-button icon="ZoomIn" @click="zoomImage(0.1)">放大</el-button>
-          <el-button icon="ZoomOut" @click="zoomImage(-0.1)">缩小</el-button>
-          <el-button icon="RefreshRight" @click="rotateImage(90)">旋转</el-button>
-          <el-button icon="Refresh" @click="resetImageZoom">重置</el-button>
-          <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
-          <el-button icon="Download" @click="handleDownload">下载</el-button>
-        </el-button-group>
+        <div class="toolbar-left">
+          <el-button-group>
+            <el-button icon="ZoomIn" @click="zoomImage(0.1)">{{ t('preview.image.zoomIn') }}</el-button>
+            <el-button icon="ZoomOut" @click="zoomImage(-0.1)">{{ t('preview.image.zoomOut') }}</el-button>
+            <el-button icon="RefreshRight" @click="rotateImage(90)">{{ t('preview.image.rotate') }}</el-button>
+            <el-button icon="Refresh" @click="resetImageZoom">{{ t('preview.image.reset') }}</el-button>
+          </el-button-group>
+        </div>
+        <div class="toolbar-right">
+          <el-button-group>
+            <el-button v-if="canPrint" icon="Printer" @click="handlePrint">{{ t('preview.image.print') }}</el-button>
+            <el-button icon="Download" @click="handleDownload">{{ t('preview.image.download') }}</el-button>
+            <el-button @click="toggleFullscreen">
+              <el-icon><FullScreen /></el-icon>
+              {{ t('preview.image.fullscreen') }}
+            </el-button>
+          </el-button-group>
+        </div>
       </div>
     </div>
 
@@ -68,8 +84,8 @@
         @error="handleVideoError"
       />
       <div class="preview-toolbar">
-        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
-        <el-button icon="Download" @click="handleDownload">下载</el-button>
+        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">{{ t('preview.video.print') }}</el-button>
+        <el-button icon="Download" @click="handleDownload">{{ t('preview.video.download') }}</el-button>
       </div>
     </div>
 
@@ -87,19 +103,19 @@
           @loadstart="handleAudioLoad"
           @error="handleAudioError"
         >
-          您的浏览器不支持音频播放
+          {{ t('preview.audio.notSupported') }}
         </audio>
       </div>
       <div class="preview-toolbar">
-        <el-button icon="Download" @click="handleDownload">下载</el-button>
+        <el-button icon="Download" @click="handleDownload">{{ t('preview.audio.download') }}</el-button>
       </div>
     </div>
 
     <!-- PDF 预览 -->
     <div v-else-if="previewType === 'pdf'" class="preview-pdf-container">
       <el-alert
-        title="PDF 预览提示"
-        description="如果 PDF 无法正常显示，请点击下载按钮下载后查看"
+        :title="t('preview.pdf.title')"
+        :description="t('preview.pdf.description')"
         type="info"
         :closable="false"
         class="mb-4"
@@ -111,8 +127,8 @@
         @error="handlePdfError"
       ></iframe>
       <div class="preview-toolbar">
-        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">打印</el-button>
-        <el-button icon="Download" @click="handleDownload">下载</el-button>
+        <el-button v-if="canPrint" icon="Printer" @click="handlePrint">{{ t('preview.pdf.print') }}</el-button>
+        <el-button icon="Download" @click="handleDownload">{{ t('preview.pdf.download') }}</el-button>
       </div>
     </div>
 
@@ -120,11 +136,11 @@
     <div v-else-if="previewType === 'text' || previewType === 'code'" class="preview-text-container">
       <div class="preview-text-header">
         <span class="text-type-label">
-          {{ previewType === 'code' ? '代码预览' : '文本预览' }}
+          {{ previewType === 'code' ? t('preview.code.title') : t('preview.text.title') }}
         </span>
         <el-button-group>
-          <el-button v-if="canPrint" icon="Printer" size="small" @click="handlePrint">打印</el-button>
-          <el-button icon="Download" size="small" @click="handleDownload">下载</el-button>
+          <el-button v-if="canPrint" icon="Printer" size="small" @click="handlePrint">{{ t('preview.text.print') }}</el-button>
+          <el-button icon="Download" size="small" @click="handleDownload">{{ t('preview.text.download') }}</el-button>
         </el-button-group>
       </div>
       <pre
@@ -134,39 +150,39 @@
 
     <!-- 不支持预览 -->
     <div v-else class="preview-unsupported">
-      <el-icon :size="64" color="#909399"><Document /></el-icon>
-      <p class="unsupported-title">不支持预览此文件类型</p>
+      <el-icon :size="64" class="unsupported-icon"><Document /></el-icon>
+      <p class="unsupported-title">{{ t('preview.notSupported.title') }}</p>
       <p class="unsupported-desc">
-        文件类型: {{ currentFile?.mime_type || '未知' }}
+        {{ t('preview.notSupported.mimeType') }}: {{ currentFile?.mime_type || t('preview.notSupported.unknown') }}
       </p>
       <div class="unsupported-actions">
-        <el-button v-if="canPrint" type="primary" icon="Printer" @click="handlePrint">打印</el-button>
-        <el-button icon="Download" @click="handleDownload">下载文件</el-button>
+        <el-button v-if="canPrint" type="primary" icon="Printer" @click="handlePrint">{{ t('preview.notSupported.print') }}</el-button>
+        <el-button icon="Download" @click="handleDownload">{{ t('preview.notSupported.download') }}</el-button>
       </div>
     </div>
     
     <!-- 下载密码对话框 -->
     <el-dialog
       v-model="showDownloadPasswordDialog"
-      title="输入文件密码"
+      :title="t('preview.downloadPassword.title')"
       width="400px"
       :close-on-click-modal="false"
     >
       <div class="download-password-form">
         <el-text>{{ downloadPasswordForm.file_name }}</el-text>
-        <el-form-item label="文件密码" style="margin-top: 16px;">
+        <el-form-item :label="t('preview.downloadPassword.label')" style="margin-top: 16px;">
           <el-input
             v-model="downloadPasswordForm.file_password"
             type="password"
-            placeholder="请输入文件密码"
+            :placeholder="t('preview.downloadPassword.placeholder')"
             show-password
             @keyup.enter="confirmDownloadPassword"
           />
         </el-form-item>
       </div>
       <template #footer>
-        <el-button @click="showDownloadPasswordDialog = false">取消</el-button>
-        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">确定</el-button>
+        <el-button @click="showDownloadPasswordDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </el-dialog>
@@ -180,7 +196,10 @@ import { useFileDownload } from '@/composables/useFileDownload'
 import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
 import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
 import { printImage, printPDF, printText, printOfficeDocument, isPrintableType, isOfficeDocument } from '@/utils/print'
-import { Lock } from '@element-plus/icons-vue'
+import { Lock, InfoFilled, FullScreen } from '@element-plus/icons-vue'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -253,23 +272,129 @@ const loadVideoContent = async (fileId: string) => {
       // 构建视频流 URL（包含 playToken 和 JWT token）
       videoUrl.value = getVideoStreamUrl(res.data.play_token, jwtToken || undefined)
     } else {
-      throw new Error(res.message || '获取视频播放 Token 失败')
+      throw new Error(res.message || t('preview.video.getTokenFailed'))
     }
   } catch (err: any) {
-    const errorMessage = err?.response?.data?.message || err?.message || '加载视频失败'
+    const errorMessage = err?.response?.data?.message || err?.message || t('preview.video.loadFailed')
     throw new Error(errorMessage)
   }
 }
+
+// 图片位置和缩放状态
+const imagePosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const isFullscreen = ref(false)
 
 // 图片样式
 const imageStyle = computed(() => {
   const zoom = options.value.zoom || 1
   const rotate = options.value.rotate || 0
+  const x = imagePosition.value.x
+  const y = imagePosition.value.y
   return {
-    transform: `scale(${zoom}) rotate(${rotate}deg)`,
+    transform: `translate(${x}px, ${y}px) scale(${zoom}) rotate(${rotate}deg)`,
     transformOrigin: 'center center',
-    transition: 'transform 0.3s ease'
+    transition: isDragging.value ? 'none' : 'transform 0.3s ease',
+    cursor: zoom > 1 ? 'grab' : 'default'
   }
+})
+
+// 图片缩放值（用于显示）
+const imageZoom = computed(() => options.value.zoom || 1)
+
+// 滚轮缩放
+const handleImageWheel = (e: WheelEvent) => {
+  if (previewType.value !== 'image') return
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? -0.1 : 0.1
+  zoomImage(delta)
+}
+
+// 图片鼠标按下（开始拖拽）
+const handleImageMouseDown = (e: MouseEvent) => {
+  if (previewType.value !== 'image' || imageZoom.value <= 1) return
+  e.preventDefault()
+  isDragging.value = true
+  dragStart.value = {
+    x: e.clientX - imagePosition.value.x,
+    y: e.clientY - imagePosition.value.y
+  }
+  
+  const handleMouseMove = (moveEvent: MouseEvent) => {
+    if (!isDragging.value) return
+    imagePosition.value = {
+      x: moveEvent.clientX - dragStart.value.x,
+      y: moveEvent.clientY - dragStart.value.y
+    }
+  }
+  
+  const handleMouseUp = () => {
+    isDragging.value = false
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
+  
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}
+
+// 全屏切换
+const toggleFullscreen = () => {
+  if (!currentFile.value) return
+  
+  const dialog = document.querySelector('.file-preview-dialog .el-dialog') as HTMLElement
+  if (!dialog) return
+  
+  if (!isFullscreen.value) {
+    // 进入全屏
+    if (dialog.requestFullscreen) {
+      dialog.requestFullscreen()
+    } else if ((dialog as any).webkitRequestFullscreen) {
+      (dialog as any).webkitRequestFullscreen()
+    } else if ((dialog as any).mozRequestFullScreen) {
+      (dialog as any).mozRequestFullScreen()
+    } else if ((dialog as any).msRequestFullscreen) {
+      (dialog as any).msRequestFullscreen()
+    }
+    isFullscreen.value = true
+  } else {
+    // 退出全屏
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    } else if ((document as any).webkitExitFullscreen) {
+      (document as any).webkitExitFullscreen()
+    } else if ((document as any).mozCancelFullScreen) {
+      (document as any).mozCancelFullScreen()
+    } else if ((document as any).msExitFullscreen) {
+      (document as any).msExitFullscreen()
+    }
+    isFullscreen.value = false
+  }
+}
+
+// 监听全屏状态变化
+onMounted(() => {
+  const handleFullscreenChange = () => {
+    isFullscreen.value = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    )
+  }
+  
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+  document.addEventListener('MSFullscreenChange', handleFullscreenChange)
+  
+  onBeforeUnmount(() => {
+    document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
+  })
 })
 
 // 加载文件内容
@@ -361,6 +486,7 @@ const resetImageZoom = () => {
   if (previewType.value !== 'image') return
   options.value.zoom = 1
   options.value.rotate = 0
+  imagePosition.value = { x: 0, y: 0 }
 }
 
 // 旋转图片
@@ -499,6 +625,10 @@ const handleClose = () => {
     zoom: 1,
     rotate: 0
   }
+  // 重置图片位置
+  imagePosition.value = { x: 0, y: 0 }
+  isDragging.value = false
+  isFullscreen.value = false
 }
 
 // 图片加载完成
@@ -647,8 +777,32 @@ onUnmounted(() => {
   min-height: 400px;
   background: var(--bg-color);
   border-radius: 8px;
-  overflow: auto;
+  overflow: hidden;
   padding: 20px;
+  position: relative;
+  cursor: grab;
+}
+
+.image-wrapper:active {
+  cursor: grabbing;
+}
+
+.image-nav-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
 }
 
 .preview-image {
@@ -667,8 +821,20 @@ onUnmounted(() => {
 .preview-video {
   width: 100%;
   max-height: 70vh;
-  background: #000;
+  background: var(--el-bg-color-page, #000);
   border-radius: 8px;
+}
+
+.encrypted-icon {
+  color: var(--el-color-warning);
+}
+
+.error-icon {
+  color: var(--el-color-danger);
+}
+
+.unsupported-icon {
+  color: var(--el-text-color-placeholder);
 }
 
 .preview-video-plyr {
@@ -679,7 +845,7 @@ onUnmounted(() => {
   height: 100%;
   border-radius: 8px;
   overflow: hidden;
-  background: #000;
+  background: var(--el-bg-color-page, #000);
   /* 最小高度确保在小屏幕上也能正常显示 */
   min-height: 400px;
 }
@@ -803,13 +969,22 @@ onUnmounted(() => {
 
 .preview-toolbar {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
   padding: 16px 0;
   border-top: 1px solid var(--border-color);
   flex-shrink: 0; /* 工具栏不收缩，保持固定高度 */
   margin-top: auto; /* 在 flex 容器中自动推到底部 */
   min-height: 54px; /* 确保工具栏有最小高度：按钮高度(32px) + padding(16px) + border(1px) */
   box-sizing: border-box;
+  gap: 16px;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .unsupported-title {

@@ -3,6 +3,9 @@
  * 支持图片、PDF、文本等文件的打印
  */
 
+import logger from '@/plugins/logger'
+import i18n from '@/i18n'
+
 /**
  * 打印选项
  */
@@ -22,6 +25,20 @@ export interface PrintOptions {
   }
   /** 打印背景图形 */
   printBackground?: boolean
+  /** 国际化翻译函数（可选，如果不提供则使用默认的 i18n） */
+  t?: (key: string, params?: Record<string, unknown>) => string
+}
+
+/**
+ * 获取翻译函数
+ */
+function getT(options?: PrintOptions): (key: string, params?: Record<string, unknown>) => string {
+  if (options?.t) {
+    return (key: string, params?: Record<string, unknown>) => options.t!(key, params)
+  }
+  return (key: string, params?: Record<string, unknown>) => {
+    return i18n.global.t(key, params || {}) || key
+  }
 }
 
 /**
@@ -32,13 +49,14 @@ export interface PrintOptions {
 export function printImage(imageUrl: string, options?: PrintOptions): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
+      const t = getT(options)
       const printWindow = window.open('', '_blank')
       if (!printWindow) {
-        reject(new Error('无法打开打印窗口，请检查浏览器弹窗设置'))
+        reject(new Error(t('print.cannotOpenWindow')))
         return
       }
 
-      const title = options?.title || '图片打印'
+      const title = options?.title || t('print.imageTitle')
 
       printWindow.document.write(`
         <!DOCTYPE html>
@@ -146,10 +164,10 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
         <body>
           <div class="print-header">
             <h2>${escapeHtml(title)}</h2>
-            <p>准备打印中，请稍候...</p>
+            <p>${t('print.preparing')}</p>
           </div>
           <div class="image-container">
-            <img src="${imageUrl}" alt="${escapeHtml(title)}" onload="setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 300);" onerror="alert('图片加载失败'); window.close();" />
+            <img src="${imageUrl}" alt="${escapeHtml(title)}" onload="setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 300);" onerror="alert('${t('print.imageLoadFailed')}'); window.close();" />
           </div>
         </body>
         </html>
@@ -183,13 +201,14 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
 export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
+      const t = getT(options)
       const printWindow = window.open('', '_blank')
       if (!printWindow) {
-        reject(new Error('无法打开打印窗口，请检查浏览器弹窗设置'))
+        reject(new Error(t('print.cannotOpenWindow')))
         return
       }
 
-      const title = options?.title || 'PDF打印'
+      const title = options?.title || t('print.pdfTitle')
       
       // 在PDF URL后添加参数以隐藏工具栏和导航栏，并设置100%缩放
       // zoom=100 表示100%缩放，确保PDF在打印预览中完整显示
@@ -263,7 +282,7 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
           </style>
         </head>
         <body>
-          <iframe id="pdfFrame" src="${finalPdfUrl}" style="width: 100%; height: 100vh; border: none;" onerror="alert('PDF加载失败'); window.close();"></iframe>
+          <iframe id="pdfFrame" src="${finalPdfUrl}" style="width: 100%; height: 100vh; border: none;" onerror="alert('${t('print.pdfLoadFailed')}'); window.close();"></iframe>
           <script>
             (function() {
               var iframe = document.getElementById('pdfFrame');
@@ -290,7 +309,7 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
                     };
                   }, 1500);
                 } catch(e) {
-                  console.error('打印错误:', e);
+                  logger.error('打印错误:', e);
                 }
               }
               
@@ -344,13 +363,13 @@ export function printText(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
+      const t = getT(options)
       const printWindow = window.open('', '_blank')
       if (!printWindow) {
-        reject(new Error('无法打开打印窗口，请检查浏览器弹窗设置'))
+        reject(new Error(t('print.cannotOpenWindow')))
         return
       }
-
-      const printTitle = title || options?.title || '文本打印'
+      const printTitle = title || options?.title || t('print.textTitle')
 
       printWindow.document.write(`
         <!DOCTYPE html>
@@ -455,7 +474,7 @@ export function printText(
         <body>
           <div class="print-header">
             <h2>${escapeHtml(printTitle)}</h2>
-            <p>准备打印中，请稍候...</p>
+            <p>${t('print.preparing')}</p>
           </div>
           <div class="content-wrapper">
             <pre>${escapeHtml(content)}</pre>
@@ -588,9 +607,10 @@ export function printOfficeDocument(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
+      const t = getT(options)
       const printWindow = window.open('', '_blank')
       if (!printWindow) {
-        reject(new Error('无法打开打印窗口，请检查浏览器弹窗设置。建议先下载文件，然后用相应的Office软件打开并打印。'))
+        reject(new Error(t('print.cannotOpenWindowOffice')))
         return
       }
 
@@ -666,12 +686,12 @@ export function printOfficeDocument(
         </head>
         <body>
           <div class="info">
-            <h3>文档打印提示</h3>
-            <p>正在尝试在浏览器中打开文档...</p>
-            <p>如果文档无法正常显示，请点击下方链接下载文件，然后用相应的Office软件（如Excel、Word、PowerPoint）打开并打印。</p>
-            <p><a href="${fileUrl}" download="${fileName}">📥 下载文件</a></p>
+            <h3>${t('print.officeDocumentTip')}</h3>
+            <p>${t('print.tryingToOpen')}</p>
+            <p>${t('print.officeDocumentDescription')}</p>
+            <p><a href="${fileUrl}" download="${fileName}">📥 ${t('print.downloadFile')}</a></p>
           </div>
-          <iframe src="${fileUrl}" onload="setTimeout(function() { try { window.print(); window.onafterprint = function() { window.close(); } } catch(e) { alert('无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。'); window.close(); } }, 1500);" onerror="alert('无法加载文档。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。'); window.close();"></iframe>
+          <iframe src="${fileUrl}" onload="setTimeout(function() { try { window.print(); window.onafterprint = function() { window.close(); } } catch(e) { alert('${t('print.cannotPrintOfficeType')}'); window.close(); } }, 1500);" onerror="alert('${t('print.cannotLoadDocument')}'); window.close();"></iframe>
         </body>
         </html>
       `)

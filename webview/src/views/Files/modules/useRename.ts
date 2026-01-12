@@ -1,5 +1,6 @@
 import { renameFile } from '@/api/file'
 import { renameDir, deleteFolder } from '@/api/folder'
+import { useI18n } from '@/composables/useI18n'
 import type { FileItem, FolderItem } from '@/types'
 
 export function useRename(
@@ -8,6 +9,7 @@ export function useRename(
   loadFileList: () => Promise<void>
 ) {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
+  const { t } = useI18n()
 
   // 文件重命名
   const showRenameFileDialog = ref(false)
@@ -21,11 +23,11 @@ export function useRename(
 
   const renameFileRules: FormRules = {
     new_file_name: [
-      { required: true, message: '请输入新文件名', trigger: 'blur' },
-      { min: 1, max: 255, message: '文件名长度在1-255个字符', trigger: 'blur' },
+      { required: true, message: t('files.newFileNameRequired'), trigger: 'blur' },
+      { min: 1, max: 255, message: t('files.fileNameLength'), trigger: 'blur' },
       { 
         pattern: /^[^\\/:*?"<>|]+$/, 
-        message: '文件名不能包含特殊字符 \\ / : * ? " < > |', 
+        message: t('files.fileNameInvalidChars'), 
         trigger: 'blur' 
       }
     ]
@@ -43,11 +45,11 @@ export function useRename(
 
   const renameDirRules: FormRules = {
     new_dir_name: [
-      { required: true, message: '请输入新目录名', trigger: 'blur' },
-      { min: 1, max: 50, message: '目录名长度在1-50个字符', trigger: 'blur' },
+      { required: true, message: t('files.newDirNameRequired'), trigger: 'blur' },
+      { min: 1, max: 50, message: t('files.dirNameLength'), trigger: 'blur' },
       { 
         pattern: /^[^\\/:*?"<>|]+$/, 
-        message: '目录名不能包含特殊字符 \\ / : * ? " < > |', 
+        message: t('files.dirNameInvalidChars'), 
         trigger: 'blur' 
       }
     ]
@@ -67,7 +69,7 @@ export function useRename(
       await renameFileFormRef.value.validate()
       
       if (renameFileForm.new_file_name === renameFileForm.old_file_name) {
-        proxy?.$modal.msgWarning('新文件名与原文件名相同')
+        proxy?.$modal.msgWarning(t('files.sameFileName'))
         return
       }
       
@@ -79,15 +81,15 @@ export function useRename(
         })
         
         if (result.code === 200) {
-          proxy?.$modal.msgSuccess('重命名成功')
+          proxy?.$modal.msgSuccess(t('files.renameSuccess'))
           showRenameFileDialog.value = false
           selectedFileIds.value = []
           await loadFileList()
         } else {
-          proxy?.$modal.msgError(result.message || '重命名失败')
+          proxy?.$modal.msgError(result.message || t('files.renameFailed'))
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '重命名失败')
+        proxy?.$modal.msgError(error.message || t('files.renameFailed'))
       } finally {
         renamingFile.value = false
       }
@@ -117,7 +119,7 @@ export function useRename(
       await renameDirFormRef.value.validate()
       
       if (renameDirForm.new_dir_name === renameDirForm.old_dir_name) {
-        proxy?.$modal.msgWarning('新目录名与原目录名相同')
+        proxy?.$modal.msgWarning(t('files.sameDirName'))
         return
       }
       
@@ -129,15 +131,15 @@ export function useRename(
         })
         
         if (result.code === 200) {
-          proxy?.$modal.msgSuccess('重命名成功')
+          proxy?.$modal.msgSuccess(t('files.renameSuccess'))
           showRenameDirDialog.value = false
           selectedFolderIds.value = []
           await loadFileList()
         } else {
-          proxy?.$modal.msgError(result.message || '重命名失败')
+          proxy?.$modal.msgError(result.message || t('files.renameFailed'))
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '重命名失败')
+        proxy?.$modal.msgError(error.message || t('files.renameFailed'))
       } finally {
         renamingDir.value = false
       }
@@ -162,7 +164,7 @@ export function useRename(
   const handleDeleteDir = async (folder: FolderItem) => {
     try {
       await proxy?.$modal.confirm(
-        `确定要删除目录 "${folder.name.replace(/^\//, '')}" 吗？删除后，该目录下的所有文件和子目录都将被删除，且无法恢复。`
+        t('files.confirmDeleteDir', { dirName: folder.name.replace(/^\//, '') })
       )
       
       try {
@@ -171,14 +173,14 @@ export function useRename(
         })
         
         if (result.code === 200) {
-          proxy?.$modal.msgSuccess('目录删除成功')
+          proxy?.$modal.msgSuccess(t('files.dirDeleteSuccess'))
           selectedFolderIds.value = []
           await loadFileList()
         } else {
-          proxy?.$modal.msgError(result.message || '删除目录失败')
+          proxy?.$modal.msgError(result.message || t('files.dirDeleteFailed'))
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '删除目录失败')
+        proxy?.$modal.msgError(error.message || t('files.dirDeleteFailed'))
       }
     } catch (error) {
       // 用户取消删除

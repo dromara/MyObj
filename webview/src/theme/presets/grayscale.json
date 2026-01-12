@@ -1,0 +1,14 @@
+{
+  "name": "灰度预设",
+  "desc": "灰度模式，适合打印或特殊场景",
+  "theme": "auto",
+  "grayscale": true,
+  "colourWeakness": false,
+  "colors": {
+    "primary": "#6b7280",
+    "success": "#6b7280",
+    "warning": "#6b7280",
+    "danger": "#6b7280",
+    "info": "#6b7280"
+  }
+}

@@ -6,11 +6,11 @@
         <div class="header-left">
           <div class="title-section">
             <el-icon :size="24" class="title-icon"><Share /></el-icon>
-            <h2>我的分享</h2>
-            <span class="share-count">共 {{ shareList.length }} 个分享</span>
+            <h2>{{ t('share.myShares') }}</h2>
+            <span class="share-count">{{ t('share.shareCount', { count: shareList.length }) }}</span>
           </div>
           <div v-if="selectedShares.length > 0" class="batch-selection-info">
-            <span class="selected-count">已选择 {{ selectedShares.length }} 项</span>
+            <span class="selected-count">{{ t('share.selectedCount', { count: selectedShares.length }) }}</span>
             <el-button 
               type="danger" 
               icon="Delete" 
@@ -18,18 +18,18 @@
               @click="handleBatchDelete"
               :loading="batchDeleting"
             >
-              批量删除
+              {{ t('share.batchDelete') }}
             </el-button>
             <el-button 
               link
               size="small"
               @click="clearSelection"
             >
-              取消选择
+              {{ t('share.cancelSelect') }}
             </el-button>
           </div>
         </div>
-        <el-button type="primary" icon="Refresh" @click="loadShareList" :loading="loading">刷新</el-button>
+        <el-button type="primary" icon="Refresh" @click="loadShareList" :loading="loading">{{ t('common.refresh') }}</el-button>
       </div>
     </div>
 
@@ -40,20 +40,19 @@
         :data="shareList" 
         v-loading="loading" 
         class="shares-table desktop-table"
-        empty-text="暂无分享记录"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="文件名" min-width="250" class-name="mobile-name-column">
+        <el-table-column :label="t('tasks.fileName')" min-width="250" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
-              <el-icon :size="24" color="#409EFF"><Document /></el-icon>
+              <el-icon :size="24" class="share-icon"><Document /></el-icon>
               <file-name-tooltip :file-name="row.file_name" view-mode="table" custom-class="file-name" />
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="分享链接" min-width="400" class-name="mobile-link-column">
+        <el-table-column :label="t('share.shareLink')" min-width="400" class-name="mobile-link-column">
           <template #default="{ row }">
             <div class="link-cell">
               <el-input 
@@ -68,7 +67,7 @@
                     @click="copyShareLink(row)"
                     :loading="copyingId === row.id"
                   >
-                    复制
+                    {{ t('common.copy') }}
                   </el-button>
                 </template>
               </el-input>
@@ -76,10 +75,10 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="访问密码" width="100" align="center" class-name="mobile-hide">
+        <el-table-column :label="t('share.sharePassword')" width="100" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <el-tooltip 
-              :content="row.password_hash ? '已设置访问密码' : '未设置访问密码'" 
+              :content="row.password_hash ? t('share.hasPassword') : t('share.noPassword')" 
               placement="top"
             >
               <div class="status-badge" :class="{ 'has-password': row.password_hash, 'no-password': !row.password_hash }">
@@ -89,9 +88,9 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="下载次数" width="100" align="center" class-name="mobile-hide">
+        <el-table-column :label="t('share.downloadCount')" width="100" align="center" class-name="mobile-hide">
           <template #default="{ row }">
-            <el-tooltip :content="`已下载 ${row.download_count || 0} 次`" placement="top">
+            <el-tooltip :content="t('share.downloadedTimes', { count: row.download_count || 0 })" placement="top">
               <div class="download-badge">
                 <el-icon :size="14"><Download /></el-icon>
                 <span class="download-count-text">{{ row.download_count || 0 }}</span>
@@ -100,7 +99,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="过期时间" width="180" align="center" class-name="mobile-hide">
+        <el-table-column :label="t('share.expireDate')" width="180" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <div class="time-cell">
               <el-icon :size="14"><Clock /></el-icon>
@@ -111,7 +110,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="创建时间" width="180" align="center" class-name="mobile-hide">
+        <el-table-column :label="t('share.createTime')" width="180" align="center" class-name="mobile-hide">
           <template #default="{ row }">
             <div class="time-cell">
               <el-icon :size="14"><Calendar /></el-icon>
@@ -120,7 +119,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="200" fixed="right" align="center" class-name="mobile-actions-column">
+        <el-table-column :label="t('tasks.operation')" width="200" fixed="right" align="center" class-name="mobile-actions-column">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button 
@@ -130,7 +129,7 @@
                 @click="handleUpdatePassword(row)"
                 size="small"
               >
-                修改密码
+                {{ t('share.modifyPassword') }}
               </el-button>
               <el-button 
                 link 
@@ -139,7 +138,7 @@
                 @click="handleDelete(row)"
                 size="small"
               >
-                删除
+                {{ t('common.delete') }}
               </el-button>
             </div>
           </template>
@@ -161,7 +160,7 @@
               class="mobile-checkbox"
             />
             <div class="share-item-info">
-              <el-icon :size="24" color="#409EFF" class="share-icon"><Document /></el-icon>
+              <el-icon :size="24" class="share-icon"><Document /></el-icon>
               <div class="share-name-wrapper">
                 <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="share-name" />
                 <div class="share-meta">
@@ -170,7 +169,7 @@
                     :class="{ 'has-password': row.password_hash, 'no-password': !row.password_hash }"
                   >
                     <el-icon :size="14"><Lock /></el-icon>
-                    <span class="status-text">{{ row.password_hash ? '密码' : '公开' }}</span>
+                    <span class="status-text">{{ row.password_hash ? t('share.password') : t('share.public') }}</span>
                   </div>
                   <div class="mobile-download-badge">
                     <el-icon :size="12"><Download /></el-icon>
@@ -213,7 +212,7 @@
                   :loading="copyingId === row.id"
                   size="small"
                 >
-                  复制
+                  {{ t('common.copy') }}
                 </el-button>
               </template>
             </el-input>
@@ -223,50 +222,51 @@
             <div class="time-item">
               <el-icon :size="12"><Clock /></el-icon>
               <span :class="{ 'expired-text': isExpired(row.expires_at) }">
-                过期：{{ formatDate(row.expires_at) }}
+                {{ t('share.expire') }}：{{ formatDate(row.expires_at) }}
               </span>
             </div>
             <div class="time-item">
               <el-icon :size="12"><Calendar /></el-icon>
-              <span>创建：{{ formatDate(row.created_at) }}</span>
+              <span>{{ t('share.create') }}：{{ formatDate(row.created_at) }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <el-empty v-if="shareList.length === 0 && !loading" description="暂无分享记录" />
+      <!-- 空状态显示 -->
+      <el-empty v-if="shareList.length === 0 && !loading" :description="t('share.noShareRecords')" />
     </div>
     
     <!-- 修改密码对话框 -->
     <el-dialog 
       v-model="showPasswordDialog" 
-      title="修改分享密码" 
+      :title="t('share.updatePassword')" 
       :width="isMobile ? '95%' : '450px'"
       :close-on-click-modal="false"
       class="password-dialog"
     >
       <el-form label-width="80px">
-        <el-form-item label="文件名">
+        <el-form-item :label="t('tasks.fileName')">
           <el-input v-model="currentShare.file_name" disabled />
         </el-form-item>
-        <el-form-item label="新密码">
+        <el-form-item :label="t('share.newPassword')">
           <el-input 
             v-model="newPassword" 
-            placeholder="请输入新的访问密码（留空则取消密码）"
+            :placeholder="t('share.updatePasswordPlaceholder')"
             maxlength="20"
             show-word-limit
             clearable
           >
             <template #append>
-              <el-button @click="handleGenerateRandomPassword" size="small">随机生成</el-button>
+              <el-button @click="handleGenerateRandomPassword" size="small">{{ t('common.generate') }}</el-button>
             </template>
           </el-input>
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="showPasswordDialog = false">取消</el-button>
-        <el-button type="primary" :loading="updating" @click="handleConfirmUpdatePassword">确定修改</el-button>
+        <el-button @click="showPasswordDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="updating" @click="handleConfirmUpdatePassword">{{ t('share.confirmUpdate') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -274,11 +274,13 @@
 
 <script setup lang="ts">
 import { useResponsive } from '@/composables/useResponsive'
+import { useI18n } from '@/composables/useI18n'
 import { getShareList, deleteShare, updateSharePassword } from '@/api/share'
 import type { ShareInfo } from '@/types'
 import { formatDate, getShareUrl, generateRandomPassword, copyToClipboard } from '@/utils'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 // 使用响应式检测 composable
 const { isMobile } = useResponsive()
@@ -311,10 +313,10 @@ const loadShareList = async () => {
     if (res.code === 200) {
       shareList.value = res.data || []
     } else {
-      proxy?.$modal.msgError(res.message || '加载失败')
+      proxy?.$modal.msgError(res.message || t('common.loadFailed'))
     }
   } catch (error) {
-    proxy?.$modal.msgError('加载分享列表失败')
+    proxy?.$modal.msgError(t('share.loadShareListFailed'))
     proxy?.$log.error(error)
   } finally {
     loading.value = false
@@ -327,9 +329,9 @@ const copyShareLink = async (share: ShareInfo) => {
   const shareUrl = getShareUrl(share.token)
   const success = await copyToClipboard(shareUrl)
   if (success) {
-    proxy?.$modal.msgSuccess('已复制到剪贴板')
+    proxy?.$modal.msgSuccess(t('common.copied'))
   } else {
-    proxy?.$modal.msgError('复制失败')
+    proxy?.$modal.msgError(t('common.copyFailed'))
   }
   setTimeout(() => {
     copyingId.value = null
@@ -339,10 +341,10 @@ const copyShareLink = async (share: ShareInfo) => {
 // 删除分享
 const handleDelete = async (share: ShareInfo) => {
   try {
-    await proxy?.$modal.confirm('确定要删除该分享吗？')
+    await proxy?.$modal.confirm(t('share.confirmDeleteShare'))
     const res = await deleteShare(share.id)
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('删除成功')
+      proxy?.$modal.msgSuccess(t('common.deleteSuccess'))
       // 从选中列表中移除
       const index = selectedShares.value.findIndex(s => s.id === share.id)
       if (index > -1) {
@@ -350,11 +352,11 @@ const handleDelete = async (share: ShareInfo) => {
       }
       loadShareList()
     } else {
-      proxy?.$modal.msgError(res.message || '删除失败')
+      proxy?.$modal.msgError(res.message || t('common.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '删除失败')
+      proxy?.$modal.msgError(error.message || t('common.deleteFailed'))
     }
   }
 }
@@ -377,14 +379,14 @@ const handleConfirmUpdatePassword = async () => {
   try {
     const res = await updateSharePassword(currentShare.id!, newPassword.value || '')
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess(newPassword.value ? '修改密码成功' : '已取消密码')
+      proxy?.$modal.msgSuccess(newPassword.value ? t('share.updatePasswordSuccess') : t('share.cancelPasswordSuccess'))
       showPasswordDialog.value = false
       loadShareList()
     } else {
-      proxy?.$modal.msgError(res.message || '修改密码失败')
+      proxy?.$modal.msgError(res.message || t('share.updatePasswordFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '修改密码失败')
+    proxy?.$modal.msgError(error.message || t('share.updatePasswordFailed'))
   } finally {
     updating.value = false
   }
@@ -420,23 +422,23 @@ const clearSelection = () => {
 // 批量删除
 const handleBatchDelete = async () => {
   if (selectedShares.value.length === 0) {
-    proxy?.$modal.msgWarning('请先选择要删除的分享')
+    proxy?.$modal.msgWarning(t('files.selectDeleteFilesFirst'))
     return
   }
   
   try {
-    await proxy?.$modal.confirm(`确定要删除选中的 ${selectedShares.value.length} 个分享吗？`)
+    await proxy?.$modal.confirm(t('share.confirmBatchDeleteShare', { count: selectedShares.value.length }))
     batchDeleting.value = true
     
     // 提示开发中
-    proxy?.$modal.msg('批量删除功能开发中')
+    proxy?.$modal.msg(t('share.batchDeletePending'))
     
     // 清空选择（包括表格多选框）
     selectedShares.value = []
     tableRef.value?.clearSelection()
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '操作失败')
+      proxy?.$modal.msgError(error.message || t('files.operationFailed'))
     }
   } finally {
     batchDeleting.value = false
@@ -510,9 +512,13 @@ const handleBatchDelete = async () => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--el-fill-color-light);
   border-radius: 8px;
   flex-wrap: wrap;
+}
+
+html.dark .batch-selection-info {
+  background: rgba(99, 102, 241, 0.15);
 }
 
 .selected-count {
@@ -554,7 +560,13 @@ const handleBatchDelete = async () => {
 }
 
 :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
-  background: rgba(99, 102, 241, 0.05) !important;
+  background: var(--el-fill-color-lighter) !important;
+}
+
+
+/* 隐藏表格自带的空状态显示，使用手动的 el-empty */
+:deep(.el-table__empty-block) {
+  display: none;
 }
 
 .file-name-cell {
@@ -624,23 +636,39 @@ const handleBatchDelete = async () => {
 }
 
 .status-badge.has-password {
-  background: rgba(230, 162, 60, 0.1);
+  background: var(--el-warning-color-light-9);
   color: var(--el-color-warning);
 }
 
 .status-badge.has-password:hover {
-  background: rgba(230, 162, 60, 0.2);
+  background: var(--el-warning-color-light-8);
   transform: scale(1.1);
 }
 
+html.dark .status-badge.has-password {
+  background: rgba(230, 162, 60, 0.2);
+}
+
+html.dark .status-badge.has-password:hover {
+  background: rgba(230, 162, 60, 0.3);
+}
+
 .status-badge.no-password {
-  background: rgba(144, 147, 153, 0.1);
+  background: var(--el-fill-color-light);
   color: var(--el-color-info);
 }
 
 .status-badge.no-password:hover {
-  background: rgba(144, 147, 153, 0.2);
+  background: var(--el-fill-color);
   transform: scale(1.1);
+}
+
+html.dark .status-badge.no-password {
+  background: rgba(144, 147, 153, 0.15);
+}
+
+html.dark .status-badge.no-password:hover {
+  background: rgba(144, 147, 153, 0.25);
 }
 
 .download-badge {
@@ -650,7 +678,7 @@ const handleBatchDelete = async () => {
   gap: 4px;
   padding: 4px 8px;
   border-radius: 12px;
-  background: rgba(144, 147, 153, 0.1);
+  background: var(--el-fill-color-light);
   color: var(--el-color-info);
   cursor: pointer;
   transition: all 0.2s;
@@ -658,8 +686,16 @@ const handleBatchDelete = async () => {
 }
 
 .download-badge:hover {
-  background: rgba(144, 147, 153, 0.2);
+  background: var(--el-fill-color);
   transform: translateY(-1px);
+}
+
+html.dark .download-badge {
+  background: rgba(144, 147, 153, 0.15);
+}
+
+html.dark .download-badge:hover {
+  background: rgba(144, 147, 153, 0.25);
 }
 
 .download-count-text {
@@ -683,8 +719,12 @@ const handleBatchDelete = async () => {
 }
 
 .mobile-share-item.selected {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--el-fill-color-light);
   border-color: var(--primary-color);
+}
+
+html.dark .mobile-share-item.selected {
+  background: rgba(99, 102, 241, 0.15);
 }
 
 .mobile-checkbox {
@@ -756,13 +796,21 @@ const handleBatchDelete = async () => {
 }
 
 .mobile-status-badge.has-password {
-  background: rgba(230, 162, 60, 0.1);
+  background: var(--el-warning-color-light-9);
   color: var(--el-color-warning);
 }
 
+html.dark .mobile-status-badge.has-password {
+  background: rgba(230, 162, 60, 0.2);
+}
+
 .mobile-status-badge.no-password {
-  background: rgba(144, 147, 153, 0.1);
+  background: var(--el-fill-color-light);
   color: var(--el-color-info);
+}
+
+html.dark .mobile-status-badge.no-password {
+  background: rgba(144, 147, 153, 0.15);
 }
 
 .status-text {
@@ -775,10 +823,14 @@ const handleBatchDelete = async () => {
   gap: 3px;
   padding: 3px 8px;
   border-radius: 12px;
-  background: rgba(144, 147, 153, 0.1);
+  background: var(--el-fill-color-light);
   color: var(--el-text-color-secondary);
   font-size: 11px;
   white-space: nowrap;
+}
+
+html.dark .mobile-download-badge {
+  background: rgba(144, 147, 153, 0.15);
 }
 
 .download-text {

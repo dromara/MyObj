@@ -1,28 +1,28 @@
 <template>
   <div class="admin-disks">
     <div class="toolbar">
-      <el-button type="primary" icon="Plus" @click="handleCreate">添加磁盘</el-button>
-      <el-button icon="Refresh" @click="loadDiskList">刷新</el-button>
+      <el-button type="primary" icon="Plus" @click="handleCreate">{{ t('admin.disks.addDisk') }}</el-button>
+      <el-button icon="Refresh" @click="loadDiskList">{{ t('common.refresh') }}</el-button>
     </div>
 
     <el-table
       :data="diskList"
       v-loading="loading"
       class="admin-table"
-      empty-text="暂无磁盘"
+      :empty-text="t('admin.disks.noDisks')"
     >
-      <el-table-column prop="id" label="磁盘ID" min-width="200" />
-      <el-table-column prop="disk_path" label="磁盘路径" min-width="250" />
-      <el-table-column prop="data_path" label="数据路径" min-width="250" />
-      <el-table-column label="大小" width="150">
+      <el-table-column prop="id" :label="t('admin.disks.diskId')" min-width="200" />
+      <el-table-column prop="disk_path" :label="t('admin.disks.diskPath')" min-width="250" />
+      <el-table-column prop="data_path" :label="t('admin.disks.dataPath')" min-width="250" />
+      <el-table-column :label="t('admin.disks.size')" width="150">
         <template #default="{ row }">
           {{ formatStorage(row.size) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column :label="t('admin.users.operation')" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button link type="primary" @click="handleEdit(row)">{{ t('admin.users.edit') }}</el-button>
+          <el-button link type="danger" @click="handleDelete(row)">{{ t('admin.users.delete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -36,19 +36,19 @@
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
         <!-- 输入方式选择 -->
-        <el-form-item label="输入方式" v-if="!isEdit">
+        <el-form-item :label="t('admin.disks.inputMode')" v-if="!isEdit">
           <el-radio-group v-model="inputMode" @change="handleInputModeChange">
-            <el-radio-button value="manual">手动输入</el-radio-button>
-            <el-radio-button value="scan">扫描选择</el-radio-button>
+            <el-radio-button value="manual">{{ t('admin.disks.manualInput') }}</el-radio-button>
+            <el-radio-button value="scan">{{ t('admin.disks.scanSelect') }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
 
         <!-- 扫描磁盘选择 -->
         <template v-if="inputMode === 'scan' && !isEdit">
-          <el-form-item label="选择磁盘" prop="selected_disk">
+          <el-form-item :label="t('admin.disks.selectDisk')" prop="selected_disk">
             <el-select
               v-model="formData.selected_disk"
-              placeholder="请选择磁盘"
+              :placeholder="t('admin.disks.selectDiskPlaceholder')"
               style="width: 100%"
               @change="handleDiskSelect"
               :loading="scanLoading"
@@ -62,7 +62,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <span>{{ disk.mount }}</span>
                   <span style="color: var(--el-text-color-secondary); font-size: 12px;">
-                    {{ formatBytes(disk.total) }} / 可用: {{ formatBytes(disk.avail) }}
+                    {{ formatBytes(disk.total) }} / {{ t('admin.disks.available') }}: {{ formatBytes(disk.avail) }}
                   </span>
                 </div>
               </el-option>
@@ -75,26 +75,26 @@
               :loading="scanLoading"
             >
               <el-icon><Refresh /></el-icon>
-              {{ scanLoading ? '扫描中...' : '重新扫描' }}
+              {{ scanLoading ? t('admin.disks.scanning') : t('admin.disks.rescan') }}
             </el-button>
           </el-form-item>
         </template>
 
         <!-- 手动输入或编辑时的表单 -->
-        <el-form-item label="磁盘路径" prop="disk_path">
+        <el-form-item :label="t('admin.disks.diskPath')" prop="disk_path">
           <el-input
             v-model="formData.disk_path"
-            placeholder="例如: D:\storage 或 /mnt/storage"
+            :placeholder="t('admin.disks.diskPathPlaceholder')"
             :disabled="inputMode === 'scan' && !isEdit"
           />
         </el-form-item>
-        <el-form-item label="数据路径" prop="data_path">
+        <el-form-item :label="t('admin.disks.dataPath')" prop="data_path">
           <el-input
             v-model="formData.data_path"
-            placeholder="例如: D:\storage\data 或 /mnt/storage/data"
+            :placeholder="t('admin.disks.dataPathPlaceholder')"
           />
         </el-form-item>
-        <el-form-item label="大小(GB)" prop="size">
+        <el-form-item :label="t('admin.disks.sizeGB')" prop="size">
           <el-input-number
             v-model="formData.size"
             :min="0"
@@ -105,8 +105,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -124,8 +124,10 @@ import {
   type ScannedDiskInfo
 } from '@/api/admin'
 import { formatSize, bytesToGB } from '@/utils'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -144,17 +146,17 @@ const formData = reactive({
   selected_disk: ''
 })
 
-const dialogTitle = computed(() => isEdit.value ? '编辑磁盘' : '添加磁盘')
+const dialogTitle = computed(() => isEdit.value ? t('admin.disks.editDisk') : t('admin.disks.addDisk'))
 
 const formRules = {
-  disk_path: [{ required: true, message: '请输入磁盘路径', trigger: 'blur' }],
-  data_path: [{ required: true, message: '请输入数据路径', trigger: 'blur' }],
-  size: [{ required: true, message: '请输入磁盘大小', trigger: 'blur' }],
+  disk_path: [{ required: true, message: t('admin.disks.diskPathRequired'), trigger: 'blur' }],
+  data_path: [{ required: true, message: t('admin.disks.dataPathRequired'), trigger: 'blur' }],
+  size: [{ required: true, message: t('admin.disks.sizeRequired'), trigger: 'blur' }],
   selected_disk: [
     {
       validator: (_rule: any, value: any, callback: any) => {
         if (inputMode.value === 'scan' && !value) {
-          callback(new Error('请选择磁盘'))
+          callback(new Error(t('admin.disks.selectDiskRequired')))
         } else {
           callback()
         }
@@ -166,7 +168,7 @@ const formRules = {
 
 // 格式化存储空间（后端返回的是字节，需要转换为GB显示）
 const formatStorage = (bytes: number) => {
-  if (bytes === 0) return '未设置'
+  if (bytes === 0) return t('admin.disks.notSet')
   // return formatSize(bytes)
   return bytes + 'GB'
 }
@@ -184,14 +186,14 @@ const loadDiskList = async () => {
     if (res.code === 200 && res.data) {
       diskList.value = res.data.disks || []
     } else {
-      proxy?.$modal.msg('磁盘管理功能开发中')
+      proxy?.$modal.msg(t('admin.disks.featureDeveloping'))
       diskList.value = []
     }
   } catch (error: any) {
     if (error.response?.status === 404 || error.message?.includes('404')) {
-      proxy?.$modal.msg('磁盘管理功能开发中')
+      proxy?.$modal.msg(t('admin.disks.featureDeveloping'))
     } else {
-      proxy?.$modal.msgError('加载磁盘列表失败')
+      proxy?.$modal.msgError(t('admin.disks.loadListFailed'))
     }
     proxy?.$log?.error(error)
   } finally {
@@ -222,13 +224,13 @@ const handleScanDisks = async () => {
     if (res.code === 200 && res.data) {
       scannedDisks.value = res.data
       if (scannedDisks.value.length === 0) {
-        proxy?.$modal.msgWarning('未扫描到可用磁盘')
+        proxy?.$modal.msgWarning(t('admin.disks.noDisksScanned'))
       }
     } else {
-      proxy?.$modal.msgError(res.message || '扫描磁盘失败')
+      proxy?.$modal.msgError(res.message || t('admin.disks.scanFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError('扫描磁盘失败')
+    proxy?.$modal.msgError(t('admin.disks.scanFailed'))
     proxy?.$log?.error(error)
   } finally {
     scanLoading.value = false
@@ -291,27 +293,27 @@ const handleSubmit = async () => {
         if (isEdit.value) {
           const res = await updateAdminDisk(submitData)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('更新成功')
+            proxy?.$modal.msgSuccess(t('admin.users.updateSuccess'))
             showDialog.value = false
             loadDiskList()
           } else {
-            proxy?.$modal.msgError(res.message || '更新失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.updateFailed'))
           }
         } else {
           const res = await createAdminDisk(submitData)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('创建成功')
+            proxy?.$modal.msgSuccess(t('admin.users.createSuccess'))
             showDialog.value = false
             loadDiskList()
           } else {
-            proxy?.$modal.msgError(res.message || '创建失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.createFailed'))
           }
         }
       } catch (error: any) {
         if (error.response?.status === 404 || error.message?.includes('404')) {
-          proxy?.$modal.msg('磁盘管理功能开发中')
+          proxy?.$modal.msg(t('admin.disks.featureDeveloping'))
         } else {
-          proxy?.$modal.msgError(error.message || '操作失败')
+          proxy?.$modal.msgError(error.message || t('common.operationFailed'))
         }
       } finally {
         submitting.value = false
@@ -323,20 +325,20 @@ const handleSubmit = async () => {
 // 删除磁盘
 const handleDelete = async (disk: AdminDisk) => {
   try {
-    await proxy?.$modal.confirm(`确定要删除磁盘 "${disk.disk_path}" 吗？`)
+    await proxy?.$modal.confirm(t('admin.disks.confirmDelete', { path: disk.disk_path }))
     try {
       const res = await deleteAdminDisk(disk.id)
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess('删除成功')
+        proxy?.$modal.msgSuccess(t('admin.users.deleteSuccess'))
         loadDiskList()
       } else {
-        proxy?.$modal.msgError(res.message || '删除失败')
+        proxy?.$modal.msgError(res.message || t('admin.users.deleteFailed'))
       }
     } catch (error: any) {
       if (error.response?.status === 404 || error.message?.includes('404')) {
-        proxy?.$modal.msg('磁盘管理功能开发中')
+        proxy?.$modal.msg(t('admin.disks.featureDeveloping'))
       } else {
-        proxy?.$modal.msgError(error.message || '删除失败')
+        proxy?.$modal.msgError(error.message || t('admin.users.deleteFailed'))
       }
     }
   } catch (error: any) {
@@ -400,6 +402,69 @@ onMounted(() => {
     padding: 6px 2px;
     font-size: 11px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .admin-disks {
+  background: transparent;
+}
+
+html.dark :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-select .el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input-number .el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-radio-group) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-radio-button__inner) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--el-text-color-primary);
 }
 </style>
 

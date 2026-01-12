@@ -3,9 +3,9 @@
     <!-- 顶部工具栏 -->
     <div class="toolbar">
       <div class="breadcrumb">
-        <el-icon :size="24" color="#409EFF"><Grid /></el-icon>
-        <span class="breadcrumb-item">文件广场</span>
-        <span class="breadcrumb-desc">探索用户分享的公开文件</span>
+        <el-icon :size="24" class="square-icon"><Grid /></el-icon>
+        <span class="breadcrumb-item">{{ t('square.title') }}</span>
+        <span class="breadcrumb-desc">{{ t('square.desc') }}</span>
       </div>
       
       <div class="toolbar-actions">
@@ -21,21 +21,21 @@
     <div class="filter-bar">
       <div class="filter-type-group">
         <el-radio-group v-model="fileTypeFilter" @change="handleFilterChange" class="type-radio-group">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="image">图片</el-radio-button>
-          <el-radio-button label="video">视频</el-radio-button>
-          <el-radio-button label="doc">文档</el-radio-button>
-          <el-radio-button label="audio">音频</el-radio-button>
-          <el-radio-button label="archive">压缩包</el-radio-button>
-          <el-radio-button label="other">其他</el-radio-button>
+          <el-radio-button label="all">{{ t('square.filterAll') }}</el-radio-button>
+          <el-radio-button label="image">{{ t('square.filterImage') }}</el-radio-button>
+          <el-radio-button label="video">{{ t('square.filterVideo') }}</el-radio-button>
+          <el-radio-button label="doc">{{ t('square.filterDoc') }}</el-radio-button>
+          <el-radio-button label="audio">{{ t('square.filterAudio') }}</el-radio-button>
+          <el-radio-button label="archive">{{ t('square.filterArchive') }}</el-radio-button>
+          <el-radio-button label="other">{{ t('square.filterOther') }}</el-radio-button>
         </el-radio-group>
       </div>
       
       <div class="filter-sort-group">
-        <el-select v-model="sortBy" placeholder="排序方式" class="sort-select" @change="handleSortChange">
-          <el-option label="最新上传" value="time" />
-          <el-option label="文件大小" value="size" />
-          <el-option label="文件名称" value="name" />
+        <el-select v-model="sortBy" :placeholder="t('square.sortByPlaceholder')" class="sort-select" @change="handleSortChange">
+          <el-option :label="t('square.sortLatest')" value="time" />
+          <el-option :label="t('square.sortSize')" value="size" />
+          <el-option :label="t('square.sortName')" value="name" />
         </el-select>
       </div>
     </div>
@@ -68,14 +68,14 @@
         </div>
         <div class="file-actions">
           <el-button type="primary" size="small" icon="Download" @click.stop="handleDownload(file)">
-            下载
+            {{ t('square.download') }}
           </el-button>
         </div>
       </el-card>
       
       <!-- 空状态 -->
       <div v-if="filteredFiles.length === 0 && !loading" class="empty-state">
-        <el-empty description="暂无公开文件" />
+        <el-empty :description="t('square.noPublicFiles')" />
       </div>
     </div>
     
@@ -88,7 +88,7 @@
       @row-click="handleFileClick"
       style="width: 100%"
     >
-      <el-table-column label="文件名" min-width="300">
+      <el-table-column :label="t('square.fileName')" min-width="300">
         <template #default="{ row }">
           <div class="file-name-cell">
             <el-icon :size="24" :color="getFileIconColor(row.mime_type)">
@@ -98,21 +98,21 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="120">
+      <el-table-column :label="t('square.size')" width="120">
         <template #default="{ row }">
           {{ formatFileSize(row.file_size) }}
         </template>
       </el-table-column>
-      <el-table-column label="上传者" width="150" prop="owner_name" />
-      <el-table-column label="上传时间" width="180">
+      <el-table-column :label="t('square.uploader')" width="150" prop="owner_name" />
+      <el-table-column :label="t('square.uploadTime')" width="180">
         <template #default="{ row }">
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column :label="t('square.operation')" width="150" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" icon="Download" @click.stop="handleDownload(row)">
-            下载
+            {{ t('square.download') }}
           </el-button>
         </template>
       </el-table-column>
@@ -150,7 +150,7 @@
               class="mobile-download-btn"
               @click.stop="handleDownload(file)"
             >
-              下载
+              {{ t('square.download') }}
             </el-button>
           </div>
         </div>
@@ -158,7 +158,7 @@
       
       <!-- 空状态 -->
       <div v-if="filteredFiles.length === 0 && !loading" class="mobile-empty-state">
-        <el-empty description="暂无公开文件" />
+        <el-empty :description="t('square.noPublicFiles')" />
       </div>
     </div>
     
@@ -185,9 +185,11 @@ import { getPublicFileList, searchPublicFiles, type PublicFileItem, type PublicF
 import { useSearch } from '@/composables/useSearch'
 import { getFileIcon } from '@/utils/fileIcon'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const route = useRoute()
+const { t } = useI18n()
 
 // 使用响应式检测 composable
 const { isMobile } = useResponsive()
@@ -360,13 +362,13 @@ const loadPublicFiles = async () => {
       publicFiles.value = response.data.files || []
       total.value = response.data.total || 0
     } else {
-      proxy?.$modal.msgError(response.message || '加载失败')
+      proxy?.$modal.msgError(response.message || t('square.loadFailed'))
       // 加载失败时也确保是空数组
       publicFiles.value = []
     }
   } catch (error) {
     proxy?.$log.error('加载公开文件列表失败:', error)
-    proxy?.$modal.msgError('加载失败')
+    proxy?.$modal.msgError(t('square.loadFailed'))
   } finally {
     if (!isSearchMode.value) {
       loading.value = false
@@ -428,7 +430,7 @@ watch(() => route.query.keyword, (newKeyword) => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: white;
+  background: var(--card-bg);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -786,7 +788,7 @@ watch(() => route.query.keyword, (newKeyword) => {
 }
 
 .mobile-file-item {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -799,6 +801,14 @@ watch(() => route.query.keyword, (newKeyword) => {
   transform: scale(0.98);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   background: var(--el-fill-color-light);
+}
+
+html.dark .mobile-file-item {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+html.dark .mobile-file-item:active {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .mobile-item-content {
@@ -909,5 +919,62 @@ watch(() => route.query.keyword, (newKeyword) => {
     padding: 6px 12px;
     font-size: 12px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .square-container {
+  background: var(--card-bg);
+}
+
+html.dark .toolbar {
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .filter-bar {
+  background: var(--el-fill-color-light);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .file-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .file-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .file-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .type-radio-group :deep(.el-radio-button__inner) {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .type-radio-group :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--el-text-color-primary);
+}
+
+
+html.dark .toolbar-actions :deep(.el-button-group .el-button) {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .toolbar-actions :deep(.el-button-group .el-button.is-active) {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--el-text-color-primary);
+}
+
+
+html.dark .pagination {
+  border-top-color: var(--el-border-color);
 }
 </style>

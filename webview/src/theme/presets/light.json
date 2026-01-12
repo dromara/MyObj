@@ -1,0 +1,14 @@
+{
+  "name": "亮色预设",
+  "desc": "适用于日间使用的亮色主题预设",
+  "theme": "light",
+  "grayscale": false,
+  "colourWeakness": false,
+  "colors": {
+    "primary": "#2563eb",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#3b82f6"
+  }
+}

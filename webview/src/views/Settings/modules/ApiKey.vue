@@ -4,7 +4,7 @@
     <el-card shadow="never" class="generate-card">
       <template #header>
         <div class="card-header">
-          <span>生成新的 API Key</span>
+          <span>{{ t('settings.apiKey.generateNew') }}</span>
         </div>
       </template>
       
@@ -14,20 +14,20 @@
         label-width="120px"
         label-position="left"
       >
-        <el-form-item label="过期天数">
+        <el-form-item :label="t('settings.apiKey.expiresDays')">
           <el-input-number
             v-model="generateForm.expiresDays"
             :min="0"
             :max="365"
-            placeholder="0 表示永不过期"
+            :placeholder="t('settings.apiKey.expiresDaysPlaceholder')"
             style="width: 200px"
           />
-          <div class="form-tip">设置为 0 表示永不过期，最大 365 天</div>
+          <div class="form-tip">{{ t('settings.apiKey.expiresDaysTip') }}</div>
         </el-form-item>
         
         <el-form-item>
           <el-button type="primary" :loading="generating" @click="handleGenerate">
-            生成 API Key
+            {{ t('settings.apiKey.generate') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -35,7 +35,7 @@
       <!-- 生成结果 -->
       <el-alert
         v-if="newApiKey"
-        :title="`API Key 已生成（请妥善保管，仅显示一次）`"
+        :title="t('settings.apiKey.generatedTitle')"
         type="success"
         :closable="false"
         show-icon
@@ -44,7 +44,7 @@
         <template #default>
           <div class="api-key-result">
             <div class="key-item">
-              <span class="key-label">API Key:</span>
+              <span class="key-label">{{ t('settings.apiKey.apiKeyLabel') }}</span>
               <el-input
                 :value="newApiKey.key"
                 readonly
@@ -52,13 +52,13 @@
               >
                 <template #append>
                   <el-button @click="copyApiKey(newApiKey.key)" icon="CopyDocument">
-                    复制
+                    {{ t('settings.apiKey.copy') }}
                   </el-button>
                 </template>
               </el-input>
             </div>
             <div class="key-item">
-              <span class="key-label">公钥:</span>
+              <span class="key-label">{{ t('settings.apiKey.publicKeyLabel') }}</span>
               <div class="public-key-wrapper">
                 <el-input
                   :value="newApiKey.public_key"
@@ -72,13 +72,13 @@
                   icon="CopyDocument"
                   style="margin-top: 8px"
                 >
-                  复制公钥
+                  {{ t('settings.apiKey.copyPublicKey') }}
                 </el-button>
               </div>
             </div>
             <div class="key-tip">
               <el-icon><Warning /></el-icon>
-              <span>请妥善保管 API Key 和公钥，API Key 生成后无法再次查看</span>
+              <span>{{ t('settings.apiKey.warning') }}</span>
             </div>
           </div>
         </template>
@@ -89,7 +89,7 @@
     <el-card shadow="never" class="list-card" style="margin-top: 24px">
       <template #header>
         <div class="card-header">
-          <span>我的 API Key</span>
+          <span>{{ t('settings.apiKey.myApiKeys') }}</span>
           <el-button
             type="primary"
             size="small"
@@ -97,7 +97,7 @@
             :loading="loading"
             @click="loadApiKeys"
           >
-            刷新
+            {{ t('settings.apiKey.refresh') }}
           </el-button>
         </div>
       </template>
@@ -105,36 +105,36 @@
       <el-table
         v-loading="loading"
         :data="apiKeyList"
-        empty-text="暂无 API Key"
+        :empty-text="t('settings.apiKey.noApiKeys')"
         class="api-key-table"
       >
-        <el-table-column label="API Key" min-width="200">
+        <el-table-column :label="t('settings.apiKey.apiKeyLabel')" min-width="200">
           <template #default="{ row }">
             <code class="api-key-code">{{ row.key }}</code>
           </template>
         </el-table-column>
         
-        <el-table-column label="创建时间" width="180">
+        <el-table-column :label="t('settings.apiKey.createTime')" width="180">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
         
-        <el-table-column label="过期时间" width="180">
+        <el-table-column :label="t('settings.apiKey.expireTime')" width="180">
           <template #default="{ row }">
             <span v-if="row.expires_at && row.expires_at !== null">{{ formatDate(row.expires_at) }}</span>
-            <el-tag v-else type="success" size="small">永不过期</el-tag>
+            <el-tag v-else type="success" size="small">{{ t('settings.apiKey.neverExpires') }}</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="状态" width="100">
+        <el-table-column :label="t('settings.apiKey.status')" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.is_expired" type="danger" size="small">已过期</el-tag>
-            <el-tag v-else type="success" size="small">有效</el-tag>
+            <el-tag v-if="row.is_expired" type="danger" size="small">{{ t('settings.apiKey.expired') }}</el-tag>
+            <el-tag v-else type="success" size="small">{{ t('settings.apiKey.valid') }}</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column :label="t('common.operation')" width="100" fixed="right">
           <template #default="{ row }">
             <el-button
               type="danger"
@@ -143,7 +143,7 @@
               :loading="deletingIds.includes(row.id)"
               @click="handleDelete(row.id)"
             >
-              删除
+              {{ t('settings.apiKey.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -157,8 +157,10 @@ import { generateApiKey, listApiKeys, deleteApiKey } from '@/api/user'
 import { copyToClipboard } from '@/utils'
 import { formatDate } from '@/utils'
 import type { ApiKeyInfo, GenerateApiKeyResponse } from '@/api/user'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(false)
 const generating = ref(false)
@@ -179,10 +181,10 @@ const loadApiKeys = async () => {
     if (result.code === 200) {
       apiKeyList.value = result.data || []
     } else {
-      proxy?.$modal.msgError(result.message || '加载失败')
+      proxy?.$modal.msgError(result.message || t('settings.apiKey.loadFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '加载失败')
+    proxy?.$modal.msgError(error.message || t('settings.apiKey.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -199,16 +201,16 @@ const handleGenerate = async () => {
     
     if (result.code === 200) {
       newApiKey.value = result.data as GenerateApiKeyResponse
-      proxy?.$modal.msgSuccess('API Key 生成成功')
+      proxy?.$modal.msgSuccess(t('settings.apiKey.generateSuccess'))
       // 重新加载列表
       await loadApiKeys()
       // 重置表单
       generateForm.expiresDays = 0
     } else {
-      proxy?.$modal.msgError(result.message || '生成失败')
+      proxy?.$modal.msgError(result.message || t('settings.apiKey.generateFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '生成失败')
+    proxy?.$modal.msgError(error.message || t('settings.apiKey.generateFailed'))
   } finally {
     generating.value = false
   }
@@ -218,11 +220,11 @@ const handleGenerate = async () => {
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm(
-      '确定要删除此 API Key 吗？删除后将无法恢复，使用此 Key 的应用将无法继续访问。',
-      '删除 API Key',
+      t('settings.apiKey.deleteConfirm'),
+      t('settings.apiKey.deleteTitle'),
       {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
+        confirmButtonText: t('settings.apiKey.deleteConfirmButton'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
@@ -231,13 +233,13 @@ const handleDelete = async (id: number) => {
     try {
       const result = await deleteApiKey({ api_key_id: id })
       if (result.code === 200) {
-        proxy?.$modal.msgSuccess('删除成功')
+        proxy?.$modal.msgSuccess(t('settings.apiKey.deleteSuccess'))
         await loadApiKeys()
       } else {
-        proxy?.$modal.msgError(result.message || '删除失败')
+        proxy?.$modal.msgError(result.message || t('settings.apiKey.deleteFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '删除失败')
+      proxy?.$modal.msgError(error.message || t('settings.apiKey.deleteFailed'))
     } finally {
       deletingIds.value = deletingIds.value.filter(deleteId => deleteId !== id)
     }
@@ -250,9 +252,9 @@ const handleDelete = async (id: number) => {
 const copyApiKey = async (text: string) => {
   const success = await copyToClipboard(text)
   if (success) {
-    proxy?.$modal.msgSuccess('已复制到剪贴板')
+    proxy?.$modal.msgSuccess(t('settings.apiKey.copySuccess'))
   } else {
-    proxy?.$modal.msgError('复制失败')
+    proxy?.$modal.msgError(t('settings.apiKey.copyFailed'))
   }
 }
 
@@ -342,6 +344,98 @@ onMounted(() => {
   .api-key-code {
     font-size: 11px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .api-key-manager {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .generate-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .generate-card :deep(.el-card__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .generate-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .list-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .list-card :deep(.el-card__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .list-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .card-header {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .form-tip {
+  color: var(--el-text-color-secondary);
+}
+
+html.dark .key-label {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .key-input :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .key-input :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .key-input :deep(.el-textarea__inner) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .key-tip {
+  background: var(--el-warning-color-light-9);
+  color: var(--el-warning-color);
+}
+
+html.dark .api-key-table {
+  background: var(--card-bg);
+}
+
+html.dark .api-key-table :deep(.el-table__header-wrapper) {
+  background: var(--el-bg-color-page);
+}
+
+html.dark .api-key-table :deep(.el-table__header th) {
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .api-key-table :deep(.el-table__body tr) {
+  background: var(--card-bg);
+}
+
+html.dark .api-key-table :deep(.el-table__body tr:hover > td) {
+  background: var(--el-fill-color-light);
+}
+
+html.dark .api-key-code {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
 }
 </style>
 

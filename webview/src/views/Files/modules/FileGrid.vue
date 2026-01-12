@@ -14,14 +14,14 @@
           <el-button icon="More" circle text />
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-              <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+              <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+              <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
       <div class="file-icon">
-        <el-icon :size="64" color="#409EFF">
+        <el-icon :size="64" class="folder-icon">
           <Folder />
         </el-icon>
       </div>
@@ -57,19 +57,19 @@
                 command="preview" 
                 icon="View"
               >
-                预览
+                {{ t('files.preview') }}
               </el-dropdown-item>
-              <el-dropdown-item command="download" icon="Download">下载</el-dropdown-item>
-              <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-              <el-dropdown-item command="share" icon="Share">分享</el-dropdown-item>
+              <el-dropdown-item command="download" icon="Download">{{ t('files.download') }}</el-dropdown-item>
+              <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+              <el-dropdown-item command="share" icon="Share">{{ t('files.share') }}</el-dropdown-item>
               <el-dropdown-item 
                 v-if="!file.is_enc"
                 :command="file.public ? 'setPrivate' : 'setPublic'" 
                 :icon="file.public ? 'Lock' : 'Unlock'"
               >
-                {{ file.public ? '取消公开' : '设为公开' }}
+                {{ file.public ? t('files.cancelPublic') : t('files.setPublic') }}
               </el-dropdown-item>
-              <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+              <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -93,7 +93,7 @@
           </el-tag>
           <el-tag v-if="file.public" size="small" type="success" class="public-tag" effect="plain">
             <el-icon><Share /></el-icon>
-            公开
+            {{ t('share.public') }}
           </el-tag>
         </div>
       </div>
@@ -106,6 +106,9 @@ import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
 import { isPreviewable } from '@/utils/preview'
 import type { FileItem, FolderItem } from '@/types'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 defineProps<{
   folders: FolderItem[]
@@ -156,15 +159,33 @@ const handleFileAction = (command: string, file: FileItem) => {
 }
 
 .file-card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 16px;
   padding: 12px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 2px solid transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  /* 增强阴影层次 */
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.04);
   position: relative;
   overflow: hidden;
+  /* 添加渐变边框效果 */
+  background-image: 
+    linear-gradient(var(--card-bg), var(--card-bg)),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(79, 70, 229, 0.05));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+html.dark .file-card {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+  background-image: 
+    linear-gradient(var(--card-bg), var(--card-bg)),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
 }
 
 .file-card-actions {
@@ -196,10 +217,41 @@ const handleFileAction = (command: string, file: FileItem) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+html.dark .preview-btn {
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .file-card-actions .el-button {
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 .file-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 24px -8px rgba(0,0,0,0.08);
+  transform: translateY(-6px) scale(1.03);
+  background: var(--card-hover-bg);
+  /* 增强 hover 阴影效果 */
+  box-shadow: 
+    0 8px 24px rgba(37, 99, 235, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.04);
+  border-color: rgba(37, 99, 235, 0.3);
   z-index: 1; /* 降低z-index，避免覆盖工具栏 */
+  /* hover 时的背景渐变 */
+  background-image: 
+    linear-gradient(var(--card-hover-bg), var(--card-hover-bg)),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(79, 70, 229, 0.15));
+}
+
+html.dark .file-card:hover {
+  box-shadow: 
+    0 8px 24px rgba(59, 130, 246, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  background-image: 
+    linear-gradient(var(--card-hover-bg), var(--card-hover-bg)),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2));
 }
 
 /* 文件夹卡片特殊样式 */
@@ -208,14 +260,113 @@ const handleFileAction = (command: string, file: FileItem) => {
   border-color: rgba(64, 158, 255, 0.3);
 }
 
+html.dark .folder-card:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
 .folder-card:hover .file-icon {
   transform: scale(1.15);
 }
 
 .file-card.selected {
   border-color: var(--primary-color);
-  background: rgba(37, 99, 235, 0.04);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  border-width: 2px;
+  background: linear-gradient(rgba(37, 99, 235, 0.06), rgba(37, 99, 235, 0.03));
+  /* 选中状态的阴影和光晕效果 */
+  box-shadow: 
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    0 8px 24px rgba(37, 99, 235, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+  /* 选中动画 */
+  animation: selectedPulse 0.3s ease-out;
+}
+
+html.dark .file-card.selected {
+  background: linear-gradient(rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.06));
+  box-shadow: 
+    0 0 0 4px rgba(59, 130, 246, 0.2),
+    0 8px 24px rgba(59, 130, 246, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 选中状态的光晕动画 */
+.file-card.selected::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: radial-gradient(
+    circle at center,
+    rgba(37, 99, 235, 0.2) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+  animation: glow 2s ease-in-out infinite;
+}
+
+html.dark .file-card.selected::after {
+  background: radial-gradient(
+    circle at center,
+    rgba(59, 130, 246, 0.3) 0%,
+    transparent 70%
+  );
+}
+
+@keyframes selectedPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 0 2px rgba(37, 99, 235, 0.1),
+      0 4px 12px rgba(37, 99, 235, 0.1);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 
+      0 0 0 4px rgba(37, 99, 235, 0.15),
+      0 8px 24px rgba(37, 99, 235, 0.2);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 0 4px rgba(37, 99, 235, 0.12),
+      0 8px 24px rgba(37, 99, 235, 0.15);
+  }
+}
+
+html.dark .file-card.selected {
+  animation: selectedPulseDark 0.3s ease-out;
+}
+
+@keyframes selectedPulseDark {
+  0% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 0 2px rgba(59, 130, 246, 0.2),
+      0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 
+      0 0 0 4px rgba(59, 130, 246, 0.25),
+      0 8px 24px rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 0 4px rgba(59, 130, 246, 0.2),
+      0 8px 24px rgba(59, 130, 246, 0.25);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .file-icon {
@@ -268,9 +419,13 @@ const handleFileAction = (command: string, file: FileItem) => {
   justify-content: center;
 }
 
+.folder-icon {
+  color: var(--el-color-primary);
+}
+
 .enc-tag {
   border: none;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--warning-color) 0%, var(--warning-color) 100%);
   color: white;
   font-size: 11px;
   padding: 2px 6px;
@@ -281,9 +436,9 @@ const handleFileAction = (command: string, file: FileItem) => {
 }
 
 .public-tag {
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid var(--success-color);
   background: rgba(16, 185, 129, 0.08);
-  color: #10b981;
+  color: var(--success-color);
   font-size: 11px;
   padding: 2px 6px;
   height: 18px;
@@ -303,8 +458,13 @@ const handleFileAction = (command: string, file: FileItem) => {
 }
 
 .public-tag .el-icon {
-  color: #10b981;
+  color: var(--success-color);
   flex-shrink: 0;
+}
+
+html.dark .public-tag {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .public-tag :deep(.el-tag__content) {

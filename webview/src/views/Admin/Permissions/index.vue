@@ -2,16 +2,16 @@
   <div class="admin-permissions">
     <div class="toolbar">
       <div class="toolbar-left">
-        <el-button type="primary" icon="Plus" @click="handleCreate">新建权限</el-button>
+        <el-button type="primary" icon="Plus" @click="handleCreate">{{ t('admin.permissions.newPermission') }}</el-button>
         <el-button 
           type="danger" 
           icon="Delete" 
           :disabled="selectedRows.length === 0"
           @click="handleBatchDelete"
         >
-          批量删除 ({{ selectedRows.length }})
+          {{ t('admin.permissions.batchDeleteWithCount', { count: selectedRows.length }) }}
         </el-button>
-        <el-button icon="Refresh" @click="loadPowerList">刷新</el-button>
+        <el-button icon="Refresh" @click="loadPowerList">{{ t('common.refresh') }}</el-button>
       </div>
     </div>
 
@@ -19,34 +19,34 @@
       :data="powerList"
       v-loading="loading"
       class="admin-table"
-      empty-text="暂无权限"
+      :empty-text="t('admin.permissions.noPermissions')"
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="权限名称" min-width="150" />
-      <el-table-column prop="description" label="描述" min-width="200" />
-      <el-table-column prop="characteristic" label="特征码" min-width="200">
+      <el-table-column prop="name" :label="t('admin.permissions.permissionName')" min-width="150" />
+      <el-table-column prop="description" :label="t('admin.permissions.description')" min-width="200" />
+      <el-table-column prop="characteristic" :label="t('admin.permissions.characteristic')" min-width="200">
         <template #default="{ row }">
           <code style="font-size: 12px; color: var(--el-color-primary);">{{ row.characteristic }}</code>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column prop="created_at" :label="t('admin.users.createTime')" width="180" />
+      <el-table-column :label="t('admin.users.operation')" width="150" fixed="right">
         <template #default="{ row }">
           <el-button 
             link 
             type="primary" 
             @click="handleEdit(row)"
           >
-            编辑
+            {{ t('admin.users.edit') }}
           </el-button>
           <el-button 
             link 
             type="danger" 
             @click="handleDelete(row)"
           >
-            删除
+            {{ t('admin.users.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -68,27 +68,27 @@
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item label="权限名称" prop="name">
-          <el-input v-model="formData.name" placeholder="请输入权限名称" />
+        <el-form-item :label="t('admin.permissions.permissionName')" prop="name">
+          <el-input v-model="formData.name" :placeholder="t('admin.permissions.permissionNamePlaceholder')" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
+        <el-form-item :label="t('admin.permissions.description')" prop="description">
           <el-input 
             v-model="formData.description" 
             type="textarea" 
             :rows="3"
-            placeholder="请输入权限描述" 
+            :placeholder="t('admin.permissions.descriptionPlaceholder')" 
           />
         </el-form-item>
-        <el-form-item label="特征码" prop="characteristic">
+        <el-form-item :label="t('admin.permissions.characteristic')" prop="characteristic">
           <el-input 
             v-model="formData.characteristic" 
-            placeholder="请输入权限特征码" 
+            :placeholder="t('admin.permissions.characteristicPlaceholder')" 
           />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -108,15 +108,17 @@ import {
 } from '@/api/admin'
 import type { FormRules, FormInstance } from 'element-plus'
 import { useResponsive } from '@/composables/useResponsive'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const { isMobile, isPhone } = useResponsive()
+const { t } = useI18n()
 
 const loading = ref(false)
 const powerList = ref<AdminPower[]>([])
 const selectedRows = ref<AdminPower[]>([])
 const showDialog = ref(false)
-const dialogTitle = ref('新建权限')
+const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
 const isEdit = ref(false)
 const formData = ref<CreatePowerRequest & { id?: number }>({
@@ -141,13 +143,13 @@ const dialogWidth = computed(() => {
 
 const formRules: FormRules = {
   name: [
-    { required: true, message: '请输入权限名称', trigger: 'blur' }
+    { required: true, message: t('admin.permissions.permissionNameRequired'), trigger: 'blur' }
   ],
   description: [
-    { required: true, message: '请输入权限描述', trigger: 'blur' }
+    { required: true, message: t('admin.permissions.descriptionRequired'), trigger: 'blur' }
   ],
   characteristic: [
-    { required: true, message: '请输入权限特征码', trigger: 'blur' }
+    { required: true, message: t('admin.permissions.characteristicRequired'), trigger: 'blur' }
   ]
 }
 
@@ -163,12 +165,12 @@ const loadPowerList = async () => {
       powerList.value = res.data.powers || []
       pagination.total = res.data.total || 0
     } else {
-      proxy?.$modal.msgError('加载权限列表失败')
+      proxy?.$modal.msgError(t('admin.permissions.loadListFailed'))
       powerList.value = []
       pagination.total = 0
     }
   } catch (error: any) {
-    proxy?.$modal.msgError('加载权限列表失败')
+    proxy?.$modal.msgError(t('admin.permissions.loadListFailed'))
     proxy?.$log?.error(error)
     powerList.value = []
     pagination.total = 0
@@ -187,7 +189,7 @@ const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
 // 新建权限
 const handleCreate = () => {
   isEdit.value = false
-  dialogTitle.value = '新建权限'
+  dialogTitle.value = t('admin.permissions.newPermission')
   formData.value = {
     name: '',
     description: '',
@@ -202,7 +204,7 @@ const handleCreate = () => {
 // 编辑权限
 const handleEdit = (row: AdminPower) => {
   isEdit.value = true
-  dialogTitle.value = '编辑权限'
+  dialogTitle.value = t('admin.permissions.editPermission')
   formData.value = {
     id: row.id,
     name: row.name,
@@ -222,17 +224,17 @@ const handleSelectionChange = (selection: AdminPower[]) => {
 
 // 删除权限
 const handleDelete = (row: AdminPower) => {
-  proxy?.$modal.confirm(`确定要删除权限 "${row.name}" 吗？`).then(async () => {
+  proxy?.$modal.confirm(t('admin.permissions.confirmDelete', { name: row.name })).then(async () => {
     try {
       const res = await deleteAdminPower(row.id)
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess('删除成功')
+        proxy?.$modal.msgSuccess(t('admin.users.deleteSuccess'))
         loadPowerList()
       } else {
-        proxy?.$modal.msgError(res.message || '删除失败')
+        proxy?.$modal.msgError(res.message || t('admin.users.deleteFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.response?.data?.message || '删除失败')
+      proxy?.$modal.msgError(error.response?.data?.message || t('admin.users.deleteFailed'))
       proxy?.$log?.error(error)
     }
   }).catch(() => {})
@@ -241,24 +243,24 @@ const handleDelete = (row: AdminPower) => {
 // 批量删除权限
 const handleBatchDelete = () => {
   if (selectedRows.value.length === 0) {
-    proxy?.$modal.msgWarning('请选择要删除的权限')
+    proxy?.$modal.msgWarning(t('admin.permissions.pleaseSelectDelete'))
     return
   }
 
   const names = selectedRows.value.map(row => row.name).join('、')
-  proxy?.$modal.confirm(`确定要删除选中的 ${selectedRows.value.length} 个权限吗？\n${names}`).then(async () => {
+  proxy?.$modal.confirm(t('admin.permissions.confirmBatchDelete', { count: selectedRows.value.length }) + `\n${names}`).then(async () => {
     try {
       const ids = selectedRows.value.map(row => row.id)
       const res = await batchDeleteAdminPower({ ids })
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess(res.message || '批量删除成功')
+        proxy?.$modal.msgSuccess(res.message || t('admin.permissions.batchDeleteSuccess'))
         selectedRows.value = []
         loadPowerList()
       } else {
-        proxy?.$modal.msgError(res.message || '批量删除失败')
+        proxy?.$modal.msgError(res.message || t('admin.permissions.batchDeleteFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.response?.data?.message || '批量删除失败')
+      proxy?.$modal.msgError(error.response?.data?.message || t('admin.permissions.batchDeleteFailed'))
       proxy?.$log?.error(error)
     }
   }).catch(() => {})
@@ -275,24 +277,24 @@ const handleSubmit = async () => {
       if (isEdit.value) {
         const res = await updateAdminPower(formData.value as UpdatePowerRequest)
         if (res.code === 200) {
-          proxy?.$modal.msgSuccess('更新成功')
+          proxy?.$modal.msgSuccess(t('admin.users.updateSuccess'))
           showDialog.value = false
           loadPowerList()
         } else {
-          proxy?.$modal.msgError(res.message || '更新失败')
+          proxy?.$modal.msgError(res.message || t('admin.users.updateFailed'))
         }
       } else {
         const res = await createAdminPower(formData.value as CreatePowerRequest)
         if (res.code === 200) {
-          proxy?.$modal.msgSuccess('创建成功')
+          proxy?.$modal.msgSuccess(t('admin.users.createSuccess'))
           showDialog.value = false
           loadPowerList()
         } else {
-          proxy?.$modal.msgError(res.message || '创建失败')
+          proxy?.$modal.msgError(res.message || t('admin.users.createFailed'))
         }
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.response?.data?.message || (isEdit.value ? '更新失败' : '创建失败'))
+      proxy?.$modal.msgError(error.response?.data?.message || (isEdit.value ? t('admin.users.updateFailed') : t('admin.users.createFailed')))
       proxy?.$log?.error(error)
     }
   })
@@ -483,5 +485,52 @@ onMounted(() => {
   .admin-permissions :deep(.el-textarea) {
     font-size: 14px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .admin-permissions {
+  background: transparent;
+}
+
+html.dark .pagination-container {
+  border-top-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-textarea__inner) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-primary);
 }
 </style>

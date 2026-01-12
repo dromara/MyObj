@@ -11,57 +11,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick, getCurrentInstance } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, getCurrentInstance, computed } from 'vue'
 // @ts-ignore - plyr 类型定义可能不完整
 import Plyr from 'plyr'
 import 'plyr/dist/plyr.css'
+import { useI18n } from '@/composables/useI18n'
 
-// Plyr 中文 i18n 配置
-const plyrI18nZh = {
-  restart: '重新开始',
-  rewind: '后退 {seektime} 秒',
-  play: '播放',
-  pause: '暂停',
-  fastForward: '快进 {seektime} 秒',
-  seek: '跳转',
-  seekLabel: '{currentTime} / {duration}',
-  played: '已播放',
-  buffered: '已缓冲',
-  currentTime: '当前时间',
-  duration: '总时长',
-  volume: '音量',
-  mute: '静音',
-  unmute: '取消静音',
-  enableCaptions: '启用字幕',
-  disableCaptions: '禁用字幕',
-  download: '下载',
-  enterFullscreen: '进入全屏',
-  exitFullscreen: '退出全屏',
-  frameTitle: '{title} 播放器',
-  captions: '字幕',
-  settings: '设置',
-  pip: '画中画',
-  menuBack: '返回上一级菜单',
-  speed: '播放速度',
-  normal: '正常',
-  quality: '画质',
-  loop: '循环播放',
-  start: '开始',
-  end: '结束',
-  all: '全部',
-  reset: '重置',
-  disabled: '已禁用',
-  enabled: '已启用',
-  advertisement: '广告',
-  qualityBadge: {
-    2160: '4K',
-    1440: 'HD',
-    1080: 'HD',
-    720: 'HD',
-    576: 'SD',
-    480: 'SD',
-  },
-}
+const { t } = useI18n()
+
+// 根据当前语言获取 Plyr i18n 配置
+const plyrI18n = computed(() => {
+  const plyrKeys = [
+    'restart', 'rewind', 'play', 'pause', 'fastForward', 'seek', 'seekLabel',
+    'played', 'buffered', 'currentTime', 'duration', 'volume', 'mute', 'unmute',
+    'enableCaptions', 'disableCaptions', 'download', 'enterFullscreen', 'exitFullscreen',
+    'frameTitle', 'captions', 'settings', 'pip', 'menuBack', 'speed', 'normal',
+    'quality', 'loop', 'start', 'end', 'all', 'reset', 'disabled', 'enabled', 'advertisement'
+  ]
+  
+  const i18n: Record<string, any> = {}
+  plyrKeys.forEach(key => {
+    i18n[key] = t(`plyr.${key}`)
+  })
+  
+  // 处理 qualityBadge
+  i18n.qualityBadge = {
+    '2160': t('plyr.qualityBadge.2160'),
+    '1440': t('plyr.qualityBadge.1440'),
+    '1080': t('plyr.qualityBadge.1080'),
+    '720': t('plyr.qualityBadge.720'),
+    '576': t('plyr.qualityBadge.576'),
+    '480': t('plyr.qualityBadge.480')
+  }
+  
+  return i18n
+})
 
 interface Props {
   src: string
@@ -114,7 +98,7 @@ const initPlyr = async () => {
     clickToPlay: true,
     hideControls: true,
     resetOnEnd: false,
-    i18n: plyrI18nZh, // 设置中文界面
+    i18n: plyrI18n.value, // 根据当前语言设置界面
     ...props.options // 允许外部传入自定义选项
   })
 
@@ -132,7 +116,7 @@ const initPlyr = async () => {
   // 错误处理
   plyrInstance.on('error', (event: any) => {
     const detail = event.detail
-    const errorMessage = detail?.message || '视频播放错误'
+    const errorMessage = detail?.message || t('plyr.playError')
     emit('error', errorMessage)
     proxy?.$log?.error('Plyr 播放错误', detail)
   })
@@ -211,7 +195,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   position: relative;
-  background: #000;
+  background: var(--el-bg-color-page, #000);
   border-radius: 8px;
   overflow: hidden;
 }

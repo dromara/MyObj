@@ -1,10 +1,12 @@
 import { getFileList, getThumbnail } from '@/api/file'
+import { useI18n } from '@/composables/useI18n'
 import type { FileListResponse } from '@/types'
 
 export function useFileList() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const router = useRouter()
   const route = useRoute()
+  const { t } = useI18n()
 
   const fileListData = ref<FileListResponse>({
     breadcrumbs: [],
@@ -20,6 +22,7 @@ export function useFileList() {
   const pageSize = ref(20)
   const currentPath = ref<string>('')
   const thumbnailCache = ref<Map<string, string>>(new Map())
+  const loading = ref(false)
 
   const breadcrumbs = computed(() => fileListData.value.breadcrumbs)
 
@@ -27,12 +30,13 @@ export function useFileList() {
     if (!name) return ''
     let formatted = name.replace(/^\/+/, '')
     if (formatted === 'home' || formatted === '') {
-      return '首页'
+      return t('files.home')
     }
     return formatted
   }
 
   const loadFileList = async () => {
+    loading.value = true
     try {
       const res = await getFileList({
         virtualPath: currentPath.value,
@@ -58,7 +62,7 @@ export function useFileList() {
               }
             } catch (error) {
               // 缩略图加载失败不影响主流程
-              proxy?.$log.warn(`缩略图加载失败: ${file.file_id}`, error)
+              proxy?.$log.warn(t('files.thumbnailLoadFailed') + `: ${file.file_id}`, error)
             }
           })
         
@@ -67,11 +71,13 @@ export function useFileList() {
           // 静默处理错误
         })
       } else {
-        proxy?.$modal.msgError(res.message || '加载失败')
+        proxy?.$modal.msgError(res.message || t('files.loadFailed'))
       }
     } catch (error) {
-      proxy?.$modal.msgError('加载文件列表失败')
+      proxy?.$modal.msgError(t('files.loadFileListFailed'))
       proxy?.$log.error(error)
+    } finally {
+      loading.value = false
     }
   }
 
@@ -127,7 +133,8 @@ export function useFileList() {
     navigateToPath,
     getThumbnailUrl,
     handlePageChange,
-    handleSizeChange
+    handleSizeChange,
+    loading
   }
 }
 

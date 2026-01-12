@@ -25,80 +25,87 @@ const routes: RouteRecordRaw[] = [
         path: '/files',
         name: 'Files',
         component: () => import('@/views/Files/index.vue'),
-        meta: { title: '我的文件' }
+        meta: { title: '我的文件', i18nKey: 'route.files' }
       },
       {
         path: '/shares',
         name: 'Shares',
         component: () => import('@/views/Shares/index.vue'),
-        meta: { title: '我的分享' }
+        meta: { title: '我的分享', i18nKey: 'route.shares' }
       },
       {
         path: '/offline',
         name: 'Offline',
         component: () => import('@/views/Offline/index.vue'),
-        meta: { title: '离线下载' }
+        meta: { title: '离线下载', i18nKey: 'route.offline' }
       },
       {
         path: '/tasks',
         name: 'Tasks',
         component: () => import('@/views/Tasks/index.vue'),
-        meta: { title: '任务中心' }
+        meta: { title: '任务中心', i18nKey: 'route.tasks' }
       },
       {
         path: '/trash',
         name: 'Trash',
         component: () => import('@/views/Trash/index.vue'),
-        meta: { title: '回收站' }
+        meta: { title: '回收站', i18nKey: 'route.trash' }
       },
       {
         path: '/square',
         name: 'Square',
         component: () => import('@/views/Square/index.vue'),
-        meta: { title: '文件广场' }
+        meta: { title: '文件广场', i18nKey: 'route.square' }
       },
       {
         path: '/settings',
         name: 'Settings',
         component: () => import('@/views/Settings/index.vue'),
-        meta: { title: '系统设置' }
+        meta: { title: '系统设置', i18nKey: 'route.settings' }
       },
+      // 协作功能暂时隐藏
+      // {
+      //   path: '/collaboration',
+      //   name: 'Collaboration',
+      //   component: () => import('@/views/Collaboration/index.vue'),
+      //   meta: { title: '协作', i18nKey: 'route.collaboration' }
+      // },
       {
         path: '/admin',
         name: 'Admin',
         component: () => import('@/views/Admin/index.vue'),
-        meta: { title: '系统管理', requiresAdmin: true },
+        meta: { title: '系统管理', i18nKey: 'route.admin', requiresAdmin: true },
         redirect: '/admin/users',
         children: [
           {
             path: 'users',
             name: 'AdminUsers',
             component: () => import('@/views/Admin/Users/index.vue'),
-            meta: { title: '用户管理' }
+            meta: { title: '用户管理', i18nKey: 'route.adminUsers' }
           },
           {
             path: 'groups',
             name: 'AdminGroups',
             component: () => import('@/views/Admin/Groups/index.vue'),
-            meta: { title: '组管理' }
+            meta: { title: '组管理', i18nKey: 'route.adminGroups' }
           },
           {
             path: 'permissions',
             name: 'AdminPermissions',
             component: () => import('@/views/Admin/Permissions/index.vue'),
-            meta: { title: '权限管理' }
+            meta: { title: '权限管理', i18nKey: 'route.adminPermissions' }
           },
           {
             path: 'disks',
             name: 'AdminDisks',
             component: () => import('@/views/Admin/Disks/index.vue'),
-            meta: { title: '磁盘管理' }
+            meta: { title: '磁盘管理', i18nKey: 'route.adminDisks' }
           },
           {
             path: 'system',
             name: 'AdminSystem',
             component: () => import('@/views/Admin/System/index.vue'),
-            meta: { title: '系统配置' }
+            meta: { title: '系统配置', i18nKey: 'route.adminSystem' }
           }
         ]
       }
@@ -135,6 +142,14 @@ router.beforeEach(async (to, _from, next) => {
   } else {
     next()
   }
+})
+
+// 路由后置守卫：更新文档标题
+router.afterEach(() => {
+  import('@/stores/app').then(({ useAppStore }) => {
+    const appStore = useAppStore()
+    appStore.updateDocumentTitle()
+  })
 })
 
 export default router

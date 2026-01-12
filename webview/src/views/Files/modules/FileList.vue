@@ -9,7 +9,7 @@
       class="file-table"
     >
     <el-table-column type="selection" width="55" class-name="mobile-hide" />
-    <el-table-column label="名称" min-width="300" class-name="mobile-name-column">
+    <el-table-column :label="t('trash.name')" min-width="300" class-name="mobile-name-column">
       <template #default="{ row }">
         <div 
           class="file-name-cell" 
@@ -18,7 +18,7 @@
           @dblclick="handleRowDblClick(row)"
         >
           <!-- 文件夹图标 -->
-          <el-icon v-if="row.isFolder" :size="32" color="#409EFF" class="folder-icon">
+          <el-icon v-if="row.isFolder" :size="32" class="folder-icon">
             <Folder />
           </el-icon>
           <!-- 文件图标 -->
@@ -43,28 +43,28 @@
             <div v-if="!row.isFolder" class="file-tags-inline">
               <el-tag v-if="row.is_enc" size="small" type="warning" class="enc-tag-inline">
                 <el-icon :size="12"><Lock /></el-icon>
-                加密
+                {{ t('trash.encrypted') }}
               </el-tag>
               <el-tag v-if="row.public" size="small" type="success" class="public-tag-inline" effect="plain">
                 <el-icon :size="12"><Share /></el-icon>
-                公开
+                {{ t('share.public') }}
               </el-tag>
             </div>
           </div>
         </div>
       </template>
     </el-table-column>
-    <el-table-column label="大小" width="120" class-name="mobile-hide">
+    <el-table-column :label="t('trash.size')" width="120" class-name="mobile-hide">
       <template #default="{ row }">
         {{ row.isFolder ? '-' : formatSize(row.file_size) }}
       </template>
     </el-table-column>
-    <el-table-column label="创建时间" width="180" class-name="mobile-hide">
+    <el-table-column :label="t('admin.users.createTime')" width="180" class-name="mobile-hide">
       <template #default="{ row }">
         {{ formatDate(row.isFolder ? row.created_time : row.created_at) }}
       </template>
     </el-table-column>
-    <el-table-column label="操作" width="120" fixed="right" class-name="mobile-actions-column" align="center">
+    <el-table-column :label="t('admin.users.operation')" width="120" fixed="right" class-name="mobile-actions-column" align="center">
       <template #default="{ row }">
         <div class="action-buttons">
           <!-- 移动端：显示预览按钮（如果可预览） -->
@@ -87,23 +87,23 @@
                     command="preview" 
                     icon="View"
                   >
-                    预览
+                    {{ t('files.preview') }}
                   </el-dropdown-item>
-                  <el-dropdown-item command="download" icon="Download">下载</el-dropdown-item>
-                  <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-                  <el-dropdown-item command="share" icon="Share">分享</el-dropdown-item>
+                  <el-dropdown-item command="download" icon="Download">{{ t('files.download') }}</el-dropdown-item>
+                  <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+                  <el-dropdown-item command="share" icon="Share">{{ t('files.share') }}</el-dropdown-item>
                   <el-dropdown-item 
                     v-if="!row.is_enc"
                     :command="row.public ? 'setPrivate' : 'setPublic'" 
                     :icon="row.public ? 'Lock' : 'Unlock'"
                   >
-                    {{ row.public ? '取消公开' : '设为公开' }}
+                    {{ row.public ? t('files.cancelPublic') : t('files.setPublic') }}
                   </el-dropdown-item>
-                  <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+                  <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
                 </template>
                 <template v-else>
-                  <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-                  <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+                  <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
                 </template>
               </el-dropdown-menu>
             </template>
@@ -125,7 +125,7 @@
         <div class="mobile-item-content">
           <div class="mobile-item-icon">
             <!-- 文件夹图标 -->
-            <el-icon v-if="row.isFolder" :size="40" color="#409EFF">
+            <el-icon v-if="row.isFolder" :size="40" class="mobile-folder-icon">
               <Folder />
             </el-icon>
             <!-- 文件图标 -->
@@ -152,11 +152,11 @@
               <div v-if="!row.isFolder" class="mobile-file-tags">
                 <el-tag v-if="row.is_enc" size="small" type="warning" class="mobile-enc-tag">
                   <el-icon :size="10"><Lock /></el-icon>
-                  加密
+                  {{ t('trash.encrypted') }}
                 </el-tag>
                 <el-tag v-if="row.public" size="small" type="success" class="mobile-public-tag">
                   <el-icon :size="10"><Share /></el-icon>
-                  公开
+                  {{ t('share.public') }}
                 </el-tag>
               </div>
             </div>
@@ -186,23 +186,23 @@
                       command="preview"
                       icon="View"
                     >
-                      预览
+                      {{ t('files.preview') }}
                     </el-dropdown-item>
-                    <el-dropdown-item command="download" icon="Download">下载</el-dropdown-item>
-                    <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-                    <el-dropdown-item command="share" icon="Share">分享</el-dropdown-item>
+                    <el-dropdown-item command="download" icon="Download">{{ t('files.download') }}</el-dropdown-item>
+                    <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+                    <el-dropdown-item command="share" icon="Share">{{ t('files.share') }}</el-dropdown-item>
                     <el-dropdown-item 
                       v-if="!row.is_enc"
                       :command="row.public ? 'setPrivate' : 'setPublic'" 
                       :icon="row.public ? 'Lock' : 'Unlock'"
                     >
-                      {{ row.public ? '取消公开' : '设为公开' }}
+                      {{ row.public ? t('files.cancelPublic') : t('files.setPublic') }}
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
                   </template>
                   <template v-else>
-                    <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-                    <el-dropdown-item command="delete" icon="Delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="rename" icon="Edit">{{ t('files.rename') }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
                   </template>
                 </el-dropdown-menu>
               </template>
@@ -219,6 +219,9 @@ import { formatSize, formatDate } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
 import { isPreviewable } from '@/utils/preview'
 import type { FileItem, FileListResponse, FolderItem } from '@/types'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   fileListData: FileListResponse
@@ -432,9 +435,17 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
   white-space: nowrap;
 }
 
+.folder-icon {
+  color: var(--el-color-primary);
+}
+
+.mobile-folder-icon {
+  color: var(--el-color-primary);
+}
+
 .enc-tag-inline {
   border: none;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--warning-color) 0%, var(--warning-color) 100%);
   color: white;
   font-size: 11px;
   padding: 2px 8px;
@@ -447,9 +458,9 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
 }
 
 .public-tag-inline {
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid var(--success-color);
   background: rgba(16, 185, 129, 0.08);
-  color: #10b981;
+  color: var(--success-color);
   font-size: 11px;
   padding: 2px 6px;
   height: 20px;
@@ -481,7 +492,7 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
 }
 
 .public-tag-inline .el-icon {
-  color: #10b981;
+  color: var(--success-color);
 }
 
 .list-file-icon {
@@ -565,12 +576,16 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
 }
 
 .mobile-file-item {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
   border: 2px solid transparent;
+}
+
+html.dark .mobile-file-item {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .mobile-file-item:active {
@@ -648,7 +663,7 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
 
 .mobile-enc-tag {
   border: none;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--warning-color) 0%, var(--warning-color) 100%);
   color: white;
   font-size: 10px;
   padding: 2px 6px;
@@ -660,7 +675,7 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
 
 .mobile-public-tag {
   border: none;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--success-color) 0%, var(--success-color) 100%);
   color: white;
   font-size: 10px;
   padding: 2px 6px;
@@ -720,6 +735,43 @@ const handleAction = (command: string, row: FileItem | (FolderItem & { isFolder:
     font-size: 11px;
     gap: 8px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .file-table {
+  background: var(--card-bg);
+}
+
+html.dark .file-table :deep(.el-table__header-wrapper) {
+  background: var(--el-bg-color-page);
+}
+
+html.dark .file-table :deep(.el-table__header th) {
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .file-table :deep(.el-table__body tr) {
+  background: var(--card-bg);
+}
+
+html.dark .file-table :deep(.el-table__body tr:hover > td) {
+  background: var(--el-fill-color-light);
+}
+
+html.dark .file-table :deep(.el-dropdown-menu) {
+  background: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .file-table :deep(.el-dropdown-menu__item) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .file-table :deep(.el-dropdown-menu__item:hover) {
+  background: var(--el-fill-color-light);
+  color: var(--primary-color);
 }
 </style>
 

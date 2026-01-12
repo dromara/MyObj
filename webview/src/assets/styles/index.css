@@ -19,6 +19,9 @@
 /* 工具类和动画 */
 @import './utilities.css';
 
+/* 复杂动画效果 */
+@import './animations.css';
+
 /* 响应式样式（移动端和平板端） */
 @import './responsive.css';
 

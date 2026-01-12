@@ -4,30 +4,30 @@
       <template #header>
         <div class="card-header">
           <el-icon><Setting /></el-icon>
-          <span>系统配置</span>
+          <span>{{ t('admin.system.title') }}</span>
         </div>
       </template>
       
       <el-form :model="configData" label-width="150px" v-loading="loading">
-        <el-form-item label="允许用户注册">
+        <el-form-item :label="t('admin.system.allowRegister')">
           <el-switch 
             v-model="configData.allow_register"
-            style="--el-switch-off-color: #f56c6c"
+            style="--el-switch-off-color: var(--el-color-danger)"
           />
-          <div class="form-tip">关闭后，新用户将无法注册账号</div>
+          <div class="form-tip">{{ t('admin.system.allowRegisterTip') }}</div>
         </el-form-item>
         
-        <el-form-item label="启用 WebDAV">
+        <el-form-item :label="t('admin.system.enableWebDAV')">
           <el-switch 
             v-model="configData.webdav_enabled"
-            style="--el-switch-off-color: #f56c6c"
+            style="--el-switch-off-color: var(--el-color-danger)"
           />
-          <div class="form-tip">启用后，用户可以通过 WebDAV 协议访问文件</div>
+          <div class="form-tip">{{ t('admin.system.enableWebDAVTip') }}</div>
         </el-form-item>
         
         <el-form-item class="button-form-item">
-          <el-button type="primary" :loading="saving" @click="handleSave">保存配置</el-button>
-          <el-button @click="loadConfig">重置</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">{{ t('admin.system.saveConfig') }}</el-button>
+          <el-button @click="loadConfig">{{ t('admin.system.reset') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -36,22 +36,22 @@
       <template #header>
         <div class="card-header">
           <el-icon><InfoFilled /></el-icon>
-          <span>系统信息</span>
+          <span>{{ t('admin.system.systemInfo') }}</span>
         </div>
       </template>
       
       <el-descriptions :column="2" border v-loading="loading">
-        <el-descriptions-item label="系统版本">
-          {{ systemInfo.version || '未知' }}
+        <el-descriptions-item :label="t('admin.system.systemVersion')">
+          {{ systemInfo.version || t('admin.system.unknown') }}
         </el-descriptions-item>
-        <el-descriptions-item label="总用户数">
+        <el-descriptions-item :label="t('admin.system.totalUsers')">
           {{ systemInfo.total_users || 0 }}
         </el-descriptions-item>
-        <el-descriptions-item label="总文件数">
+        <el-descriptions-item :label="t('admin.system.totalFiles')">
           {{ systemInfo.total_files || 0 }}
         </el-descriptions-item>
-        <el-descriptions-item label="运行时间">
-          {{ systemInfo.uptime || '未知' }}
+        <el-descriptions-item :label="t('admin.system.uptime')">
+          {{ systemInfo.uptime || t('admin.system.unknown') }}
         </el-descriptions-item>
       </el-descriptions>
     </el-card>
@@ -61,8 +61,10 @@
 <script setup lang="ts">
 import type { ComponentInternalInstance } from 'vue'
 import { getSystemConfig, updateSystemConfig, type SystemConfig } from '@/api/admin'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -95,13 +97,13 @@ const loadConfig = async () => {
       Object.assign(configData, res.data)
       Object.assign(systemInfo, res.data)
     } else {
-      proxy?.$modal.msg('系统配置功能开发中')
+      proxy?.$modal.msg(t('admin.system.featureDeveloping'))
     }
   } catch (error: any) {
     if (error.response?.status === 404 || error.message?.includes('404')) {
-      proxy?.$modal.msg('系统配置功能开发中')
+      proxy?.$modal.msg(t('admin.system.featureDeveloping'))
     } else {
-      proxy?.$modal.msgError('加载配置失败')
+      proxy?.$modal.msgError(t('admin.system.loadConfigFailed'))
     }
     proxy?.$log?.error(error)
   } finally {
@@ -118,16 +120,16 @@ const handleSave = async () => {
       webdav_enabled: configData.webdav_enabled
     })
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('配置保存成功')
+      proxy?.$modal.msgSuccess(t('admin.system.configSaveSuccess'))
       loadConfig()
     } else {
-      proxy?.$modal.msgError(res.message || '保存失败')
+      proxy?.$modal.msgError(res.message || t('admin.system.saveFailed'))
     }
   } catch (error: any) {
     if (error.response?.status === 404 || error.message?.includes('404')) {
-      proxy?.$modal.msg('系统配置功能开发中')
+      proxy?.$modal.msg(t('admin.system.featureDeveloping'))
     } else {
-      proxy?.$modal.msgError(error.message || '保存失败')
+      proxy?.$modal.msgError(error.message || t('admin.system.saveFailed'))
     }
   } finally {
     saving.value = false
@@ -230,6 +232,58 @@ onMounted(() => {
   .info-card :deep(.el-descriptions__content) {
     font-size: 11px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .admin-system {
+  background: transparent;
+}
+
+html.dark .config-card,
+html.dark .info-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .config-card :deep(.el-card__header),
+html.dark .info-card :deep(.el-card__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .card-header {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .form-tip {
+  color: var(--el-text-color-secondary);
+}
+
+html.dark .config-card :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .info-card :deep(.el-descriptions) {
+  background: transparent;
+}
+
+html.dark .info-card :deep(.el-descriptions__label) {
+  color: var(--el-text-color-regular);
+  background: var(--el-bg-color-page);
+}
+
+html.dark .info-card :deep(.el-descriptions__content) {
+  color: var(--el-text-color-primary);
+  background: var(--el-bg-color);
+}
+
+html.dark .info-card :deep(.el-descriptions__table) {
+  border-color: var(--el-border-color);
+}
+
+html.dark .info-card :deep(.el-descriptions__table th),
+html.dark .info-card :deep(.el-descriptions__table td) {
+  border-color: var(--el-border-color);
 }
 </style>
 

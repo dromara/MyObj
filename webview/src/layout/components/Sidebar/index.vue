@@ -21,32 +21,37 @@
       >
         <el-menu-item index="/files">
           <el-icon><Folder /></el-icon>
-          <span>我的文件</span>
+          <span>{{ t('menu.files') }}</span>
         </el-menu-item>
         <el-menu-item index="/shares">
           <el-icon><Share /></el-icon>
-          <span>我的分享</span>
+          <span>{{ t('menu.shares') }}</span>
         </el-menu-item>
         <el-menu-item index="/offline">
           <el-icon><Download /></el-icon>
-          <span>离线下载</span>
+          <span>{{ t('menu.offline') }}</span>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
-          <span>传输列表</span>
+          <span>{{ t('menu.tasks') }}</span>
         </el-menu-item>
         <el-menu-item index="/trash">
           <el-icon><Delete /></el-icon>
-          <span>回收站</span>
+          <span>{{ t('menu.trash') }}</span>
         </el-menu-item>
         <div class="menu-divider"></div>
         <el-menu-item index="/square">
           <el-icon><Grid /></el-icon>
-          <span>文件广场</span>
+          <span>{{ t('menu.square') }}</span>
         </el-menu-item>
+        <!-- 协作功能暂时隐藏 -->
+        <!-- <el-menu-item index="/collaboration">
+          <el-icon><UserFilled /></el-icon>
+          <span>{{ t('menu.collaboration') }}</span>
+        </el-menu-item> -->
         <el-menu-item v-if="isAdmin" index="/admin">
           <el-icon><Setting /></el-icon>
-          <span>系统管理</span>
+          <span>{{ t('menu.admin') }}</span>
         </el-menu-item>
       </el-menu>
       
@@ -70,45 +75,54 @@
     >
       <el-menu-item index="/files">
         <el-icon><Folder /></el-icon>
-        <span>我的文件</span>
+        <span>{{ t('menu.files') }}</span>
       </el-menu-item>
       <el-menu-item index="/shares">
         <el-icon><Share /></el-icon>
-        <span>我的分享</span>
+        <span>{{ t('menu.shares') }}</span>
       </el-menu-item>
       <el-menu-item index="/offline">
         <el-icon><Download /></el-icon>
-        <span>离线下载</span>
+        <span>{{ t('menu.offline') }}</span>
       </el-menu-item>
       <el-menu-item index="/tasks">
         <el-icon><List /></el-icon>
-        <span>传输列表</span>
+        <span>{{ t('menu.tasks') }}</span>
       </el-menu-item>
       <el-menu-item index="/trash">
         <el-icon><Delete /></el-icon>
-        <span>回收站</span>
+        <span>{{ t('menu.trash') }}</span>
       </el-menu-item>
       <div class="menu-divider"></div>
       <el-menu-item index="/square">
         <el-icon><Grid /></el-icon>
-        <span>文件广场</span>
+        <span>{{ t('menu.square') }}</span>
       </el-menu-item>
+      <!-- 协作功能暂时隐藏 -->
+      <!-- <el-menu-item index="/collaboration">
+        <el-icon><UserFilled /></el-icon>
+        <span>{{ t('menu.collaboration') }}</span>
+      </el-menu-item> -->
       <el-menu-item v-if="isAdmin" index="/admin">
         <el-icon><Setting /></el-icon>
-        <span>系统管理</span>
+        <span>{{ t('menu.admin') }}</span>
       </el-menu-item>
     </el-menu>
     
-    <StorageCard />
+    <div class="storage-card-container">
+      <StorageCard />
+    </div>
   </el-aside>
 </template>
 
 <script setup lang="ts">
 import StorageCard from '../StorageCard/index.vue'
 import { useAdmin } from '@/composables/useAdmin'
+import { useI18n } from '@/composables/useI18n'
 
 const route = useRoute()
 const { isAdmin } = useAdmin()
+const { t } = useI18n()
 
 const currentRoute = computed(() => route.path)
 const sidebarVisible = ref(false)
@@ -166,8 +180,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .layout-aside {
-  background: white;
+  background: var(--card-bg);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+html.dark .sidebar-container {
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   padding: 16px 0;
@@ -195,13 +217,22 @@ onBeforeUnmount(() => {
 
 .storage-card-wrapper {
   flex-shrink: 0;
+  margin-top: auto;
+}
+
+.storage-card-container {
+  flex-shrink: 0;
+  padding: 12px;
+  margin-top: auto;
 }
 
 .premium-menu {
   border: none;
   flex: 1;
-  padding: 0 12px;
+  padding: 5px 12px;
   background: transparent;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .premium-menu :deep(.el-menu-item) {
@@ -214,14 +245,26 @@ onBeforeUnmount(() => {
 }
 
 .premium-menu :deep(.el-menu-item:hover) {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--el-fill-color-light);
   color: var(--primary-color);
 }
 
+html.dark .premium-menu :deep(.el-menu-item:hover) {
+  background: rgba(99, 102, 241, 0.15);
+}
+
 .premium-menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+html.dark .menu-item:hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+html.dark .premium-menu :deep(.el-menu-item.is-active) {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .premium-menu :deep(.el-icon) {

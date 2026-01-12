@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="上传加密设置"
+    :title="t('uploadEncrypt.title')"
     width="500px"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
@@ -14,19 +14,19 @@
       ref="formRef"
       label-width="100px"
     >
-      <el-form-item label="是否加密">
+      <el-form-item :label="t('uploadEncrypt.isEncrypt')">
         <el-switch v-model="encryptForm.is_enc" />
       </el-form-item>
       
       <el-form-item 
         v-if="encryptForm.is_enc"
-        label="加密密码" 
+        :label="t('uploadEncrypt.encryptPassword')" 
         prop="file_password"
       >
         <el-input
           v-model="encryptForm.file_password"
           type="password"
-          placeholder="请输入加密密码"
+          :placeholder="t('uploadEncrypt.encryptPasswordPlaceholder')"
           show-password
           clearable
         />
@@ -35,16 +35,16 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" @click="handleConfirm">确认</el-button>
+        <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleConfirm">{{ t('common.confirm') }}</el-button>
       </div>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { useI18n } from '@/composables/useI18n'
 
 interface Props {
   modelValue: boolean
@@ -56,6 +56,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'confirm': [config: { is_enc: boolean; file_password: string }]
 }>()
+
+const { t } = useI18n()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -74,7 +76,7 @@ const rules = reactive<FormRules>({
     {
       validator: (rule, value, callback) => {
         if (encryptForm.is_enc && !value) {
-          callback(new Error('加密时必须设置密码'))
+          callback(new Error(t('uploadEncrypt.passwordRequired')))
         } else {
           callback()
         }

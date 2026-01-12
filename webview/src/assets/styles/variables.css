@@ -1,4 +1,4 @@
-/* CSS 变量定义 */
+/* CSS 变量定义 - 浅色模式（默认） */
 :root {
   /* Premium Palette: Electric Blue/Indigo Theme */
   --primary-color: #2563eb;
@@ -36,6 +36,10 @@
   /* Slate 50 */
   --bg-color-glass: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.5);
+  
+  /* 卡片背景 */
+  --card-bg: #ffffff;
+  --card-hover-bg: rgba(37, 99, 235, 0.02);
 
   /* Element Plus Overrides Variables */
   --el-color-primary: var(--primary-color);
@@ -45,3 +49,47 @@
   --el-color-info: var(--info-color);
 }
 
+/* 深色模式 */
+html.dark {
+  /* 保持主色调不变 */
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary-color: #6366f1;
+  
+  /* 文本颜色反转 */
+  --text-primary: #f1f5f9;
+  /* Slate 100 */
+  --text-regular: #cbd5e1;
+  /* Slate 300 */
+  --text-secondary: #94a3b8;
+  /* Slate 400 */
+  --text-placeholder: #64748b;
+  /* Slate 500 */
+
+  /* 边框颜色 */
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.05);
+
+  /* 背景颜色 */
+  --bg-color: #0f172a;
+  /* Slate 900 */
+  --bg-color-glass: rgba(30, 41, 59, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  
+  /* 卡片背景 */
+  --card-bg: rgba(30, 41, 59, 0.6);
+  --card-hover-bg: rgba(51, 65, 85, 0.8);
+  
+  /* Element Plus 深色模式 */
+  --el-bg-color: #1e293b;
+  --el-bg-color-page: #0f172a;
+  --el-text-color-primary: #f1f5f9;
+  --el-text-color-regular: #cbd5e1;
+  --el-text-color-secondary: #94a3b8;
+  --el-border-color: rgba(255, 255, 255, 0.1);
+  --el-border-color-light: rgba(255, 255, 255, 0.05);
+  --el-fill-color: rgba(255, 255, 255, 0.05);
+  --el-fill-color-light: rgba(255, 255, 255, 0.03);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.02);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.01);
+}

@@ -1,4 +1,5 @@
 import { moveFile, getVirtualPathTree } from '@/api/file'
+import { useI18n } from '@/composables/useI18n'
 
 export function useMoveFile(
   currentPath: Ref<string>,
@@ -6,6 +7,7 @@ export function useMoveFile(
   loadFileList: () => Promise<void>
 ) {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
+  const { t } = useI18n()
 
   const showMoveDialog = ref(false)
   const moving = ref(false)
@@ -19,7 +21,7 @@ export function useMoveFile(
       const res = await getVirtualPathTree()
       
       if (res.code !== 200 || !res.data) {
-        proxy?.$modal.msgError('获取目录树失败')
+        proxy?.$modal.msgError(t('files.getFolderTreeFailed'))
         return
       }
       
@@ -37,7 +39,7 @@ export function useMoveFile(
         const nodeId = String(vp.id)
         pathMap.set(nodeId, {
           value: nodeId,
-          label: vp.path.replace(/^\//, '') || '根目录',
+          label: vp.path.replace(/^\//, '') || t('files.rootDir'),
           children: [],
           _raw: vp
         })
@@ -74,7 +76,7 @@ export function useMoveFile(
       
       folderTreeData.value = rootNodes
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '获取目录树失败')
+      proxy?.$modal.msgError(error.message || t('files.getFolderTreeFailed'))
     } finally {
       loadingTree.value = false
     }
@@ -87,7 +89,7 @@ export function useMoveFile(
 
   const handleMoveFile = async () => {
     if (selectedFileIds.value.length === 0) {
-      proxy?.$modal.msgWarning('请先选择要移动的文件')
+      proxy?.$modal.msgWarning(t('files.selectFilesFirst'))
       return
     }
     
@@ -98,12 +100,12 @@ export function useMoveFile(
 
   const handleConfirmMove = async () => {
     if (!targetFolderId.value) {
-      proxy?.$modal.msgWarning('请选择目标目录')
+      proxy?.$modal.msgWarning(t('files.selectTargetDir'))
       return
     }
     
     if (targetFolderId.value === currentPath.value) {
-      proxy?.$modal.msgWarning('目标目录与当前目录相同')
+      proxy?.$modal.msgWarning(t('files.sameDir'))
       return
     }
     
@@ -117,17 +119,17 @@ export function useMoveFile(
         })
         
         if (res.code !== 200) {
-          proxy?.$modal.msgError(`移动文件失败: ${res.message}`)
+          proxy?.$modal.msgError(t('files.moveFileFailed') + `: ${res.message}`)
           return
         }
       }
       
-      proxy?.$modal.msgSuccess(`成功移动 ${selectedFileIds.value.length} 个文件`)
+      proxy?.$modal.msgSuccess(t('files.moveFilesSuccess', { count: selectedFileIds.value.length }))
       showMoveDialog.value = false
       selectedFileIds.value = []
       loadFileList()
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '移动文件失败')
+      proxy?.$modal.msgError(error.message || t('files.moveFileFailed'))
     } finally {
       moving.value = false
     }

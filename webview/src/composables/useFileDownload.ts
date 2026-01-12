@@ -5,6 +5,7 @@
 import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
 import cache from '@/plugins/cache'
 import type { FileItem } from '@/types'
+import { useI18n } from '@/composables/useI18n'
 
 export interface DownloadPasswordForm {
   file_id: string
@@ -16,6 +17,7 @@ export function useFileDownload(options?: {
   onTaskReady?: () => void // 任务准备完成时的回调（可选，用于跳转等）
 }) {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
+  const { t } = useI18n()
 
   const showDownloadPasswordDialog = ref(false)
   const downloadPasswordForm = reactive<DownloadPasswordForm>({
@@ -57,12 +59,12 @@ export function useFileDownload(options?: {
       if (res.code === 200) {
         const taskId = res.data?.task_id
         if (!taskId) {
-          proxy?.$modal.msgError('任务创建失败')
+          proxy?.$modal.msgError(t('tasks.createTaskFailed') || '任务创建失败')
           downloadingFile.value = false
           return
         }
         
-        proxy?.$modal.msgSuccess('准备下载中，请稍候...')
+        proxy?.$modal.msgSuccess(t('tasks.preparingDownload') || '准备下载中，请稍候...')
         showDownloadPasswordDialog.value = false
         
         let retryCount = 0
@@ -80,7 +82,7 @@ export function useFileDownload(options?: {
                 if (retryCount < maxRetries) {
                   setTimeout(checkTaskStatus, 1000)
                 } else {
-                  proxy?.$modal.msgError('未找到下载任务')
+                  proxy?.$modal.msgError(t('tasks.taskNotFound') || '未找到下载任务')
                   downloadingFile.value = false
                 }
                 return
@@ -115,7 +117,7 @@ export function useFileDownload(options?: {
                   const contentType = response.headers.get('content-type') || ''
                   if (contentType.includes('application/json') || !response.ok) {
                     const errorData = await response.json()
-                    proxy?.$modal.msgError(errorData.message || '下载失败')
+                    proxy?.$modal.msgError(errorData.message || t('tasks.downloadFailed') || '下载失败')
                     return
                   }
                   
@@ -131,17 +133,17 @@ export function useFileDownload(options?: {
                   document.body.removeChild(link)
                   window.URL.revokeObjectURL(blobUrl)
                   
-                  proxy?.$modal.msgSuccess('下载已开始')
+                  proxy?.$modal.msgSuccess(t('tasks.downloadStarted') || '下载已开始')
                 } catch (error: any) {
                   proxy?.$log.error('下载文件失败:', error)
-                  proxy?.$modal.msgError('下载失败: ' + (error.message || '未知错误'))
+                  proxy?.$modal.msgError((t('tasks.downloadFailed') || '下载失败') + ': ' + (error.message || t('common.unknownError') || '未知错误'))
                 }
                 
                 downloadingFile.value = false
                 return
               } else if (task.state === 4) {
                 proxy?.$log.error('任务失败:', task.error_msg)
-                proxy?.$modal.msgError(task.error_msg || '下载准备失败')
+                proxy?.$modal.msgError(task.error_msg || t('tasks.downloadPrepareFailed') || '下载准备失败')
                 downloadingFile.value = false
                 return
               }
@@ -150,7 +152,7 @@ export function useFileDownload(options?: {
               if (retryCount < maxRetries) {
                 setTimeout(checkTaskStatus, 1000)
               } else {
-                proxy?.$modal.msgWarning('准备超时，请到任务中心查看')
+                proxy?.$modal.msgWarning(t('tasks.prepareTimeout') || '准备超时，请到任务中心查看')
                 downloadingFile.value = false
               }
             } else {
@@ -159,7 +161,7 @@ export function useFileDownload(options?: {
               if (retryCount < maxRetries) {
                 setTimeout(checkTaskStatus, 1000)
               } else {
-                proxy?.$modal.msgError('获取任务状态失败')
+                proxy?.$modal.msgError(t('tasks.getTaskStatusFailed') || '获取任务状态失败')
                 downloadingFile.value = false
               }
             }
@@ -169,7 +171,7 @@ export function useFileDownload(options?: {
             if (retryCount < maxRetries) {
               setTimeout(checkTaskStatus, 1000)
             } else {
-              proxy?.$modal.msgError('查询任务状态失败')
+              proxy?.$modal.msgError(t('tasks.queryTaskStatusFailed') || '查询任务状态失败')
               downloadingFile.value = false
             }
           }
@@ -177,12 +179,12 @@ export function useFileDownload(options?: {
         
         setTimeout(checkTaskStatus, 1000)
       } else {
-        proxy?.$modal.msgError(res.message || '创建下载任务失败')
+        proxy?.$modal.msgError(res.message || t('tasks.createDownloadTaskFailed') || '创建下载任务失败')
         downloadingFile.value = false
       }
     } catch (error: any) {
       proxy?.$log.error('创建下载任务异常:', error)
-      proxy?.$modal.msgError(error.message || '创建下载任务失败')
+      proxy?.$modal.msgError(error.message || t('tasks.createDownloadTaskFailed') || '创建下载任务失败')
       downloadingFile.value = false
     }
   }
@@ -192,7 +194,7 @@ export function useFileDownload(options?: {
    */
   const confirmDownloadPassword = async () => {
     if (!downloadPasswordForm.file_password) {
-      proxy?.$modal.msgWarning('请输入文件密码')
+      proxy?.$modal.msgWarning(t('preview.downloadPassword.placeholder') || '请输入文件密码')
       return
     }
     await executeDownload(downloadPasswordForm.file_id, downloadPasswordForm.file_password)

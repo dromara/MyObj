@@ -6,7 +6,7 @@
         <div class="toolbar-content">
           <!-- 选择提示 -->
           <div class="toolbar-selection" v-if="selectedIds.length > 0">
-            <el-tag type="info" size="small">已选择 {{ selectedIds.length }} 项</el-tag>
+            <el-tag type="info" size="small">{{ t('common.selected', { count: selectedIds.length }) }}</el-tag>
           </div>
           
           <!-- 操作按钮组 -->
@@ -20,7 +20,7 @@
                 size="small"
                 class="action-btn"
               >
-                还原
+                {{ t('trash.restore') }}
               </el-button>
               <el-button 
                 icon="Delete" 
@@ -30,7 +30,7 @@
                 size="small"
                 class="action-btn"
               >
-                永久删除
+                {{ t('trash.permanentDelete') }}
               </el-button>
             </div>
             
@@ -43,7 +43,7 @@
                 size="small"
                 class="action-btn action-btn-full"
               >
-                清空回收站
+                {{ t('trash.empty') }}
               </el-button>
             </div>
           </div>
@@ -57,10 +57,9 @@
       :data="fileList"
       @selection-change="handleSelectionChange"
       class="trash-table desktop-table"
-      empty-text="回收站为空"
     >
       <el-table-column type="selection" width="55" class-name="mobile-hide" />
-      <el-table-column label="名称" min-width="300" class-name="mobile-name-column">
+      <el-table-column :label="t('trash.name')" min-width="300" class-name="mobile-name-column">
         <template #default="{ row }">
           <div class="file-name-cell">
             <div class="list-file-icon">
@@ -79,11 +78,11 @@
               <div class="file-name-tags">
                 <el-tag v-if="row.is_enc" size="small" type="warning" class="enc-tag-inline">
                   <el-icon :size="12"><Lock /></el-icon>
-                  加密
+                  {{ t('trash.encrypted') }}
                 </el-tag>
                 <el-tooltip 
                   v-if="isExpired(row.deleted_at) || isExpiringSoon(row.deleted_at)"
-                  :content="`将在 ${formatDate(getExpireTime(row.deleted_at).toISOString())} 永久删除`"
+                  :content="t('trash.willPermanentDelete', { date: formatDate(getExpireTime(row.deleted_at).toISOString()) })"
                   placement="top"
                 >
                   <el-tag 
@@ -101,12 +100,12 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="120" class-name="mobile-hide">
+      <el-table-column :label="t('trash.size')" width="120" class-name="mobile-hide">
         <template #default="{ row }">
           {{ formatSize(row.file_size) }}
         </template>
       </el-table-column>
-      <el-table-column label="删除时间" width="200" class-name="mobile-hide">
+      <el-table-column :label="t('trash.deletedTime')" width="200" class-name="mobile-hide">
         <template #default="{ row }">
           <div class="time-cell">
             <el-icon :size="14"><Clock /></el-icon>
@@ -123,7 +122,7 @@
             <el-icon :size="12"><Warning /></el-icon>
             <span class="expire-text">{{ getExpireStatusText(row.deleted_at) }}</span>
             <el-tooltip 
-              :content="`将在 ${formatDate(getExpireTime(row.deleted_at).toISOString())} 永久删除`"
+              :content="t('trash.willPermanentDelete', { date: formatDate(getExpireTime(row.deleted_at).toISOString()) })"
               placement="top"
             >
               <el-icon :size="12" class="info-icon"><InfoFilled /></el-icon>
@@ -131,11 +130,11 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
+      <el-table-column :label="t('trash.operation')" width="200" fixed="right" class-name="mobile-actions-column">
         <template #default="{ row }">
           <div class="action-buttons">
-            <el-button link icon="RefreshRight" type="primary" @click.stop="handleRestoreFile(row)" size="small">还原</el-button>
-            <el-button link icon="Delete" type="danger" @click.stop="handleDeleteFilepermanently(row)" size="small">永久删除</el-button>
+            <el-button link icon="RefreshRight" type="primary" @click.stop="handleRestoreFile(row)" size="small">{{ t('trash.restore') }}</el-button>
+            <el-button link icon="Delete" type="danger" @click.stop="handleDeleteFilepermanently(row)" size="small">{{ t('trash.permanentDelete') }}</el-button>
           </div>
         </template>
       </el-table-column>
@@ -175,7 +174,7 @@
                 <span class="trash-size">{{ formatSize(row.file_size) }}</span>
                 <el-tag v-if="row.is_enc" size="small" type="warning" effect="plain" class="enc-tag">
                   <el-icon :size="10"><Lock /></el-icon>
-                  加密
+                  {{ t('trash.encrypted') }}
                 </el-tag>
                 <span class="trash-time">
                   <el-icon :size="12"><Clock /></el-icon>
@@ -219,7 +218,7 @@
     </div>
     
     <!-- 空状态 -->
-    <el-empty v-if="!loading && fileList.length === 0" description="回收站为空" />
+    <el-empty v-if="!loading && fileList.length === 0" :description="t('trash.noTrash')" />
     
     <!-- 分页 -->
     <pagination
@@ -246,9 +245,11 @@ import {
 import { getThumbnailUrl } from '@/api/file'
 import { formatSize, formatDate } from '@/utils'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const userStore = useUserStore()
+const { t } = useI18n()
 
 // 数据
 const loading = ref(false)
@@ -293,15 +294,15 @@ const getRemainingDays = (deletedAt: string): number => {
 // 获取过期状态文本
 const getExpireStatusText = (deletedAt: string): string => {
   if (isExpired(deletedAt)) {
-    return '已过期'
+    return t('trash.expired')
   }
   const daysLeft = getRemainingDays(deletedAt)
   if (daysLeft === 0) {
-    return '今日过期'
+    return t('trash.expireToday')
   } else if (daysLeft === 1) {
-    return '明日过期'
+    return t('trash.expireTomorrow')
   } else {
-    return `${daysLeft}天后过期`
+    return t('trash.expireDays', { days: daysLeft })
   }
 }
 
@@ -318,10 +319,10 @@ const loadRecycledList = async () => {
       fileList.value = res.data.items || []
       total.value = res.data.total || 0
     } else {
-      proxy?.$modal.msgError(res.message || '获取回收站列表失败')
+      proxy?.$modal.msgError(res.message || t('trash.getListFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '获取回收站列表失败')
+    proxy?.$modal.msgError(error.message || t('trash.getListFailed'))
   } finally {
     loading.value = false
   }
@@ -346,12 +347,12 @@ const toggleSelectItem = (item: RecycledItem) => {
 // 还原文件（批量）
 const handleRestore = async () => {
   if (selectedIds.value.length === 0) {
-    proxy?.$modal.msgWarning('请先选择要还原的文件')
+    proxy?.$modal.msgWarning(t('trash.pleaseSelectRestore'))
     return
   }
   
   try {
-    await proxy?.$modal.confirm(`确定要还原 ${selectedIds.value.length} 个文件吗？`)
+    await proxy?.$modal.confirm(t('trash.confirmRestore', { count: selectedIds.value.length }))
     let successCount = 0
     let failedCount = 0
     
@@ -369,10 +370,10 @@ const handleRestore = async () => {
     }
     
     if (successCount > 0) {
-      proxy?.$modal.msgSuccess(`成功还原 ${successCount} 个文件`)
+      proxy?.$modal.msgSuccess(t('trash.successRestore', { count: successCount }))
     }
     if (failedCount > 0) {
-      proxy?.$modal.msgWarning(`${failedCount} 个文件还原失败`)
+      proxy?.$modal.msgWarning(t('trash.restoreFilesFailed', { count: failedCount }))
     }
     
     selectedIds.value = []
@@ -388,17 +389,17 @@ const handleRestore = async () => {
 // 还原单个文件
 const handleRestoreFile = async (item: RecycledItem) => {
   try {
-    await proxy?.$modal.confirm(`确定要还原 "${item.file_name}" 吗？`)
+    await proxy?.$modal.confirm(t('trash.confirmRestoreFile', { fileName: item.file_name }))
     const res = await restoreFile(item.recycled_id)
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('还原成功')
+      proxy?.$modal.msgSuccess(t('trash.restoreSuccess'))
       await loadRecycledList()
     } else {
-      proxy?.$modal.msgError(res.message || '还原失败')
+      proxy?.$modal.msgError(res.message || t('trash.restoreFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '还原失败')
+      proxy?.$modal.msgError(error.message || t('trash.restoreFailed'))
     }
   }
 }
@@ -406,12 +407,12 @@ const handleRestoreFile = async (item: RecycledItem) => {
 // 永久删除（批量）
 const handleDeletePermanently = async () => {
   if (selectedIds.value.length === 0) {
-    proxy?.$modal.msgWarning('请先选择要删除的文件')
+    proxy?.$modal.msgWarning(t('trash.pleaseSelectDelete'))
     return
   }
   
   try {
-    await proxy?.$modal.confirm(`确定要永久删除 ${selectedIds.value.length} 个文件吗？此操作不可恢复！`)
+    await proxy?.$modal.confirm(t('trash.confirmPermanentDelete', { count: selectedIds.value.length }))
     let successCount = 0
     let failedCount = 0
     
@@ -429,12 +430,12 @@ const handleDeletePermanently = async () => {
     }
     
     if (successCount > 0) {
-      proxy?.$modal.msgSuccess(`成功删除 ${successCount} 个文件`)
+      proxy?.$modal.msgSuccess(t('trash.successDelete', { count: successCount }))
       // 永久删除成功后刷新用户信息，更新存储空间显示
       await userStore.fetchUserInfo()
     }
     if (failedCount > 0) {
-      proxy?.$modal.msgWarning(`${failedCount} 个文件删除失败`)
+      proxy?.$modal.msgWarning(t('trash.deleteFilesFailed', { count: failedCount }))
     }
     
     selectedIds.value = []
@@ -449,19 +450,19 @@ const handleDeletePermanently = async () => {
 // 永久删除单个文件
 const handleDeleteFilepermanently = async (item: RecycledItem) => {
   try {
-    await proxy?.$modal.confirm(`确定要永久删除 "${item.file_name}" 吗？此操作不可恢复！`)
+    await proxy?.$modal.confirm(t('trash.confirmPermanentDeleteFile', { fileName: item.file_name }))
     const res = await deleteFilePermanently(item.recycled_id)
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('删除成功')
+      proxy?.$modal.msgSuccess(t('trash.deleteSuccess'))
       await loadRecycledList()
       // 永久删除成功后刷新用户信息，更新存储空间显示
       await userStore.fetchUserInfo()
     } else {
-      proxy?.$modal.msgError(res.message || '删除失败')
+      proxy?.$modal.msgError(res.message || t('trash.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '删除失败')
+      proxy?.$modal.msgError(error.message || t('trash.deleteFailed'))
     }
   }
 }
@@ -469,25 +470,25 @@ const handleDeleteFilepermanently = async (item: RecycledItem) => {
 // 清空回收站
 const handleEmptyTrash = async () => {
   if (total.value === 0) {
-    proxy?.$modal.msg('回收站已经是空的')
+    proxy?.$modal.msg(t('trash.alreadyEmpty'))
     return
   }
   
   try {
-    await proxy?.$modal.confirm(`确定要清空回收站吗？将永久删除所有 ${total.value} 个文件，此操作不可恢复！`)
+    await proxy?.$modal.confirm(t('trash.emptyConfirmAll', { count: total.value }))
     loading.value = true
     try {
       const res = await emptyRecycled()
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess(res.message || '清空成功')
+        proxy?.$modal.msgSuccess(res.message || t('trash.emptySuccess'))
         await loadRecycledList()
         // 清空回收站成功后刷新用户信息，更新存储空间显示
         await userStore.fetchUserInfo()
       } else {
-        proxy?.$modal.msgError(res.message || '清空失败')
+        proxy?.$modal.msgError(res.message || t('trash.emptyFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '清空失败')
+      proxy?.$modal.msgError(error.message || t('trash.emptyFailed'))
     } finally {
       loading.value = false
     }
@@ -514,7 +515,7 @@ onMounted(() => {
 <style scoped>
 .trash-page {
   padding: 20px;
-  background: #f5f7fa;
+  background: var(--bg-color);
   min-height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
@@ -614,7 +615,7 @@ onMounted(() => {
 
 .enc-tag-inline {
   border: none;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--warning-color) 0%, var(--warning-color) 100%);
   color: white;
   font-size: 11px;
   padding: 2px 8px;
@@ -690,6 +691,40 @@ onMounted(() => {
 /* PC端表格样式 */
 .desktop-table {
   display: table;
+}
+
+/* 隐藏表格自带的空状态显示，使用手动的 el-empty */
+.trash-table :deep(.el-table__empty-block) {
+  display: none;
+}
+
+.trash-table :deep(.el-table) {
+  background: transparent !important;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+}
+
+.trash-table :deep(.el-table th.el-table__cell) {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom-color: var(--el-border-color-lighter);
+}
+
+.trash-table :deep(.el-table td.el-table__cell) {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  border-bottom-color: var(--el-border-color-lighter);
+}
+
+.trash-table :deep(.el-table tr) {
+  background: transparent !important;
+  transition: all 0.2s;
+}
+
+.trash-table :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background: var(--el-fill-color-lighter) !important;
 }
 
 
@@ -925,5 +960,34 @@ onMounted(() => {
   .trash-meta {
     font-size: 11px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .toolbar-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .toolbar-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+
+html.dark .mobile-trash-item {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .mobile-trash-item.selected {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: var(--primary-color);
+}
+
+html.dark .mobile-trash-item:active {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+html.dark .pagination {
+  border-top-color: var(--el-border-color);
 }
 </style>

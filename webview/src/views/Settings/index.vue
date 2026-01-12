@@ -3,20 +3,24 @@
     <el-card shadow="never" class="settings-card">
       <template #header>
         <div class="card-header">
-          <h2>系统设置</h2>
+          <h2>{{ t('settings.title') }}</h2>
         </div>
       </template>
       
       <el-tabs v-model="activeTab" class="settings-tabs">
-        <el-tab-pane label="用户信息" name="userInfo">
+        <el-tab-pane :label="t('settings.userInfo.title')" name="userInfo">
           <UserInfo />
         </el-tab-pane>
         
-        <el-tab-pane label="修改密码" name="password">
+        <el-tab-pane :label="t('settings.password.title')" name="password">
           <Password />
         </el-tab-pane>
         
-        <el-tab-pane label="API Key" name="apiKey">
+        <el-tab-pane :label="t('settings.appearance')" name="appearance">
+          <Appearance />
+        </el-tab-pane>
+        
+        <el-tab-pane :label="t('settings.apiKey.title')" name="apiKey">
           <ApiKey />
         </el-tab-pane>
       </el-tabs>
@@ -27,8 +31,11 @@
 <script setup lang="ts">
 import UserInfo from './modules/UserInfo.vue'
 import Password from './modules/Password.vue'
+import Appearance from './modules/Appearance.vue'
 import ApiKey from './modules/ApiKey.vue'
+import { useI18n } from '@/composables/useI18n'
 
+const { t } = useI18n()
 const activeTab = ref('userInfo')
 </script>
 
@@ -72,6 +79,44 @@ const activeTab = ref('userInfo')
   .settings-tabs :deep(.el-tab-pane) {
     padding: 16px 0;
   }
+}
+
+/* 深色模式样式 */
+html.dark .settings-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .settings-card :deep(.el-card__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .settings-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .card-header h2 {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .settings-tabs :deep(.el-tabs__header) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .settings-tabs :deep(.el-tabs__item) {
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .settings-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+html.dark .settings-tabs :deep(.el-tabs__nav-wrap::after) {
+  background-color: var(--el-border-color);
 }
 </style>
 

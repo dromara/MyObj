@@ -1,14 +1,14 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="过期任务"
+    :title="t('tasks.expiredTasks')"
     width="80%"
     :close-on-click-modal="false"
     @close="handleClose"
     class="expired-tasks-dialog"
   >
     <div class="dialog-header">
-      <span>共 {{ expiredTasks.length }} 个过期任务</span>
+      <span>{{ t('tasks.expiredTaskCount', { count: expiredTasks.length }) }}</span>
       <div class="header-actions">
         <el-button 
           type="primary" 
@@ -17,7 +17,7 @@
           @click="handleBatchRenew"
           :loading="batchRenewLoading"
         >
-          批量延期（{{ selectedTasks.length }}）
+          {{ t('tasks.batchRenewWithCount', { count: selectedTasks.length }) }}
         </el-button>
         <el-button 
           type="danger" 
@@ -26,7 +26,7 @@
           @click="handleBatchDelete"
           :loading="batchDeleteLoading"
         >
-          批量删除（{{ selectedTasks.length }}）
+          {{ t('tasks.batchDeleteWithCount', { count: selectedTasks.length }) }}
         </el-button>
       </div>
     </div>
@@ -40,22 +40,22 @@
     >
       <el-table-column type="selection" width="55" />
       
-      <el-table-column label="文件名" min-width="300">
+      <el-table-column :label="t('tasks.fileName')" min-width="300">
         <template #default="{ row }">
           <div class="file-name-cell">
-            <el-icon :size="24" color="#409EFF"><Document /></el-icon>
+            <el-icon :size="24" class="task-document-icon"><Document /></el-icon>
             <file-name-tooltip :file-name="row.file_name" view-mode="table" />
           </div>
         </template>
       </el-table-column>
       
-      <el-table-column label="状态" width="120">
+      <el-table-column :label="t('tasks.status')" width="120">
         <template #default="{ row }">
           <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
       
-      <el-table-column label="进度" width="200">
+      <el-table-column :label="t('tasks.progress')" width="200">
         <template #default="{ row }">
           <div class="progress-cell">
             <el-progress 
@@ -67,13 +67,13 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="过期时间" width="180">
+      <el-table-column :label="t('tasks.expireTime')" width="180">
         <template #default="{ row }">
           <span style="color: var(--el-color-danger)">{{ formatDate(row.expire_time) }}</span>
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column :label="t('tasks.operation')" width="200" fixed="right">
         <template #default="{ row }">
           <el-button 
             link 
@@ -82,7 +82,7 @@
             @click="handleRenew(row.id)"
             :loading="renewingTasks.has(row.id)"
           >
-            延期
+            {{ t('tasks.renew') }}
           </el-button>
           <el-button 
             link 
@@ -91,7 +91,7 @@
             @click="handleDelete(row.id)"
             :loading="deletingTasks.has(row.id)"
           >
-            删除
+            {{ t('tasks.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -111,7 +111,7 @@
             class="task-checkbox"
           />
           <div class="task-item-info">
-            <el-icon :size="20" color="#409EFF" class="task-icon"><Document /></el-icon>
+            <el-icon :size="20" class="task-icon task-document-icon"><Document /></el-icon>
             <div class="task-name-wrapper">
               <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
@@ -157,11 +157,11 @@
       </div>
     </div>
     
-    <el-empty v-if="expiredTasks.length === 0 && !loading" description="暂无过期任务" />
+    <el-empty v-if="expiredTasks.length === 0 && !loading" :description="t('tasks.noExpiredTasks')" />
     
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="handleClose">关闭</el-button>
+        <el-button @click="handleClose">{{ t('common.close') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -169,10 +169,12 @@
 
 <script setup lang="ts">
 import { formatSize, formatDate, getUploadStatusType, getUploadStatusText } from '@/utils'
+import { useI18n } from '@/composables/useI18n'
 import { listExpiredUploads, renewExpiredTask, deleteUploadTask } from '@/api/file'
 import type { UncompletedUploadTask } from '@/api/file'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: boolean
@@ -205,7 +207,7 @@ const loadExpiredTasks = async () => {
       expiredTasks.value = res.data
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '加载过期任务失败')
+    proxy?.$modal.msgError(error.message || t('tasks.loadExpiredFailed'))
   } finally {
     loading.value = false
   }
@@ -225,8 +227,9 @@ const handleSelectionChange = (selection: UncompletedUploadTask[]) => {
 }
 
 // 移动端单个选择
-const handleItemSelect = (task: UncompletedUploadTask, checked: boolean) => {
-  if (checked) {
+const handleItemSelect = (task: UncompletedUploadTask, checked: boolean | string | number) => {
+  const isChecked = Boolean(checked)
+  if (isChecked) {
     if (!selectedTasks.value.find(t => t.id === task.id)) {
       selectedTasks.value.push(task)
     }
@@ -241,14 +244,14 @@ const handleRenew = async (taskId: string) => {
   try {
     const res = await renewExpiredTask(taskId, 7)
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('延期成功')
+      proxy?.$modal.msgSuccess(t('tasks.renewSuccess'))
       await loadExpiredTasks()
       emit('refresh')
     } else {
-      proxy?.$modal.msgError(res.message || '延期失败')
+      proxy?.$modal.msgError(res.message || t('tasks.renewFailed'))
     }
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '延期失败')
+    proxy?.$modal.msgError(error.message || t('tasks.renewFailed'))
   } finally {
     renewingTasks.value.delete(taskId)
   }
@@ -259,7 +262,7 @@ const handleBatchRenew = async () => {
   if (selectedTasks.value.length === 0) return
   
   try {
-    await proxy?.$modal.confirm(`确认延期 ${selectedTasks.value.length} 个过期任务？`)
+    await proxy?.$modal.confirm(t('tasks.confirmRenew', { count: selectedTasks.value.length }))
     batchRenewLoading.value = true
     
     const promises = selectedTasks.value.map(task => renewExpiredTask(task.id, 7))
@@ -269,15 +272,16 @@ const handleBatchRenew = async () => {
     const failCount = results.length - successCount
     
     if (successCount > 0) {
-      proxy?.$modal.msgSuccess(`成功延期 ${successCount} 个任务${failCount > 0 ? `，${failCount} 个失败` : ''}`)
+      const failedText = failCount > 0 ? `，${failCount} ${t('tasks.failed')}` : ''
+      proxy?.$modal.msgSuccess(t('tasks.batchRenewSuccess', { success: successCount, failedText }))
       await loadExpiredTasks()
       emit('refresh')
     } else {
-      proxy?.$modal.msgError('延期失败')
+      proxy?.$modal.msgError(t('tasks.renewFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError('延期失败')
+      proxy?.$modal.msgError(t('tasks.renewFailed'))
     }
   } finally {
     batchRenewLoading.value = false
@@ -287,20 +291,20 @@ const handleBatchRenew = async () => {
 // 单个删除
 const handleDelete = async (taskId: string) => {
   try {
-    await proxy?.$modal.confirm('确认删除该过期任务？')
+    await proxy?.$modal.confirm(t('tasks.confirmDeleteTask'))
     deletingTasks.value.add(taskId)
     
-    const res = await deleteUploadTask({ task_id: taskId })
+    const res = await deleteUploadTask(taskId)
     if (res.code === 200) {
-      proxy?.$modal.msgSuccess('删除成功')
+      proxy?.$modal.msgSuccess(t('tasks.deleteSuccess'))
       await loadExpiredTasks()
       emit('refresh')
     } else {
-      proxy?.$modal.msgError(res.message || '删除失败')
+      proxy?.$modal.msgError(res.message || t('tasks.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError('删除失败')
+      proxy?.$modal.msgError(t('tasks.deleteFailed'))
     }
   } finally {
     deletingTasks.value.delete(taskId)
@@ -312,25 +316,26 @@ const handleBatchDelete = async () => {
   if (selectedTasks.value.length === 0) return
   
   try {
-    await proxy?.$modal.confirm(`确认删除 ${selectedTasks.value.length} 个过期任务？删除后无法恢复。`)
+    await proxy?.$modal.confirm(t('tasks.confirmBatchDelete', { count: selectedTasks.value.length }))
     batchDeleteLoading.value = true
     
-    const promises = selectedTasks.value.map(task => deleteUploadTask({ task_id: task.id }))
+    const promises = selectedTasks.value.map(task => deleteUploadTask(task.id))
     const results = await Promise.allSettled(promises)
     
     const successCount = results.filter(r => r.status === 'fulfilled' && r.value.code === 200).length
     const failCount = results.length - successCount
     
     if (successCount > 0) {
-      proxy?.$modal.msgSuccess(`成功删除 ${successCount} 个任务${failCount > 0 ? `，${failCount} 个失败` : ''}`)
+      const failedText = failCount > 0 ? `，${failCount} ${t('tasks.failed')}` : ''
+      proxy?.$modal.msgSuccess(t('tasks.batchDeleteSuccess', { success: successCount, failedText }))
       await loadExpiredTasks()
       emit('refresh')
     } else {
-      proxy?.$modal.msgError('删除失败')
+      proxy?.$modal.msgError(t('tasks.deleteFailed'))
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError('删除失败')
+      proxy?.$modal.msgError(t('tasks.deleteFailed'))
     }
   } finally {
     batchDeleteLoading.value = false
@@ -395,7 +400,7 @@ const handleClose = () => {
 .mobile-task-item {
   padding: 12px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
-  background: #fff;
+  background: var(--el-bg-color, var(--card-bg));
   transition: background-color 0.2s;
 }
 
@@ -421,6 +426,10 @@ const handleClose = () => {
   gap: 12px;
   flex: 1;
   min-width: 0;
+}
+
+.task-document-icon {
+  color: var(--el-color-primary);
 }
 
 .task-icon {
@@ -571,6 +580,57 @@ const handleClose = () => {
   .task-progress-wrapper {
     margin-left: 28px;
   }
+}
+
+/* 深色模式样式 */
+html.dark .expired-tasks-dialog :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .expired-tasks-dialog :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .expired-tasks-dialog :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .expired-tasks-dialog :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .dialog-header {
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .expired-tasks-table {
+  background: var(--card-bg);
+}
+
+html.dark .expired-tasks-table :deep(.el-table__header-wrapper) {
+  background: var(--el-bg-color-page);
+}
+
+html.dark .expired-tasks-table :deep(.el-table__header th) {
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  border-color: var(--el-border-color);
+}
+
+html.dark .expired-tasks-table :deep(.el-table__body tr) {
+  background: var(--card-bg);
+}
+
+html.dark .expired-tasks-table :deep(.el-table__body tr:hover > td) {
+  background: var(--el-fill-color-light);
+}
+
+html.dark .mobile-task-item {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
 }
 </style>
 

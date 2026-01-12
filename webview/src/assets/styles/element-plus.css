@@ -4,8 +4,47 @@
   border-radius: 8px;
 }
 
+.el-button:not(.is-disabled) {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .el-button:not(.is-disabled):active {
-  transform: scale(0.98);
+  transform: scale(0.96);
+}
+
+/* 按钮点击波纹效果 */
+.el-button:not(.is-disabled)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+  pointer-events: none;
+}
+
+.el-button:not(.is-disabled):active::before {
+  width: 300px;
+  height: 300px;
+  transition: width 0.3s, height 0.3s;
+}
+
+/* 主要按钮的点击反馈 */
+.el-button--primary:not(.is-disabled):active {
+  box-shadow: 
+    0 2px 8px rgba(37, 99, 235, 0.3),
+    inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 圆形按钮的特殊处理 */
+.el-button.is-circle:not(.is-disabled):active {
+  transform: scale(0.92);
 }
 
 .el-button--primary {
@@ -111,3 +150,131 @@
   width: 240px;
 }
 
+/* 深色模式：选择框下拉菜单 */
+html.dark .el-select-dropdown {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .el-select-dropdown__item {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .el-select-dropdown__item:hover {
+  background-color: var(--el-fill-color-light);
+  color: var(--primary-color);
+}
+
+html.dark .el-select-dropdown__item.selected {
+  background-color: var(--el-fill-color-light);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+html.dark .el-select-dropdown__item.selected::after {
+  color: var(--primary-color);
+}
+
+/* ============================================
+   深色模式：表格样式（集中配置）
+   ============================================ */
+
+/* 表格基础样式 */
+html.dark .el-table {
+  background: transparent !important;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  color: var(--el-text-color-primary);
+}
+
+html.dark .el-table th.el-table__cell {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .el-table td.el-table__cell {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .el-table tr {
+  background: transparent !important;
+  transition: all 0.2s;
+}
+
+/* 表格行悬停效果 */
+html.dark .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* 表格边框 */
+html.dark .el-table__border {
+  border-color: var(--el-border-color);
+}
+
+html.dark .el-table__inner-wrapper::before {
+  background-color: var(--el-border-color);
+}
+
+html.dark .el-table__fixed-right::before {
+  background-color: var(--el-border-color);
+}
+
+html.dark .el-table__fixed::before {
+  background-color: var(--el-border-color);
+}
+
+/* ============================================
+   深色模式：选择框输入框样式（集中配置）
+   ============================================ */
+
+/* 选择框输入框 */
+html.dark .el-select {
+  background-color: var(--el-bg-color);
+}
+
+html.dark .el-select .el-input__wrapper {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  box-shadow: 0 0 0 1px var(--el-border-color) inset !important;
+}
+
+html.dark .el-select .el-input__inner {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-select:hover .el-input__wrapper {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 1px var(--primary-color) inset !important;
+}
+
+html.dark .el-select.is-focus .el-input__wrapper {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) inset !important;
+}
+
+/* 树形选择框 */
+html.dark .el-tree-select .el-input__wrapper {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  box-shadow: 0 0 0 1px var(--el-border-color) inset !important;
+}
+
+html.dark .el-tree-select .el-input__inner {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree-select:hover .el-input__wrapper {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 1px var(--primary-color) inset !important;
+}
+
+html.dark .el-tree-select.is-focus .el-input__wrapper {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) inset !important;
+}

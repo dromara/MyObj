@@ -7,40 +7,40 @@
       label-width="120px"
       label-position="left"
     >
-      <el-form-item label="用户名" prop="username">
+      <el-form-item :label="t('settings.userInfo.username')" prop="username">
         <el-input
           v-model="userForm.username"
-          placeholder="请输入用户名"
+          :placeholder="t('settings.userInfo.usernamePlaceholder')"
           maxlength="50"
           show-word-limit
           clearable
         />
       </el-form-item>
       
-      <el-form-item label="昵称" prop="nickname">
+      <el-form-item :label="t('settings.userInfo.nickname')" prop="nickname">
         <el-input
           v-model="userForm.nickname"
-          placeholder="请输入昵称"
+          :placeholder="t('settings.userInfo.nicknamePlaceholder')"
           maxlength="50"
           show-word-limit
           clearable
         />
       </el-form-item>
       
-      <el-form-item label="邮箱" prop="email">
+      <el-form-item :label="t('settings.userInfo.email')" prop="email">
         <el-input
           v-model="userForm.email"
           type="email"
-          placeholder="请输入邮箱地址"
+          :placeholder="t('settings.userInfo.emailPlaceholder')"
           maxlength="100"
           clearable
         />
       </el-form-item>
       
-      <el-form-item label="手机号" prop="phone">
+      <el-form-item :label="t('settings.userInfo.phone')" prop="phone">
         <el-input
           v-model="userForm.phone"
-          placeholder="请输入手机号"
+          :placeholder="t('settings.userInfo.phonePlaceholder')"
           maxlength="20"
           clearable
         />
@@ -48,9 +48,9 @@
       
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">
-          保存修改
+          {{ t('settings.userInfo.save') }}
         </el-button>
-        <el-button @click="handleReset">重置</el-button>
+        <el-button @click="handleReset">{{ t('settings.userInfo.reset') }}</el-button>
       </el-form-item>
     </el-form>
   </div>
@@ -59,9 +59,11 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { updateUser } from '@/api/user'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const formRef = ref<FormInstance>()
 const saving = ref(false)
@@ -75,14 +77,14 @@ const userForm = reactive({
 
 const rules: FormRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' }
+    { required: true, message: t('settings.userInfo.usernamePlaceholder'), trigger: 'blur' },
+    { min: 3, max: 50, message: t('settings.userInfo.usernameLength'), trigger: 'blur' }
   ],
   email: [
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    { type: 'email', message: t('settings.userInfo.emailFormat'), trigger: 'blur' }
   ],
   phone: [
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+    { pattern: /^1[3-9]\d{9}$/, message: t('settings.userInfo.phoneFormat'), trigger: 'blur' }
   ]
 }
 
@@ -120,7 +122,7 @@ const handleSave = async () => {
       })
       
       if (result.code === 200) {
-        proxy?.$modal.msgSuccess('用户信息更新成功')
+        proxy?.$modal.msgSuccess(t('settings.userInfo.saveSuccess'))
         // 更新 store 中的用户信息
         if (userStore.userInfo) {
           userStore.updateUserInfo({
@@ -131,10 +133,10 @@ const handleSave = async () => {
           })
         }
       } else {
-        proxy?.$modal.msgError(result.message || '更新失败')
+        proxy?.$modal.msgError(result.message || t('settings.userInfo.saveFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '更新失败')
+      proxy?.$modal.msgError(error.message || t('settings.userInfo.saveFailed'))
     } finally {
       saving.value = false
     }
@@ -161,6 +163,20 @@ onMounted(() => {
   .user-info-form :deep(.el-form-item__label) {
     width: 100px !important;
   }
+}
+
+/* 深色模式样式 */
+html.dark .user-info-form :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .user-info-form :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .user-info-form :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
 }
 </style>
 

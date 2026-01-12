@@ -4,12 +4,12 @@
     <el-card shadow="never" class="header-card">
       <div class="page-header">
         <div class="header-left">
-          <h2>离线下载</h2>
-          <el-tag type="info">{{ taskList.length }} 个任务</el-tag>
+          <h2>{{ t('offline.title') }}</h2>
+          <el-tag type="info">{{ t('offline.taskCount', { count: taskList.length }) }}</el-tag>
         </div>
         <div class="header-right">
-          <el-button type="primary" icon="Plus" @click="showDownloadDialog = true">新建下载</el-button>
-          <el-button icon="Refresh" @click="refreshTaskList">刷新</el-button>
+          <el-button type="primary" icon="Plus" @click="showDownloadDialog = true">{{ t('offline.newDownload') }}</el-button>
+          <el-button icon="Refresh" @click="refreshTaskList">{{ t('common.refresh') }}</el-button>
         </div>
       </div>
     </el-card>
@@ -21,27 +21,26 @@
         :data="taskList" 
         v-loading="loading" 
         class="offline-table desktop-table"
-        empty-text="暂无下载任务"
       >
-        <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
+        <el-table-column :label="t('tasks.fileName')" min-width="300" class-name="mobile-name-column">
           <template #default="{ row }">
             <div class="file-name-cell">
-              <el-icon :size="24" color="#409EFF"><Document /></el-icon>
+              <el-icon :size="24" class="offline-icon"><Document /></el-icon>
               <div class="file-info">
-                <file-name-tooltip :file-name="row.file_name || '未知文件'" view-mode="table" custom-class="file-name" />
+                <file-name-tooltip :file-name="row.file_name || t('offline.unknownFile')" view-mode="table" custom-class="file-name" />
                 <div class="file-url mobile-hide" v-if="row.url">{{ truncateUrl(row.url) }}</div>
               </div>
             </div>
           </template>
         </el-table-column>
         
-        <el-table-column label="状态" width="120" class-name="mobile-hide">
+        <el-table-column :label="t('tasks.status')" width="120" class-name="mobile-hide">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.state)">{{ row.state_text }}</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="进度" width="200" class-name="mobile-progress-column">
+        <el-table-column :label="t('tasks.progress')" width="200" class-name="mobile-progress-column">
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress 
@@ -53,20 +52,20 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="速度" width="120" class-name="mobile-hide">
+        <el-table-column :label="t('offline.speed')" width="120" class-name="mobile-hide">
           <template #default="{ row }">
             <span v-if="row.state === 1">{{ formatSpeed(row.speed) }}</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         
-        <el-table-column label="创建时间" width="180" class-name="mobile-hide">
+        <el-table-column :label="t('tasks.createTime')" width="180" class-name="mobile-hide">
           <template #default="{ row }">
             {{ formatDate(row.create_time) }}
           </template>
         </el-table-column>
         
-        <el-table-column label="错误信息" min-width="200" class-name="mobile-hide">
+        <el-table-column :label="t('offline.errorInfo')" min-width="200" class-name="mobile-hide">
           <template #default="{ row }">
             <el-tooltip v-if="row.error_msg" :content="row.error_msg" placement="top">
               <span class="error-msg-text">{{ row.error_msg }}</span>
@@ -75,7 +74,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="200" fixed="right" class-name="mobile-actions-column">
+        <el-table-column :label="t('tasks.operation')" width="200" fixed="right" class-name="mobile-actions-column">
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button 
@@ -86,7 +85,7 @@
                 @click="pauseTask(row.id)"
                 size="small"
               >
-                暂停
+                {{ t('tasks.pause') }}
               </el-button>
               <el-button 
                 v-if="row.state === 2"
@@ -96,7 +95,7 @@
                 @click="resumeTask(row.id)"
                 size="small"
               >
-                继续
+                {{ t('tasks.resume') }}
               </el-button>
               <el-button 
                 v-if="row.state === 0 || row.state === 1 || row.state === 2"
@@ -106,7 +105,7 @@
                 @click="cancelTask(row.id)"
                 size="small"
               >
-                取消
+                {{ t('tasks.cancel') }}
               </el-button>
               <el-button 
                 v-if="row.state === 3 || row.state === 4"
@@ -116,7 +115,7 @@
                 @click="deleteTask(row.id)"
                 size="small"
               >
-                删除
+                {{ t('tasks.delete') }}
               </el-button>
             </div>
           </template>
@@ -132,9 +131,9 @@
         >
           <div class="task-item-header">
             <div class="task-item-info">
-              <el-icon :size="24" color="#409EFF" class="task-icon"><Document /></el-icon>
+              <el-icon :size="24" class="task-icon offline-icon"><Document /></el-icon>
               <div class="task-name-wrapper">
-                <file-name-tooltip :file-name="row.file_name || row.url || '未知文件'" view-mode="list" custom-class="task-name" />
+                <file-name-tooltip :file-name="row.file_name || row.url || t('offline.unknownFile')" view-mode="list" custom-class="task-name" />
                 <div class="task-meta">
                   <el-tag :type="getStatusType(row.state)" size="small" effect="plain">
                     {{ row.state_text }}
@@ -196,13 +195,13 @@
         </div>
       </div>
       
-      <el-empty v-if="taskList.length === 0 && !loading" description="暂无下载任务" />
+      <el-empty v-if="taskList.length === 0 && !loading" :description="t('offline.noDownloads')" />
     </el-card>
 
     <!-- 统一下载对话框 -->
     <el-dialog 
       v-model="showDownloadDialog" 
-      title="新建下载" 
+      :title="t('offline.newDownload')" 
       :width="isMobile ? '95%' : '800px'"
       @open="handleDownloadDialogOpen"
       @close="handleDownloadDialogClose"
@@ -213,22 +212,22 @@
         <!-- 输入区域：支持文本输入和文件上传 -->
         <div class="input-section">
           <el-tabs v-model="inputType" class="input-tabs">
-          <el-tab-pane label="输入链接" name="text">
-            <el-form-item label="下载链接">
+          <el-tab-pane :label="t('offline.inputLink')" name="text">
+            <el-form-item :label="t('offline.downloadLink')">
               <el-input 
                 v-model="downloadForm.inputText" 
-                placeholder="支持 HTTP/HTTPS 链接或磁力链接（magnet:?xt=urn:btih:...）"
+                :placeholder="t('offline.downloadLinkPlaceholder')"
                 type="textarea"
                 :rows="3"
                 @input="handleInputTextChange"
               />
               <div class="input-tip">
                 <el-icon><InfoFilled /></el-icon>
-                <span>支持 HTTP/HTTPS 下载链接或磁力链接，系统会自动识别类型</span>
+                <span>{{ t('offline.downloadTip') }}</span>
               </div>
             </el-form-item>
           </el-tab-pane>
-          <el-tab-pane label="上传种子文件" name="file">
+          <el-tab-pane :label="t('offline.uploadTorrent')" name="file">
             <el-upload
               ref="torrentUploadRef"
               :auto-upload="false"
@@ -240,30 +239,30 @@
             >
               <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
               <div class="el-upload__text">
-                将种子文件拖到此处，或<em>点击上传</em>
+                {{ t('offline.dragTorrentHere') }}
               </div>
               <template #tip>
                 <div class="el-upload__tip">
-                  支持 .torrent 文件，最大 10MB
+                  {{ t('offline.torrentFileTip') }}
                 </div>
               </template>
             </el-upload>
             <div v-if="torrentFileName" class="torrent-file-info">
               <el-icon><Document /></el-icon>
               <span>{{ torrentFileName }}</span>
-              <el-button link type="danger" @click="clearTorrentFile">清除</el-button>
+              <el-button link type="danger" @click="clearTorrentFile">{{ t('offline.clear') }}</el-button>
             </div>
           </el-tab-pane>
         </el-tabs>
         
         <!-- 输入类型提示 -->
         <div v-if="detectedInputType" class="detected-type-tip">
-          <el-icon :color="detectedInputType === 'url' ? '#67C23A' : '#409EFF'" :size="16">
+          <el-icon :class="detectedInputType === 'url' ? 'input-icon-success' : 'input-icon-primary'" :size="16">
             <component :is="detectedInputType === 'url' ? 'Check' : 'InfoFilled'" />
           </el-icon>
-          <span v-if="detectedInputType === 'url'">已识别为：HTTP/HTTPS 下载链接</span>
-          <span v-else-if="detectedInputType === 'magnet'">已识别为：磁力链接</span>
-          <span v-else-if="detectedInputType === 'torrent'">已识别为：种子文件</span>
+          <span v-if="detectedInputType === 'url'">{{ t('offline.detectedAsUrl') }}</span>
+          <span v-else-if="detectedInputType === 'magnet'">{{ t('offline.detectedAsMagnet') }}</span>
+          <span v-else-if="detectedInputType === 'torrent'">{{ t('offline.detectedAsTorrent') }}</span>
         </div>
       </div>
 
@@ -276,37 +275,37 @@
         label-width="100px"
         style="margin-top: 20px"
       >
-        <el-form-item label="保存位置">
+        <el-form-item :label="t('offline.saveLocation')">
           <el-tree-select
             v-model="downloadForm.virtual_path"
             :data="folderTreeData"
             :render-after-expand="false"
-            placeholder="请选择保存目录（默认：/离线下载/）"
+            :placeholder="t('offline.selectSaveDirectory')"
             :loading="loadingTree"
             style="width: 100%"
             check-strictly
-            :props="{ label: 'label', value: 'value', children: 'children' }"
+            :props="{ label: 'label', children: 'children' }"
             :default-expand-all="true"
             node-key="value"
           />
         </el-form-item>
-        <el-form-item label="加密存储">
+        <el-form-item :label="t('offline.encryptStorage')">
           <el-switch v-model="downloadForm.enable_encryption" />
         </el-form-item>
         <el-form-item 
           v-if="downloadForm.enable_encryption" 
-          label="加密密码" 
+          :label="t('offline.encryptPassword')" 
           prop="file_password"
         >
           <el-input 
             v-model="downloadForm.file_password" 
             type="password"
-            placeholder="请输入加密密码"
+            :placeholder="t('offline.encryptPasswordPlaceholder')"
             show-password
             maxlength="32"
           />
           <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
-            下载文件时需要使用此密码解密
+            {{ t('offline.encryptPasswordTip') }}
           </div>
         </el-form-item>
       </el-form>
@@ -320,7 +319,7 @@
           @click="handleParseTorrent"
           style="width: 100%"
         >
-          解析种子
+          {{ t('offline.parseTorrent') }}
         </el-button>
       </div>
 
@@ -329,7 +328,7 @@
         <div class="torrent-info">
           <h4>{{ torrentParseResult.name }}</h4>
           <div class="torrent-meta">
-            <el-tag type="info">共 {{ torrentParseResult.files.length }} 个文件</el-tag>
+            <el-tag type="info">{{ t('offline.fileCount', { count: torrentParseResult.files.length }) }}</el-tag>
             <el-tag type="info">{{ formatSize(torrentParseResult.total_size) }}</el-tag>
           </div>
         </div>
@@ -341,9 +340,9 @@
               :indeterminate="isIndeterminate"
               @change="handleSelectAll"
             >
-              全选
+              {{ t('offline.allSelect') }}
             </el-checkbox>
-            <span class="selected-count">已选择 {{ selectedFileIndexes.length }} 个文件</span>
+            <span class="selected-count">{{ t('offline.selectedFiles', { count: selectedFileIndexes.length }) }}</span>
           </div>
           <el-scrollbar height="300px" class="file-list-scrollbar">
             <el-table 
@@ -353,17 +352,17 @@
               :row-key="(row: any) => row.index"
             >
               <el-table-column type="selection" width="55" :reserve-selection="true" />
-              <el-table-column label="文件名" min-width="200">
+              <el-table-column :label="t('tasks.fileName')" min-width="200">
                 <template #default="{ row }">
                   <file-name-tooltip :file-name="row.name" view-mode="table" custom-class="torrent-file-name" />
                 </template>
               </el-table-column>
-              <el-table-column label="大小" width="120">
+              <el-table-column :label="t('tasks.fileSize')" width="120">
                 <template #default="{ row }">
                   {{ formatSize(row.size) }}
                 </template>
               </el-table-column>
-              <el-table-column label="路径" min-width="150" class-name="mobile-hide">
+              <el-table-column :label="t('offline.filePath')" min-width="150" class-name="mobile-hide">
                 <template #default="{ row }">
                   <span class="file-path">{{ row.path }}</span>
                 </template>
@@ -382,44 +381,44 @@
         label-width="100px"
         style="margin-top: 20px"
       >
-        <el-form-item label="保存位置">
+        <el-form-item :label="t('offline.saveLocation')">
           <el-tree-select
             v-model="downloadForm.virtual_path"
             :data="folderTreeData"
             :render-after-expand="false"
-            placeholder="请选择保存目录（默认：/离线下载/）"
+            :placeholder="t('offline.selectSaveDirectory')"
             :loading="loadingTree"
             style="width: 100%"
             check-strictly
-            :props="{ label: 'label', value: 'value', children: 'children' }"
+            :props="{ label: 'label', children: 'children' }"
             :default-expand-all="true"
             node-key="value"
           />
         </el-form-item>
-        <el-form-item label="加密存储">
+        <el-form-item :label="t('offline.encryptStorage')">
           <el-switch v-model="downloadForm.enable_encryption" />
         </el-form-item>
         <el-form-item 
           v-if="downloadForm.enable_encryption" 
-          label="加密密码" 
+          :label="t('offline.encryptPassword')" 
           prop="file_password"
         >
           <el-input 
             v-model="downloadForm.file_password" 
             type="password"
-            placeholder="请输入加密密码"
+            :placeholder="t('offline.encryptPasswordPlaceholder')"
             show-password
             maxlength="32"
           />
           <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
-            下载文件时需要使用此密码解密
+            {{ t('offline.encryptPasswordTip') }}
           </div>
         </el-form-item>
       </el-form>
       </template>
 
       <template #footer>
-        <el-button @click="showDownloadDialog = false">取消</el-button>
+        <el-button @click="showDownloadDialog = false">{{ t('common.cancel') }}</el-button>
         <!-- URL 下载模式 -->
         <el-button 
           v-if="detectedInputType === 'url' && !torrentParseResult"
@@ -427,7 +426,7 @@
           :loading="creating" 
           @click="handleCreateUrlDownload"
         >
-          创建任务
+          {{ t('offline.createTask') }}
         </el-button>
         <!-- 种子/磁力链接模式：解析按钮 -->
         <el-button 
@@ -437,7 +436,7 @@
           :disabled="!canParse"
           @click="handleParseTorrent"
         >
-          解析种子
+          {{ t('offline.parseTorrent') }}
         </el-button>
         <!-- 种子/磁力链接模式：开始下载按钮 -->
         <el-button 
@@ -447,7 +446,7 @@
           :disabled="selectedFileIndexes.length === 0"
           @click="handleStartTorrentDownload"
         >
-          开始下载（{{ selectedFileIndexes.length }} 个文件）
+          {{ t('offline.startDownload', { count: selectedFileIndexes.length }) }}
         </el-button>
       </template>
     </el-dialog>
@@ -471,8 +470,10 @@ import {
 import { getVirtualPathTree } from '@/api/file'
 import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
 import { useResponsive } from '@/composables/useResponsive'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 // 使用响应式检测 composable
 const { isMobile } = useResponsive()
@@ -519,9 +520,9 @@ const downloadRules: FormRules = {
     { 
       validator: (_rule: any, value: any, callback: any) => {
         if (inputType.value === 'text' && !value?.trim()) {
-          callback(new Error('请输入下载链接或磁力链接'))
+          callback(new Error(t('offline.enterDownloadLink')))
         } else if (inputType.value === 'text' && detectedInputType.value === 'url' && !/^https?:\/\//.test(value?.trim())) {
-          callback(new Error('请输入正确的 HTTP/HTTPS 链接'))
+          callback(new Error(t('files.formatError')))
         } else {
           callback()
         }
@@ -533,9 +534,9 @@ const downloadRules: FormRules = {
     { 
       validator: (_rule: any, value: any, callback: any) => {
         if (downloadForm.enable_encryption && !value) {
-          callback(new Error('加密存储时必须设置密码'))
+          callback(new Error(t('offline.encryptPasswordRequired')))
         } else if (value && value.length < 6) {
-          callback(new Error('密码长度至少为6位'))
+          callback(new Error(t('offline.passwordMinLength')))
         } else {
           callback()
         }
@@ -630,7 +631,7 @@ const loadTaskList = async () => {
   } catch (error: any) {
     // 智能刷新时静默处理错误，避免频繁弹窗
     if (isManualRefresh) {
-      proxy?.$modal.msgError(error.message || '加载任务列表失败')
+      proxy?.$modal.msgError(error.message || t('offline.loadTaskListFailed'))
     } else {
       proxy?.$log.warn('刷新任务列表失败:', error)
     }
@@ -656,7 +657,7 @@ const buildFolderTree = async () => {
     const res = await getVirtualPathTree()
     
     if (res.code !== 200 || !res.data) {
-      proxy?.$modal.msgError('获取目录树失败')
+      proxy?.$modal.msgError(t('offline.getFolderTreeFailed'))
       return
     }
     
@@ -677,7 +678,7 @@ const buildFolderTree = async () => {
       const nodeId = String(vp.id)
       // 获取路径最后一段作为显示名称
       const pathParts = vp.path.split('/').filter(p => p !== '')
-      const displayName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : vp.path || '根目录'
+      const displayName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : vp.path || t('offline.rootDir')
       
       pathMap.set(nodeId, {
         value: nodeId,
@@ -723,7 +724,7 @@ const buildFolderTree = async () => {
     
     folderTreeData.value = rootNodes
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '获取目录树失败')
+    proxy?.$modal.msgError(error.message || t('offline.getFolderTreeFailed'))
   } finally {
     loadingTree.value = false
   }
@@ -736,7 +737,7 @@ const handleCreateUrlDownload = async () => {
   await downloadFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
       if (detectedInputType.value !== 'url') {
-        proxy?.$modal.msgWarning('请输入正确的 HTTP/HTTPS 下载链接')
+        proxy?.$modal.msgWarning(t('offline.enterValidUrl'))
         return
       }
       
@@ -767,10 +768,10 @@ const handleCreateUrlDownload = async () => {
 const pauseTask = async (taskId: string) => {
   try {
     await pauseDownload(taskId)
-    proxy?.$modal.msgSuccess('已暂停')
+    proxy?.$modal.msgSuccess(t('tasks.pauseSuccess'))
     loadTaskList()
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '暂停失败')
+    proxy?.$modal.msgError(error.message || t('tasks.pauseFailed'))
   }
 }
 
@@ -778,24 +779,24 @@ const pauseTask = async (taskId: string) => {
 const resumeTask = async (taskId: string) => {
   try {
     await resumeDownload(taskId)
-    proxy?.$modal.msgSuccess('已恢复')
+    proxy?.$modal.msgSuccess(t('tasks.resumeSuccess'))
     loadTaskList()
   } catch (error: any) {
-    proxy?.$modal.msgError(error.message || '恢复失败')
+    proxy?.$modal.msgError(error.message || t('tasks.resumeFailed'))
   }
 }
 
 // 取消任务
 const cancelTask = async (taskId: string) => {
   try {
-    await proxy?.$modal.confirm('确认取消该任务？')
+    await proxy?.$modal.confirm(t('offline.confirmCancelTask'))
     
     await cancelDownload(taskId)
-    proxy?.$modal.msgSuccess('已取消')
+    proxy?.$modal.msgSuccess(t('tasks.cancelSuccess'))
     loadTaskList()
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '取消失败')
+      proxy?.$modal.msgError(error.message || t('tasks.cancelFailed'))
     }
   }
 }
@@ -803,14 +804,14 @@ const cancelTask = async (taskId: string) => {
 // 删除任务
 const deleteTask = async (taskId: string) => {
   try {
-    await proxy?.$modal.confirm('确认删除该任务？')
+    await proxy?.$modal.confirm(t('offline.confirmDeleteTask'))
     
     await deleteDownload(taskId)
-    proxy?.$modal.msgSuccess('已删除')
+    proxy?.$modal.msgSuccess(t('tasks.deleteSuccess'))
     loadTaskList()
   } catch (error: any) {
     if (error !== 'cancel') {
-      proxy?.$modal.msgError(error.message || '删除失败')
+      proxy?.$modal.msgError(error.message || t('tasks.deleteFailed'))
     }
   }
 }
@@ -831,7 +832,7 @@ const handleTorrentFileChange = (file: any) => {
     detectedInputType.value = detectInputType(file.raw)
   }
   reader.onerror = () => {
-    proxy?.$modal.msgError('读取种子文件失败')
+    proxy?.$modal.msgError(t('offline.readTorrentFailed'))
   }
   reader.readAsDataURL(file.raw)
 }
@@ -975,14 +976,14 @@ const handleStartTorrentDownload = async () => {
         })
         
         if (res.code === 200 && res.data) {
-          proxy?.$modal.msgSuccess(`任务创建成功，共创建 ${res.data.task_count} 个下载任务`)
+          proxy?.$modal.msgSuccess(t('offline.taskCreatedWithCount', { count: res.data.task_count }))
           showDownloadDialog.value = false
           loadTaskList()
         } else {
-          proxy?.$modal.msgError(res.message || '创建任务失败')
+          proxy?.$modal.msgError(res.message || t('offline.taskCreatedFailed'))
         }
       } catch (error: any) {
-        proxy?.$modal.msgError(error.message || '创建任务失败')
+        proxy?.$modal.msgError(error.message || t('offline.taskCreatedFailed'))
       } finally {
         creatingTorrent.value = false
       }
@@ -1072,6 +1073,33 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.header-right .el-button {
+  transition: all 0.2s;
+}
+
+html.dark .header-right .el-button {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .header-right .el-button:hover {
+  background-color: var(--el-fill-color-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+html.dark .header-right .el-button--primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .header-right .el-button--primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
 .task-list-card {
   flex: 1;
   overflow: hidden;
@@ -1140,6 +1168,11 @@ onBeforeUnmount(() => {
 /* PC端表格样式 */
 .desktop-table {
   display: table;
+}
+
+/* 隐藏表格自带的空状态显示，使用手动的 el-empty */
+.offline-table :deep(.el-table__empty-block) {
+  display: none;
 }
 
 /* 表格移动端隐藏列 */
@@ -1531,4 +1564,70 @@ onBeforeUnmount(() => {
     height: 150px !important;
   }
 }
+
+/* 深色模式样式 */
+html.dark .offline-page {
+  background: var(--card-bg);
+}
+
+html.dark .header-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .header-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .task-list-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .task-list-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .offline-table {
+  background: var(--card-bg);
+}
+
+
+html.dark .mobile-task-item {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .download-dialog :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .download-dialog :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark .download-dialog :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .download-dialog :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .download-dialog :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .download-dialog :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark .download-dialog :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
 </style>

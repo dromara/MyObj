@@ -1,29 +1,30 @@
 <template>
   <el-card shadow="never" class="task-card">
     <!-- PC端：表格布局 -->
-    <el-table :data="tasks" v-loading="loading" class="task-table desktop-table">
-      <el-table-column label="文件名" min-width="300" class-name="mobile-name-column">
+    <div class="table-wrapper" v-if="props.tasks.length > 0">
+      <el-table :data="tasks" v-loading="loading" class="task-table desktop-table">
+      <el-table-column :label="t('tasks.fileName')" min-width="200" class-name="mobile-name-column">
         <template #default="{ row }">
           <div class="file-name-cell">
-            <el-icon :size="24" color="#67C23A"><Document /></el-icon>
+            <el-icon :size="24" class="download-task-icon"><Document /></el-icon>
             <file-name-tooltip :file-name="row.file_name || row.url" view-mode="table" />
           </div>
         </template>
       </el-table-column>
       
-      <el-table-column label="类型" width="120" class-name="mobile-hide">
+      <el-table-column :label="t('tasks.type')" min-width="90" class-name="mobile-hide">
         <template #default="{ row }">
           <el-tag :type="getDownloadTypeColor(row.type)" effect="plain">{{ row.type_text }}</el-tag>
         </template>
       </el-table-column>
       
-      <el-table-column label="状态" width="120" class-name="mobile-hide">
+      <el-table-column :label="t('tasks.status')" min-width="100" class-name="mobile-hide">
         <template #default="{ row }">
           <el-tag :type="getDownloadStatusType(row.state)">{{ row.state_text }}</el-tag>
         </template>
       </el-table-column>
       
-      <el-table-column label="进度" width="250" class-name="mobile-progress-column">
+      <el-table-column :label="t('tasks.progress')" min-width="200" class-name="mobile-progress-column">
         <template #default="{ row }">
           <div class="progress-cell">
             <el-progress 
@@ -35,13 +36,13 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="创建时间" width="180" class-name="mobile-hide">
+      <el-table-column :label="t('tasks.createTime')" min-width="150" class-name="mobile-hide">
         <template #default="{ row }">
           {{ formatDate(row.create_time) }}
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="240" fixed="right" class-name="mobile-actions-column">
+      <el-table-column :label="t('tasks.operation')" width="180" fixed="right" class-name="mobile-actions-column">
         <template #default="{ row }">
           <el-button 
             v-if="row.type !== 7 && row.state === 1"
@@ -50,7 +51,7 @@
             type="warning"
             @click="$emit('pause', row.id)"
           >
-            暂停
+            {{ t('tasks.pause') }}
           </el-button>
           <el-button 
             v-if="row.type !== 7 && row.state === 2"
@@ -59,7 +60,7 @@
             type="primary"
             @click="$emit('resume', row.id)"
           >
-            继续
+            {{ t('tasks.resume') }}
           </el-button>
           <el-button 
             v-if="row.state === 0 || row.state === 1 || row.state === 2"
@@ -68,7 +69,7 @@
             type="danger"
             @click="$emit('cancel', row.id)"
           >
-            取消
+            {{ t('tasks.cancel') }}
           </el-button>
           <el-button 
             v-if="row.state === 3 || row.state === 4"
@@ -77,11 +78,12 @@
             type="danger"
             @click="$emit('delete', row.id)"
           >
-            删除
+            {{ t('tasks.delete') }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
+    </div>
     
     <!-- 移动端：卡片布局 -->
     <div class="mobile-task-list" v-loading="loading">
@@ -92,7 +94,7 @@
       >
         <div class="task-item-header">
           <div class="task-item-info">
-            <el-icon :size="20" color="#67C23A" class="task-icon"><Document /></el-icon>
+            <el-icon :size="20" class="task-icon download-task-icon"><Document /></el-icon>
             <div class="task-name-wrapper">
               <file-name-tooltip :file-name="row.file_name || row.url" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
@@ -159,25 +161,57 @@
       </div>
     </div>
     
-    <el-empty v-if="tasks.length === 0 && !loading" description="暂无下载任务" />
+    <el-empty v-if="tasks.length === 0 && !loading" :description="t('tasks.noDownloadTasks')" />
+    
+    <!-- 分页 -->
+    <pagination
+      v-if="(props.total || 0) > 0"
+      v-model:page="currentPage"
+      v-model:limit="pageSize"
+      :total="props.total || 0"
+      :page-sizes="[20, 50, 100]"
+      @pagination="handlePagination"
+      class="pagination"
+    />
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { formatSize, formatDate, formatSpeed } from '@/utils'
+import { useI18n } from '@/composables/useI18n'
 import type { OfflineDownloadTask } from '@/api/download'
 
-defineProps<{
+const { t } = useI18n()
+
+const props = defineProps<{
   tasks: OfflineDownloadTask[]
   loading: boolean
+  currentPage?: number
+  pageSize?: number
+  total?: number
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   pause: [taskId: string]
   resume: [taskId: string]
   cancel: [taskId: string]
   delete: [taskId: string]
+  pagination: [data: { page: number; limit: number }]
 }>()
+
+const currentPage = computed({
+  get: () => props.currentPage || 1,
+  set: (val: number) => emit('pagination', { page: val, limit: props.pageSize || 20 })
+})
+
+const pageSize = computed({
+  get: () => props.pageSize || 20,
+  set: (val: number) => emit('pagination', { page: props.currentPage || 1, limit: val })
+})
+
+const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+  emit('pagination', { page, limit })
+}
 
 const getDownloadTypeColor = (type: number) => {
   const colorMap: Record<number, any> = {
@@ -207,6 +241,17 @@ const getDownloadStatusType = (state: number) => {
 <style scoped>
 .task-card {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.task-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
 }
 
 .file-name-cell {
@@ -226,10 +271,80 @@ const getDownloadStatusType = (state: number) => {
   color: var(--el-text-color-secondary);
 }
 
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.task-table {
+  width: 100%;
+}
+
+.task-table :deep(.el-table__body-wrapper) {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
 /* PC端表格样式 */
 .desktop-table {
   display: table;
 }
+
+.task-table :deep(.el-table) {
+  background: transparent;
+  width: 100%;
+  table-layout: auto;
+}
+
+.task-table :deep(.el-table__header-wrapper) {
+  overflow-x: hidden;
+}
+
+.task-table :deep(.el-table__body-wrapper) {
+  overflow-x: hidden;
+}
+
+/* 当数据为空时，隐藏表格的空状态显示（因为我们已经用 el-empty 显示了） */
+.task-table :deep(.el-table__empty-block) {
+  display: none;
+}
+
+/* 确保表格在数据为空时不显示滚动条 */
+.task-table:has(.el-table__empty-block) {
+  overflow: hidden;
+}
+
+.task-table :deep(.el-table) {
+  background: transparent !important;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+}
+
+.task-table :deep(.el-table th.el-table__cell) {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom-color: var(--el-border-color-lighter);
+}
+
+.task-table :deep(.el-table td.el-table__cell) {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  border-bottom-color: var(--el-border-color-lighter);
+}
+
+.task-table :deep(.el-table tr) {
+  background: transparent !important;
+  transition: all 0.2s;
+}
+
+.task-table :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background: var(--el-fill-color-lighter) !important;
+}
+
 
 .task-table :deep(.mobile-hide) {
   display: table-cell;
@@ -253,10 +368,14 @@ const getDownloadStatusType = (state: number) => {
   display: none;
 }
 
+.download-task-icon {
+  color: var(--el-color-success);
+}
+
 .mobile-task-item {
   padding: 12px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
-  background: #fff;
+  background: var(--el-bg-color, var(--card-bg));
   transition: background-color 0.2s;
 }
 
@@ -377,5 +496,60 @@ const getDownloadStatusType = (state: number) => {
     min-width: 50px;
   }
 }
+
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.task-table {
+  width: 100%;
+}
+
+.task-table :deep(.el-table__body-wrapper) {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.pagination {
+  margin-top: 16px;
+  padding: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .pagination {
+    padding: 12px;
+  }
+}
+
+/* 深色模式样式 */
+html.dark .task-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .task-card :deep(.el-card__body) {
+  background: var(--card-bg);
+}
+
+html.dark .pagination {
+  border-top-color: var(--el-border-color);
+}
+
+html.dark .mobile-task-item {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark .mobile-task-item:active {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
 </style>
 

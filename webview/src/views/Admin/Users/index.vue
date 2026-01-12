@@ -2,13 +2,13 @@
   <div class="admin-users">
     <div class="toolbar">
       <div class="toolbar-left">
-        <el-button type="primary" icon="Plus" @click="handleCreate">新建用户</el-button>
-        <el-button icon="Refresh" @click="loadUserList">刷新</el-button>
+        <el-button type="primary" icon="Plus" @click="handleCreate">{{ t('admin.users.newUser') }}</el-button>
+        <el-button icon="Refresh" @click="loadUserList">{{ t('common.refresh') }}</el-button>
       </div>
       <div class="toolbar-right">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索用户名、邮箱..."
+          :placeholder="t('admin.users.searchPlaceholder')"
           clearable
           style="width: 300px"
           @clear="handleSearch"
@@ -25,23 +25,23 @@
       :data="userList"
       v-loading="loading"
       class="admin-table"
-      empty-text="暂无用户"
+      :empty-text="t('admin.users.noUsers')"
     >
-      <el-table-column prop="user_name" label="用户名" min-width="120" />
-      <el-table-column prop="name" label="昵称" min-width="120" />
-      <el-table-column prop="email" label="邮箱" min-width="180" />
-      <el-table-column prop="phone" label="手机号" min-width="120" />
-      <el-table-column prop="group_name" label="用户组" width="120">
+      <el-table-column prop="user_name" :label="t('admin.users.username')" min-width="120" />
+      <el-table-column prop="name" :label="t('admin.users.nickname')" min-width="120" />
+      <el-table-column prop="email" :label="t('admin.users.email')" min-width="180" />
+      <el-table-column prop="phone" :label="t('admin.users.phone')" min-width="120" />
+      <el-table-column prop="group_name" :label="t('admin.users.userGroup')" width="120">
         <template #default="{ row }">
-          <el-tag>{{ row.group_name || `组${row.group_id}` }}</el-tag>
+          <el-tag>{{ row.group_name || t('admin.users.userGroup') + row.group_id }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="存储空间" width="150">
+      <el-table-column :label="t('admin.users.storageSpace')" width="150">
         <template #default="{ row }">
           {{ formatStorage(row.space) }}
         </template>
       </el-table-column>
-      <el-table-column prop="state" label="状态" width="100" align="center">
+      <el-table-column prop="state" :label="t('admin.users.status')" width="100" align="center">
         <template #default="{ row }">
           <el-switch 
             v-model="row.state" 
@@ -52,8 +52,8 @@
           />
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column prop="created_at" :label="t('admin.users.createTime')" width="180" />
+      <el-table-column :label="t('admin.users.operation')" width="150" fixed="right">
         <template #default="{ row }">
           <el-button 
             v-if="row.group_id !== 1" 
@@ -61,7 +61,7 @@
             type="primary" 
             @click="handleEdit(row)"
           >
-            编辑
+            {{ t('admin.users.edit') }}
           </el-button>
           <el-button 
             v-if="row.group_id !== 1" 
@@ -69,10 +69,10 @@
             type="danger" 
             @click="handleDelete(row)"
           >
-            删除
+            {{ t('admin.users.delete') }}
           </el-button>
           <span v-if="row.group_id === 1" style="color: var(--el-text-color-secondary); font-size: 12px;">
-            管理员不可操作
+            {{ t('admin.users.adminCannotOperate') }}
           </span>
         </template>
       </el-table-column>
@@ -97,22 +97,22 @@
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item label="用户名" prop="user_name">
+        <el-form-item :label="t('admin.users.username')" prop="user_name">
           <el-input v-model="formData.user_name" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="!isEdit">
+        <el-form-item :label="t('admin.users.password')" prop="password" v-if="!isEdit">
           <el-input v-model="formData.password" type="password" show-password />
         </el-form-item>
-        <el-form-item label="昵称">
+        <el-form-item :label="t('admin.users.nickname')">
           <el-input v-model="formData.name" />
         </el-form-item>
-        <el-form-item label="邮箱">
+        <el-form-item :label="t('admin.users.email')">
           <el-input v-model="formData.email" />
         </el-form-item>
-        <el-form-item label="手机号">
+        <el-form-item :label="t('admin.users.phone')">
           <el-input v-model="formData.phone" />
         </el-form-item>
-        <el-form-item label="用户组" prop="group_id">
+        <el-form-item :label="t('admin.users.userGroup')" prop="group_id">
           <el-select v-model="formData.group_id" style="width: 100%">
             <el-option
               v-for="group in groupList"
@@ -122,7 +122,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="存储空间(GB)" prop="space">
+        <el-form-item :label="t('admin.users.storageSpaceGB')" prop="space">
           <el-input-number 
             v-model="formData.space" 
             :min="0" 
@@ -130,16 +130,16 @@
             style="width: 100%" 
           />
           <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
-            0 表示无限空间
+            {{ t('admin.users.unlimitedSpace') }}
             <span v-if="maxSpaceInGB > 0 && maxSpaceInGB < 999999" style="color: var(--el-color-warning);">
-              （组限制：{{ maxSpaceInGB }} GB）
+              {{ t('admin.users.groupLimit', { limit: maxSpaceInGB }) }}
             </span>
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+        <el-button @click="showDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -161,8 +161,10 @@ import {
 } from '@/api/admin'
 import { formatSize, bytesToGB, GBToBytes } from '@/utils'
 import type { FormRules } from 'element-plus'
+import { useI18n } from '@/composables/useI18n'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
+const { t } = useI18n()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -188,7 +190,7 @@ const pagination = reactive({
   total: 0
 })
 
-const dialogTitle = computed(() => isEdit.value ? '编辑用户' : '新建用户')
+const dialogTitle = computed(() => isEdit.value ? t('admin.users.editUser') : t('admin.users.newUser'))
 
 // 根据选中的组，计算存储空间的最大值（GB）
 const maxSpaceInGB = computed(() => {
@@ -208,21 +210,21 @@ const maxSpaceInGB = computed(() => {
 })
 
 const formRules: FormRules = {
-  user_name: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-  name: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  user_name: [{ required: true, message: t('admin.users.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('admin.users.passwordRequired'), trigger: 'blur' }],
+  name: [{ required: true, message: t('admin.users.nicknameRequired'), trigger: 'blur' }],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { required: true, message: t('admin.users.emailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('admin.users.emailFormat'), trigger: 'blur' }
   ],
-  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  group_id: [{ required: true, message: '请选择用户组', trigger: 'change' }],
-  space: [{ required: true, message: '请输入存储空间', trigger: 'blur' }]
+  phone: [{ required: true, message: t('admin.users.phoneRequired'), trigger: 'blur' }],
+  group_id: [{ required: true, message: t('admin.users.groupRequired'), trigger: 'change' }],
+  space: [{ required: true, message: t('admin.users.spaceRequired'), trigger: 'blur' }]
 }
 
 // 格式化存储空间
 const formatStorage = (bytes: number) => {
-  if (bytes === 0 || bytes === -1) return '无限'
+  if (bytes === 0 || bytes === -1) return t('admin.users.unlimited')
   return formatSize(bytes)
 }
 
@@ -240,12 +242,12 @@ const loadUserList = async () => {
       pagination.total = res.data.total || 0
     } else {
       // 后端接口未实现，提示开发中
-      proxy?.$modal.msg('用户管理功能开发中')
+      proxy?.$modal.msg(t('admin.users.featureDeveloping'))
       userList.value = []
       pagination.total = 0
     }
   } catch (error: any) {
-    proxy?.$modal.msgError('加载用户列表失败')
+    proxy?.$modal.msgError(t('admin.users.loadListFailed'))
     proxy?.$log?.error(error)
   } finally {
     loading.value = false
@@ -295,7 +297,7 @@ const handleCreate = () => {
 const handleEdit = (user: AdminUser) => {
   // 禁止操作管理员组
   if (user.group_id === 1) {
-    proxy?.$modal.msgWarning('不能编辑管理员组用户')
+    proxy?.$modal.msgWarning(t('admin.users.cannotEditAdmin'))
     return
   }
   
@@ -329,27 +331,27 @@ const handleSubmit = async () => {
         if (isEdit.value) {
           const res = await updateAdminUser(submitData as UpdateUserRequest)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('更新成功')
+            proxy?.$modal.msgSuccess(t('admin.users.updateSuccess'))
             showDialog.value = false
             loadUserList()
           } else {
-            proxy?.$modal.msgError(res.message || '更新失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.updateFailed'))
           }
         } else {
           const res = await createAdminUser(submitData as CreateUserRequest)
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('创建成功')
+            proxy?.$modal.msgSuccess(t('admin.users.createSuccess'))
             showDialog.value = false
             loadUserList()
           } else {
-            proxy?.$modal.msgError(res.message || '创建失败')
+            proxy?.$modal.msgError(res.message || t('admin.users.createFailed'))
           }
         }
       } catch (error: any) {
         if (error.response?.status === 404 || error.message?.includes('404')) {
-          proxy?.$modal.msg('用户管理功能开发中')
+          proxy?.$modal.msg(t('admin.users.featureDeveloping'))
         } else {
-          proxy?.$modal.msgError(error.message || '操作失败')
+          proxy?.$modal.msgError(error.message || t('common.operationFailed'))
         }
       } finally {
         submitting.value = false
@@ -362,25 +364,25 @@ const handleSubmit = async () => {
 const handleDelete = async (user: AdminUser) => {
   // 禁止操作管理员组
   if (user.group_id === 1) {
-    proxy?.$modal.msgWarning('不能删除管理员组用户')
+    proxy?.$modal.msgWarning(t('admin.users.cannotDeleteAdmin'))
     return
   }
   
   try {
-    await proxy?.$modal.confirm(`确定要删除用户 "${user.user_name}" 吗？`)
+    await proxy?.$modal.confirm(t('admin.users.confirmDelete', { name: user.user_name }))
     try {
       const res = await deleteAdminUser(user.id)
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess('删除成功')
+        proxy?.$modal.msgSuccess(t('admin.users.deleteSuccess'))
         loadUserList()
       } else {
-        proxy?.$modal.msgError(res.message || '删除失败')
+        proxy?.$modal.msgError(res.message || t('admin.users.deleteFailed'))
       }
     } catch (error: any) {
       if (error.response?.status === 404 || error.message?.includes('404')) {
-        proxy?.$modal.msg('用户管理功能开发中')
+        proxy?.$modal.msg(t('admin.users.featureDeveloping'))
       } else {
-        proxy?.$modal.msgError(error.message || '删除失败')
+        proxy?.$modal.msgError(error.message || t('admin.users.deleteFailed'))
       }
     }
   } catch (error: any) {
@@ -392,21 +394,22 @@ const handleDelete = async (user: AdminUser) => {
 const handleStatusChange = async (row: AdminUser) => {
   // 禁止操作管理员组
   if (row.group_id === 1) {
-    proxy?.$modal.msgWarning('不能操作管理员组用户')
+    proxy?.$modal.msgWarning(t('admin.users.cannotOperateAdmin'))
     // 回滚状态
     row.state = row.state === 0 ? 1 : 0
     return
   }
   
-  const text = row.state === 0 ? '启用' : '禁用'
+  const action = row.state === 0 ? t('admin.users.enabled') : t('admin.users.disabled')
+  const actionKey = row.state === 0 ? 'enable' : 'disable'
   try {
-    await proxy?.$modal.confirm(`确认要"${text}""${row.user_name}"用户吗?`)
+    await proxy?.$modal.confirm(t('admin.users.confirmStatusChange', { action, name: row.user_name }))
     try {
       const res = await toggleUserState(row.id, row.state)
       if (res.code === 200) {
-        proxy?.$modal.msgSuccess(`${text}成功`)
+        proxy?.$modal.msgSuccess(t(`admin.users.${actionKey}Success`))
       } else {
-        proxy?.$modal.msgError(res.message || `${text}失败`)
+        proxy?.$modal.msgError(res.message || t(`admin.users.${actionKey}Failed`))
         // 操作失败，回滚状态
         row.state = row.state === 0 ? 1 : 0
       }
@@ -414,9 +417,9 @@ const handleStatusChange = async (row: AdminUser) => {
       // 操作失败，回滚状态
       row.state = row.state === 0 ? 1 : 0
       if (error.response?.status === 404 || error.message?.includes('404')) {
-        proxy?.$modal.msg('用户管理功能开发中')
+        proxy?.$modal.msg(t('admin.users.featureDeveloping'))
       } else {
-        proxy?.$modal.msgError(error.message || `${text}失败`)
+        proxy?.$modal.msgError(error.message || t(`admin.users.${actionKey}Failed`))
       }
     }
   } catch (error: any) {
@@ -523,6 +526,57 @@ onMounted(() => {
   .admin-table :deep(.el-table-column--selection) {
     width: 40px !important;
   }
+}
+
+/* 深色模式样式 */
+html.dark .admin-users {
+  background: transparent;
+}
+
+html.dark .pagination {
+  border-top-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog) {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__header) {
+  background: var(--card-bg);
+  border-bottom-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-dialog__title) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-dialog__body) {
+  background: var(--card-bg);
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-form-item__label) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input__inner) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark :deep(.el-select .el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+html.dark :deep(.el-input-number .el-input__wrapper) {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
 }
 </style>
 

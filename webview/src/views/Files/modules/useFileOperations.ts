@@ -2,6 +2,7 @@ import { deleteFiles, setFilePublic } from '@/api/file'
 import { createPackage, getPackageProgress, downloadPackage } from '@/api/package'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from '@/composables/useI18n'
 import cache from '@/plugins/cache'
 import type { FileItem, FileListResponse } from '@/types'
 
@@ -11,6 +12,7 @@ export function useFileOperations(
   selectedFolderIds: Ref<number[]>,
   loadFileList: () => Promise<void>
 ) {
+  const { t } = useI18n()
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const router = useRouter()
   const userStore = useUserStore()
@@ -68,22 +70,22 @@ export function useFileOperations(
 
   const handleDeleteFile = async (file: FileItem) => {
     try {
-      await proxy?.$modal.confirm(`确定要删除 "${file.file_name}" 吗？删除后将移动到回收站。`)
+      await proxy?.$modal.confirm(t('files.confirmDeleteFile', { fileName: file.file_name }))
       try {
         const result = await deleteFiles({ file_ids: [file.file_id] })
         if (result.code === 200) {
-          proxy?.$modal.msgSuccess('删除成功')
+          proxy?.$modal.msgSuccess(t('files.deleteSuccess'))
           selectedFileIds.value = []
           selectedFolderIds.value = []
           await loadFileList()
           // 删除成功后刷新用户信息，更新存储空间显示
           await userStore.fetchUserInfo()
         } else {
-          proxy?.$modal.msgError(result.message || '删除失败')
+          proxy?.$modal.msgError(result.message || t('files.deleteFailed'))
         }
       } catch (error: any) {
         if (error !== 'cancel') {
-          proxy?.$modal.msgError(error.message || '删除失败')
+          proxy?.$modal.msgError(error.message || t('files.deleteFailed'))
         }
       }
     } catch (error: any) {
@@ -95,7 +97,7 @@ export function useFileOperations(
 
   const handleToolbarDownload = async () => {
     if (selectedFileIds.value.length === 0) {
-      proxy?.$modal.msgWarning('请先选择要下载的文件')
+      proxy?.$modal.msgWarning(t('files.selectFilesFirst'))
       return
     }
     
@@ -114,7 +116,7 @@ export function useFileOperations(
   // 打包下载
   const handlePackageDownload = async () => {
     if (selectedFileIds.value.length === 0) {
-      proxy?.$modal.msgWarning('请先选择要下载的文件')
+      proxy?.$modal.msgWarning(t('files.selectFilesFirst'))
       return
     }
 
@@ -122,7 +124,7 @@ export function useFileOperations(
 
     try {
       // 创建打包任务
-      proxy?.$modal.loading('正在创建压缩包，请稍候...')
+      proxy?.$modal.loading(t('files.creatingPackage'))
 
       const res = await createPackage({
         file_ids: selectedFileIds.value,
@@ -152,7 +154,7 @@ export function useFileOperations(
             if (contentType.includes('application/json') || !response.ok) {
               const errorData = await response.json()
               proxy?.$modal.closeLoading()
-              proxy?.$modal.msgError(errorData.message || '下载失败')
+              proxy?.$modal.msgError(errorData.message || t('files.downloadFailed'))
               return
             }
             
@@ -168,10 +170,10 @@ export function useFileOperations(
             document.body.removeChild(a)
             window.URL.revokeObjectURL(blobUrl)
             proxy?.$modal.closeLoading()
-            proxy?.$modal.msgSuccess('开始下载')
+            proxy?.$modal.msgSuccess(t('files.downloadStart'))
           } catch (error: any) {
             proxy?.$modal.closeLoading()
-            proxy?.$modal.msgError(error.message || '下载失败')
+            proxy?.$modal.msgError(error.message || t('files.downloadFailed'))
           }
           return
         }
@@ -183,17 +185,17 @@ export function useFileOperations(
       } else {
         proxy?.$modal.closeLoading()
         if (res.code === 404 || res.message?.includes('404')) {
-          proxy?.$modal.msg('打包下载功能开发中')
+          proxy?.$modal.msg(t('files.packageFeaturePending'))
         } else {
-          proxy?.$modal.msgError(res.message || '创建打包任务失败')
+          proxy?.$modal.msgError(res.message || t('files.createPackageFailed'))
         }
       }
     } catch (error: any) {
       proxy?.$modal.closeLoading()
       if (error.response?.status === 404 || error.message?.includes('404')) {
-        proxy?.$modal.msg('打包下载功能开发中')
+        proxy?.$modal.msg(t('files.packageFeaturePending'))
       } else {
-        proxy?.$modal.msgError(error.message || '打包下载失败')
+        proxy?.$modal.msgError(error.message || t('files.packageDownloadFailed'))
       }
       proxy?.$log?.error(error)
     }
@@ -230,7 +232,7 @@ export function useFileOperations(
               const contentType = response.headers.get('content-type') || ''
               if (contentType.includes('application/json') || !response.ok) {
                 const errorData = await response.json()
-                proxy?.$modal.msgError(errorData.message || '下载失败')
+                proxy?.$modal.msgError(errorData.message || t('files.downloadFailed'))
                 return
               }
               
@@ -245,22 +247,22 @@ export function useFileOperations(
               a.click()
               document.body.removeChild(a)
               window.URL.revokeObjectURL(blobUrl)
-              proxy?.$modal.msgSuccess('压缩包已创建，开始下载')
+              proxy?.$modal.msgSuccess(t('files.packageReady'))
             } catch (error: any) {
-              proxy?.$modal.msgError(error.message || '下载失败')
+              proxy?.$modal.msgError(error.message || t('files.downloadFailed'))
             }
             return
           }
           
           if (status === 'failed') {
             proxy?.$modal.closeLoading()
-            proxy?.$modal.msgError(res.data.error_msg || '打包失败')
+            proxy?.$modal.msgError(res.data.error_msg || t('files.packageFailed'))
             return
           }
           
           // 更新进度提示
           if (progress < 100) {
-            proxy?.$modal.loading(`正在打包... ${progress}%`)
+            proxy?.$modal.loading(t('files.packaging', { progress }))
           }
           
           // 继续轮询
@@ -269,22 +271,22 @@ export function useFileOperations(
             setTimeout(poll, 5000) // 每5秒轮询一次
           } else if (attempts >= maxAttempts) {
             proxy?.$modal.closeLoading()
-            proxy?.$modal.msgError('打包超时，请稍后重试')
+            proxy?.$modal.msgError(t('files.packageTimeout'))
           }
         } else {
           proxy?.$modal.closeLoading()
           if (res.code === 404 || res.message?.includes('404')) {
-            proxy?.$modal.msg('打包下载功能开发中')
+            proxy?.$modal.msg(t('files.packageFeaturePending'))
           } else {
-            proxy?.$modal.msgError(res.message || '获取打包进度失败')
+            proxy?.$modal.msgError(res.message || t('files.getPackageProgressFailed'))
           }
         }
       } catch (error: any) {
         proxy?.$modal.closeLoading()
         if (error.response?.status === 404 || error.message?.includes('404')) {
-          proxy?.$modal.msg('打包下载功能开发中')
+          proxy?.$modal.msg(t('files.packageFeaturePending'))
         } else {
-          proxy?.$modal.msgError('获取打包进度失败')
+          proxy?.$modal.msgError(t('files.getPackageProgressFailed'))
         }
         proxy?.$log?.error(error)
       }
@@ -295,18 +297,18 @@ export function useFileOperations(
 
   const handleToolbarShare = () => {
     if (selectedFileIds.value.length === 0) {
-      proxy?.$modal.msgWarning('请先选择要分享的文件')
+      proxy?.$modal.msgWarning(t('files.selectShareFilesFirst'))
       return
     }
     if (selectedFileIds.value.length > 1) {
-      proxy?.$modal.msgWarning('一次只能分享一个文件')
+      proxy?.$modal.msgWarning(t('files.onlyOneShare'))
       return
     }
     
     const fileId = selectedFileIds.value[0]
     const file = fileListData.value.files.find((f: any) => f.file_id === fileId)
     if (!file) {
-      proxy?.$modal.msgError('文件不存在')
+      proxy?.$modal.msgError(t('files.fileNotExists'))
       return
     }
     
@@ -317,26 +319,26 @@ export function useFileOperations(
     const totalCount = selectedFileIds.value.length + selectedFolderIds.value.length
     
     if (totalCount === 0) {
-      proxy?.$modal.msgWarning('请先选择要删除的文件')
+      proxy?.$modal.msgWarning(t('files.selectDeleteFilesFirst'))
       return
     }
     
     try {
-      await proxy?.$modal.confirm(`确定要删除 ${totalCount} 个文件吗？删除后将移动到回收站。`)
+      await proxy?.$modal.confirm(t('files.confirmDeleteFiles', { count: totalCount }))
       try {
         if (selectedFileIds.value.length > 0) {
           const result = await deleteFiles({ file_ids: selectedFileIds.value })
           if (result.code === 200) {
-            proxy?.$modal.msgSuccess(result.message || '删除成功')
+            proxy?.$modal.msgSuccess(result.message || t('files.deleteSuccess'))
             // 删除成功后刷新用户信息，更新存储空间显示
             await userStore.fetchUserInfo()
           } else {
-            proxy?.$modal.msgError(result.message || '删除失败')
+            proxy?.$modal.msgError(result.message || t('files.deleteFailed'))
           }
         }
         
         if (selectedFolderIds.value.length > 0) {
-          proxy?.$modal.msgWarning('文件夹删除功能待开发')
+          proxy?.$modal.msgWarning(t('files.folderDeletePending'))
         }
         
         selectedFileIds.value = []
@@ -344,7 +346,7 @@ export function useFileOperations(
         await loadFileList()
       } catch (error: any) {
         if (error !== 'cancel') {
-          proxy?.$modal.msgError(error.message || '删除失败')
+          proxy?.$modal.msgError(error.message || t('files.deleteFailed'))
         }
       }
     } catch (error: any) {
@@ -358,7 +360,7 @@ export function useFileOperations(
     try {
       // 如果要设置为公开，检查文件是否加密
       if (isPublic && file.is_enc) {
-        proxy?.$modal.msgError('加密文件不能设置为公开')
+        proxy?.$modal.msgError(t('files.encryptedFileNotPublic'))
         return
       }
 
@@ -368,14 +370,14 @@ export function useFileOperations(
       })
 
       if (result.code === 200) {
-        proxy?.$modal.msgSuccess(isPublic ? '文件已公开' : '文件已取消公开')
+        proxy?.$modal.msgSuccess(isPublic ? t('files.filePublic') : t('files.filePrivate'))
         await loadFileList()
       } else {
-        proxy?.$modal.msgError(result.message || '操作失败')
+        proxy?.$modal.msgError(result.message || t('files.operationFailed'))
       }
     } catch (error: any) {
       proxy?.$log.error('设置文件公开状态失败:', error)
-      proxy?.$modal.msgError(error.message || '操作失败')
+      proxy?.$modal.msgError(error.message || t('files.operationFailed'))
     }
   }
 

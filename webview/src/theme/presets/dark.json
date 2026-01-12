@@ -1,0 +1,14 @@
+{
+  "name": "暗色预设",
+  "desc": "适用于夜间使用的暗色主题预设",
+  "theme": "dark",
+  "grayscale": false,
+  "colourWeakness": false,
+  "colors": {
+    "primary": "#3b82f6",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#06b6d4"
+  }
+}

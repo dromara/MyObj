@@ -2,10 +2,10 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'
 import router from './router'
 import '@/assets/styles/index.css'
+import { setupI18n } from '@/i18n'
 
 // 注册插件
 import plugins from './plugins/index'
@@ -37,8 +37,11 @@ app.use(router)
 import { setRouter } from './plugins/index'
 setRouter(router)
 
-app.use(ElementPlus, {
-  locale: zhCn,
-})
+// 设置国际化
+setupI18n(app)
+
+// Element Plus 全局配置（语言包现在通过 ElConfigProvider 动态切换）
+app.use(ElementPlus)
+
 app.use(plugins)
 app.mount('#app')

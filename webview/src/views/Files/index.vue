@@ -4,7 +4,11 @@
     <Breadcrumb 
       :breadcrumbs="breadcrumbs"
       :format-breadcrumb-name="formatBreadcrumbName"
+      :current-path="currentPath"
+      :refreshing="fileListLoading"
       @navigate="navigateToPath"
+      @refresh="loadFileList"
+      @go-back="handleGoBack"
     />
 
     <!-- Toolbar with Glass effect -->
@@ -13,11 +17,11 @@
         <div class="toolbar-left">
           <!-- 显示所有按钮 -->
           <div class="toolbar-actions">
-            <el-tooltip content="上传文件" placement="bottom">
-              <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">上传</el-button>
+            <el-tooltip :content="t('files.upload')" placement="bottom">
+              <el-button type="primary" icon="Upload" @click="handleUpload" class="action-btn">{{ t('files.upload') }}</el-button>
             </el-tooltip>
-            <el-button icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">新建文件夹</el-button>
-            <el-button icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">移动文件</el-button>
+            <el-button icon="FolderAdd" @click="handleNewFolder" class="action-btn-secondary">{{ t('files.newFolder') }}</el-button>
+            <el-button icon="FolderOpened" @click="handleMoveFile" :disabled="selectedFileIds.length === 0" class="action-btn-secondary">{{ t('files.move') }}</el-button>
             <div class="divider-vertical"></div>
             <div class="view-switch glass-toggle">
               <el-button icon="Grid" :class="{ 'is-active': viewMode === 'grid' }" @click="viewMode = 'grid'" text />
@@ -27,7 +31,7 @@
         </div>
         
         <div class="toolbar-right" :class="{ 'is-visible': selectedCount > 0 }">
-          <span class="selection-info desktop-only">已选 {{ selectedCount }} 项</span>
+          <span class="selection-info desktop-only">{{ t('files.selected', { count: selectedCount }) }}</span>
           <el-button icon="Download" @click="handleToolbarDownload" plain circle />
           <el-button icon="Share" @click="handleToolbarShare" plain circle />
           <el-button icon="Delete" type="danger" @click="handleToolbarDelete" plain circle />
@@ -36,10 +40,17 @@
     </div>
     
     <!-- 文件列表内容区域 -->
-    <div class="file-content-area" v-loading="isLoading">
+    <div class="file-content-area">
+      <!-- 骨架屏加载 -->
+      <Skeleton 
+        v-if="fileListLoading || isLoading"
+        :count="12"
+        :view-mode="viewMode"
+      />
+      
       <!-- 网格视图 -->
       <FileGrid
-        v-if="viewMode === 'grid'"
+        v-else-if="viewMode === 'grid'"
         :folders="displayData.folders"
         :files="displayData.files"
         :is-selected-folder="isSelectedFolder"
@@ -75,27 +86,28 @@
       
       <!-- 空状态 -->
       <el-empty 
-        v-if="displayData.folders.length === 0 && displayData.files.length === 0 && !isSearching" 
-        :description="hasSearchKeyword ? '未找到匹配的文件' : '暂无文件'" 
+        v-if="!fileListLoading && !isLoading && displayData.folders.length === 0 && displayData.files.length === 0 && !isSearching" 
+        :description="hasSearchKeyword ? t('files.noSearchResults') : t('files.emptyFolder')" 
       />
     </div>
     
     <!-- 分页 -->
-    <pagination
-      v-if="displayPagination.total > 0"
-      :page="displayPagination.page"
-      :limit="displayPagination.pageSize"
-      :total="displayPagination.total"
-      :page-sizes="[20, 50, 100]"
-      float="center"
-      @pagination="handlePagination"
-      class="pagination"
-    />
+    <div v-if="displayPagination.total > 0" class="pagination-wrapper">
+      <pagination
+        :page="displayPagination.page"
+        :limit="displayPagination.pageSize"
+        :total="displayPagination.total"
+        :page-sizes="[20, 50, 100]"
+        float="center"
+        @pagination="handlePagination"
+        class="pagination"
+      />
+    </div>
     
     <!-- 新建文件夹对话框 -->
     <el-dialog 
       v-model="showNewFolderDialog" 
-      title="新建文件夹" 
+      :title="t('files.newFolder')" 
       width="500px"
       @close="handleDialogClose"
     >
@@ -105,10 +117,10 @@
         :rules="folderRules"
         label-width="100px"
       >
-        <el-form-item label="文件夹名称" prop="dir_path">
+        <el-form-item :label="t('files.folderName')" prop="dir_path">
           <el-input 
             v-model="folderForm.dir_path" 
-            placeholder="请输入文件夹名称"
+            :placeholder="t('files.folderNamePlaceholder')"
             clearable
             maxlength="50"
             show-word-limit
@@ -118,8 +130,8 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showNewFolderDialog = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreateFolder">确定</el-button>
+        <el-button @click="showNewFolderDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="creating" @click="handleCreateFolder">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
     
@@ -132,33 +144,34 @@
     <!-- 移动文件对话框 -->
     <el-dialog 
       v-model="showMoveDialog" 
-      title="移动文件" 
+      :title="t('files.move')" 
       width="500px"
     >
       <el-form label-width="100px">
-        <el-form-item label="选中文件">
+        <el-form-item :label="t('files.selectedFiles')">
           <el-tag v-for="fileId in selectedFileIds" :key="fileId" class="file-tag">
             {{ getFileNameForMove(fileId) }}
           </el-tag>
         </el-form-item>
-        <el-form-item label="目标目录">
+        <el-form-item :label="t('files.targetFolder')">
           <el-tree-select
             v-model="targetFolderId"
             :data="folderTreeData"
             :render-after-expand="false"
-            placeholder="请选择目标目录"
+            :placeholder="t('files.targetFolderPlaceholder')"
             :default-expanded-keys="[currentPath]"
             :loading="loadingTree"
             style="width: 100%"
             check-strictly
-            :props="{ label: 'label', value: 'value', children: 'children' }"
+            node-key="value"
+            :props="{ label: 'label', children: 'children' }"
           />
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="showMoveDialog = false">取消</el-button>
-        <el-button type="primary" :loading="moving" @click="handleConfirmMove">确定移动</el-button>
+        <el-button @click="showMoveDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="moving" @click="handleConfirmMove">{{ t('files.confirmMove') }}</el-button>
       </template>
     </el-dialog>
     
@@ -176,18 +189,18 @@
     <!-- 下载密码对话框 -->
     <el-dialog 
       v-model="showDownloadPasswordDialog" 
-      title="输入文件密码" 
+      :title="t('files.downloadPassword')" 
       width="450px"
     >
       <el-form label-width="100px">
-        <el-form-item label="文件名称">
+        <el-form-item :label="t('files.fileName')">
           <el-text>{{ downloadPasswordForm.file_name }}</el-text>
         </el-form-item>
-        <el-form-item label="文件密码">
+        <el-form-item :label="t('files.filePassword')">
           <el-input 
             v-model="downloadPasswordForm.file_password" 
             type="password"
-            placeholder="请输入文件加密密码"
+            :placeholder="t('files.filePasswordPlaceholder')"
             show-password
             @keyup.enter="confirmDownloadPassword"
           />
@@ -195,15 +208,15 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showDownloadPasswordDialog = false">取消</el-button>
-        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">确定</el-button>
+        <el-button @click="showDownloadPasswordDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="downloadingFile" @click="confirmDownloadPassword">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 文件重命名对话框 -->
     <el-dialog 
       v-model="showRenameFileDialog" 
-      title="重命名文件" 
+      :title="t('files.rename')" 
       width="500px"
       @close="handleRenameFileDialogClose"
     >
@@ -213,13 +226,13 @@
         :rules="renameFileRules"
         label-width="100px"
       >
-        <el-form-item label="原文件名">
+        <el-form-item :label="t('files.oldFileName')">
           <el-text>{{ renameFileForm.old_file_name }}</el-text>
         </el-form-item>
-        <el-form-item label="新文件名" prop="new_file_name">
+        <el-form-item :label="t('files.newFileName')" prop="new_file_name">
           <el-input 
             v-model="renameFileForm.new_file_name" 
-            placeholder="请输入新文件名"
+            :placeholder="t('files.fileNamePlaceholder')"
             clearable
             maxlength="255"
             show-word-limit
@@ -229,15 +242,15 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showRenameFileDialog = false">取消</el-button>
-        <el-button type="primary" :loading="renamingFile" @click="handleConfirmRenameFile">确定</el-button>
+        <el-button @click="showRenameFileDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="renamingFile" @click="handleConfirmRenameFile">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 目录重命名对话框 -->
     <el-dialog 
       v-model="showRenameDirDialog" 
-      title="重命名目录" 
+      :title="t('files.renameDir')" 
       width="500px"
       @close="handleRenameDirDialogClose"
     >
@@ -247,13 +260,13 @@
         :rules="renameDirRules"
         label-width="100px"
       >
-        <el-form-item label="原目录名">
+        <el-form-item :label="t('files.oldDirName')">
           <el-text>{{ renameDirForm.old_dir_name }}</el-text>
         </el-form-item>
-        <el-form-item label="新目录名" prop="new_dir_name">
+        <el-form-item :label="t('files.newDirName')" prop="new_dir_name">
           <el-input 
             v-model="renameDirForm.new_dir_name" 
-            placeholder="请输入新目录名"
+            :placeholder="t('files.newDirNamePlaceholder')"
             clearable
             maxlength="50"
             show-word-limit
@@ -263,8 +276,8 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showRenameDirDialog = false">取消</el-button>
-        <el-button type="primary" :loading="renamingDir" @click="handleConfirmRenameDir">确定</el-button>
+        <el-button @click="showRenameDirDialog = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="renamingDir" @click="handleConfirmRenameDir">{{ t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
@@ -276,11 +289,13 @@
 <script setup lang="ts">
 import { handleFileUpload } from '@/utils/upload'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from '@/composables/useI18n'
 import FileGrid from './modules/FileGrid.vue'
 import FileList from './modules/FileList.vue'
 import Breadcrumb from './modules/Breadcrumb.vue'
-import UploadEncryptDialog from '@/components/UploadEncryptDialog/index.vue'
 import type { FileItem, FolderItem } from '@/types'
+
+const { t } = useI18n()
 
 // 导入 composables
 import { useFileList } from './modules/useFileList'
@@ -308,7 +323,8 @@ const {
   formatBreadcrumbName,
   loadFileList,
   navigateToPath,
-  getThumbnailUrl
+  getThumbnailUrl,
+  loading: fileListLoading
 } = useFileList()
 
 const {
@@ -481,14 +497,14 @@ const handleUploadEncryptConfirm = async (encryptConfig: { is_enc: boolean; file
       proxy?.$log.debug(`文件 ${fileName} 上传进度: ${progress}%`)
     },
     async (fileName) => {
-      proxy?.$modal.msgSuccess(`文件 ${fileName} 上传成功`)
+      proxy?.$modal.msgSuccess(t('files.uploadSuccess', { fileName }))
       await loadFileList()
       // 上传成功后刷新用户信息，更新存储空间显示
       await userStore.fetchUserInfo()
     },
     (error, fileName) => {
       proxy?.$log.error(`文件 ${fileName} 上传失败:`, error)
-      proxy?.$modal.msgError(`文件 ${fileName} 上传失败: ${error.message}`)
+      proxy?.$modal.msgError(t('files.uploadFailed', { fileName, error: error.message }))
     },
     true,
     () => {
@@ -511,6 +527,14 @@ const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
     currentPage.value = page
     pageSize.value = limit
     loadFileList()
+  }
+}
+
+// 处理返回上一级
+const handleGoBack = () => {
+  if (breadcrumbs.value.length > 1) {
+    const previousPath = breadcrumbs.value[breadcrumbs.value.length - 2].path
+    navigateToPath(previousPath)
   }
 }
 
@@ -573,24 +597,22 @@ watch(
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   overflow: hidden;
-  /* 移除 position 和 z-index，避免影响侧边栏 */
+  padding: 4px;
 }
 
 .file-content-area {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: auto; /* 允许横向滚动，以便在小屏幕上查看完整表格 */
+  overflow-x: hidden;
 }
-
 
 .toolbar-container {
   padding: 16px;
   border-radius: 16px;
-  margin-bottom: 20px;
-  /* 移除 position 和 z-index，避免影响侧边栏 */
+  flex-shrink: 0;
 }
 
 .toolbar {
@@ -637,14 +659,14 @@ watch(
   height: 40px;
   border-radius: 10px;
   border: 1px solid transparent;
-  background: white;
+  background: var(--card-bg);
   color: var(--text-regular);
 }
 
 .action-btn-secondary:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
-  background: white;
+  background: var(--card-bg);
 }
 
 .divider-vertical {
@@ -672,17 +694,29 @@ watch(
 }
 
 .glass-toggle .el-button.is-active {
-  background: white;
+  background: var(--card-bg);
   color: var(--primary-color);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
+html.dark .glass-toggle {
+  background: rgba(255, 255, 255, 0.05);
+}
 
+html.dark .glass-toggle .el-button.is-active {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+
+
+.pagination-wrapper {
+  flex-shrink: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
 
 .pagination {
-  margin-top: 16px;
   justify-content: center;
-  flex-shrink: 0;
 }
 
 .file-tag {

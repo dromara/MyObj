@@ -3,64 +3,92 @@ import { loadAndSyncBackendTasks, findBackendTask } from '@/utils/uploadTaskSync
 import { deleteUploadTask, getUploadProgress, listExpiredUploads } from '@/api/file'
 import { formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/upload'
+import { useI18n } from '@/composables/useI18n'
 
 export function useUploadTasks() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
+  const { t } = useI18n()
 
   const uploadLoading = ref(false)
   const cleanLoading = ref(false)
   const uploadTasks = ref<any[]>([])
+  const allUploadTasks = ref<any[]>([]) // 存储所有任务（用于分页）
+  
+  // 分页状态
+  const currentPage = ref(1)
+  const pageSize = ref(20)
+  const total = computed(() => allUploadTasks.value.length)
+
+  // 更新分页数据
+  const updatePaginatedTasks = () => {
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    uploadTasks.value = allUploadTasks.value.slice(start, end)
+  }
 
   // 加载上传任务列表
-  const loadUploadTasks = async () => {
-    uploadLoading.value = true
+  const loadUploadTasks = async (showLoading = true) => {
+    if (showLoading) {
+      uploadLoading.value = true
+    }
     try {
       const localTasks = uploadTaskManager.getAllTasks()
-      uploadTasks.value = localTasks
+      allUploadTasks.value = localTasks
+      updatePaginatedTasks()
       
       const syncResult = await loadAndSyncBackendTasks()
       
       if (syncResult.success) {
         const allTasks = uploadTaskManager.getAllTasks()
-        uploadTasks.value = allTasks
+        allUploadTasks.value = allTasks
+        updatePaginatedTasks()
       } else if (syncResult.error) {
         proxy?.$log.warn('任务同步失败:', syncResult.error)
       }
     } catch (error: any) {
       proxy?.$log.error('加载上传任务失败:', error)
     } finally {
-      uploadLoading.value = false
+      if (showLoading) {
+        uploadLoading.value = false
+      }
     }
+  }
+  
+  // 处理分页变化
+  const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+    currentPage.value = page
+    pageSize.value = limit
+    updatePaginatedTasks()
   }
 
   // 暂停上传
   const pauseUpload = (taskId: string) => {
     uploadTaskManager.pauseTask(taskId)
     uploadTaskManager.cancelAllUploads(taskId)
-    proxy?.$modal.msgSuccess('已暂停')
+      proxy?.$modal.msgSuccess(t('tasks.paused'))
   }
 
   // 恢复上传
   const resumeUpload = async (taskId: string) => {
     const task = uploadTaskManager.getTask(taskId)
     if (!task) {
-      proxy?.$modal.msgError('任务不存在')
+      proxy?.$modal.msgError(t('tasks.taskNotExists') || '任务不存在')
       return
     }
 
     if (task.status !== 'paused') {
-      proxy?.$modal.msgError('任务状态不正确，无法恢复')
+      proxy?.$modal.msgError(t('tasks.taskStatusIncorrect'))
       return
     }
 
     if (!task.pathId) {
-      proxy?.$modal.msgError('任务信息不完整（缺少路径信息），无法恢复上传')
+      proxy?.$modal.msgError(t('tasks.taskInfoIncomplete'))
       return
     }
 
     try {
       if (!task.precheckId) {
-        proxy?.$modal.msgError('任务信息不完整（缺少预检ID），无法恢复上传。')
+        proxy?.$modal.msgError(t('tasks.taskPrecheckMissing'))
         return
       }
 
@@ -96,13 +124,13 @@ export function useUploadTasks() {
           total = progressData.total || 0
           progressPercent = progressData.progress || (total > 0 ? (uploaded / total * 100) : 0)
         } else {
-          proxy?.$modal.msgError('无法查询上传进度，预检信息可能已过期。')
+          proxy?.$modal.msgError(t('tasks.cannotQueryProgress'))
           return
         }
       }
       
       if (!progressData) {
-        proxy?.$modal.msgError('无法获取进度数据，无法恢复上传。')
+        proxy?.$modal.msgError(t('tasks.cannotGetProgress'))
         return
       }
       
@@ -123,7 +151,7 @@ export function useUploadTasks() {
         // 任务在活动状态，直接恢复任务状态
         // ConcurrentUploader 会自动检测到状态变化并继续上传
         uploadTaskManager.resumeTask(taskId)
-        proxy?.$modal.msgSuccess('已继续上传')
+        proxy?.$modal.msgSuccess(t('tasks.resumed'))
         return
       }
       
@@ -131,7 +159,7 @@ export function useUploadTasks() {
       
       const sizeDisplay = formatFileSizeForDisplay(task.file_size)
       ElMessage.info({
-        message: `请选择文件 "${task.file_name}" (${sizeDisplay}) 继续上传`,
+        message: t('tasks.selectFileToResume', { fileName: task.file_name, size: sizeDisplay }),
         duration: 3000
       })
       
@@ -146,8 +174,7 @@ export function useUploadTasks() {
       if (selectedFile.name !== task.file_name || selectedFile.size !== task.file_size) {
         const expectedSize = formatFileSizeForDisplay(task.file_size)
         proxy?.$modal.msgError(
-          `选择的文件与原始文件不匹配。\n` +
-          `请选择文件名为 "${task.file_name}"、大小为 ${expectedSize} 的文件。`
+          t('tasks.fileMismatch', { fileName: task.file_name, size: expectedSize })
         )
         return
       }
@@ -158,18 +185,18 @@ export function useUploadTasks() {
         taskId: taskId,
         onProgress: () => {},
         onSuccess: (fileName) => {
-          proxy?.$modal.msgSuccess(`文件 ${fileName} 上传成功`)
-          loadUploadTasks()
+          proxy?.$modal.msgSuccess(t('tasks.uploadSuccess', { fileName }))
+          loadUploadTasks(false)
         },
         onError: (error, fileName) => {
-          proxy?.$modal.msgError(`文件 ${fileName} 上传失败: ${error.message}`)
-          loadUploadTasks()
+          proxy?.$modal.msgError(t('tasks.uploadFailed', { fileName, error: error.message }))
+          loadUploadTasks(false)
         }
       })
 
-      proxy?.$modal.msgSuccess('已继续上传')
+      proxy?.$modal.msgSuccess(t('tasks.resumed'))
     } catch (error: any) {
-      proxy?.$modal.msgError(`恢复上传失败: ${error.message}`)
+      proxy?.$modal.msgError(t('tasks.resumeFailed', { error: error.message }))
       proxy?.$log.error('恢复上传失败:', error)
     }
   }
@@ -177,11 +204,11 @@ export function useUploadTasks() {
   // 取消上传
   const cancelUpload = async (taskId: string) => {
     try {
-      await proxy?.$modal.confirm('确认取消该上传任务?')
+      await proxy?.$modal.confirm(t('tasks.confirmCancelUpload'))
       uploadTaskManager.cancelTask(taskId)
       uploadTaskManager.cancelAllUploads(taskId)
-      proxy?.$modal.msgSuccess('已取消')
-      loadUploadTasks()
+      proxy?.$modal.msgSuccess(t('tasks.cancelSuccess'))
+      await loadUploadTasks(false)
     } catch (error) {
       // 用户取消操作
     }
@@ -192,16 +219,16 @@ export function useUploadTasks() {
     try {
       const task = uploadTaskManager.getTask(taskId)
       if (!task) {
-        proxy?.$modal.msgError('任务不存在')
+        proxy?.$modal.msgError(t('tasks.taskNotExists') || '任务不存在')
         return
       }
       
       if (task.status === 'uploading') {
-        await proxy?.$modal.confirm('任务正在上传中，删除将取消上传。确认删除?')
+        await proxy?.$modal.confirm(t('tasks.confirmDeleteUploading'))
         uploadTaskManager.cancelTask(taskId)
         uploadTaskManager.cancelAllUploads(taskId)
       } else {
-        await proxy?.$modal.confirm('确认删除该任务记录?')
+        await proxy?.$modal.confirm(t('tasks.confirmDeleteUpload'))
       }
       
       const precheckId = task.precheckId || taskId
@@ -212,8 +239,14 @@ export function useUploadTasks() {
       }
       
       uploadTaskManager.deleteTask(taskId)
-      proxy?.$modal.msgSuccess('已删除')
-      uploadTasks.value = uploadTaskManager.getAllTasks()
+      proxy?.$modal.msgSuccess(t('tasks.deleteSuccess'))
+      // 更新所有任务列表
+      allUploadTasks.value = uploadTaskManager.getAllTasks()
+      // 如果当前页没有数据了，且不是第一页，则跳转到上一页
+      if (uploadTasks.value.length === 1 && currentPage.value > 1) {
+        currentPage.value--
+      }
+      updatePaginatedTasks()
     } catch (error) {
       // 用户取消操作
     }
@@ -244,13 +277,17 @@ export function useUploadTasks() {
     uploadLoading,
     cleanLoading,
     expiredTaskCount,
+    currentPage,
+    pageSize,
+    total,
     loadUploadTasks,
     getExpiredTaskCount,
     pauseUpload,
     resumeUpload,
     cancelUpload,
     deleteUpload,
-    cleanExpiredUploads
+    cleanExpiredUploads,
+    handlePagination
   }
 }
 
