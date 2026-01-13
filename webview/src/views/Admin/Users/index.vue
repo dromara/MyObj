@@ -162,9 +162,11 @@ import {
 import { formatSize, bytesToGB, GBToBytes } from '@/utils'
 import type { FormRules } from 'element-plus'
 import { useI18n } from '@/composables/useI18n'
+import { useUserStore } from '@/stores/user'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const { t } = useI18n()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -334,6 +336,11 @@ const handleSubmit = async () => {
             proxy?.$modal.msgSuccess(t('admin.users.updateSuccess'))
             showDialog.value = false
             loadUserList()
+            
+            // 如果更新的是当前登录用户，刷新当前用户信息（确保 group_id 等关键字段同步）
+            if (userStore.userInfo && formData.id === userStore.userInfo.id) {
+              await userStore.fetchUserInfo()
+            }
           } else {
             proxy?.$modal.msgError(res.message || t('admin.users.updateFailed'))
           }
@@ -558,25 +565,6 @@ html.dark :deep(.el-dialog__body) {
 
 html.dark :deep(.el-form-item__label) {
   color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input__inner) {
-  color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-select .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input-number .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
 }
 </style>
 

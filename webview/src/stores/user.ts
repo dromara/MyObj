@@ -38,6 +38,12 @@ export const useUserStore = defineStore('user', () => {
     try {
       const cached = cache.local.getJSON('userInfo')
       if (cached) {
+        // 验证关键字段是否存在，如果缺失则清除缓存并从服务器获取
+        if (!cached.id || cached.group_id === undefined || cached.group_id === null) {
+          logger.warn('缓存中的用户信息缺少关键字段，清除缓存')
+          cache.local.remove('userInfo')
+          return
+        }
         userInfo.value = cached
         updateStorageInfo(userInfo.value)
       }
@@ -109,6 +115,16 @@ export const useUserStore = defineStore('user', () => {
    * 设置用户信息
    */
   const setUserInfo = (info: UserInfo) => {
+    // 验证关键字段是否存在
+    if (!info.id) {
+      logger.error('设置用户信息失败: 缺少 id 字段')
+      return
+    }
+    if (info.group_id === undefined || info.group_id === null) {
+      logger.error('设置用户信息失败: 缺少 group_id 字段')
+      return
+    }
+    
     userInfo.value = info
     updateStorageInfo(info)
     // 同步到 localStorage
@@ -121,17 +137,64 @@ export const useUserStore = defineStore('user', () => {
 
   /**
    * 更新用户信息（部分更新）
+   * 保护关键字段（group_id, id 等）不被意外覆盖或丢失
    */
   const updateUserInfo = (updates: Partial<UserInfo>) => {
-    if (userInfo.value) {
-      userInfo.value = { ...userInfo.value, ...updates }
-      updateStorageInfo(userInfo.value)
-      // 同步到 localStorage
-      try {
-        cache.local.setJSON('userInfo', userInfo.value)
-      } catch (error) {
-        logger.error('更新用户信息到缓存失败:', error)
-      }
+    if (!userInfo.value) {
+      logger.warn('无法更新用户信息: userInfo 为空')
+      return
+    }
+    
+    // 保存关键字段的原始值
+    const originalId = userInfo.value.id
+    const originalGroupId = userInfo.value.group_id
+    const originalCreatedAt = userInfo.value.created_at
+    const originalSpace = userInfo.value.space
+    const originalFreeSpace = userInfo.value.free_space
+    const originalState = userInfo.value.state
+    
+    // 合并更新
+    userInfo.value = { ...userInfo.value, ...updates }
+    
+    // 保护关键字段：如果更新中没有提供这些字段，或者提供的值为无效值，则保留原值
+    if (!updates.id || updates.id === '') {
+      userInfo.value.id = originalId
+    }
+    if (updates.group_id === undefined || updates.group_id === null) {
+      userInfo.value.group_id = originalGroupId
+    }
+    if (updates.created_at === undefined || updates.created_at === '') {
+      userInfo.value.created_at = originalCreatedAt
+    }
+    if (updates.space === undefined) {
+      userInfo.value.space = originalSpace
+    }
+    if (updates.free_space === undefined) {
+      userInfo.value.free_space = originalFreeSpace
+    }
+    if (updates.state === undefined) {
+      userInfo.value.state = originalState
+    }
+    
+    // 验证关键字段是否仍然存在
+    if (!userInfo.value.id || userInfo.value.group_id === undefined || userInfo.value.group_id === null) {
+      logger.error('更新用户信息后关键字段丢失，拒绝保存到缓存', {
+        id: userInfo.value.id,
+        group_id: userInfo.value.group_id
+      })
+      // 恢复原始值
+      userInfo.value.id = originalId
+      userInfo.value.group_id = originalGroupId
+      return
+    }
+    
+    updateStorageInfo(userInfo.value)
+    
+    // 同步到 localStorage
+    try {
+      cache.local.setJSON('userInfo', userInfo.value)
+    } catch (error) {
+      logger.error('更新用户信息到缓存失败:', error)
     }
   }
 

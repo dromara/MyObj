@@ -432,25 +432,6 @@ html.dark :deep(.el-form-item__label) {
   color: var(--el-text-color-primary);
 }
 
-html.dark :deep(.el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input__inner) {
-  color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-select .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input-number .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
 html.dark :deep(.el-radio-group) {
   color: var(--el-text-color-primary);
 }

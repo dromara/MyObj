@@ -153,7 +153,7 @@ const logger = {
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
     ).join(' '), this.config)
     
-    console.debug(message, ...args)
+    console.debug(message)
   },
   
   /**
@@ -166,7 +166,7 @@ const logger = {
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
     ).join(' '), this.config)
     
-    console.info(message, ...args)
+    console.info(message)
   },
   
   /**
@@ -179,7 +179,7 @@ const logger = {
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
     ).join(' '), this.config)
     
-    console.warn(message, ...args)
+    console.warn(message)
   },
   
   /**
@@ -195,7 +195,7 @@ const logger = {
       return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
     }).join(' '), this.config)
     
-    console.error(message, ...args)
+    console.error(message)
   },
   
   /**

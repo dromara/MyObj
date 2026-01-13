@@ -141,7 +141,8 @@ const handleReset = () => {
 
 <style scoped>
 .password-form {
-  max-width: 600px;
+  width: 100%;
+  max-width: 800px;
 }
 
 .form-tip {

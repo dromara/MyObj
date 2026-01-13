@@ -86,7 +86,7 @@
     </el-card>
     
     <!-- API Key 列表 -->
-    <el-card shadow="never" class="list-card" style="margin-top: 24px">
+    <el-card shadow="never" class="list-card">
       <template #header>
         <div class="card-header">
           <span>{{ t('settings.apiKey.myApiKeys') }}</span>
@@ -265,7 +265,11 @@ onMounted(() => {
 
 <style scoped>
 .api-key-manager {
-  max-width: 1000px;
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .card-header {

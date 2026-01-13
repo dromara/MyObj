@@ -41,13 +41,26 @@ const activeTab = ref('userInfo')
 
 <style scoped>
 .settings-page {
-  padding: 24px;
-  min-height: calc(100vh - 64px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px;
 }
 
 .settings-card {
-  max-width: 900px;
-  margin: 0 auto;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-card :deep(.el-card__body) {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
 .card-header {
@@ -64,20 +77,25 @@ const activeTab = ref('userInfo')
 }
 
 .settings-tabs {
-  margin-top: 8px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.settings-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: auto;
 }
 
 .settings-tabs :deep(.el-tab-pane) {
-  padding: 24px 0;
+  height: 100%;
 }
 
 @media (max-width: 1024px) {
-  .settings-page {
-    padding: 16px;
-  }
-  
-  .settings-tabs :deep(.el-tab-pane) {
-    padding: 16px 0;
+  .settings-tabs {
+    padding: 12px;
   }
 }
 

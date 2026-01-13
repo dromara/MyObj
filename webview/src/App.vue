@@ -16,14 +16,7 @@ const appStore = useAppStore()
 
 <template>
   <ElConfigProvider :locale="appStore.elementPlusLocale">
-    <router-view v-slot="{ Component, route }">
-      <transition
-        :name="(route.meta.transition as string) || 'fade'"
-        mode="out-in"
-      >
-        <component :is="Component" :key="route.path" />
-      </transition>
-    </router-view>
+    <router-view />
     
     <!-- 快捷键帮助对话框 -->
     <ShortcutHelp />
@@ -33,20 +26,15 @@ const appStore = useAppStore()
 <style scoped>
 /* 全局样式在style.css中定义 */
 
-/* 页面过渡动画 */
+/* 页面过渡动画 - 优化为更快速的淡入淡出 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.15s ease;
 }
 
-.fade-enter-from {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
+.fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateX(-20px);
 }
 
 /* 滑动过渡 */

@@ -156,7 +156,8 @@ onMounted(() => {
 
 <style scoped>
 .user-info-form {
-  max-width: 600px;
+  width: 100%;
+  max-width: 800px;
 }
 
 @media (max-width: 768px) {

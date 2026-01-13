@@ -137,8 +137,8 @@
                   >
                     <el-checkbox :label="power.id">
                       <div class="power-content">
-                        <div class="power-name">{{ power.name }}</div>
-                        <div class="power-description">{{ power.description || t('admin.groups.noDescription') }}</div>
+                        <div class="power-name">{{ getPermissionName(power.characteristic, power.name) }}</div>
+                        <div class="power-description">{{ getPermissionDescription(power.characteristic, power.description) || t('admin.groups.noDescription') }}</div>
                         <div class="power-characteristic">
                           <el-icon><Key /></el-icon>
                           <code>{{ power.characteristic }}</code>
@@ -182,6 +182,7 @@ import {
 } from '@/api/admin'
 import { bytesToGB, GBToBytes } from '@/utils'
 import { useI18n } from '@/composables/useI18n'
+import { getPermissionName, getPermissionDescription } from '@/utils/permission'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const { t } = useI18n()
@@ -234,11 +235,22 @@ const filteredPowerList = computed(() => {
     return powerList.value
   }
   const keyword = powerSearchKeyword.value.toLowerCase()
-  return powerList.value.filter(power => 
-    power.name.toLowerCase().includes(keyword) ||
-    power.characteristic.toLowerCase().includes(keyword) ||
-    (power.description && power.description.toLowerCase().includes(keyword))
-  )
+  return powerList.value.filter(power => {
+    // 搜索原始名称和描述
+    const matchesOriginal = 
+      power.name.toLowerCase().includes(keyword) ||
+      power.characteristic.toLowerCase().includes(keyword) ||
+      (power.description && power.description.toLowerCase().includes(keyword))
+    
+    // 搜索国际化后的名称和描述
+    const i18nName = getPermissionName(power.characteristic, power.name).toLowerCase()
+    const i18nDescription = getPermissionDescription(power.characteristic, power.description || '').toLowerCase()
+    const matchesI18n = 
+      i18nName.includes(keyword) ||
+      i18nDescription.includes(keyword)
+    
+    return matchesOriginal || matchesI18n
+  })
 })
 
 // 归类后的权限
@@ -839,20 +851,6 @@ html.dark :deep(.el-dialog__body) {
 
 html.dark :deep(.el-form-item__label) {
   color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input__inner) {
-  color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-input-number .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
 }
 
 html.dark :deep(.el-drawer) {

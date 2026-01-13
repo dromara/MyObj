@@ -67,7 +67,7 @@
     <div class="storage-detail">
       {{ formatStorageSize(storageInfo.used) }} / {{ storageInfo.isUnlimited ? '∞' : formatStorageSize(storageInfo.total) }}
     </div>
-    <el-button v-if="!storageInfo.isUnlimited" type="primary" link class="upgrade-btn">{{ t('settings.upgrade') }}</el-button>
+    <el-button v-if="!storageInfo.isUnlimited" type="primary" link class="upgrade-btn">{{ t('storage.upgrade') }}</el-button>
   </div>
 </template>
 

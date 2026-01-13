@@ -278,15 +278,41 @@ const handlePresetChange = (presetName: string) => {
 }
 
 const handleBackgroundPatternChange = (value: string) => {
+  // 保存到 localStorage
   localStorage.setItem('backgroundPattern', value)
-  // 触发背景图案更新事件
-  window.dispatchEvent(new CustomEvent('background-pattern-changed', { detail: { pattern: value } }))
+  
+  // 立即更新本地状态（确保 UI 响应）
+  backgroundPattern.value = value as any
+  
+  // 获取图案的显示名称
+  const patternNames: Record<string, string> = {
+    none: t('settings.none'),
+    grid: t('settings.grid'),
+    dots: t('settings.dots'),
+    gradient: t('settings.gradient'),
+    waves: t('settings.waves'),
+    particles: t('settings.particles')
+  }
+  const patternName = patternNames[value] || value
+  
+  // 显示成功提示
+  proxy?.$modal.msgSuccess(t('settings.backgroundPatternChanged', { pattern: patternName }))
+  
+  // 触发背景图案更新事件（使用 bubbles 和 cancelable 确保事件能正确传播）
+  const event = new CustomEvent('background-pattern-changed', {
+    detail: { pattern: value },
+    bubbles: true,
+    cancelable: true
+  })
+  window.dispatchEvent(event)
 }
 </script>
 
 <style scoped>
 .appearance-settings {
   padding: 8px 0;
+  width: 100%;
+  max-width: 1000px;
 }
 
 .color-picker-group {

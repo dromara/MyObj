@@ -24,8 +24,16 @@
     >
       <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" :label="t('admin.permissions.permissionName')" min-width="150" />
-      <el-table-column prop="description" :label="t('admin.permissions.description')" min-width="200" />
+      <el-table-column prop="name" :label="t('admin.permissions.permissionName')" min-width="150">
+        <template #default="{ row }">
+          {{ getPermissionName(row.characteristic, row.name) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="description" :label="t('admin.permissions.description')" min-width="200">
+        <template #default="{ row }">
+          {{ getPermissionDescription(row.characteristic, row.description) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="characteristic" :label="t('admin.permissions.characteristic')" min-width="200">
         <template #default="{ row }">
           <code style="font-size: 12px; color: var(--el-color-primary);">{{ row.characteristic }}</code>
@@ -109,6 +117,7 @@ import {
 import type { FormRules, FormInstance } from 'element-plus'
 import { useResponsive } from '@/composables/useResponsive'
 import { useI18n } from '@/composables/useI18n'
+import { getPermissionName, getPermissionDescription } from '@/utils/permission'
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance
 const { isMobile, isPhone } = useResponsive()
@@ -516,21 +525,6 @@ html.dark :deep(.el-dialog__body) {
 }
 
 html.dark :deep(.el-form-item__label) {
-  color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
-
-html.dark :deep(.el-input__inner) {
-  color: var(--el-text-color-primary);
-}
-
-html.dark :deep(.el-textarea__inner) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
   color: var(--el-text-color-primary);
 }
 </style>
