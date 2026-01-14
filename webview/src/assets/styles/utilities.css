@@ -1,10 +1,10 @@
 /* 响应式断点定义 */
 :root {
-  --breakpoint-xs: 480px;   /* 手机 */
-  --breakpoint-sm: 768px;   /* 平板 */
-  --breakpoint-md: 1024px;  /* 小桌面 */
-  --breakpoint-lg: 1280px;  /* 桌面 */
-  --breakpoint-xl: 1920px;  /* 大桌面 */
+  --breakpoint-xs: 480px; /* 手机 */
+  --breakpoint-sm: 768px; /* 平板 */
+  --breakpoint-md: 1024px; /* 小桌面 */
+  --breakpoint-lg: 1280px; /* 桌面 */
+  --breakpoint-xl: 1920px; /* 大桌面 */
 }
 
 /* Glassmorphism Utilities */
@@ -13,9 +13,12 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
     0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  transition: background 0.3s, border-color 0.3s;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
 }
 
 /* Utility Animations */

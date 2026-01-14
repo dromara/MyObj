@@ -1,5 +1,5 @@
-import { get, post } from '@/utils/request'
-import { filterParams } from '@/utils/params'
+import { get, post } from '@/utils/network/request'
+import { filterParams } from '@/utils/common/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
@@ -37,7 +37,10 @@ export const createPackage = (data: CreatePackageRequest) => {
  * 获取打包进度
  */
 export const getPackageProgress = (packageId: string) => {
-  return get<ApiResponse<PackageProgressResponse>>(API_ENDPOINTS.PACKAGE.PROGRESS, filterParams({ package_id: packageId }))
+  return get<ApiResponse<PackageProgressResponse>>(
+    API_ENDPOINTS.PACKAGE.PROGRESS,
+    filterParams({ package_id: packageId })
+  )
 }
 
 /**
@@ -46,4 +49,3 @@ export const getPackageProgress = (packageId: string) => {
 export const downloadPackage = (packageId: string) => {
   return `${API_BASE_URL}${API_ENDPOINTS.PACKAGE.DOWNLOAD}?package_id=${packageId}`
 }
-

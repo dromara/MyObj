@@ -3,6 +3,7 @@ import type { UserInfo } from '@/types'
 import { getUserInfo } from '@/api/user'
 import cache from '@/plugins/cache'
 import logger from '@/plugins/logger'
+import { StoreId } from '@/enums/StoreId'
 
 interface StorageInfo {
   used: number
@@ -14,7 +15,7 @@ interface StorageInfo {
 /**
  * 用户信息 Store
  */
-export const useUserStore = defineStore('user', () => {
+export const useUserStore = defineStore(StoreId.User, () => {
   // 状态
   const userInfo = ref<UserInfo | null>(null)
   const storageInfo = ref<StorageInfo>({
@@ -71,7 +72,7 @@ export const useUserStore = defineStore('user', () => {
       const total = Number(info.space)
       const free = Number(info.free_space || 0)
       let used = 0
-      
+
       // 如果有总容量和剩余空间，计算已用空间
       if (info.free_space !== undefined) {
         used = total - free
@@ -83,12 +84,10 @@ export const useUserStore = defineStore('user', () => {
       storageInfo.value.isUnlimited = total === 0 || total === -1
       storageInfo.value.total = total
       storageInfo.value.used = used > 0 ? used : 0
-      
+
       // 重新计算百分比
       if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-        storageInfo.value.percentage = Math.ceil(
-          (storageInfo.value.used / storageInfo.value.total) * 100
-        )
+        storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
       } else {
         storageInfo.value.percentage = 0
       }
@@ -99,11 +98,9 @@ export const useUserStore = defineStore('user', () => {
         storageInfo.value.isUnlimited = capNum === 0 || capNum === -1
         storageInfo.value.total = capNum
         storageInfo.value.used = Number((info as any).used || (info as any).used_storage || 0)
-        
+
         if (!storageInfo.value.isUnlimited && storageInfo.value.total > 0) {
-          storageInfo.value.percentage = Math.ceil(
-            (storageInfo.value.used / storageInfo.value.total) * 100
-          )
+          storageInfo.value.percentage = Math.ceil((storageInfo.value.used / storageInfo.value.total) * 100)
         } else {
           storageInfo.value.percentage = 0
         }
@@ -124,7 +121,7 @@ export const useUserStore = defineStore('user', () => {
       logger.error('设置用户信息失败: 缺少 group_id 字段')
       return
     }
-    
+
     userInfo.value = info
     updateStorageInfo(info)
     // 同步到 localStorage
@@ -144,7 +141,7 @@ export const useUserStore = defineStore('user', () => {
       logger.warn('无法更新用户信息: userInfo 为空')
       return
     }
-    
+
     // 保存关键字段的原始值
     const originalId = userInfo.value.id
     const originalGroupId = userInfo.value.group_id
@@ -152,10 +149,10 @@ export const useUserStore = defineStore('user', () => {
     const originalSpace = userInfo.value.space
     const originalFreeSpace = userInfo.value.free_space
     const originalState = userInfo.value.state
-    
+
     // 合并更新
     userInfo.value = { ...userInfo.value, ...updates }
-    
+
     // 保护关键字段：如果更新中没有提供这些字段，或者提供的值为无效值，则保留原值
     if (!updates.id || updates.id === '') {
       userInfo.value.id = originalId
@@ -175,7 +172,7 @@ export const useUserStore = defineStore('user', () => {
     if (updates.state === undefined) {
       userInfo.value.state = originalState
     }
-    
+
     // 验证关键字段是否仍然存在
     if (!userInfo.value.id || userInfo.value.group_id === undefined || userInfo.value.group_id === null) {
       logger.error('更新用户信息后关键字段丢失，拒绝保存到缓存', {
@@ -187,9 +184,9 @@ export const useUserStore = defineStore('user', () => {
       userInfo.value.group_id = originalGroupId
       return
     }
-    
+
     updateStorageInfo(userInfo.value)
-    
+
     // 同步到 localStorage
     try {
       cache.local.setJSON('userInfo', userInfo.value)
@@ -205,7 +202,7 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async () => {
     // 保存当前用户信息作为后备
     const currentUserInfo = userInfo.value
-    
+
     try {
       const res = await getUserInfo()
       if (res.code === 200 && res.data) {
@@ -259,4 +256,3 @@ export const useUserStore = defineStore('user', () => {
     updateStorageInfo
   }
 })
-

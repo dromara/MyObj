@@ -2,13 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, watch, computed } from 'vue'
 import { useTitle } from '@vueuse/core'
 import { LanguageEnum } from '@/enums/LanguageEnum'
+import { StoreId } from '@/enums/StoreId'
 import { $t, setLocale } from '@/i18n'
 import router from '@/router'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import enUS from 'element-plus/dist/locale/en.mjs'
 
-export const useAppStore = defineStore('app', () => {
-
+export const useAppStore = defineStore(StoreId.App, () => {
   // 语言设置
   const getInitialLocale = (): LanguageEnum => {
     const saved = localStorage.getItem('locale')
@@ -17,7 +17,7 @@ export const useAppStore = defineStore('app', () => {
     }
     return LanguageEnum.zh_CN
   }
-  
+
   const locale = ref<LanguageEnum>(getInitialLocale())
 
   // Element Plus 语言包
@@ -45,7 +45,7 @@ export const useAppStore = defineStore('app', () => {
     locale.value = lang
     setLocale(lang)
     localStorage.setItem('locale', lang)
-    
+
     // 更新文档标题
     updateDocumentTitle()
   }
@@ -57,7 +57,7 @@ export const useAppStore = defineStore('app', () => {
     const route = router.currentRoute.value
     const routeTitle = route.meta.title as string
     const i18nKey = route.meta.i18nKey as string
-    
+
     if (i18nKey) {
       const documentTitle = $t(i18nKey)
       useTitle(documentTitle)

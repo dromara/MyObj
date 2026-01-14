@@ -1,5 +1,5 @@
-import { get, post } from '@/utils/request'
-import { filterParams } from '@/utils/params'
+import { get, post } from '@/utils/network/request'
+import { filterParams } from '@/utils/common/params'
 import { API_ENDPOINTS } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
@@ -337,4 +337,3 @@ export const getSystemConfig = () => {
 export const updateSystemConfig = (data: UpdateSystemConfigRequest) => {
   return post<ApiResponse<SystemConfig>>(API_ENDPOINTS.ADMIN.SYSTEM.UPDATE_CONFIG, data)
 }
-

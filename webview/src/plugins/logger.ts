@@ -45,7 +45,7 @@ const getCallerInfo = (): string => {
   try {
     const stack = new Error().stack
     if (!stack) return ''
-    
+
     const stackLines = stack.split('\n')
     // 跳过 Error 和 getCallerInfo 本身，获取真正的调用者
     if (stackLines.length > 3) {
@@ -68,7 +68,7 @@ const getCallerInfo = (): string => {
  */
 const formatMessage = (level: string, message: string, config: LoggerConfig): string => {
   const parts: string[] = []
-  
+
   if (config.enableTimestamp) {
     const now = new Date()
     const hours = String(now.getHours()).padStart(2, '0')
@@ -78,18 +78,18 @@ const formatMessage = (level: string, message: string, config: LoggerConfig): st
     const timestamp = `${hours}:${minutes}:${seconds}.${milliseconds}`
     parts.push(`[${timestamp}]`)
   }
-  
+
   parts.push(`[${level}]`)
-  
+
   if (config.enableCaller) {
     const caller = getCallerInfo()
     if (caller) {
       parts.push(`[${caller}]`)
     }
   }
-  
+
   parts.push(message)
-  
+
   return parts.join(' ')
 }
 
@@ -101,35 +101,35 @@ const logger = {
    * 配置
    */
   config: { ...defaultConfig },
-  
+
   /**
    * 设置日志级别
    */
   setLevel(level: LogLevel) {
     this.config.level = level
   },
-  
+
   /**
    * 设置是否启用日志
    */
   setEnable(enable: boolean) {
     this.config.enable = enable
   },
-  
+
   /**
    * 设置是否显示时间戳
    */
   setEnableTimestamp(enable: boolean) {
     this.config.enableTimestamp = enable
   },
-  
+
   /**
    * 设置是否显示调用者信息
    */
   setEnableCaller(enable: boolean) {
     this.config.enableCaller = enable
   },
-  
+
   /**
    * 检查是否应该输出日志
    */
@@ -138,66 +138,78 @@ const logger = {
     if (!this.config.enable) {
       return false
     }
-    
+
     // 检查日志级别
     return level >= this.config.level
   },
-  
+
   /**
    * Debug 日志（开发环境）
    */
   debug(...args: any[]) {
     if (!this.shouldLog(LogLevel.DEBUG)) return
-    
-    const message = formatMessage('DEBUG', args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' '), this.config)
-    
+
+    const message = formatMessage(
+      'DEBUG',
+      args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg))).join(' '),
+      this.config
+    )
+
     console.debug(message)
   },
-  
+
   /**
    * Info 日志
    */
   info(...args: any[]) {
     if (!this.shouldLog(LogLevel.INFO)) return
-    
-    const message = formatMessage('INFO', args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' '), this.config)
-    
+
+    const message = formatMessage(
+      'INFO',
+      args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg))).join(' '),
+      this.config
+    )
+
     console.info(message)
   },
-  
+
   /**
    * Warn 日志
    */
   warn(...args: any[]) {
     if (!this.shouldLog(LogLevel.WARN)) return
-    
-    const message = formatMessage('WARN', args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    ).join(' '), this.config)
-    
+
+    const message = formatMessage(
+      'WARN',
+      args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg))).join(' '),
+      this.config
+    )
+
     console.warn(message)
   },
-  
+
   /**
    * Error 日志（生产环境也会输出）
    */
   error(...args: any[]) {
     if (!this.shouldLog(LogLevel.ERROR)) return
-    
-    const message = formatMessage('ERROR', args.map(arg => {
-      if (arg instanceof Error) {
-        return `${arg.message}\n${arg.stack}`
-      }
-      return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-    }).join(' '), this.config)
-    
+
+    const message = formatMessage(
+      'ERROR',
+      args
+        .map(arg => {
+          if (arg instanceof Error) {
+            return `${arg.message}\n${arg.stack}`
+          }
+          return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        })
+        .join(' '),
+      this.config
+    )
+
     console.error(message)
   },
-  
+
   /**
    * 分组日志（开发环境）
    */
@@ -206,7 +218,7 @@ const logger = {
       console.group(label)
     }
   },
-  
+
   /**
    * 结束分组
    */
@@ -215,7 +227,7 @@ const logger = {
       console.groupEnd()
     }
   },
-  
+
   /**
    * 表格日志（开发环境）
    */
@@ -224,7 +236,7 @@ const logger = {
       console.table(data)
     }
   },
-  
+
   /**
    * 时间日志（开发环境）
    */
@@ -233,7 +245,7 @@ const logger = {
       console.time(label)
     }
   },
-  
+
   /**
    * 结束时间日志
    */
@@ -245,4 +257,3 @@ const logger = {
 }
 
 export default logger
-

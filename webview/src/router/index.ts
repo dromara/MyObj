@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+// 路由后置守卫：更新文档标题和 SEO
+import { useAppStore } from '@/stores/app'
+import { useSEO } from '@/composables'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -112,6 +115,18 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/redirect',
+    component: () => import('@/layout/index.vue'),
+    meta: { hidden: true },
+    children: [
+      {
+        path: '/redirect/:path(.*)',
+        component: () => import('@/views/Redirect/index.vue'),
+        meta: { title: '重定向', i18nKey: 'route.redirect', hidden: true }
+      }
+    ]
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/files'
   }
@@ -125,14 +140,14 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
-  
+
   if (to.meta.requiresAuth && !authStore.token) {
     next('/login')
   } else if (to.path === '/login' && authStore.token) {
     next('/files')
   } else if (to.meta.requiresAdmin) {
     // 检查管理员权限
-    const { useAdmin } = await import('@/composables/useAdmin')
+    const { useAdmin } = await import('@/composables/business/useAdmin')
     const { isAdmin } = useAdmin()
     if (!isAdmin.value) {
       next('/files')
@@ -144,12 +159,16 @@ router.beforeEach(async (to, _from, next) => {
   }
 })
 
-// 路由后置守卫：更新文档标题
-router.afterEach(() => {
-  import('@/stores/app').then(({ useAppStore }) => {
-    const appStore = useAppStore()
-    appStore.updateDocumentTitle()
+router.afterEach(to => {
+  const appStore = useAppStore()
+  appStore.updateDocumentTitle()
+
+  // 更新 SEO 信息
+  const seo = useSEO({
+    title: (to.meta.title as string) || 'MyObj 网盘系统',
+    description: (to.meta.description as string) || 'MyObj 网盘系统 - 安全、高效的文件存储和管理平台'
   })
+  seo.applySEO()
 })
 
 export default router

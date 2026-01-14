@@ -1,10 +1,10 @@
 // 认证相关API
-import { post, get } from '@/utils/request'
+import { post, get } from '@/utils/network/request'
 import { API_ENDPOINTS } from '@/config/api'
-import type { 
-  LoginRequest, 
-  RegisterRequest, 
-  LoginResponse, 
+import type {
+  LoginRequest,
+  RegisterRequest,
+  LoginResponse,
   ChallengeResponse,
   UpdatePasswordRequest,
   SetFilePasswordRequest,

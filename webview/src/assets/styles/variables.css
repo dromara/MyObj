@@ -36,7 +36,7 @@
   /* Slate 50 */
   --bg-color-glass: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.5);
-  
+
   /* 卡片背景 */
   --card-bg: #ffffff;
   --card-hover-bg: rgba(37, 99, 235, 0.02);
@@ -47,6 +47,21 @@
   --el-color-warning: var(--warning-color);
   --el-color-danger: var(--danger-color);
   --el-color-info: var(--info-color);
+
+  /* TagsView Variables */
+  --tags-view-active-bg: var(--primary-color);
+  --tags-view-active-border-color: var(--primary-color);
+}
+
+/* 主题切换过渡动画 */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease !important;
 }
 
 /* 深色模式 */
@@ -55,7 +70,7 @@ html.dark {
   --primary-color: #3b82f6;
   --primary-hover: #2563eb;
   --secondary-color: #6366f1;
-  
+
   /* 文本颜色反转 */
   --text-primary: #f1f5f9;
   /* Slate 100 */
@@ -75,11 +90,11 @@ html.dark {
   /* Slate 900 */
   --bg-color-glass: rgba(30, 41, 59, 0.8);
   --glass-border: rgba(255, 255, 255, 0.1);
-  
+
   /* 卡片背景 */
   --card-bg: rgba(30, 41, 59, 0.6);
   --card-hover-bg: rgba(51, 65, 85, 0.8);
-  
+
   /* Element Plus 深色模式 */
   --el-bg-color: #1e293b;
   --el-bg-color-page: #0f172a;
@@ -92,4 +107,8 @@ html.dark {
   --el-fill-color-light: rgba(255, 255, 255, 0.03);
   --el-fill-color-lighter: rgba(255, 255, 255, 0.02);
   --el-fill-color-extra-light: rgba(255, 255, 255, 0.01);
+
+  /* TagsView Variables */
+  --tags-view-active-bg: var(--primary-color);
+  --tags-view-active-border-color: var(--primary-color);
 }

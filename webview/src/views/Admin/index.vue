@@ -32,128 +32,131 @@
 </template>
 
 <script setup lang="ts">
-import AdminUsers from './Users/index.vue'
-import AdminGroups from './Groups/index.vue'
-import AdminPermissions from './Permissions/index.vue'
-import AdminDisks from './Disks/index.vue'
-import AdminSystem from './System/index.vue'
-import { useI18n } from '@/composables/useI18n'
+  import AdminUsers from './Users/index.vue'
+  import AdminGroups from './Groups/index.vue'
+  import AdminPermissions from './Permissions/index.vue'
+  import AdminDisks from './Disks/index.vue'
+  import AdminSystem from './System/index.vue'
+  import { useI18n } from '@/composables'
 
-const route = useRoute()
-const router = useRouter()
-const { t } = useI18n()
+  const route = useRoute()
+  const router = useRouter()
+  const { t } = useI18n()
 
-const activeTab = ref('users')
+  const activeTab = ref('users')
 
-// 根据路由设置活动标签
-watch(() => route.name, (name) => {
-  if (name === 'AdminUsers') activeTab.value = 'users'
-  else if (name === 'AdminGroups') activeTab.value = 'groups'
-  else if (name === 'AdminPermissions') activeTab.value = 'permissions'
-  else if (name === 'AdminDisks') activeTab.value = 'disks'
-  else if (name === 'AdminSystem') activeTab.value = 'system'
-}, { immediate: true })
+  // 根据路由设置活动标签
+  watch(
+    () => route.name,
+    name => {
+      if (name === 'AdminUsers') activeTab.value = 'users'
+      else if (name === 'AdminGroups') activeTab.value = 'groups'
+      else if (name === 'AdminPermissions') activeTab.value = 'permissions'
+      else if (name === 'AdminDisks') activeTab.value = 'disks'
+      else if (name === 'AdminSystem') activeTab.value = 'system'
+    },
+    { immediate: true }
+  )
 
-// 标签切换时更新路由
-watch(activeTab, (tab) => {
-  const routeMap: Record<string, string> = {
-    users: '/admin/users',
-    groups: '/admin/groups',
-    permissions: '/admin/permissions',
-    disks: '/admin/disks',
-    system: '/admin/system'
-  }
-  if (routeMap[tab] && route.path !== routeMap[tab]) {
-    router.push(routeMap[tab])
-  }
-})
+  // 标签切换时更新路由
+  watch(activeTab, tab => {
+    const routeMap: Record<string, string> = {
+      users: '/admin/users',
+      groups: '/admin/groups',
+      permissions: '/admin/permissions',
+      disks: '/admin/disks',
+      system: '/admin/system'
+    }
+    if (routeMap[tab] && route.path !== routeMap[tab]) {
+      router.push(routeMap[tab])
+    }
+  })
 </script>
 
 <style scoped>
-.admin-page {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 4px;
-}
+  .admin-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 4px;
+  }
 
-.admin-header-card {
-  flex-shrink: 0;
-}
+  .admin-header-card {
+    flex-shrink: 0;
+  }
 
-.admin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+  .admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-.admin-icon {
-  color: var(--primary-color);
-  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
-}
+  .admin-icon {
+    color: var(--primary-color);
+    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.3));
+  }
 
-html.dark .admin-icon {
-  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.5));
-}
+  html.dark .admin-icon {
+    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.5));
+  }
 
-.admin-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
+  .admin-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
 
-.admin-content-card {
-  flex: 1;
-  overflow: hidden;
-}
+  .admin-content-card {
+    flex: 1;
+    overflow: hidden;
+  }
 
-.admin-tabs {
-  height: 100%;
-}
+  .admin-tabs {
+    height: 100%;
+  }
 
-.admin-tabs :deep(.el-tabs__content) {
-  height: calc(100% - 55px);
-  overflow: auto;
-}
+  .admin-tabs :deep(.el-tabs__content) {
+    height: calc(100% - 55px);
+    overflow: auto;
+  }
 
-.admin-tabs :deep(.el-tab-pane) {
-  height: 100%;
-}
+  .admin-tabs :deep(.el-tab-pane) {
+    height: 100%;
+  }
 
-/* 深色模式样式 */
-html.dark .admin-header-card {
-  background: var(--card-bg);
-  border-color: var(--el-border-color);
-}
+  /* 深色模式样式 */
+  html.dark .admin-header-card {
+    background: var(--card-bg);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .admin-content-card {
-  background: var(--card-bg);
-  border-color: var(--el-border-color);
-}
+  html.dark .admin-content-card {
+    background: var(--card-bg);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .admin-tabs :deep(.el-tabs__header) {
-  background: transparent;
-  border-bottom-color: var(--el-border-color);
-}
+  html.dark .admin-tabs :deep(.el-tabs__header) {
+    background: transparent;
+    border-bottom-color: var(--el-border-color);
+  }
 
-html.dark .admin-tabs :deep(.el-tabs__item) {
-  color: var(--el-text-color-regular);
-}
+  html.dark .admin-tabs :deep(.el-tabs__item) {
+    color: var(--el-text-color-regular);
+  }
 
-html.dark .admin-tabs :deep(.el-tabs__item.is-active) {
-  color: var(--primary-color);
-}
+  html.dark .admin-tabs :deep(.el-tabs__item.is-active) {
+    color: var(--primary-color);
+  }
 
-html.dark .admin-tabs :deep(.el-tabs__item:hover) {
-  color: var(--primary-color);
-}
+  html.dark .admin-tabs :deep(.el-tabs__item:hover) {
+    color: var(--primary-color);
+  }
 </style>
-

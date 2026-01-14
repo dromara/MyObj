@@ -5,6 +5,7 @@ import defaultPreset from './default.json'
 import darkPreset from './dark.json'
 import lightPreset from './light.json'
 import grayscalePreset from './grayscale.json'
+import colourWeaknessPreset from './colourWeakness.json'
 
 export interface ThemePreset {
   name: string
@@ -26,7 +27,8 @@ export const themePresets: ThemePreset[] = [
   defaultPreset as ThemePreset,
   lightPreset as ThemePreset,
   darkPreset as ThemePreset,
-  grayscalePreset as ThemePreset
+  grayscalePreset as ThemePreset,
+  colourWeaknessPreset as ThemePreset
 ]
 
 export default themePresets

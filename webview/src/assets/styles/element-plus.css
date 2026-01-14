@@ -25,19 +25,23 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
   transform: translate(-50%, -50%);
-  transition: width 0.4s, height 0.4s;
+  transition:
+    width 0.4s,
+    height 0.4s;
   pointer-events: none;
 }
 
 .el-button:not(.is-disabled):active::before {
   width: 300px;
   height: 300px;
-  transition: width 0.3s, height 0.3s;
+  transition:
+    width 0.3s,
+    height 0.3s;
 }
 
 /* 主要按钮的点击反馈 */
 .el-button--primary:not(.is-disabled):active {
-  box-shadow: 
+  box-shadow:
     0 2px 8px rgba(37, 99, 235, 0.3),
     inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
@@ -80,7 +84,9 @@
   border-radius: 12px;
   border: 1px solid var(--border-light);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .el-dialog {
@@ -92,7 +98,8 @@
   border-radius: 12px;
   padding: 6px;
   border: 1px solid var(--border-light);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
@@ -350,19 +357,28 @@ html.dark .el-tree-select.is-focus .el-input__wrapper {
    ============================================ */
 
 /* 默认按钮（没有 type 属性的按钮）在深色模式下的样式 */
-html.dark .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info) {
+html.dark
+  .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--info
+  ) {
   background-color: var(--el-bg-color);
   border-color: var(--el-border-color);
   color: var(--el-text-color-primary);
 }
 
-html.dark .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info):hover {
+html.dark
+  .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--info
+  ):hover {
   background-color: var(--el-fill-color-light);
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
 
-html.dark .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(.el-button--info):active {
+html.dark
+  .el-button:not(.el-button--primary):not(.el-button--danger):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--info
+  ):active {
   background-color: var(--el-fill-color);
   border-color: var(--primary-color);
   color: var(--primary-color);

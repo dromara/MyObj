@@ -7,13 +7,13 @@ import type { FileItem } from './index'
 /**
  * 文件预览类型
  */
-export type PreviewType = 
-  | 'image'      // 图片
-  | 'video'      // 视频
-  | 'audio'      // 音频
-  | 'pdf'        // PDF
-  | 'text'       // 文本
-  | 'code'       // 代码
+export type PreviewType =
+  | 'image' // 图片
+  | 'video' // 视频
+  | 'audio' // 音频
+  | 'pdf' // PDF
+  | 'text' // 文本
+  | 'code' // 代码
   | 'unsupported' // 不支持预览
 
 /**
@@ -49,4 +49,3 @@ export interface PreviewState {
   /** 错误信息 */
   error?: string
 }
-

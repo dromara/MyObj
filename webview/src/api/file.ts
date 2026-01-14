@@ -1,5 +1,5 @@
-import { get, post, upload } from '@/utils/request'
-import { filterParams } from '@/utils/params'
+import { get, post, upload } from '@/utils/network/request'
+import { filterParams } from '@/utils/common/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { FileListRequest, FileListResponse, ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
@@ -52,11 +52,11 @@ export const getFileList = (params: FileListRequest) => {
 export const getThumbnail = async (fileId: string): Promise<string> => {
   try {
     const url = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${cache.local.get('token') || ''}`
+        Authorization: `Bearer ${cache.local.get('token') || ''}`
       }
     })
 
@@ -158,10 +158,10 @@ export const renameFile = (data: RenameFileRequest) => {
 
 // 上传文件请求参数
 export interface uploadPrecheckParams {
-  chunk_signature: string,
-  file_name: string,
-  file_size: number,
-  files_md5: string[],
+  chunk_signature: string
+  file_name: string
+  file_size: number
+  files_md5: string[]
   path_id: string
 }
 
@@ -177,10 +177,10 @@ export interface UploadProgressResponse {
   precheck_id: string
   file_name: string
   file_size: number
-  uploaded: number  // 已上传分片数
-  total: number     // 总分片数
-  progress: number  // 进度百分比 (0-100)
-  md5: string[]     // 已上传分片的MD5列表
+  uploaded: number // 已上传分片数
+  total: number // 总分片数
+  progress: number // 进度百分比 (0-100)
+  md5: string[] // 已上传分片的MD5列表
   is_complete: boolean // 是否已完成
 }
 
@@ -194,12 +194,12 @@ export const getUploadProgress = (precheckId: string) => {
 
 // 上传请求参数
 export interface uploadParams {
-  precheck_id: string,
-  file: File,
-  chunk_index: number,
-  total_chunks: number,
-  chunk_md5: string,
-  is_enc: boolean,
+  precheck_id: string
+  file: File
+  chunk_index: number
+  total_chunks: number
+  chunk_md5: string
+  is_enc: boolean
   file_password: string
 }
 
@@ -207,18 +207,18 @@ export interface uploadParams {
  * 上传
  */
 export const uploadFile = (
-  data: uploadParams, 
+  data: uploadParams,
   onProgress?: (percent: number, loaded?: number, total?: number) => void,
   options?: { onCancel?: (cancel: () => void) => void }
 ) => {
-  const formData = new FormData();
-  formData.append('precheck_id', data.precheck_id);
-  formData.append('chunk_index', data.chunk_index.toString());
-  formData.append('total_chunks', data.total_chunks.toString());
-  formData.append('chunk_md5', data.chunk_md5);
-  formData.append('is_enc', data.is_enc.toString());
+  const formData = new FormData()
+  formData.append('precheck_id', data.precheck_id)
+  formData.append('chunk_index', data.chunk_index.toString())
+  formData.append('total_chunks', data.total_chunks.toString())
+  formData.append('chunk_md5', data.chunk_md5)
+  formData.append('is_enc', data.is_enc.toString())
   if (data.is_enc && data.file_password) {
-    formData.append('file_password', data.file_password);
+    formData.append('file_password', data.file_password)
   }
   return upload(API_ENDPOINTS.FILE.UPLOAD, data.file, formData, onProgress, options)
 }
@@ -345,4 +345,3 @@ export interface SetFilePublicRequest {
 export const setFilePublic = (data: SetFilePublicRequest) => {
   return post<ApiResponse>(API_ENDPOINTS.FILE.SET_PUBLIC, data)
 }
-

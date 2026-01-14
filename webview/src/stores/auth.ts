@@ -2,13 +2,14 @@ import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import cache from '@/plugins/cache'
 import logger from '@/plugins/logger'
+import { StoreId } from '@/enums/StoreId'
 
 /**
  * 认证 Store
  */
-export const useAuthStore = defineStore('auth', () => {
+export const useAuthStore = defineStore(StoreId.Auth, () => {
   const userStore = useUserStore()
-  
+
   // 状态
   const token = ref<string | null>(null)
 
@@ -87,4 +88,3 @@ export const useAuthStore = defineStore('auth', () => {
     loadTokenFromCache
   }
 })
-

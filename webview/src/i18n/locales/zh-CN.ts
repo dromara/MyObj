@@ -15,6 +15,14 @@ export default {
     adminDisks: '磁盘管理',
     adminSystem: '系统配置'
   },
+  error: {
+    title: '出现错误',
+    unknown: '发生未知错误',
+    retry: '重试',
+    reload: '重新加载',
+    showDetails: '显示详情',
+    hideDetails: '隐藏详情'
+  },
   common: {
     confirm: '确定',
     cancel: '取消',
@@ -73,7 +81,60 @@ export default {
     square: '文件广场',
     settings: '系统设置',
     collaboration: '协作',
-    admin: '系统管理'
+    admin: '系统管理',
+    searchPlaceholder: '搜索菜单...',
+    groups: {
+      main: '主要功能',
+      public: '公共功能',
+      admin: '系统管理'
+    }
+  },
+  layout: {
+    mode: {
+      title: '布局模式',
+      changed: '布局模式已切换为：{mode}',
+      mobileTip: '移动端暂不支持切换布局模式',
+      recommended: '推荐',
+      default: '默认',
+      vertical: '垂直布局',
+      horizontal: '水平布局',
+      'vertical-mix': '混合布局',
+      'vertical-hybrid-header-first': '垂直混合（头部优先）',
+      'top-hybrid-sidebar-first': '顶部混合（侧边栏优先）',
+      'top-hybrid-header-first': '顶部混合（头部优先）',
+      verticalDesc: '传统的左侧边栏布局，适合大多数场景',
+      horizontalDesc: '顶部导航栏布局，适合宽屏显示',
+      'vertical-mixDesc': '混合布局，结合垂直和水平布局的优点',
+      'vertical-hybrid-header-firstDesc': '垂直混合布局，头部区域突出显示',
+      'top-hybrid-sidebar-firstDesc': '顶部布局，侧边栏在内容区域左侧',
+      'top-hybrid-header-firstDesc': '顶部布局，头部区域突出显示'
+    },
+    sidebar: {
+      title: '侧边栏设置',
+      width: '侧边栏宽度',
+      widthChanged: '侧边栏宽度已设置为：{width}px',
+      collapsed: '折叠侧边栏',
+      collapsedEnabled: '侧边栏已折叠',
+      collapsedDisabled: '侧边栏已展开'
+    },
+    tagsView: {
+      title: '标签页设置',
+      visible: '显示标签页',
+      visibleEnabled: '标签页已显示',
+      visibleDisabled: '标签页已隐藏'
+    },
+    config: {
+      title: '配置管理',
+      export: '导出配置',
+      import: '导入配置',
+      reset: '重置配置',
+      exportSuccess: '布局配置导出成功',
+      exportFailed: '布局配置导出失败',
+      importSuccess: '布局配置导入成功',
+      importFailed: '布局配置导入失败，请检查文件格式',
+      resetSuccess: '布局配置已重置为默认值',
+      confirmReset: '确定要重置布局配置吗？这将恢复所有布局设置为默认值。'
+    }
   },
   login: {
     title: 'MyObj',
@@ -469,6 +530,12 @@ export default {
     account: '账户信息',
     security: '安全设置',
     appearance: '外观设置',
+    layout: '布局设置',
+    groups: {
+      basic: '基础设置',
+      theme: '主题与颜色',
+      layout: '布局设置'
+    },
     theme: '主题',
     light: '浅色',
     dark: '深色',
@@ -508,6 +575,8 @@ export default {
     colourWeaknessDisabled: '色弱模式已禁用',
     themePreset: '主题预设',
     presetApplied: '已应用预设：{name}',
+    apply: '应用',
+    applied: '已应用',
     presets: {
       default: {
         name: '默认预设',
@@ -524,6 +593,10 @@ export default {
       grayscale: {
         name: '灰度预设',
         desc: '灰度模式，适合打印或特殊场景'
+      },
+      colourWeakness: {
+        name: '色弱预设',
+        desc: '色弱模式，适合色弱用户使用'
       }
     },
     userInfo: {
@@ -962,7 +1035,9 @@ export default {
     logout: '退出登录',
     logoutSuccess: '已退出登录',
     switchToLight: '切换到浅色模式',
-    switchToDark: '切换到深色模式'
+    switchToDark: '切换到深色模式',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏'
   },
   shareDownload: {
     title: '文件分享',
@@ -990,7 +1065,8 @@ export default {
   },
   print: {
     cannotOpenWindow: '无法打开打印窗口，请检查浏览器弹窗设置',
-    cannotOpenWindowOffice: '无法打开打印窗口，请检查浏览器弹窗设置。建议先下载文件，然后用相应的Office软件打开并打印。',
+    cannotOpenWindowOffice:
+      '无法打开打印窗口，请检查浏览器弹窗设置。建议先下载文件，然后用相应的Office软件打开并打印。',
     imageTitle: '图片打印',
     pdfTitle: 'PDF打印',
     textTitle: '文本打印',
@@ -999,9 +1075,11 @@ export default {
     pdfLoadFailed: 'PDF加载失败',
     officeDocumentTip: '文档打印提示',
     tryingToOpen: '正在尝试在浏览器中打开文档...',
-    officeDocumentDescription: '如果文档无法正常显示，请点击下方链接下载文件，然后用相应的Office软件（如Excel、Word、PowerPoint）打开并打印。',
+    officeDocumentDescription:
+      '如果文档无法正常显示，请点击下方链接下载文件，然后用相应的Office软件（如Excel、Word、PowerPoint）打开并打印。',
     downloadFile: '下载文件',
-    cannotPrintOfficeType: '无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
+    cannotPrintOfficeType:
+      '无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
     cannotLoadDocument: '无法加载文档。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。'
   },
   upload: {
@@ -1011,5 +1089,13 @@ export default {
     uploadFailed: '上传失败',
     processFileError: '处理文件 {fileName} 时出错: {error}',
     processUploadError: '处理文件上传时出错: {error}'
+  },
+  tagsView: {
+    refresh: '刷新页面',
+    closeCurrent: '关闭当前',
+    closeOthers: '关闭其他',
+    closeLeft: '关闭左侧',
+    closeRight: '关闭右侧',
+    closeAll: '全部关闭'
   }
 }

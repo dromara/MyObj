@@ -1,4 +1,4 @@
-import { post, get } from '@/utils/request'
+import { post, get } from '@/utils/network/request'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { CreateShareRequest, CreateShareResponse, ApiResponse, ShareInfo } from '@/types'
 

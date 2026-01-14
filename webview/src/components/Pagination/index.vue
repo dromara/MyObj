@@ -15,241 +15,265 @@
 </template>
 
 <script setup lang="ts">
-import { useResponsive } from '@/composables/useResponsive'
-import { scrollTo } from '@/utils/scroll-to'
+  import { useResponsive } from '@/composables'
+  import { scrollTo } from '@/utils/ui/scroll-to'
 
-interface Props {
-  total: number
-  page?: number
-  limit?: number
-  pageSizes?: number[]
-  pagerCount?: number
-  layout?: string
-  background?: boolean
-  autoScroll?: boolean
-  hidden?: boolean
-  float?: 'left' | 'right' | 'center' | 'flex-start' | 'flex-end'
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  page: 1,
-  limit: 20,
-  pageSizes: () => [20, 50, 100],
-  layout: 'total, sizes, prev, pager, next, jumper',
-  background: true,
-  autoScroll: true,
-  hidden: false,
-  float: 'center'
-})
-
-const emit = defineEmits<{
-  'update:page': [page: number]
-  'update:limit': [limit: number]
-  'pagination': [data: { page: number; limit: number }]
-}>()
-
-// 使用响应式检测 composable
-const { isMobile } = useResponsive()
-
-// 动态 pagerCount：移动端5，PC端7
-const pagerCount = computed(() => {
-  if (props.pagerCount !== undefined) {
-    return props.pagerCount
+  interface Props {
+    total: number
+    page?: number
+    limit?: number
+    pageSizes?: number[]
+    pagerCount?: number
+    layout?: string
+    background?: boolean
+    autoScroll?: boolean
+    hidden?: boolean
+    float?: 'left' | 'right' | 'center' | 'flex-start' | 'flex-end'
   }
-  return isMobile.value ? 5 : 7
-})
 
-const currentPage = computed({
-  get() {
-    return props.page
-  },
-  set(val: number) {
-    emit('update:page', val)
-  }
-})
+  const props = withDefaults(defineProps<Props>(), {
+    page: 1,
+    limit: 20,
+    pageSizes: () => [20, 50, 100],
+    layout: 'total, sizes, prev, pager, next, jumper',
+    background: true,
+    autoScroll: true,
+    hidden: false,
+    float: 'center'
+  })
 
-const pageSize = computed({
-  get() {
-    return props.limit
-  },
-  set(val: number) {
-    emit('update:limit', val)
-  }
-})
+  const emit = defineEmits<{
+    'update:page': [page: number]
+    'update:limit': [limit: number]
+    pagination: [data: { page: number; limit: number }]
+  }>()
 
-function handleSizeChange(val: number) {
-  // 如果当前页超出范围，重置到第一页
-  if (currentPage.value * val > props.total) {
-    currentPage.value = 1
-  }
-  emit('pagination', { page: currentPage.value, limit: val })
-  if (props.autoScroll) {
-    scrollTo(0, 300)
-  }
-}
+  // 使用响应式检测 composable
+  const { isMobile } = useResponsive()
 
-function handleCurrentChange(val: number) {
-  emit('pagination', { page: val, limit: pageSize.value })
-  if (props.autoScroll) {
-    scrollTo(0, 300)
+  // 动态 pagerCount：移动端5，PC端7
+  const pagerCount = computed(() => {
+    if (props.pagerCount !== undefined) {
+      return props.pagerCount
+    }
+    return isMobile.value ? 5 : 7
+  })
+
+  const currentPage = computed({
+    get() {
+      return props.page
+    },
+    set(val: number) {
+      emit('update:page', val)
+    }
+  })
+
+  const pageSize = computed({
+    get() {
+      return props.limit
+    },
+    set(val: number) {
+      emit('update:limit', val)
+    }
+  })
+
+  function handleSizeChange(val: number) {
+    // 如果当前页超出范围，重置到第一页
+    if (currentPage.value * val > props.total) {
+      currentPage.value = 1
+    }
+    emit('pagination', { page: currentPage.value, limit: val })
+    if (props.autoScroll) {
+      scrollTo(0, 300)
+    }
   }
-}
+
+  function handleCurrentChange(val: number) {
+    emit('pagination', { page: val, limit: pageSize.value })
+    if (props.autoScroll) {
+      scrollTo(0, 300)
+    }
+  }
 </script>
 
 <style scoped>
-.pagination-container {
-  display: flex;
-  width: 100%;
-}
-
-.pagination-container[data-float="left"],
-.pagination-container[data-float="flex-start"] {
-  justify-content: flex-start;
-}
-
-.pagination-container[data-float="right"],
-.pagination-container[data-float="flex-end"] {
-  justify-content: flex-end;
-}
-
-.pagination-container[data-float="center"] {
-  justify-content: center;
-}
-
-.pagination-container.hidden {
-  display: none;
-}
-
-/* 移动端优化 */
-@media (max-width: 1024px) {
   .pagination-container {
-    :deep(.el-pagination) {
-      justify-content: center;
-      flex-wrap: wrap;
-    }
+    display: flex;
+    width: 100%;
+  }
 
-    /* 移动端隐藏部分元素，简化显示 */
-    :deep(.el-pagination__total) {
-      display: none;
-    }
+  .pagination-container[data-float='left'],
+  .pagination-container[data-float='flex-start'] {
+    justify-content: flex-start;
+  }
 
-    :deep(.el-pagination__sizes) {
-      margin-right: 0;
-    }
+  .pagination-container[data-float='right'],
+  .pagination-container[data-float='flex-end'] {
+    justify-content: flex-end;
+  }
 
-    :deep(.el-pagination__jump) {
-      display: none;
+  .pagination-container[data-float='center'] {
+    justify-content: center;
+  }
+
+  .pagination-container.hidden {
+    display: none;
+  }
+
+  /* 优化分页按钮的交互效果 */
+  .pagination-container :deep(.el-pagination .btn-prev),
+  .pagination-container :deep(.el-pagination .btn-next),
+  .pagination-container :deep(.el-pagination .number) {
+    transition: all 0.2s ease;
+  }
+
+  .pagination-container :deep(.el-pagination .btn-prev:hover),
+  .pagination-container :deep(.el-pagination .btn-next:hover),
+  .pagination-container :deep(.el-pagination .number:hover) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .pagination-container :deep(.el-pagination .number.is-active) {
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+  }
+
+  html.dark .pagination-container :deep(.el-pagination .btn-prev:hover),
+  html.dark .pagination-container :deep(.el-pagination .btn-next:hover),
+  html.dark .pagination-container :deep(.el-pagination .number:hover) {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  /* 移动端优化 */
+  @media (max-width: 1024px) {
+    .pagination-container {
+      :deep(.el-pagination) {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      /* 移动端隐藏部分元素，简化显示 */
+      :deep(.el-pagination__total) {
+        display: none;
+      }
+
+      :deep(.el-pagination__sizes) {
+        margin-right: 0;
+      }
+
+      :deep(.el-pagination__jump) {
+        display: none;
+      }
     }
   }
-}
 
-@media (max-width: 768px) {
-  .pagination-container {
-    :deep(.el-pagination) {
-      padding: 8px 0;
-    }
+  @media (max-width: 768px) {
+    .pagination-container {
+      :deep(.el-pagination) {
+        padding: 8px 0;
+      }
 
-    /* 进一步简化移动端显示 */
-    :deep(.el-pagination__sizes) {
-      display: none;
+      /* 进一步简化移动端显示 */
+      :deep(.el-pagination__sizes) {
+        display: none;
+      }
     }
   }
-}
 
-/* 深色模式样式 */
-html.dark .pagination-container :deep(.el-pagination) {
-  color: var(--el-text-color-primary);
-}
+  /* 深色模式样式 */
+  html.dark .pagination-container :deep(.el-pagination) {
+    color: var(--el-text-color-primary);
+  }
 
-html.dark .pagination-container :deep(.el-pagination__total) {
-  color: var(--el-text-color-primary);
-}
+  html.dark .pagination-container :deep(.el-pagination__total) {
+    color: var(--el-text-color-primary);
+  }
 
-html.dark .pagination-container :deep(.el-pagination button) {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--el-border-color);
-}
+  html.dark .pagination-container :deep(.el-pagination button) {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination button:hover) {
-  color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination button:hover) {
+    color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination button.is-active) {
-  background-color: var(--primary-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination button.is-active) {
+    background-color: var(--primary-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-pager li) {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--el-border-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-pager li) {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-pager li:hover) {
-  color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-pager li:hover) {
+    color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-pager li.is-active) {
-  background-color: var(--primary-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-pager li.is-active) {
+    background-color: var(--primary-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-select) {
-  background-color: var(--el-bg-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-select) {
+    background-color: var(--el-bg-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-select .el-input__wrapper) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-select .el-input__wrapper) {
+    background-color: var(--el-bg-color);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-select .el-input__inner) {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--el-border-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-select .el-input__inner) {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-select:hover .el-input__wrapper) {
-  border-color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-select:hover .el-input__wrapper) {
+    border-color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-select.is-focus .el-input__wrapper) {
-  border-color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-select.is-focus .el-input__wrapper) {
+    border-color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-pagination .el-input__inner) {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-color: var(--el-border-color);
-}
+  html.dark .pagination-container :deep(.el-pagination .el-input__inner) {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+    border-color: var(--el-border-color);
+  }
 
-/* 选择框下拉菜单深色模式样式 */
-html.dark .pagination-container :deep(.el-select-dropdown) {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
-}
+  /* 选择框下拉菜单深色模式样式 */
+  html.dark .pagination-container :deep(.el-select-dropdown) {
+    background-color: var(--el-bg-color);
+    border-color: var(--el-border-color);
+  }
 
-html.dark .pagination-container :deep(.el-select-dropdown__item) {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-}
+  html.dark .pagination-container :deep(.el-select-dropdown__item) {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+  }
 
-html.dark .pagination-container :deep(.el-select-dropdown__item:hover) {
-  background-color: var(--el-fill-color-light);
-  color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-select-dropdown__item:hover) {
+    background-color: var(--el-fill-color-light);
+    color: var(--primary-color);
+  }
 
-html.dark .pagination-container :deep(.el-select-dropdown__item.selected) {
-  background-color: var(--el-fill-color-light);
-  color: var(--primary-color);
-  font-weight: 600;
-}
+  html.dark .pagination-container :deep(.el-select-dropdown__item.selected) {
+    background-color: var(--el-fill-color-light);
+    color: var(--primary-color);
+    font-weight: 600;
+  }
 
-html.dark .pagination-container :deep(.el-select-dropdown__item.selected::after) {
-  color: var(--primary-color);
-}
+  html.dark .pagination-container :deep(.el-select-dropdown__item.selected::after) {
+    color: var(--primary-color);
+  }
 </style>
-
