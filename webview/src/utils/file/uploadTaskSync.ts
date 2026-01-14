@@ -69,7 +69,21 @@ export function syncBackendTasksToFrontend(backendTasks: BackendUploadTask[]): {
       continue
     }
 
-    const existingTask = frontendTasks.find(t => t.precheckId === backendTask.id)
+    // 先通过 precheckId 查找
+    let existingTask = frontendTasks.find(t => t.precheckId === backendTask.id)
+
+    // 如果没找到，通过文件名和文件大小匹配（避免预检失败时重复创建任务）
+    if (!existingTask) {
+      existingTask = frontendTasks.find(
+        t => t.file_name === backendTask.file_name && t.file_size === backendTask.file_size && !t.precheckId
+      )
+      // 如果找到匹配的任务，更新它的 precheckId
+      if (existingTask) {
+        uploadTaskManager.updateTask(existingTask.id, {
+          precheckId: backendTask.id
+        })
+      }
+    }
 
     if (!existingTask) {
       const taskId = uploadTaskManager.createTask(backendTask.file_name, backendTask.file_size)
@@ -83,10 +97,12 @@ export function syncBackendTasksToFrontend(backendTasks: BackendUploadTask[]): {
 
         const frontendStatus = mapBackendStatusToFrontend(backendTask.status)
 
+        const backendProgress = Math.floor(backendTask.progress)
         uploadTaskManager.updateTask(taskId, {
           precheckId: backendTask.id,
           pathId: backendTask.path_id,
-          progress: Math.floor(backendTask.progress),
+          // 只有当后端进度大于等于前端进度时才更新，防止进度倒退
+          progress: backendProgress,
           uploaded_size: uploadedSize,
           status: frontendStatus,
           error: backendTask.error_message
@@ -111,8 +127,19 @@ export function syncBackendTasksToFrontend(backendTasks: BackendUploadTask[]): {
         statusUpdate = { status: 'failed', error: backendTask.error_message }
       }
 
+      const backendProgress = Math.floor(backendTask.progress)
+      const currentProgress = existingTask.progress || 0
+      
+      // 防止进度倒退的逻辑：
+      // 1. 如果任务正在预检中，不更新 progress（预检进度由前端控制）
+      // 2. 如果后端进度大于等于前端进度，则更新
+      // 3. 如果状态变更（如完成、失败），则允许更新进度
+      const shouldUpdateProgress = 
+        existingTask.status !== 'prechecking' && // 预检中不更新 progress
+        (backendProgress >= currentProgress || statusUpdate) // 后端进度更大或状态变更时更新
+      
       uploadTaskManager.updateTask(existingTask.id, {
-        progress: Math.floor(backendTask.progress),
+        ...(shouldUpdateProgress ? { progress: backendProgress } : {}),
         uploaded_size: uploadedSize,
         ...statusUpdate
       })

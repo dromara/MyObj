@@ -1,3 +1,5 @@
+import i18n from '@/i18n'
+
 /**
  * 格式化工具函数
  */
@@ -105,4 +107,67 @@ export const bytesToGB = (bytes: number): number => {
 export const GBToBytes = (gb: number): number => {
   if (!gb || gb === 0) return 0
   return Math.round(gb * 1024 * 1024 * 1024)
+}
+
+/**
+ * 格式化耗时（毫秒）
+ * @param milliseconds 毫秒数
+ * @returns 格式化后的耗时字符串（如：1分30秒、30秒、2小时15分）
+ */
+export const formatDuration = (milliseconds: number): string => {
+  if (!milliseconds || milliseconds < 0) {
+    return i18n.global.t('format.duration.zero') || '0秒'
+  }
+  
+  const seconds = Math.floor(milliseconds / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  
+  // 获取国际化文本
+  const t = i18n.global.t
+  
+  if (days > 0) {
+    const remainingHours = hours % 24
+    const remainingMinutes = minutes % 60
+    if (remainingHours > 0) {
+      return t('format.duration.daysHoursMinutes', {
+        days,
+        hours: remainingHours,
+        minutes: remainingMinutes
+      })
+    }
+    return t('format.duration.daysMinutes', {
+      days,
+      minutes: remainingMinutes
+    })
+  }
+  
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60
+    const remainingSeconds = seconds % 60
+    if (remainingMinutes > 0) {
+      return t('format.duration.hoursMinutes', {
+        hours,
+        minutes: remainingMinutes
+      })
+    }
+    return t('format.duration.hoursSeconds', {
+      hours,
+      seconds: remainingSeconds
+    })
+  }
+  
+  if (minutes > 0) {
+    const remainingSeconds = seconds % 60
+    if (remainingSeconds > 0) {
+      return t('format.duration.minutesSeconds', {
+        minutes,
+        seconds: remainingSeconds
+      })
+    }
+    return t('format.duration.minutes', { minutes })
+  }
+  
+  return t('format.duration.seconds', { seconds })
 }

@@ -25,6 +25,7 @@ export const getTaskStatusType = (state: number): 'info' | 'primary' | 'warning'
  */
 export const getUploadStatusType = (status: string): 'info' | 'primary' | 'warning' | 'success' | 'danger' => {
   const typeMap: Record<string, 'info' | 'primary' | 'warning' | 'success' | 'danger'> = {
+    prechecking: 'info', // 预检中
     pending: 'info',
     uploading: 'primary',
     paused: 'warning',
@@ -42,6 +43,7 @@ export const getUploadStatusType = (status: string): 'info' | 'primary' | 'warni
  */
 export const getUploadStatusText = (status: string): string => {
   const textMap: Record<string, string> = {
+    prechecking: '预检中',
     pending: '等待中',
     uploading: '上传中',
     paused: '已暂停',

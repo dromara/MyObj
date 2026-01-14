@@ -360,6 +360,7 @@ export default {
     taskCount: '共 {count} 个任务',
     viewExpired: '查看过期任务',
     noUploadTasks: '暂无上传任务',
+    prechecking: '预检中',
     noDownloadTasks: '暂无下载任务',
     noExpiredTasks: '暂无过期任务',
     createTaskFailed: '任务创建失败',
@@ -372,6 +373,7 @@ export default {
     queryTaskStatusFailed: '查询任务状态失败',
     createDownloadTaskFailed: '创建下载任务失败',
     type: '类型',
+    createTime: '创建时间',
     renew: '延期',
     batchRenew: '批量延期',
     batchDelete: '批量删除',
@@ -402,6 +404,15 @@ export default {
     confirmDeleteUpload: '确认删除该任务记录?',
     confirmDeleteUploading: '任务正在上传中，删除将取消上传。确认删除?',
     resumed: '已继续上传',
+    clearAll: '一键清空',
+    noTasksToClear: '没有可清空的任务',
+    confirmClearAll: '确认清空所有上传任务？\n共有 {count} 个已完成/失败/已取消的任务将被清空。',
+    confirmClearAllUploading: '确认清空所有上传任务？\n共有 {count} 个正在上传/预检中的任务，清空将取消这些任务。',
+    confirmClearAllWithUploading: '确认清空所有上传任务？\n共有 {total} 个任务，其中 {uploading} 个正在上传/预检中，{other} 个已完成/失败/已取消。\n正在上传的任务将被取消。',
+    clearAllSuccess: '已清空 {count} 个任务',
+    totalDuration: '总耗时',
+    averageSpeed: '平均速度',
+    instantUpload: '秒传',
     confirmCancelDownload: '确认取消该下载任务?',
     confirmDeleteDownload: '确认删除该任务记录?',
     pauseSuccess: '已暂停',
@@ -1088,7 +1099,14 @@ export default {
     createTaskFailed: '创建上传任务失败',
     uploadFailed: '上传失败',
     processFileError: '处理文件 {fileName} 时出错: {error}',
-    processUploadError: '处理文件上传时出错: {error}'
+    processUploadError: '处理文件上传时出错: {error}',
+    prechecking: '正在预检文件...',
+    calculatingFileHash: '正在计算文件哈希值... {progress}%',
+    calculatingChunksHash: '正在计算分片哈希值... {current}/{total}',
+    verifying: '正在验证文件信息...',
+    precheckComplete: '预检完成，准备上传...',
+    instantUpload: '秒传成功',
+    readyToUpload: '准备上传...'
   },
   tagsView: {
     refresh: '刷新页面',
@@ -1097,5 +1115,49 @@ export default {
     closeLeft: '关闭左侧',
     closeRight: '关闭右侧',
     closeAll: '全部关闭'
+  },
+  empty: {
+    folder: {
+      title: '文件夹为空',
+      description: '这里还没有任何文件，开始上传你的第一个文件吧！'
+    },
+    search: {
+      title: '未找到相关文件',
+      description: '试试其他关键词，或者检查拼写是否正确'
+    },
+    task: {
+      title: '暂无上传任务',
+      description: '上传文件后，任务会显示在这里'
+    },
+    trash: {
+      title: '回收站为空',
+      description: '删除的文件会显示在这里，保持整洁！'
+    },
+    share: {
+      title: '暂无分享记录',
+      description: '创建分享链接后，记录会显示在这里'
+    },
+    download: {
+      title: '暂无下载任务',
+      description: '下载文件后，任务会显示在这里'
+    },
+    default: {
+      title: '暂无数据',
+      description: '这里还没有任何内容'
+    }
+  },
+  format: {
+    duration: {
+      zero: '0秒',
+      seconds: '{seconds}秒',
+      minutes: '{minutes}分钟',
+      minutesSeconds: '{minutes}分钟{seconds}秒',
+      hours: '{hours}小时',
+      hoursMinutes: '{hours}小时{minutes}分钟',
+      hoursSeconds: '{hours}小时{seconds}秒',
+      days: '{days}天',
+      daysMinutes: '{days}天{minutes}分钟',
+      daysHoursMinutes: '{days}天{hours}小时{minutes}分钟'
+    }
   }
 }

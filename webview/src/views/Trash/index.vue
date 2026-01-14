@@ -216,7 +216,12 @@
     </div>
 
     <!-- 空状态 -->
-    <el-empty v-if="!loading && fileList.length === 0" :description="t('trash.noTrash')" />
+    <EmptyState
+      v-if="!loading && fileList.length === 0"
+      type="trash"
+      :show-actions="false"
+      compact
+    />
 
     <!-- 分页 -->
     <pagination
@@ -237,6 +242,7 @@
   import { formatSize, formatDate } from '@/utils'
   import { useI18n } from '@/composables'
   import { useUserStore } from '@/stores'
+  import EmptyState from '@/components/EmptyState/index.vue'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const userStore = useUserStore()

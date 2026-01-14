@@ -8,7 +8,7 @@ export interface UploadTask {
   file_size: number
   uploaded_size: number
   progress: number
-  status: 'pending' | 'uploading' | 'paused' | 'completed' | 'failed' | 'cancelled'
+  status: 'prechecking' | 'pending' | 'uploading' | 'paused' | 'completed' | 'failed' | 'cancelled'
   speed: string
   created_at: string
   error?: string
@@ -21,6 +21,13 @@ export interface UploadTask {
   chunkSignature?: string
   filesMd5?: string[]
   uploadedChunkMd5s?: string[]
+  precheckProgress?: number // 预检进度（0-100）
+  currentStep?: string // 当前步骤描述
+  startTime?: number // 开始上传时间（时间戳）
+  endTime?: number // 结束上传时间（时间戳）
+  totalDuration?: number // 总耗时（毫秒）
+  averageSpeed?: number // 平均速度（字节/秒）
+  isInstantUpload?: boolean // 是否秒传
 }
 
 class UploadTaskManager {
@@ -39,9 +46,10 @@ class UploadTaskManager {
    * 创建上传任务
    * @param fileName 文件名
    * @param fileSize 文件大小（字节）
+   * @param initialStatus 初始状态，默认为 'pending'，可以是 'prechecking'（预检中）
    * @returns string 任务ID
    */
-  createTask(fileName: string, fileSize: number): string {
+  createTask(fileName: string, fileSize: number, initialStatus: UploadTask['status'] = 'pending'): string {
     const taskId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const now = Date.now()
     const task: UploadTask = {
@@ -50,17 +58,22 @@ class UploadTaskManager {
       file_size: fileSize,
       uploaded_size: 0,
       progress: 0,
-      status: 'pending',
+      status: initialStatus,
       speed: '0 KB/s',
       created_at: new Date().toISOString(),
       lastUpdateTime: now,
       lastUploadedSize: 0,
       speedHistory: [],
-      lastSpeedUpdateTime: undefined
+      lastSpeedUpdateTime: undefined,
+      precheckProgress: initialStatus === 'prechecking' ? 0 : undefined,
+      currentStep: initialStatus === 'prechecking' ? '正在初始化...' : undefined,
+      startTime: now, // 记录开始时间
+      isInstantUpload: false
     }
 
     this.tasks.set(taskId, task)
     this.notifyListeners()
+    this.saveTasksToStorage()
     return taskId
   }
 
@@ -72,67 +85,107 @@ class UploadTaskManager {
    */
   updateProgress(taskId: string, progress: number, uploadedSize: number) {
     const task = this.tasks.get(taskId)
-    if (task && task.status !== 'paused' && task.status !== 'cancelled') {
-      const now = Date.now()
-      task.progress = progress
-      task.uploaded_size = uploadedSize
-      task.status = 'uploading'
+    if (!task || task.status === 'paused' || task.status === 'cancelled') {
+      return
+    }
 
-      if (!task.speedHistory) {
-        task.speedHistory = []
-      }
+    const now = Date.now()
 
-      const shouldUpdateSpeed = !task.lastSpeedUpdateTime || now - task.lastSpeedUpdateTime >= 500
+    // 1. 确保 uploadedSize 在有效范围内（0 到 file_size）
+    uploadedSize = Math.max(0, Math.min(uploadedSize, task.file_size))
 
-      if (task.lastUpdateTime && task.lastUploadedSize !== undefined && shouldUpdateSpeed) {
-        const timeDiff = (now - task.lastUpdateTime) / 1000
-        const sizeDiff = uploadedSize - task.lastUploadedSize
+    // 2. 防止 uploadedSize 倒退（除非是 prechecking 状态）
+    if (task.status !== 'prechecking' && task.lastUploadedSize !== undefined && uploadedSize < task.lastUploadedSize) {
+      logger.debug(`任务 ${taskId} uploadedSize 倒退，跳过更新: ${task.lastUploadedSize} -> ${uploadedSize}`)
+      return
+    }
 
-        if (timeDiff > 0 && sizeDiff >= 0) {
-          const currentSpeedBytes = sizeDiff / timeDiff
+    // 3. 根据实际 uploadedSize 重新计算进度，确保进度准确
+    const calculatedProgress = task.file_size > 0 ? Math.floor((uploadedSize / task.file_size) * 100) : 0
+    progress = Math.max(0, Math.min(100, calculatedProgress))
 
-          if (currentSpeedBytes >= 0) {
-            task.speedHistory.push(currentSpeedBytes)
-            if (task.speedHistory.length > 10) {
-              task.speedHistory.shift()
-            }
+    // 4. 防止进度倒退（除非是 prechecking 状态）
+    if (task.status !== 'prechecking' && task.progress !== undefined && progress < task.progress) {
+      logger.debug(`任务 ${taskId} progress 倒退，跳过更新: ${task.progress}% -> ${progress}%`)
+      return
+    }
 
-            const validSpeeds = task.speedHistory.filter(speed => speed >= 0)
-            if (validSpeeds.length > 0) {
-              const avgSpeed = validSpeeds.reduce((sum, speed) => sum + speed, 0) / validSpeeds.length
-              task.speed = formatSpeedUtil(avgSpeed)
-              task.lastSpeedUpdateTime = now
-            }
+    // 5. 如果 uploadedSize 超过 file_size，记录警告并限制
+    if (uploadedSize > task.file_size) {
+      logger.warn(`上传大小超过文件总大小，已限制为文件大小: ${uploadedSize} > ${task.file_size}`)
+      uploadedSize = task.file_size
+      progress = 100
+    }
+
+    // 6. 更新任务状态
+    task.progress = progress
+    task.uploaded_size = uploadedSize
+    task.status = 'uploading'
+
+    // 7. 计算上传速度
+    if (!task.speedHistory) {
+      task.speedHistory = []
+    }
+
+    const shouldUpdateSpeed = !task.lastSpeedUpdateTime || now - task.lastSpeedUpdateTime >= 500
+
+    if (task.lastUpdateTime && task.lastUploadedSize !== undefined && shouldUpdateSpeed) {
+      const timeDiff = (now - task.lastUpdateTime) / 1000
+      const sizeDiff = uploadedSize - task.lastUploadedSize
+
+      if (timeDiff > 0 && sizeDiff >= 0) {
+        const currentSpeedBytes = sizeDiff / timeDiff
+
+        if (currentSpeedBytes >= 0) {
+          task.speedHistory.push(currentSpeedBytes)
+          if (task.speedHistory.length > 10) {
+            task.speedHistory.shift()
+          }
+
+          const validSpeeds = task.speedHistory.filter(speed => speed >= 0)
+          if (validSpeeds.length > 0) {
+            const avgSpeed = validSpeeds.reduce((sum, speed) => sum + speed, 0) / validSpeeds.length
+            task.speed = formatSpeedUtil(avgSpeed)
+            task.lastSpeedUpdateTime = now
           }
         }
       }
-
-      if (task.lastUploadedSize !== undefined && uploadedSize < task.lastUploadedSize) {
-        return
-      }
-
-      if (uploadedSize > task.file_size) {
-        logger.warn(`上传大小超过文件总大小，已限制为文件大小: ${uploadedSize} > ${task.file_size}`)
-        uploadedSize = task.file_size
-      }
-
-      task.lastUpdateTime = now
-      task.lastUploadedSize = uploadedSize
-      task.uploaded_size = uploadedSize
-      this.notifyListeners()
     }
+
+    // 8. 更新最后更新时间
+    task.lastUpdateTime = now
+    task.lastUploadedSize = uploadedSize
+
+    // 9. 通知监听器
+    this.notifyListeners()
   }
 
   /**
    * 标记任务为完成状态
    * @param taskId 任务ID
+   * @param isInstantUpload 是否秒传，默认为 false
    */
-  completeTask(taskId: string) {
+  completeTask(taskId: string, isInstantUpload: boolean = false) {
     const task = this.tasks.get(taskId)
     if (task) {
+      const now = Date.now()
       task.status = 'completed'
       task.progress = 100
       task.uploaded_size = task.file_size
+      task.isInstantUpload = isInstantUpload
+      
+      // 计算总耗时和平均速度
+      if (task.startTime) {
+        task.endTime = now
+        task.totalDuration = now - task.startTime
+        
+        // 计算平均速度（字节/秒）
+        if (task.totalDuration > 0 && task.file_size > 0) {
+          task.averageSpeed = (task.file_size / task.totalDuration) * 1000 // 转换为字节/秒
+        }
+      }
+      
+      this.saveTasksToStorage()
       this.notifyListeners()
     }
   }
@@ -231,9 +284,14 @@ class UploadTaskManager {
   cancelTask(taskId: string) {
     const task = this.tasks.get(taskId)
     if (task) {
-      task.status = 'cancelled'
-      task.speed = '0 KB/s'
-      this.notifyListeners()
+      // 支持取消预检中的任务
+      if (task.status === 'prechecking' || task.status === 'pending' || task.status === 'uploading' || task.status === 'paused') {
+        task.status = 'cancelled'
+        task.speed = '0 KB/s'
+        task.currentStep = undefined
+        this.saveTasksToStorage()
+        this.notifyListeners()
+      }
     }
   }
 
@@ -245,6 +303,20 @@ class UploadTaskManager {
   updateTask(taskId: string, updates: Partial<UploadTask>) {
     const task = this.tasks.get(taskId)
     if (task) {
+      // 防止进度倒退：如果更新中包含 progress，且新进度小于当前进度，则不更新 progress
+      // 但如果任务状态是 prechecking，则允许更新（因为预检进度可能不同）
+      if (updates.progress !== undefined && task.status !== 'prechecking') {
+        const currentProgress = task.progress || 0
+        if (updates.progress < currentProgress) {
+          // 进度倒退，不更新 progress，但更新其他属性
+          const { progress, ...otherUpdates } = updates
+          Object.assign(task, otherUpdates)
+          this.saveTasksToStorage()
+          this.notifyListeners()
+          return
+        }
+      }
+      
       Object.assign(task, updates)
       this.saveTasksToStorage()
       this.notifyListeners()
@@ -331,6 +403,44 @@ class UploadTaskManager {
   }
 
   /**
+   * 清空所有任务
+   * @param filterStatus 可选，只清空指定状态的任务。如果不传，清空所有任务
+   */
+  clearAllTasks(filterStatus?: UploadTask['status'][]): void {
+    if (filterStatus && filterStatus.length > 0) {
+      // 只清空指定状态的任务
+      const tasksToDelete: string[] = []
+      this.tasks.forEach((task, taskId) => {
+        if (filterStatus.includes(task.status)) {
+          if (task.precheckId) {
+            this.deletedPrecheckIds.add(task.precheckId)
+          }
+          tasksToDelete.push(taskId)
+        }
+      })
+      tasksToDelete.forEach(taskId => {
+        this.tasks.delete(taskId)
+      })
+      if (tasksToDelete.length > 0) {
+        this.saveDeletedPrecheckIds()
+        this.saveTasksToStorage()
+        this.notifyListeners()
+      }
+    } else {
+      // 清空所有任务
+      this.tasks.forEach(task => {
+        if (task.precheckId) {
+          this.deletedPrecheckIds.add(task.precheckId)
+        }
+      })
+      this.tasks.clear()
+      this.saveDeletedPrecheckIds()
+      this.saveTasksToStorage()
+      this.notifyListeners()
+    }
+  }
+
+  /**
    * 获取指定任务
    * @param taskId 任务ID
    * @returns UploadTask | undefined 任务对象，如果不存在则返回undefined
@@ -383,6 +493,7 @@ class UploadTaskManager {
       if (tasks && Array.isArray(tasks)) {
         tasks.forEach(task => {
           const validStatuses: UploadTask['status'][] = [
+            'prechecking',
             'pending',
             'uploading',
             'paused',
@@ -395,7 +506,12 @@ class UploadTaskManager {
             task.error = task.error || '任务状态异常'
           }
 
-          if (task.status === 'uploading' || task.status === 'pending') {
+          // 页面刷新后，预检中的任务转为暂停状态
+          if (task.status === 'prechecking') {
+            task.status = 'paused'
+            task.speed = '0 KB/s'
+            task.currentStep = undefined
+          } else if (task.status === 'uploading' || task.status === 'pending') {
             task.status = 'paused'
             task.speed = '0 KB/s'
           } else if (task.status === 'paused') {

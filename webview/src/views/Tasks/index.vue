@@ -15,6 +15,7 @@
           @cancel="cancelUpload"
           @delete="deleteUpload"
           @view-expired="showExpiredDialog = true"
+          @clear-all="clearAllUploadTasks"
           @pagination="handleUploadPagination"
         />
         <ExpiredTasksDialog v-model="showExpiredDialog" @refresh="handleExpiredRefresh" />
@@ -80,6 +81,7 @@
     resumeUpload,
     cancelUpload,
     deleteUpload,
+    clearAllUploadTasks,
     handlePagination: handleUploadPagination
   } = useUploadTasks()
 

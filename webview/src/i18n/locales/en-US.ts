@@ -362,6 +362,7 @@ export default {
     taskCount: '{count} tasks',
     viewExpired: 'View Expired Tasks',
     noUploadTasks: 'No upload tasks',
+    prechecking: 'Prechecking',
     noDownloadTasks: 'No download tasks',
     noExpiredTasks: 'No expired tasks',
     createTaskFailed: 'Failed to create task',
@@ -374,6 +375,7 @@ export default {
     queryTaskStatusFailed: 'Failed to query task status',
     createDownloadTaskFailed: 'Failed to create download task',
     type: 'Type',
+    createTime: 'Create Time',
     renew: 'Renew',
     batchRenew: 'Batch Renew',
     batchDelete: 'Batch Delete',
@@ -405,6 +407,15 @@ export default {
     confirmDeleteUpload: 'Confirm delete this task record?',
     confirmDeleteUploading: 'Task is uploading, deletion will cancel the upload. Confirm delete?',
     resumed: 'Resumed upload',
+    clearAll: 'Clear All',
+    noTasksToClear: 'No tasks to clear',
+    confirmClearAll: 'Confirm clear all upload tasks?\nThere are {count} completed/failed/cancelled tasks that will be cleared.',
+    confirmClearAllUploading: 'Confirm clear all upload tasks?\nThere are {count} uploading/prechecking tasks. Clearing will cancel these tasks.',
+    confirmClearAllWithUploading: 'Confirm clear all upload tasks?\nThere are {total} tasks in total, including {uploading} uploading/prechecking tasks and {other} completed/failed/cancelled tasks.\nUploading tasks will be cancelled.',
+    clearAllSuccess: 'Cleared {count} tasks',
+    totalDuration: 'Total Duration',
+    averageSpeed: 'Average Speed',
+    instantUpload: 'Instant Upload',
     confirmCancelDownload: 'Confirm cancel this download task?',
     confirmDeleteDownload: 'Confirm delete this task record?',
     pauseSuccess: 'Paused',
@@ -1094,6 +1105,13 @@ export default {
   upload: {
     fileSizeExceeded: 'File {fileName} size exceeds limit (max {maxSizeMB}MB)',
     precheckFailed: 'File {fileName} precheck failed: {errorMsg}',
+    prechecking: 'Prechecking',
+    calculatingFileHash: 'Calculating file hash... {progress}%',
+    calculatingChunksHash: 'Calculating chunk hash... {current}/{total}',
+    verifying: 'Verifying file information...',
+    precheckComplete: 'Precheck complete, preparing to upload...',
+    instantUpload: 'Instant upload success',
+    readyToUpload: 'Ready to upload...',
     createTaskFailed: 'Failed to create upload task',
     uploadFailed: 'Upload failed',
     processFileError: 'Error processing file {fileName}: {error}',
@@ -1106,5 +1124,49 @@ export default {
     closeLeft: 'Close Left',
     closeRight: 'Close Right',
     closeAll: 'Close All'
+  },
+  empty: {
+    folder: {
+      title: 'Folder is empty',
+      description: 'There are no files here yet. Start by uploading your first file!'
+    },
+    search: {
+      title: 'No files found',
+      description: 'Try different keywords or check your spelling'
+    },
+    task: {
+      title: 'No upload tasks',
+      description: 'Upload tasks will appear here after you upload files'
+    },
+    trash: {
+      title: 'Trash is empty',
+      description: 'Deleted files will appear here. Keep it clean!'
+    },
+    share: {
+      title: 'No share records',
+      description: 'Share records will appear here after you create share links'
+    },
+    download: {
+      title: 'No download tasks',
+      description: 'Download tasks will appear here after you download files'
+    },
+    default: {
+      title: 'No data',
+      description: 'There is no content here yet'
+    }
+  },
+  format: {
+    duration: {
+      zero: '0s',
+      seconds: '{seconds}s',
+      minutes: '{minutes}m',
+      minutesSeconds: '{minutes}m {seconds}s',
+      hours: '{hours}h',
+      hoursMinutes: '{hours}h {minutes}m',
+      hoursSeconds: '{hours}h {seconds}s',
+      days: '{days}d',
+      daysMinutes: '{days}d {minutes}m',
+      daysHoursMinutes: '{days}d {hours}h {minutes}m'
+    }
   }
 }

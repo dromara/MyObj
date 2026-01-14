@@ -296,20 +296,50 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
   let taskId: string | null = providedTaskId || null
 
+  // ✅ 优化：在开始预检之前就创建任务，状态为 'prechecking'
+  if (!taskId) {
+    try {
+      taskId = uploadTaskManager.createTask(file.name, file.size, 'prechecking')
+      if (taskId) {
+        const task = uploadTaskManager.getTask(taskId)
+        if (task) {
+          task.pathId = pathId
+          uploadTaskManager.updateTask(taskId, {
+            currentStep: i18n.global.t('upload.prechecking') || '正在预检文件...',
+            precheckProgress: 0,
+            progress: 0
+          })
+        }
+      }
+    } catch (err) {
+      logger.error('创建上传任务失败:', err)
+      throw new Error(i18n.global.t('upload.createTaskFailed') || '创建上传任务失败')
+    }
+  }
+
   // 如果已有 taskId，将任务添加到运行中任务集合（用于跟踪 uploadSingleFile 是否仍在运行）
   if (taskId) {
     runningUploadTasks.add(taskId)
   }
 
   try {
+    // ✅ 优化：计算文件MD5时实时更新预检进度（占预检进度的30%）
     const fileMD5 = await calculateFileMD5(file, uploadConfig.chunkSize, md5Progress => {
-      const progress = Math.floor(md5Progress * 0.1)
       if (taskId) {
-        uploadTaskManager.updateProgress(taskId, progress, Math.floor(file.size * md5Progress * 0.1))
+        // 文件MD5计算占预检进度的30%
+        const precheckProgress = Math.floor(md5Progress * 0.3)
+        uploadTaskManager.updateTask(taskId, {
+          precheckProgress,
+          progress: precheckProgress,
+          currentStep: i18n.global.t('upload.calculatingFileHash', { progress: md5Progress }) || `正在计算文件哈希值... ${md5Progress}%`
+        })
       }
+      // 保持原有的进度回调（用于外部显示）
+      const progress = Math.floor(md5Progress * 0.1)
       onProgress?.(progress, file.name)
     })
 
+    // ✅ 优化：计算分片MD5时实时更新预检进度（占预检进度的50%，从30%到80%）
     const totalChunks = Math.ceil(file.size / uploadConfig.chunkSize)
     const filesMD5: string[] = []
 
@@ -319,6 +349,25 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       const chunk = file.slice(start, end)
       const chunkMD5 = await calculateChunkMD5(chunk)
       filesMD5.push(chunkMD5)
+
+      // 更新预检进度：30% + (当前分片/总分片) * 50%
+      if (taskId) {
+        const chunkProgress = 30 + Math.floor(((i + 1) / totalChunks) * 50)
+        uploadTaskManager.updateTask(taskId, {
+          precheckProgress: chunkProgress,
+          progress: chunkProgress,
+          currentStep: i18n.global.t('upload.calculatingChunksHash', { current: i + 1, total: totalChunks }) || `正在计算分片哈希值... ${i + 1}/${totalChunks}`
+        })
+      }
+    }
+
+    // ✅ 优化：调用预检API前更新状态（占预检进度的80-100%）
+    if (taskId) {
+      uploadTaskManager.updateTask(taskId, {
+        precheckProgress: 80,
+        progress: 80,
+        currentStep: i18n.global.t('upload.verifying') || '正在验证文件信息...'
+      })
     }
 
     const precheckParams = {
@@ -331,7 +380,26 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
     const precheckResponse = await uploadPrecheck(precheckParams)
 
+    // 调试日志：记录预检响应
+    logger.debug('预检响应', {
+      fileName: file.name,
+      code: precheckResponse.code,
+      message: precheckResponse.message,
+      chunkSignature: fileMD5.substring(0, 16) + '...', // 只显示前16个字符
+      fileSize: file.size,
+      pathId: pathId
+    })
+
     if (precheckResponse.code === 200) {
+      // 秒传成功，更新任务状态
+      logger.info('秒传成功', { fileName: file.name, taskId })
+      if (taskId) {
+        uploadTaskManager.completeTask(taskId, true) // 标记为秒传
+        uploadTaskManager.updateTask(taskId, {
+          precheckProgress: 100,
+          currentStep: i18n.global.t('upload.instantUpload') || '秒传成功'
+        })
+      }
       onSuccess?.(file.name)
       return precheckResponse
     }
@@ -341,6 +409,32 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
         precheckResponse.message ||
         i18n.global.t('upload.precheckFailed', { fileName: file.name, errorMsg: '' }) ||
         '预检失败'
+      
+      // 预检失败，更新任务状态
+      // 注意：即使预检失败，后端可能也返回了 precheck_id，需要保存以避免重复创建任务
+      let precheckIdFromResponse: string | undefined
+      if (precheckResponse.data) {
+        if (typeof precheckResponse.data === 'string') {
+          precheckIdFromResponse = precheckResponse.data
+        } else if (typeof precheckResponse.data === 'object' && precheckResponse.data !== null) {
+          const data = precheckResponse.data as any
+          precheckIdFromResponse = data.precheck_id || data.id
+        }
+      }
+      
+      if (taskId) {
+        const updateData: any = {
+          status: 'failed',
+          error: errorMsg,
+          currentStep: i18n.global.t('upload.precheckFailed', { fileName: file.name, errorMsg }) || `预检失败: ${errorMsg}`
+        }
+        // 如果后端返回了 precheck_id，保存它以避免同步时重复创建任务
+        if (precheckIdFromResponse) {
+          updateData.precheckId = precheckIdFromResponse
+        }
+        uploadTaskManager.updateTask(taskId, updateData)
+      }
+      
       ElMessage.error(
         i18n.global.t('upload.precheckFailed', { fileName: file.name, errorMsg }) ||
           `文件 ${file.name} 预检失败: ${errorMsg}`
@@ -348,20 +442,22 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       throw new Error(errorMsg)
     }
 
-    if (!taskId) {
-      try {
-        taskId = uploadTaskManager.createTask(file.name, file.size)
-        if (taskId) {
-          const task = uploadTaskManager.getTask(taskId)
-          if (task) {
-            task.pathId = pathId
-            uploadTaskManager.saveTasksToStorage()
-          }
-        }
-      } catch (err) {
-        logger.error('创建上传任务失败:', err)
-        throw new Error(i18n.global.t('upload.createTaskFailed') || '创建上传任务失败')
+    // ✅ 优化：预检完成，更新任务状态为 pending，准备开始上传
+    // 记录实际上传开始时间（预检完成后）
+    if (taskId) {
+      const task = uploadTaskManager.getTask(taskId)
+      if (task && !task.startTime) {
+        // 如果还没有开始时间，记录为当前时间（预检完成，开始实际上传）
+        uploadTaskManager.updateTask(taskId, {
+          startTime: Date.now()
+        })
       }
+      uploadTaskManager.updateTask(taskId, {
+        status: 'pending',
+        precheckProgress: 100,
+        progress: 0, // 重置为0，开始上传进度
+        currentStep: i18n.global.t('upload.precheckComplete') || '预检完成，准备上传...'
+      })
     }
 
     if (taskId) {
@@ -388,15 +484,16 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       throw new Error('precheck_id获取失败')
     }
 
+    // ✅ 优化：更新任务信息，标记预检完成，准备上传
     if (taskId) {
-      const task = uploadTaskManager.getTask(taskId)
-      if (task) {
-        task.precheckId = precheckId
-        task.chunkSignature = fileMD5
-        task.filesMd5 = filesMD5
-        task.pathId = pathId
-        uploadTaskManager.saveTasksToStorage()
-      }
+      uploadTaskManager.updateTask(taskId, {
+        precheckId,
+        chunkSignature: fileMD5,
+        filesMd5: filesMD5,
+        pathId,
+        status: 'pending', // 确保状态为 pending，准备上传
+        currentStep: i18n.global.t('upload.readyToUpload') || '准备上传...'
+      })
     }
 
     const uploadedChunks = new Set<number>()
@@ -539,8 +636,10 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
                     }, 0)
                     const currentChunkSize = Math.min(chunkUploaded, uploadConfig.chunkSize)
                     const totalUploaded = previousChunksSize + currentChunkSize
-                    const clampedTotalUploaded = Math.min(totalUploaded, file.size)
-                    const totalProgress = Math.floor(10 + (clampedTotalUploaded / file.size) * 90)
+                    // 确保 totalUploaded 不超过 file.size
+                    const clampedTotalUploaded = Math.min(Math.max(0, totalUploaded), file.size)
+                    // 确保进度在 10-100 范围内（预检占 10%，实际上传占 90%）
+                    const totalProgress = Math.max(10, Math.min(100, Math.floor(10 + (clampedTotalUploaded / file.size) * 90)))
                     uploadTaskManager.updateProgress(taskId, totalProgress, clampedTotalUploaded)
                   }
                 },

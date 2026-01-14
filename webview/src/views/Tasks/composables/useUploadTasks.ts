@@ -270,10 +270,77 @@ export function useUploadTasks() {
     // 保留是为了兼容性
   }
 
+  // 一键清空所有上传任务
+  const clearAllLoading = ref(false)
+  const clearAllUploadTasks = async () => {
+    try {
+      const allTasks = uploadTaskManager.getAllTasks()
+      if (allTasks.length === 0) {
+        proxy?.$modal.msgWarning(t('tasks.noTasksToClear') || '没有可清空的任务')
+        return
+      }
+
+      // 统计不同状态的任务数量
+      const uploadingTasks = allTasks.filter(t => t.status === 'uploading' || t.status === 'prechecking' || t.status === 'pending')
+      const otherTasks = allTasks.filter(t => !['uploading', 'prechecking', 'pending'].includes(t.status))
+
+      let confirmMessage = ''
+      if (uploadingTasks.length > 0 && otherTasks.length > 0) {
+        confirmMessage = t('tasks.confirmClearAllWithUploading', {
+          total: allTasks.length,
+          uploading: uploadingTasks.length,
+          other: otherTasks.length
+        }) || `确认清空所有上传任务？\n共有 ${allTasks.length} 个任务，其中 ${uploadingTasks.length} 个正在上传/预检中，${otherTasks.length} 个已完成/失败/已取消。\n正在上传的任务将被取消。`
+      } else if (uploadingTasks.length > 0) {
+        confirmMessage = t('tasks.confirmClearAllUploading', {
+          count: uploadingTasks.length
+        }) || `确认清空所有上传任务？\n共有 ${uploadingTasks.length} 个正在上传/预检中的任务，清空将取消这些任务。`
+      } else {
+        confirmMessage = t('tasks.confirmClearAll', {
+          count: otherTasks.length
+        }) || `确认清空所有上传任务？\n共有 ${otherTasks.length} 个已完成/失败/已取消的任务将被清空。`
+      }
+
+      await proxy?.$modal.confirm(confirmMessage)
+
+      // 先取消所有正在上传的任务
+      uploadingTasks.forEach(task => {
+        uploadTaskManager.cancelTask(task.id)
+        uploadTaskManager.cancelAllUploads(task.id)
+      })
+
+      // 尝试删除后端任务（批量删除，忽略错误）
+      const deletePromises = allTasks.map(async task => {
+        if (task.precheckId) {
+          try {
+            await deleteUploadTask(task.precheckId)
+          } catch (error: any) {
+            proxy?.$log.warn(`删除后端任务失败: ${task.precheckId}`, error)
+          }
+        }
+      })
+      await Promise.allSettled(deletePromises)
+
+      // 清空所有本地任务
+      uploadTaskManager.clearAllTasks()
+      proxy?.$modal.msgSuccess(t('tasks.clearAllSuccess', { count: allTasks.length }) || `已清空 ${allTasks.length} 个任务`)
+
+      // 重置分页并重新加载
+      currentPage.value = 1
+      allUploadTasks.value = []
+      uploadTasks.value = []
+    } catch (error) {
+      // 用户取消操作
+    } finally {
+      clearAllLoading.value = false
+    }
+  }
+
   return {
     uploadTasks,
     uploadLoading,
     cleanLoading,
+    clearAllLoading,
     expiredTaskCount,
     currentPage,
     pageSize,
@@ -285,6 +352,7 @@ export function useUploadTasks() {
     cancelUpload,
     deleteUpload,
     cleanExpiredUploads,
+    clearAllUploadTasks,
     handlePagination
   }
 }

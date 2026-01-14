@@ -2,10 +2,23 @@
   <el-card shadow="never" class="task-card">
     <div class="card-header">
       <span class="task-count">{{ t('tasks.taskCount', { count: tasks.length }) }}</span>
-      <el-button type="warning" size="small" icon="View" @click="$emit('view-expired')" class="expired-btn">
-        {{ t('tasks.viewExpired')
-        }}<el-badge v-if="(expiredCount || 0) > 0" :value="expiredCount" class="expired-badge" />
-      </el-button>
+      <div class="header-actions">
+        <el-button
+          v-if="tasks.length > 0"
+          type="danger"
+          size="small"
+          icon="Delete"
+          @click="$emit('clear-all')"
+          :loading="clearAllLoading"
+          class="clear-all-btn"
+        >
+          {{ t('tasks.clearAll') }}
+        </el-button>
+        <el-button type="warning" size="small" icon="View" @click="$emit('view-expired')" class="expired-btn">
+          {{ t('tasks.viewExpired')
+          }}<el-badge v-if="(expiredCount || 0) > 0" :value="expiredCount" class="expired-badge" />
+        </el-button>
+      </div>
     </div>
 
     <!-- PC端：表格布局 -->
@@ -22,7 +35,17 @@
 
         <el-table-column :label="t('tasks.status')" min-width="100" class-name="mobile-hide">
           <template #default="{ row }">
-            <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
+            <div class="status-cell">
+              <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
+              <!-- 秒传标识 -->
+              <el-tag v-if="row.isInstantUpload && row.status === 'completed'" type="success" size="small" class="instant-tag">
+                {{ t('tasks.instantUpload') }}
+              </el-tag>
+              <!-- 预检中时显示当前步骤 -->
+              <span v-if="row.status === 'prechecking' && row.currentStep" class="current-step">
+                {{ row.currentStep }}
+              </span>
+            </div>
           </template>
         </el-table-column>
 
@@ -30,13 +53,30 @@
           <template #default="{ row }">
             <div class="progress-cell">
               <el-progress
-                :percentage="row.progress"
+                :percentage="Math.max(0, Math.min(100, row.status === 'prechecking' ? (row.precheckProgress || 0) : (row.progress || 0)))"
                 :status="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'exception' : undefined"
+                :color="row.status === 'prechecking' ? '#409EFF' : undefined"
               />
-              <span class="progress-info"
-                >{{ formatSize(row.uploaded_size) }} / {{ formatSize(row.file_size) }} ·
-                {{ row.speed || '0 KB/s' }}</span
-              >
+              <span class="progress-info">
+                <template v-if="row.status === 'prechecking'">
+                  {{ t('tasks.prechecking') }} - {{ row.precheckProgress || 0 }}%
+                </template>
+                <template v-else>
+                  {{ formatSize(row.uploaded_size) }} / {{ formatSize(row.file_size) }} · {{ row.speed || '0 KB/s' }}
+                </template>
+              </span>
+              <!-- 已完成任务显示总耗时和平均速度 -->
+              <div v-if="row.status === 'completed'" class="completed-info">
+                <span v-if="row.totalDuration" class="duration-info">
+                  {{ t('tasks.totalDuration') }}: {{ formatDuration(row.totalDuration) }}
+                </span>
+                <span v-if="row.averageSpeed" class="avg-speed-info">
+                  {{ t('tasks.averageSpeed') }}: {{ formatSpeed(row.averageSpeed) }}
+                </span>
+                <el-tag v-if="row.isInstantUpload" type="success" size="small" class="instant-upload-tag">
+                  {{ t('tasks.instantUpload') }}
+                </el-tag>
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -68,7 +108,7 @@
               {{ t('tasks.resume') }}
             </el-button>
             <el-button
-              v-if="row.status === 'uploading' || row.status === 'pending' || row.status === 'paused'"
+              v-if="row.status === 'uploading' || row.status === 'pending' || row.status === 'paused' || row.status === 'prechecking'"
               link
               icon="Close"
               type="danger"
@@ -99,9 +139,14 @@
             <div class="task-name-wrapper">
               <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
-                <el-tag :type="getUploadStatusType(row.status)" size="small" effect="plain">
-                  {{ getUploadStatusText(row.status) }}
-                </el-tag>
+                <div class="task-status-row">
+                  <el-tag :type="getUploadStatusType(row.status)" size="small" effect="plain">
+                    {{ getUploadStatusText(row.status) }}
+                  </el-tag>
+                  <el-tag v-if="row.isInstantUpload && row.status === 'completed'" type="success" size="small" class="instant-tag-mobile">
+                    {{ t('tasks.instantUpload') }}
+                  </el-tag>
+                </div>
                 <span class="task-size">{{ formatSize(row.uploaded_size) }} / {{ formatSize(row.file_size) }}</span>
               </div>
             </div>
@@ -147,19 +192,40 @@
         </div>
         <div class="task-progress-wrapper">
           <el-progress
-            :percentage="row.progress"
+            :percentage="Math.max(0, Math.min(100, row.status === 'prechecking' ? (row.precheckProgress || 0) : (row.progress || 0)))"
             :status="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'exception' : undefined"
             :stroke-width="4"
+            :color="row.status === 'prechecking' ? '#409EFF' : undefined"
             class="task-progress"
           />
           <div class="task-speed" v-if="row.status === 'uploading'">
             {{ row.speed || '0 KB/s' }}
           </div>
+          <div v-if="row.status === 'prechecking' && row.currentStep" class="task-step">
+            {{ row.currentStep }}
+          </div>
+          <!-- 已完成任务显示总耗时和平均速度 -->
+          <div v-if="row.status === 'completed'" class="completed-info-mobile">
+            <span v-if="row.totalDuration" class="duration-info">
+              {{ t('tasks.totalDuration') }}: {{ formatDuration(row.totalDuration) }}
+            </span>
+            <span v-if="row.averageSpeed" class="avg-speed-info">
+              {{ t('tasks.averageSpeed') }}: {{ formatSpeed(row.averageSpeed) }}
+            </span>
+            <el-tag v-if="row.isInstantUpload" type="success" size="small" class="instant-upload-tag">
+              {{ t('tasks.instantUpload') }}
+            </el-tag>
+          </div>
         </div>
       </div>
     </div>
 
-    <el-empty v-if="tasks.length === 0 && !loading" :description="t('tasks.noUploadTasks')" />
+    <EmptyState
+      v-if="tasks.length === 0 && !loading"
+      type="task"
+      :show-actions="false"
+      compact
+    />
 
     <!-- 分页 -->
     <pagination
@@ -175,8 +241,9 @@
 </template>
 
 <script setup lang="ts">
-  import { formatSize, formatDate, getUploadStatusType, getUploadStatusText } from '@/utils'
+  import { formatSize, formatDate, formatSpeed, formatDuration, getUploadStatusType, getUploadStatusText } from '@/utils'
   import { useI18n } from '@/composables'
+  import EmptyState from '@/components/EmptyState/index.vue'
 
   const { t } = useI18n()
 
@@ -196,8 +263,11 @@
     cancel: [taskId: string]
     delete: [taskId: string]
     'view-expired': []
+    'clear-all': []
     pagination: [{ page: number; limit: number }]
   }>()
+
+  const clearAllLoading = computed(() => props.cleanLoading)
 
   const currentPage = ref(props.currentPage || 1)
   const pageSize = ref(props.pageSize || 20)
@@ -264,6 +334,16 @@
     margin-left: 4px;
   }
 
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .clear-all-btn {
+    margin-right: 8px;
+  }
+
   .file-name-cell {
     display: flex;
     align-items: center;
@@ -279,6 +359,36 @@
   .progress-info {
     font-size: 12px;
     color: var(--el-text-color-secondary);
+  }
+
+  .completed-info {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+  }
+
+  .duration-info,
+  .avg-speed-info {
+    color: var(--el-text-color-secondary);
+  }
+
+  .instant-upload-tag {
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+
+  .instant-tag {
+    margin-left: 8px;
+  }
+
+  .status-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .table-wrapper {
@@ -398,6 +508,26 @@
   .task-name-wrapper {
     flex: 1;
     min-width: 0;
+  }
+
+  .task-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .instant-tag-mobile {
+    margin-left: 4px;
+  }
+
+  .completed-info-mobile {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--el-text-color-regular);
   }
 
   .task-name {

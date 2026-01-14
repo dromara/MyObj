@@ -91,7 +91,7 @@
       />
 
       <!-- 空状态 -->
-      <el-empty
+      <EmptyState
         v-if="
           !fileListLoading &&
           !isLoading &&
@@ -99,7 +99,8 @@
           displayData.files.length === 0 &&
           !isSearching
         "
-        :description="hasSearchKeyword ? t('files.noSearchResults') : t('files.emptyFolder')"
+        :type="hasSearchKeyword ? 'search' : 'folder'"
+        :actions="hasSearchKeyword ? [] : emptyStateActions"
       />
     </div>
 
@@ -279,7 +280,9 @@
   import FileGrid from './components/FileGrid.vue'
   import FileList from './components/FileList.vue'
   import Breadcrumb from './components/Breadcrumb.vue'
+  import EmptyState from '@/components/EmptyState/index.vue'
   import type { FileItem, FolderItem } from '@/types'
+  import { Upload, FolderAdd } from '@element-plus/icons-vue'
 
   const { t } = useI18n()
 
@@ -468,6 +471,22 @@
     // 先显示加密配置弹窗
     showUploadEncryptDialog.value = true
   }
+
+  // 空状态操作按钮
+  const emptyStateActions = computed(() => [
+    {
+      label: t('files.upload'),
+      handler: handleUpload,
+      type: 'primary' as const,
+      icon: Upload
+    },
+    {
+      label: t('files.newFolder'),
+      handler: handleNewFolder,
+      type: 'default' as const,
+      icon: FolderAdd
+    }
+  ])
 
   // 处理上传加密配置确认
   const handleUploadEncryptConfirm = async (encryptConfig: { is_enc: boolean; file_password: string }) => {
