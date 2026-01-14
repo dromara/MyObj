@@ -11,6 +11,7 @@ import (
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/task"
+	"myobj/src/s3_server/router"
 	"os"
 	"time"
 
@@ -99,6 +100,22 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 
 	logger.LOG.Info("[路由] 路由初始化完成 ✔️")
 	logger.LOG.Info("[路由] 前端页面访问地址", "url", "http://"+config.CONFIG.Server.Host+fmt.Sprintf(":%d", config.CONFIG.Server.Port))
+
+	// 注册S3路由（如果启用）
+	if config.CONFIG.S3.Enable {
+		logger.LOG.Info("[路由] 正在注册S3 API路由...")
+		factory := impl.NewRepositoryFactory(database.GetDB())
+		fileService := service.NewFileService(factory, cache)
+		router.SetupS3Router(r, factory, fileService)
+		logger.LOG.Info("[路由] S3 API路由注册完成 ✔️")
+
+		if config.CONFIG.S3.SharePort {
+			logger.LOG.Info("[路由] S3服务共用主端口", "port", config.CONFIG.Server.Port)
+		} else {
+			logger.LOG.Info("[路由] S3服务独立端口（待实现）", "port", config.CONFIG.S3.Port)
+		}
+	}
+
 	return r
 }
 

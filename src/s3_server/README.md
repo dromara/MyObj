@@ -14,6 +14,19 @@ MyObj S3服务提供兼容AWS S3协议的对象存储API，可以使用MinIO SDK
   - HeadBucket (HEAD /:bucket) - 检查Bucket是否存在
   - DeleteBucket (DELETE /:bucket) - 删除空Bucket
   
+- **Object操作**
+  - PutObject (PUT /:bucket/:key) - 上传对象
+    - 支持 Content-MD5 校验
+    - 支持用户元数据 (x-amz-meta-*)
+    - 支持存储类别 (x-amz-storage-class)
+    - BLAKE3 哈希去重（秒传）
+  - GetObject (GET /:bucket/:key) - 下载对象
+    - 支持 Range 请求 (206 Partial Content)
+    - 流式传输
+  - HeadObject (HEAD /:bucket/:key) - 获取对象元数据
+  - DeleteObject (DELETE /:bucket/:key) - 删除对象
+  - ListObjects/ListObjectsV2 - 列出对象（基础框架）
+  
 - **认证机制**
   - AWS Signature V4签名验证
   - 基于API Key的访问控制
@@ -25,8 +38,6 @@ MyObj S3服务提供兼容AWS S3协议的对象存储API，可以使用MinIO SDK
 
 ### 🚧 待实现功能
 
-- Object操作 (PutObject, GetObject, DeleteObject等)
-- ListObjects / ListObjectsV2
 - Multipart Upload (大文件分片上传)
 - Object元数据管理
 - 版本控制

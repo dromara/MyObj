@@ -77,6 +77,19 @@ func main() {
 		logger.LOG.Info("WebDAV 服务未启用（可在 config.toml 中设置 webdav.enable=true 启用）")
 	}
 
+	// 4.5. 启动 S3 服务（如果启用）
+	if config.CONFIG.S3.Enable {
+		logger.LOG.Info("S3 服务已启用")
+		logger.LOG.Info("S3服务配置",
+			"region", config.CONFIG.S3.Region,
+			"share_port", config.CONFIG.S3.SharePort,
+			"port", config.CONFIG.S3.Port,
+		)
+		// S3服务通过路由集成到主服务器，在 startServer() 中注册
+	} else {
+		logger.LOG.Info("S3 服务未启用（可在 config.toml 中设置 s3.enable=true 启用）")
+	}
+
 	// 5. 注册关闭信号处理
 	setupGracefulShutdown(localCache)
 	fmt.Printf("apiKey开启情况: %v", config.CONFIG.Auth.ApiKey)
@@ -128,6 +141,18 @@ func initDatabase() error {
 
 	database.InitDataBase()
 	logger.LOG.Info("[成功] 数据库连接已建立")
+
+	// 迁移S3数据表（如果启用S3服务）
+	if config.CONFIG.S3.Enable {
+		logger.LOG.Info("[初始化] 正在迁移S3数据表...")
+		if err := database.MigrateS3Tables(database.GetDB()); err != nil {
+			logger.LOG.Error("S3数据表迁移失败", "error", err)
+			// 不阻塞启动，S3功能可能暂时不可用
+		} else {
+			logger.LOG.Info("[成功] S3数据表迁移完成")
+		}
+	}
+
 	return nil
 }
 
