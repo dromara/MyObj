@@ -79,3 +79,16 @@ host = "0.0.0.0"
 port = 8081
 # 路径前缀
 prefix = "/dav"
+
+# S3 服务配置
+[s3]
+# 是否启用 S3 服务
+enable = true
+# 区域名称
+region = "us-east-1"
+# 是否与主服务共用端口（true: 共用 8080 端口，false: 使用独立端口）
+share_port = true
+# 独立端口（当 share_port = false 时生效）
+port = 9000
+# S3 API 路径前缀（留空表示根路径 /）
+path_prefix = ""

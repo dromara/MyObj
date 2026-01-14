@@ -26,6 +26,11 @@ type RepositoryFactory struct {
 	sysConfigRepo    repository.SysConfigRepository
 	uploadChunkRepo  repository.UploadChunkRepository
 	uploadTaskRepo   repository.UploadTaskRepository
+
+	// S3相关仓储
+	s3BucketRepo         repository.S3BucketRepository
+	s3ObjectMetadataRepo repository.S3ObjectMetadataRepository
+	s3MultipartRepo      repository.S3MultipartRepository
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -161,6 +166,30 @@ func (f *RepositoryFactory) UploadTask() repository.UploadTaskRepository {
 		f.uploadTaskRepo = NewUploadTaskRepository(f.db)
 	}
 	return f.uploadTaskRepo
+}
+
+// S3Bucket 获取S3 Bucket仓储
+func (f *RepositoryFactory) S3Bucket() repository.S3BucketRepository {
+	if f.s3BucketRepo == nil {
+		f.s3BucketRepo = NewS3BucketRepository(f.db)
+	}
+	return f.s3BucketRepo
+}
+
+// S3ObjectMetadata 获取S3对象元数据仓储
+func (f *RepositoryFactory) S3ObjectMetadata() repository.S3ObjectMetadataRepository {
+	if f.s3ObjectMetadataRepo == nil {
+		f.s3ObjectMetadataRepo = NewS3ObjectMetadataRepository(f.db)
+	}
+	return f.s3ObjectMetadataRepo
+}
+
+// S3Multipart 获取S3分片上传仓储
+func (f *RepositoryFactory) S3Multipart() repository.S3MultipartRepository {
+	if f.s3MultipartRepo == nil {
+		f.s3MultipartRepo = NewS3MultipartRepository(f.db)
+	}
+	return f.s3MultipartRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

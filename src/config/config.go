@@ -22,6 +22,7 @@ type MyObjConfig struct {
 	Cors     Cors     `toml:"cors"`     // 跨域配置
 	Cache    Cache    `toml:"cache"`    // 缓存配置
 	WebDAV   WebDAV   `toml:"webdav"`   // WebDAV配置
+	S3       S3       `toml:"s3"`       // S3服务配置
 }
 
 // Server 服务器配置
@@ -133,6 +134,20 @@ type WebDAV struct {
 	Port int `toml:"port"`
 	// Prefix 路径前缀
 	Prefix string `toml:"prefix"`
+}
+
+// S3 S3服务配置
+type S3 struct {
+	// Enable 是否启用S3服务
+	Enable bool `toml:"enable"`
+	// Region 区域名称
+	Region string `toml:"region"`
+	// SharePort 是否与主服务共用端口
+	SharePort bool `toml:"share_port"`
+	// Port 独立端口（如果SharePort=false）
+	Port int `toml:"port"`
+	// PathPrefix 路径前缀
+	PathPrefix string `toml:"path_prefix"`
 }
 
 // InitConfig 初始化配置
