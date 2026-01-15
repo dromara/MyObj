@@ -1,8 +1,7 @@
-import { get, post } from '@/utils/request'
-import { filterParams } from '@/utils/params'
+import { get, post } from '@/utils/network/request'
+import { filterParams } from '@/utils/common/params'
 import { API_ENDPOINTS, API_BASE_URL } from '@/config/api'
 import type { ApiResponse } from '@/types'
-import cache from '@/plugins/cache'
 
 // 离线下载任务类型
 export interface OfflineDownloadTask {
@@ -45,27 +44,16 @@ export interface DownloadTaskListResponse {
 /**
  * 获取下载任务列表
  */
-export const getDownloadTaskList = (params: { 
-  page: number
-  pageSize: number
-  state?: number
-  type?: number
-}) => {
+export const getDownloadTaskList = (params: { page: number; pageSize: number; state?: number; type?: number }) => {
   const filteredParams = filterParams(params)
-  return get<ApiResponse<DownloadTaskListResponse>>(
-    API_ENDPOINTS.DOWNLOAD.LIST,
-    filteredParams
-  )
+  return get<ApiResponse<DownloadTaskListResponse>>(API_ENDPOINTS.DOWNLOAD.LIST, filteredParams)
 }
 
 /**
  * 创建离线下载任务
  */
 export const createOfflineDownload = (data: CreateOfflineDownloadRequest) => {
-  return post<ApiResponse<OfflineDownloadTask>>(
-    API_ENDPOINTS.DOWNLOAD.CREATE_OFFLINE,
-    data
-  )
+  return post<ApiResponse<OfflineDownloadTask>>(API_ENDPOINTS.DOWNLOAD.CREATE_OFFLINE, data)
 }
 
 /**
@@ -166,18 +154,12 @@ export interface StartTorrentDownloadResponse {
  * 解析种子/磁力链
  */
 export const parseTorrent = (data: ParseTorrentRequest) => {
-  return post<ApiResponse<ParseTorrentResponse>>(
-    API_ENDPOINTS.DOWNLOAD.TORRENT_PARSE,
-    data
-  )
+  return post<ApiResponse<ParseTorrentResponse>>(API_ENDPOINTS.DOWNLOAD.TORRENT_PARSE, data)
 }
 
 /**
  * 开始种子/磁力链下载
  */
 export const startTorrentDownload = (data: StartTorrentDownloadRequest) => {
-  return post<ApiResponse<StartTorrentDownloadResponse>>(
-    API_ENDPOINTS.DOWNLOAD.TORRENT_START,
-    data
-  )
+  return post<ApiResponse<StartTorrentDownloadResponse>>(API_ENDPOINTS.DOWNLOAD.TORRENT_START, data)
 }

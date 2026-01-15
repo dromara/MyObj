@@ -12,9 +12,9 @@ export const API_ENDPOINTS = {
     REGISTER: '/user/register',
     LOGOUT: '/user/logout',
     REFRESH: '/user/refresh',
-    CHALLENGE: '/user/challenge',
+    CHALLENGE: '/user/challenge'
   },
-  
+
   // 用户相关
   USER: {
     INFO: '/user/info',
@@ -23,9 +23,9 @@ export const API_ENDPOINTS = {
     STORAGE: '/user/storage',
     SET_FILE_PASSWORD: '/user/setFilePassword',
     UPDATE_FILE_PASSWORD: '/user/updateFilePassword',
-    SYS_INFO: '/user/sysInfo',
+    SYS_INFO: '/user/sysInfo'
   },
-  
+
   // 文件相关
   FILE: {
     LIST: '/file/list',
@@ -55,17 +55,17 @@ export const API_ENDPOINTS = {
     // 公开文件列表
     PUBLIC_LIST: '/file/public/list',
     // 设置文件公开状态
-    SET_PUBLIC: '/file/setPublic',
+    SET_PUBLIC: '/file/setPublic'
   },
-  
+
   // 文件夹相关
   FOLDER: {
     CREATE: '/file/makeDir',
     LIST: '/folder/list',
     DELETE: '/file/deleteDir', // 目录删除接口
-    RENAME: '/file/renameDir', // 目录重命名接口
+    RENAME: '/file/renameDir' // 目录重命名接口
   },
-  
+
   // 分享相关
   SHARE: {
     CREATE: '/share/create',
@@ -73,9 +73,9 @@ export const API_ENDPOINTS = {
     DELETE: '/share/delete',
     UPDATE_PASSWORD: '/share/updatePassword',
     INFO: '/share/info',
-    DOWNLOAD: '/share/download',
+    DOWNLOAD: '/share/download'
   },
-  
+
   // 离线下载
   DOWNLOAD: {
     CREATE_OFFLINE: '/download/offline/create',
@@ -87,35 +87,35 @@ export const API_ENDPOINTS = {
     PAUSE: '/download/pause',
     RESUME: '/download/resume',
     LOCAL_CREATE: '/download/local/create',
-    LOCAL_FILE: '/download/local/file',
+    LOCAL_FILE: '/download/local/file'
   },
-  
+
   // 上传/下载任务
   TASK: {
     UPLOAD_LIST: '/task/upload/list',
     DOWNLOAD_LIST: '/task/download/list',
-    CANCEL: '/task/cancel',
+    CANCEL: '/task/cancel'
   },
-  
+
   // 回收站
   RECYCLED: {
     LIST: '/recycled/list',
     RESTORE: '/recycled/restore',
     DELETE: '/recycled/delete',
-    EMPTY: '/recycled/empty',
+    EMPTY: '/recycled/empty'
   },
-  
+
   // 视频播放
   VIDEO: {
     PRECHECK: '/video/play/precheck',
-    STREAM: '/video/stream',
+    STREAM: '/video/stream'
   },
-  
+
   // 文件预览/下载
   PREVIEW: {
-    PREVIEW: '/download/preview',
+    PREVIEW: '/download/preview'
   },
-  
+
   // 管理相关
   ADMIN: {
     USER: {
@@ -123,13 +123,13 @@ export const API_ENDPOINTS = {
       CREATE: '/admin/user/create',
       UPDATE: '/admin/user/update',
       DELETE: '/admin/user/delete',
-      TOGGLE_STATE: '/admin/user/toggle-state',
+      TOGGLE_STATE: '/admin/user/toggle-state'
     },
     GROUP: {
       LIST: '/admin/group/list',
       CREATE: '/admin/group/create',
       UPDATE: '/admin/group/update',
-      DELETE: '/admin/group/delete',
+      DELETE: '/admin/group/delete'
     },
     POWER: {
       LIST: '/admin/power/list',
@@ -138,39 +138,39 @@ export const API_ENDPOINTS = {
       DELETE: '/admin/power/delete',
       BATCH_DELETE: '/admin/power/batch-delete',
       ASSIGN: '/admin/power/assign',
-      GROUP_POWERS: '/admin/power/group-powers',
+      GROUP_POWERS: '/admin/power/group-powers'
     },
     DISK: {
       LIST: '/admin/disk/list',
       CREATE: '/admin/disk/create',
       UPDATE: '/admin/disk/update',
       DELETE: '/admin/disk/delete',
-      SCAN: '/admin/disk/scan',
+      SCAN: '/admin/disk/scan'
     },
     SYSTEM: {
       CONFIG: '/admin/system/config',
-      UPDATE_CONFIG: '/admin/system/update-config',
-    },
+      UPDATE_CONFIG: '/admin/system/update-config'
+    }
   },
-  
+
   // 打包下载
   PACKAGE: {
     CREATE: '/file/package/create',
     DOWNLOAD: '/file/package/download',
-    PROGRESS: '/file/package/progress',
-  },
+    PROGRESS: '/file/package/progress'
+  }
 }
 
 // 请求超时配置
 export const TIMEOUT = {
-  DEFAULT: 10000,      // 默认10秒
-  UPLOAD: 300000,      // 上传5分钟
-  DOWNLOAD: 300000,    // 下载5分钟
+  DEFAULT: 10000, // 默认10秒
+  UPLOAD: 300000, // 上传5分钟
+  DOWNLOAD: 300000 // 下载5分钟
 }
 
 // 文件上传配置
 export const UPLOAD_CONFIG = {
   CHUNK_SIZE: 1024 * 1024 * 5, // 5MB分片大小
   MAX_FILE_SIZE: 1024 * 1024 * 1024 * 10, // 10GB最大文件
-  CONCURRENT_CHUNKS: 3, // 并发上传3个分片
+  CONCURRENT_CHUNKS: 3 // 并发上传3个分片
 }

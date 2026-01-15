@@ -68,7 +68,7 @@
   .file-name-text--table {
     max-width: 200px;
   }
-  
+
   .file-name-text--grid {
     font-size: 12px;
     min-height: 2.52em; /* 2行 * 1.26行高 */
@@ -80,15 +80,14 @@
   .file-name-text--table {
     max-width: 150px;
   }
-  
+
   .file-name-text--grid {
     font-size: 11px;
     min-height: 2.31em; /* 2行 * 1.155行高 */
     max-height: 2.31em;
   }
-  
+
   .file-name-text--list {
     font-size: 14px;
   }
 }
-

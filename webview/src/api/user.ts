@@ -1,4 +1,4 @@
-import { post, get } from '@/utils/request'
+import { post, get } from '@/utils/network/request'
 import { API_ENDPOINTS } from '@/config/api'
 import type { ApiResponse } from '@/types'
 
@@ -86,4 +86,3 @@ export const listApiKeys = () => {
 export const deleteApiKey = (data: DeleteApiKeyRequest) => {
   return post<ApiResponse>('/user/apiKey/delete', data)
 }
-

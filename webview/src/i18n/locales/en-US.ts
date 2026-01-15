@@ -15,6 +15,14 @@ export default {
     adminDisks: 'Disk Management',
     adminSystem: 'System Configuration'
   },
+  error: {
+    title: 'Error Occurred',
+    unknown: 'An unknown error occurred',
+    retry: 'Retry',
+    reload: 'Reload',
+    showDetails: 'Show Details',
+    hideDetails: 'Hide Details'
+  },
   common: {
     confirm: 'Confirm',
     cancel: 'Cancel',
@@ -72,7 +80,61 @@ export default {
     square: 'Square',
     settings: 'Settings',
     collaboration: 'Collaboration',
-    admin: 'Admin'
+    admin: 'Admin',
+    searchPlaceholder: 'Search menu...',
+    groups: {
+      main: 'Main Features',
+      public: 'Public Features',
+      admin: 'System Management'
+    }
+  },
+  layout: {
+    mode: {
+      title: 'Layout Mode',
+      changed: 'Layout mode changed to: {mode}',
+      mobileTip: 'Layout mode switching is not supported on mobile devices',
+      recommended: 'Recommended',
+      default: 'Default',
+      vertical: 'Vertical Layout',
+      horizontal: 'Horizontal Layout',
+      'vertical-mix': 'Mixed Layout',
+      'vertical-hybrid-header-first': 'Vertical Hybrid (Header First)',
+      'top-hybrid-sidebar-first': 'Top Hybrid (Sidebar First)',
+      'top-hybrid-header-first': 'Top Hybrid (Header First)',
+      verticalDesc: 'Traditional left sidebar layout, suitable for most scenarios',
+      horizontalDesc: 'Top navigation bar layout, suitable for wide screen display',
+      'vertical-mixDesc': 'Mixed layout, combining the advantages of vertical and horizontal layouts',
+      'vertical-hybrid-header-firstDesc': 'Vertical hybrid layout with prominent header area',
+      'top-hybrid-sidebar-firstDesc': 'Top layout with sidebar on the left side of content area',
+      'top-hybrid-header-firstDesc': 'Top layout with prominent header area'
+    },
+    sidebar: {
+      title: 'Sidebar Settings',
+      width: 'Sidebar Width',
+      widthChanged: 'Sidebar width set to: {width}px',
+      collapsed: 'Collapse Sidebar',
+      collapsedEnabled: 'Sidebar collapsed',
+      collapsedDisabled: 'Sidebar expanded'
+    },
+    tagsView: {
+      title: 'Tags View Settings',
+      visible: 'Show Tags View',
+      visibleEnabled: 'Tags view enabled',
+      visibleDisabled: 'Tags view disabled'
+    },
+    config: {
+      title: 'Configuration Management',
+      export: 'Export Config',
+      import: 'Import Config',
+      reset: 'Reset Config',
+      exportSuccess: 'Layout configuration exported successfully',
+      exportFailed: 'Failed to export layout configuration',
+      importSuccess: 'Layout configuration imported successfully',
+      importFailed: 'Failed to import layout configuration, please check file format',
+      resetSuccess: 'Layout configuration reset to default values',
+      confirmReset:
+        'Are you sure to reset layout configuration? This will restore all layout settings to default values.'
+    }
   },
   login: {
     title: 'MyObj',
@@ -207,7 +269,8 @@ export default {
     dirNameLength: 'Directory name length must be between 1 and 50 characters',
     dirNameInvalidChars: 'Directory name cannot contain special characters: \\ / : * ? " < > pipe',
     sameDirName: 'New directory name is the same as old directory name',
-    confirmDeleteDir: 'Are you sure to delete directory "{dirName}"? All files and subdirectories will be deleted and cannot be recovered.',
+    confirmDeleteDir:
+      'Are you sure to delete directory "{dirName}"? All files and subdirectories will be deleted and cannot be recovered.',
     dirDeleteSuccess: 'Directory deleted successfully',
     dirDeleteFailed: 'Failed to delete directory'
   },
@@ -236,7 +299,8 @@ export default {
     shareFailed: 'Share creation failed',
     cancelShareSuccess: 'Share cancelled successfully',
     cancelShareFailed: 'Cancel share failed',
-    passwordTip: 'After setting a password, visitors need to enter the password to download the file. Without a password, anyone can download via the link.',
+    passwordTip:
+      'After setting a password, visitors need to enter the password to download the file. Without a password, anyone can download via the link.',
     shareCount: '{count} shares',
     selectedCount: '{count} items selected',
     batchDelete: 'Batch Delete',
@@ -298,6 +362,7 @@ export default {
     taskCount: '{count} tasks',
     viewExpired: 'View Expired Tasks',
     noUploadTasks: 'No upload tasks',
+    prechecking: 'Prechecking',
     noDownloadTasks: 'No download tasks',
     noExpiredTasks: 'No expired tasks',
     createTaskFailed: 'Failed to create task',
@@ -310,6 +375,7 @@ export default {
     queryTaskStatusFailed: 'Failed to query task status',
     createDownloadTaskFailed: 'Failed to create download task',
     type: 'Type',
+    createTime: 'Create Time',
     renew: 'Renew',
     batchRenew: 'Batch Renew',
     batchDelete: 'Batch Delete',
@@ -332,7 +398,8 @@ export default {
     cannotQueryProgress: 'Cannot query upload progress, precheck info may have expired.',
     cannotGetProgress: 'Cannot get progress data, cannot resume upload.',
     selectFileToResume: 'Please select file "{fileName}" ({size}) to resume upload',
-    fileMismatch: 'Selected file does not match the original file.\nPlease select a file named "{fileName}" with size {size}.',
+    fileMismatch:
+      'Selected file does not match the original file.\nPlease select a file named "{fileName}" with size {size}.',
     uploadSuccess: 'File {fileName} uploaded successfully',
     uploadFailed: 'File {fileName} upload failed: {error}',
     confirmCancelUpload: 'Confirm cancel this upload task?',
@@ -340,6 +407,15 @@ export default {
     confirmDeleteUpload: 'Confirm delete this task record?',
     confirmDeleteUploading: 'Task is uploading, deletion will cancel the upload. Confirm delete?',
     resumed: 'Resumed upload',
+    clearAll: 'Clear All',
+    noTasksToClear: 'No tasks to clear',
+    confirmClearAll: 'Confirm clear all upload tasks?\nThere are {count} completed/failed/cancelled tasks that will be cleared.',
+    confirmClearAllUploading: 'Confirm clear all upload tasks?\nThere are {count} uploading/prechecking tasks. Clearing will cancel these tasks.',
+    confirmClearAllWithUploading: 'Confirm clear all upload tasks?\nThere are {total} tasks in total, including {uploading} uploading/prechecking tasks and {other} completed/failed/cancelled tasks.\nUploading tasks will be cancelled.',
+    clearAllSuccess: 'Cleared {count} tasks',
+    totalDuration: 'Total Duration',
+    averageSpeed: 'Average Speed',
+    instantUpload: 'Instant Upload',
     confirmCancelDownload: 'Confirm cancel this download task?',
     confirmDeleteDownload: 'Confirm delete this task record?',
     pauseSuccess: 'Paused',
@@ -411,7 +487,8 @@ export default {
     operation: 'Operation',
     encrypted: 'Encrypted',
     emptyConfirm: 'Are you sure to empty trash? This action cannot be undone.',
-    emptyConfirmAll: 'Are you sure to empty trash? This will permanently delete all {count} files, and this action cannot be undone!',
+    emptyConfirmAll:
+      'Are you sure to empty trash? This will permanently delete all {count} files, and this action cannot be undone!',
     emptySuccess: 'Empty success',
     emptyFailed: 'Empty failed',
     alreadyEmpty: 'Trash is already empty',
@@ -468,6 +545,12 @@ export default {
     account: 'Account',
     security: 'Security',
     appearance: 'Appearance',
+    layout: 'Layout',
+    groups: {
+      basic: 'Basic Settings',
+      theme: 'Theme & Colors',
+      layout: 'Layout Settings'
+    },
     theme: 'Theme',
     light: 'Light',
     dark: 'Dark',
@@ -491,6 +574,7 @@ export default {
     reset: 'Reset',
     resetAll: 'Reset All Colors',
     backgroundPattern: 'Background Pattern',
+    backgroundPatternChanged: 'Background pattern changed to: {pattern}',
     none: 'None',
     grid: 'Grid',
     dots: 'Dots',
@@ -506,6 +590,8 @@ export default {
     colourWeaknessDisabled: 'Color weakness mode disabled',
     themePreset: 'Theme Preset',
     presetApplied: 'Preset applied: {name}',
+    apply: 'Apply',
+    applied: 'Applied',
     presets: {
       default: {
         name: 'Default Preset',
@@ -522,6 +608,10 @@ export default {
       grayscale: {
         name: 'Grayscale Preset',
         desc: 'Grayscale mode, suitable for printing or special scenarios'
+      },
+      colourWeakness: {
+        name: 'Color Weakness Preset',
+        desc: 'Color weakness mode, suitable for users with color vision deficiency'
       }
     },
     userInfo: {
@@ -584,7 +674,8 @@ export default {
       expired: 'Expired',
       valid: 'Valid',
       delete: 'Delete',
-      deleteConfirm: 'Are you sure to delete this API Key? This action cannot be undone. Applications using this key will no longer be able to access.',
+      deleteConfirm:
+        'Are you sure to delete this API Key? This action cannot be undone. Applications using this key will no longer be able to access.',
       deleteTitle: 'Delete API Key',
       deleteConfirmButton: 'Confirm Delete',
       deleteSuccess: 'Delete success',
@@ -727,7 +818,38 @@ export default {
       pleaseSelectDelete: 'Please select permissions to delete',
       loadListFailed: 'Failed to load permission list',
       batchDeleteSuccess: 'Batch delete successful',
-      batchDeleteFailed: 'Batch delete failed'
+      batchDeleteFailed: 'Batch delete failed',
+      // Permission dictionary (mapped by characteristic)
+      dict: {
+        'user:get': { name: 'User View', description: 'View all system users' },
+        'user:update': { name: 'User Update', description: 'Update system user information' },
+        'user:delete': { name: 'User Delete', description: 'Delete system users' },
+        'user:state': { name: 'User Disable', description: 'Suspend all user functions' },
+        'user:space': { name: 'User Space Allocation', description: 'Allocate available space size for users' },
+        'disk:mount': { name: 'Mount Disk', description: 'Mount available system disks' },
+        'disk:delete': { name: 'Delete Mounted Disk', description: 'Delete already mounted disks' },
+        'disk:get': { name: 'View Mounted Disk', description: 'View information of mounted disks' },
+        'file:upload': { name: 'Upload File', description: 'Upload files to disk' },
+        'file:rechristen': { name: 'Rename File', description: 'Rename disk files' },
+        'file:share': { name: 'Share File', description: 'Create file sharing links' },
+        'file:download': { name: 'Download File', description: 'Download files from disk' },
+        'file:offLine': { name: 'Offline Download', description: 'Offline download files to disk' },
+        'file:insurance': { name: 'File Vault', description: 'Upload, modify and download encrypted files' },
+        'file:preview': { name: 'File Preview', description: 'View files and preview supported formats' },
+        'dir:create': { name: 'Create Directory', description: 'Create file directories' },
+        'dir:delete': { name: 'Delete Directory', description: 'Delete existing directories' },
+        'apikey:create': { name: 'Create API Key', description: 'Create API key with current user permissions' },
+        'apikey:delete': { name: 'Delete API Key', description: 'Delete existing API keys of current user' },
+        'user:update:else': {
+          name: 'Update Other User Info',
+          description: 'Update other user information, including password'
+        },
+        'user:update:password': { name: 'User Password Change', description: 'Change user own password' },
+        'file:update:filePassword': { name: 'User File Password', description: 'Set and modify file password' },
+        'file:move': { name: 'Move File', description: 'Move files to other virtual directories' },
+        'file:delete': { name: 'Delete File', description: 'Delete files (move to trash)' },
+        'webdav:access': { name: 'WebDAV Access', description: 'Allow access to file system via WebDAV protocol' }
+      }
     },
     disks: {
       title: 'Disk Management',
@@ -932,7 +1054,9 @@ export default {
     logout: 'Logout',
     logoutSuccess: 'Logged out successfully',
     switchToLight: 'Switch to Light Mode',
-    switchToDark: 'Switch to Dark Mode'
+    switchToDark: 'Switch to Dark Mode',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen'
   },
   shareDownload: {
     title: 'File Share',
@@ -960,7 +1084,8 @@ export default {
   },
   print: {
     cannotOpenWindow: 'Cannot open print window, please check browser popup settings',
-    cannotOpenWindowOffice: 'Cannot open print window, please check browser popup settings. It is recommended to download the file first, then open and print it with the corresponding Office software.',
+    cannotOpenWindowOffice:
+      'Cannot open print window, please check browser popup settings. It is recommended to download the file first, then open and print it with the corresponding Office software.',
     imageTitle: 'Image Print',
     pdfTitle: 'PDF Print',
     textTitle: 'Text Print',
@@ -969,17 +1094,79 @@ export default {
     pdfLoadFailed: 'PDF load failed',
     officeDocumentTip: 'Document Print Tip',
     tryingToOpen: 'Trying to open document in browser...',
-    officeDocumentDescription: 'If the document cannot be displayed normally, please click the link below to download the file, then open and print it with the corresponding Office software (such as Excel, Word, PowerPoint).',
+    officeDocumentDescription:
+      'If the document cannot be displayed normally, please click the link below to download the file, then open and print it with the corresponding Office software (such as Excel, Word, PowerPoint).',
     downloadFile: 'Download File',
-    cannotPrintOfficeType: 'Cannot directly print this document type.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.',
-    cannotLoadDocument: 'Cannot load document.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.'
+    cannotPrintOfficeType:
+      'Cannot directly print this document type.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.',
+    cannotLoadDocument:
+      'Cannot load document.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.'
   },
   upload: {
     fileSizeExceeded: 'File {fileName} size exceeds limit (max {maxSizeMB}MB)',
     precheckFailed: 'File {fileName} precheck failed: {errorMsg}',
+    prechecking: 'Prechecking',
+    calculatingFileHash: 'Calculating file hash... {progress}%',
+    calculatingChunksHash: 'Calculating chunk hash... {current}/{total}',
+    verifying: 'Verifying file information...',
+    precheckComplete: 'Precheck complete, preparing to upload...',
+    instantUpload: 'Instant upload success',
+    readyToUpload: 'Ready to upload...',
     createTaskFailed: 'Failed to create upload task',
     uploadFailed: 'Upload failed',
     processFileError: 'Error processing file {fileName}: {error}',
     processUploadError: 'Error processing file upload: {error}'
+  },
+  tagsView: {
+    refresh: 'Refresh Page',
+    closeCurrent: 'Close Current',
+    closeOthers: 'Close Others',
+    closeLeft: 'Close Left',
+    closeRight: 'Close Right',
+    closeAll: 'Close All'
+  },
+  empty: {
+    folder: {
+      title: 'Folder is empty',
+      description: 'There are no files here yet. Start by uploading your first file!'
+    },
+    search: {
+      title: 'No files found',
+      description: 'Try different keywords or check your spelling'
+    },
+    task: {
+      title: 'No upload tasks',
+      description: 'Upload tasks will appear here after you upload files'
+    },
+    trash: {
+      title: 'Trash is empty',
+      description: 'Deleted files will appear here. Keep it clean!'
+    },
+    share: {
+      title: 'No share records',
+      description: 'Share records will appear here after you create share links'
+    },
+    download: {
+      title: 'No download tasks',
+      description: 'Download tasks will appear here after you download files'
+    },
+    default: {
+      title: 'No data',
+      description: 'There is no content here yet'
+    }
+  },
+  format: {
+    duration: {
+      zero: '0s',
+      seconds: '{seconds}s',
+      minutes: '{minutes}m',
+      minutesSeconds: '{minutes}m {seconds}s',
+      hours: '{hours}h',
+      hoursMinutes: '{hours}h {minutes}m',
+      hoursSeconds: '{hours}h {seconds}s',
+      days: '{days}d',
+      daysMinutes: '{days}d {minutes}m',
+      daysHoursMinutes: '{days}d {hours}h {minutes}m'
+    }
   }
 }

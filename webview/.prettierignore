@@ -1,0 +1,24 @@
+# 依赖目录
+node_modules
+dist
+build
+
+# 构建产物
+*.min.js
+*.min.css
+
+# 日志文件
+*.log
+
+# 配置文件（可能包含特殊格式）
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# 自动生成的文件
+.eslintrc-auto-import.json
+components.d.ts
+
+# 其他
+.DS_Store
+*.local

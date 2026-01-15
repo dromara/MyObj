@@ -1,0 +1,24 @@
+# 依赖目录
+node_modules
+dist
+build
+
+# 构建产物
+*.min.js
+*.min.css
+
+# 配置文件
+vite.config.ts
+tsconfig.json
+tsconfig.node.json
+
+# 自动生成的文件
+.eslintrc-auto-import.json
+components.d.ts
+
+# 脚本文件
+scripts/*.ts
+
+# 其他
+.DS_Store
+*.local

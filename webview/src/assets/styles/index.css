@@ -22,6 +22,8 @@
 /* 复杂动画效果 */
 @import './animations.css';
 
+/* 统一加载状态样式 */
+@import './loading.css';
+
 /* 响应式样式（移动端和平板端） */
 @import './responsive.css';
-

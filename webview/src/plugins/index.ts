@@ -3,9 +3,6 @@ import { Router } from 'vue-router'
 import modal from './modal'
 import cache from './cache'
 import logger from './logger'
-import ElementIcons from './svgicon'
-import { useUserStore } from '@/stores/user'
-import { useAuthStore } from '@/stores/auth'
 
 // 存储 router 实例，以便在插件中使用
 let routerInstance: Router | null = null
@@ -30,14 +27,10 @@ const installPlugin: Plugin = {
       app.config.globalProperties.$router = routerInstance
     }
 
-    // Store 对象（提供便捷访问）
-    app.config.globalProperties.$userStore = () => useUserStore()
-    app.config.globalProperties.$authStore = () => useAuthStore()
-
-    // Element Plus 图标
-    app.use(ElementIcons)
+    // 注意：Store 不需要全局注册
+    // Pinia 官方推荐直接使用 useXxxStore()，这是 Composition API 的标准用法
+    // 参考：https://pinia.vuejs.org/zh/getting-started.html
   }
 }
 
 export default installPlugin
-

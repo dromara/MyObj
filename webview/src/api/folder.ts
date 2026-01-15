@@ -1,4 +1,4 @@
-import { post } from '@/utils/request'
+import { post } from '@/utils/network/request'
 import { API_ENDPOINTS } from '@/config/api'
 import type { ApiResponse } from '@/types'
 

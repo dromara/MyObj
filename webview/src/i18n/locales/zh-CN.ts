@@ -15,6 +15,14 @@ export default {
     adminDisks: '磁盘管理',
     adminSystem: '系统配置'
   },
+  error: {
+    title: '出现错误',
+    unknown: '发生未知错误',
+    retry: '重试',
+    reload: '重新加载',
+    showDetails: '显示详情',
+    hideDetails: '隐藏详情'
+  },
   common: {
     confirm: '确定',
     cancel: '取消',
@@ -73,7 +81,60 @@ export default {
     square: '文件广场',
     settings: '系统设置',
     collaboration: '协作',
-    admin: '系统管理'
+    admin: '系统管理',
+    searchPlaceholder: '搜索菜单...',
+    groups: {
+      main: '主要功能',
+      public: '公共功能',
+      admin: '系统管理'
+    }
+  },
+  layout: {
+    mode: {
+      title: '布局模式',
+      changed: '布局模式已切换为：{mode}',
+      mobileTip: '移动端暂不支持切换布局模式',
+      recommended: '推荐',
+      default: '默认',
+      vertical: '垂直布局',
+      horizontal: '水平布局',
+      'vertical-mix': '混合布局',
+      'vertical-hybrid-header-first': '垂直混合（头部优先）',
+      'top-hybrid-sidebar-first': '顶部混合（侧边栏优先）',
+      'top-hybrid-header-first': '顶部混合（头部优先）',
+      verticalDesc: '传统的左侧边栏布局，适合大多数场景',
+      horizontalDesc: '顶部导航栏布局，适合宽屏显示',
+      'vertical-mixDesc': '混合布局，结合垂直和水平布局的优点',
+      'vertical-hybrid-header-firstDesc': '垂直混合布局，头部区域突出显示',
+      'top-hybrid-sidebar-firstDesc': '顶部布局，侧边栏在内容区域左侧',
+      'top-hybrid-header-firstDesc': '顶部布局，头部区域突出显示'
+    },
+    sidebar: {
+      title: '侧边栏设置',
+      width: '侧边栏宽度',
+      widthChanged: '侧边栏宽度已设置为：{width}px',
+      collapsed: '折叠侧边栏',
+      collapsedEnabled: '侧边栏已折叠',
+      collapsedDisabled: '侧边栏已展开'
+    },
+    tagsView: {
+      title: '标签页设置',
+      visible: '显示标签页',
+      visibleEnabled: '标签页已显示',
+      visibleDisabled: '标签页已隐藏'
+    },
+    config: {
+      title: '配置管理',
+      export: '导出配置',
+      import: '导入配置',
+      reset: '重置配置',
+      exportSuccess: '布局配置导出成功',
+      exportFailed: '布局配置导出失败',
+      importSuccess: '布局配置导入成功',
+      importFailed: '布局配置导入失败，请检查文件格式',
+      resetSuccess: '布局配置已重置为默认值',
+      confirmReset: '确定要重置布局配置吗？这将恢复所有布局设置为默认值。'
+    }
   },
   login: {
     title: 'MyObj',
@@ -299,6 +360,7 @@ export default {
     taskCount: '共 {count} 个任务',
     viewExpired: '查看过期任务',
     noUploadTasks: '暂无上传任务',
+    prechecking: '预检中',
     noDownloadTasks: '暂无下载任务',
     noExpiredTasks: '暂无过期任务',
     createTaskFailed: '任务创建失败',
@@ -311,6 +373,7 @@ export default {
     queryTaskStatusFailed: '查询任务状态失败',
     createDownloadTaskFailed: '创建下载任务失败',
     type: '类型',
+    createTime: '创建时间',
     renew: '延期',
     batchRenew: '批量延期',
     batchDelete: '批量删除',
@@ -341,6 +404,15 @@ export default {
     confirmDeleteUpload: '确认删除该任务记录?',
     confirmDeleteUploading: '任务正在上传中，删除将取消上传。确认删除?',
     resumed: '已继续上传',
+    clearAll: '一键清空',
+    noTasksToClear: '没有可清空的任务',
+    confirmClearAll: '确认清空所有上传任务？\n共有 {count} 个已完成/失败/已取消的任务将被清空。',
+    confirmClearAllUploading: '确认清空所有上传任务？\n共有 {count} 个正在上传/预检中的任务，清空将取消这些任务。',
+    confirmClearAllWithUploading: '确认清空所有上传任务？\n共有 {total} 个任务，其中 {uploading} 个正在上传/预检中，{other} 个已完成/失败/已取消。\n正在上传的任务将被取消。',
+    clearAllSuccess: '已清空 {count} 个任务',
+    totalDuration: '总耗时',
+    averageSpeed: '平均速度',
+    instantUpload: '秒传',
     confirmCancelDownload: '确认取消该下载任务?',
     confirmDeleteDownload: '确认删除该任务记录?',
     pauseSuccess: '已暂停',
@@ -469,6 +541,12 @@ export default {
     account: '账户信息',
     security: '安全设置',
     appearance: '外观设置',
+    layout: '布局设置',
+    groups: {
+      basic: '基础设置',
+      theme: '主题与颜色',
+      layout: '布局设置'
+    },
     theme: '主题',
     light: '浅色',
     dark: '深色',
@@ -492,6 +570,7 @@ export default {
     reset: '重置',
     resetAll: '重置所有颜色',
     backgroundPattern: '背景图案',
+    backgroundPatternChanged: '背景图案已更新为：{pattern}',
     none: '无',
     grid: '网格',
     dots: '点阵',
@@ -507,6 +586,8 @@ export default {
     colourWeaknessDisabled: '色弱模式已禁用',
     themePreset: '主题预设',
     presetApplied: '已应用预设：{name}',
+    apply: '应用',
+    applied: '已应用',
     presets: {
       default: {
         name: '默认预设',
@@ -523,6 +604,10 @@ export default {
       grayscale: {
         name: '灰度预设',
         desc: '灰度模式，适合打印或特殊场景'
+      },
+      colourWeakness: {
+        name: '色弱预设',
+        desc: '色弱模式，适合色弱用户使用'
       }
     },
     userInfo: {
@@ -728,7 +813,35 @@ export default {
       pleaseSelectDelete: '请选择要删除的权限',
       loadListFailed: '加载权限列表失败',
       batchDeleteSuccess: '批量删除成功',
-      batchDeleteFailed: '批量删除失败'
+      batchDeleteFailed: '批量删除失败',
+      // 权限字典（根据 characteristic 映射）
+      dict: {
+        'user:get': { name: '用户查看', description: '查看系统所有用户' },
+        'user:update': { name: '用户修改', description: '修改系统用户信息' },
+        'user:delete': { name: '用户删除', description: '删除系统用户' },
+        'user:state': { name: '用户停用', description: '暂停用户所有功能' },
+        'user:space': { name: '用户空间分配', description: '分配用户可用空间大小' },
+        'disk:mount': { name: '挂载磁盘', description: '挂载系统可用磁盘' },
+        'disk:delete': { name: '删除挂载磁盘', description: '删除已经挂载的磁盘' },
+        'disk:get': { name: '查看挂载磁盘', description: '查看已经挂载磁盘的信息' },
+        'file:upload': { name: '上传文件', description: '上传文件到磁盘' },
+        'file:rechristen': { name: '重命名文件', description: '重命名磁盘文件' },
+        'file:share': { name: '分享文件', description: '创建文件分享链接' },
+        'file:download': { name: '下载文件', description: '下载磁盘中的文件' },
+        'file:offLine': { name: '离线下载', description: '离线下载文件到磁盘' },
+        'file:insurance': { name: '文件保险箱', description: '加密文件的上传修改下载' },
+        'file:preview': { name: '文件预览', description: '查看文件和预览支持格式的文件' },
+        'dir:create': { name: '创建目录', description: '创建文件目录' },
+        'dir:delete': { name: '删除目录', description: '删除已经存在的目录' },
+        'apikey:create': { name: '创建apikey', description: '创建当前用户权限的apikey' },
+        'apikey:delete': { name: '删除apikey', description: '删除当前用户已存在的apikey' },
+        'user:update:else': { name: '修改其他用户信息', description: '修改其他用户信息，包括密码' },
+        'user:update:password': { name: '用户密码修改', description: '修改用户自身密码' },
+        'file:update:filePassword': { name: '用户文件密码', description: '设置，修改文件密码' },
+        'file:move': { name: '移动文件', description: '移动文件至其他虚拟目录' },
+        'file:delete': { name: '删除文件', description: '删除文件（移动到回收站）' },
+        'webdav:access': { name: 'WebDAV访问', description: '允许通过WebDAV协议访问文件系统' }
+      }
     },
     disks: {
       title: '磁盘管理',
@@ -933,7 +1046,9 @@ export default {
     logout: '退出登录',
     logoutSuccess: '已退出登录',
     switchToLight: '切换到浅色模式',
-    switchToDark: '切换到深色模式'
+    switchToDark: '切换到深色模式',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏'
   },
   shareDownload: {
     title: '文件分享',
@@ -961,7 +1076,8 @@ export default {
   },
   print: {
     cannotOpenWindow: '无法打开打印窗口，请检查浏览器弹窗设置',
-    cannotOpenWindowOffice: '无法打开打印窗口，请检查浏览器弹窗设置。建议先下载文件，然后用相应的Office软件打开并打印。',
+    cannotOpenWindowOffice:
+      '无法打开打印窗口，请检查浏览器弹窗设置。建议先下载文件，然后用相应的Office软件打开并打印。',
     imageTitle: '图片打印',
     pdfTitle: 'PDF打印',
     textTitle: '文本打印',
@@ -970,9 +1086,11 @@ export default {
     pdfLoadFailed: 'PDF加载失败',
     officeDocumentTip: '文档打印提示',
     tryingToOpen: '正在尝试在浏览器中打开文档...',
-    officeDocumentDescription: '如果文档无法正常显示，请点击下方链接下载文件，然后用相应的Office软件（如Excel、Word、PowerPoint）打开并打印。',
+    officeDocumentDescription:
+      '如果文档无法正常显示，请点击下方链接下载文件，然后用相应的Office软件（如Excel、Word、PowerPoint）打开并打印。',
     downloadFile: '下载文件',
-    cannotPrintOfficeType: '无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
+    cannotPrintOfficeType:
+      '无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
     cannotLoadDocument: '无法加载文档。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。'
   },
   upload: {
@@ -981,6 +1099,65 @@ export default {
     createTaskFailed: '创建上传任务失败',
     uploadFailed: '上传失败',
     processFileError: '处理文件 {fileName} 时出错: {error}',
-    processUploadError: '处理文件上传时出错: {error}'
+    processUploadError: '处理文件上传时出错: {error}',
+    prechecking: '正在预检文件...',
+    calculatingFileHash: '正在计算文件哈希值... {progress}%',
+    calculatingChunksHash: '正在计算分片哈希值... {current}/{total}',
+    verifying: '正在验证文件信息...',
+    precheckComplete: '预检完成，准备上传...',
+    instantUpload: '秒传成功',
+    readyToUpload: '准备上传...'
+  },
+  tagsView: {
+    refresh: '刷新页面',
+    closeCurrent: '关闭当前',
+    closeOthers: '关闭其他',
+    closeLeft: '关闭左侧',
+    closeRight: '关闭右侧',
+    closeAll: '全部关闭'
+  },
+  empty: {
+    folder: {
+      title: '文件夹为空',
+      description: '这里还没有任何文件，开始上传你的第一个文件吧！'
+    },
+    search: {
+      title: '未找到相关文件',
+      description: '试试其他关键词，或者检查拼写是否正确'
+    },
+    task: {
+      title: '暂无上传任务',
+      description: '上传文件后，任务会显示在这里'
+    },
+    trash: {
+      title: '回收站为空',
+      description: '删除的文件会显示在这里，保持整洁！'
+    },
+    share: {
+      title: '暂无分享记录',
+      description: '创建分享链接后，记录会显示在这里'
+    },
+    download: {
+      title: '暂无下载任务',
+      description: '下载文件后，任务会显示在这里'
+    },
+    default: {
+      title: '暂无数据',
+      description: '这里还没有任何内容'
+    }
+  },
+  format: {
+    duration: {
+      zero: '0秒',
+      seconds: '{seconds}秒',
+      minutes: '{minutes}分钟',
+      minutesSeconds: '{minutes}分钟{seconds}秒',
+      hours: '{hours}小时',
+      hoursMinutes: '{hours}小时{minutes}分钟',
+      hoursSeconds: '{hours}小时{seconds}秒',
+      days: '{days}天',
+      daysMinutes: '{days}天{minutes}分钟',
+      daysHoursMinutes: '{days}天{hours}小时{minutes}分钟'
+    }
   }
 }

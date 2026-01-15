@@ -1,4 +1,4 @@
-import { post } from '@/utils/request'
+import { post } from '@/utils/network/request'
 import type { ApiResponse } from '@/types'
 import { API_BASE_URL } from '@/config/api'
 
@@ -41,4 +41,3 @@ export const getVideoStreamUrl = (token: string, jwtToken?: string): string => {
   }
   return url
 }
-

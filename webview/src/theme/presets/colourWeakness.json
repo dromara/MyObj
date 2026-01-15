@@ -1,0 +1,14 @@
+{
+  "name": "色弱预设",
+  "desc": "色弱模式，适合色弱用户使用",
+  "theme": "auto",
+  "grayscale": false,
+  "colourWeakness": true,
+  "colors": {
+    "primary": "#2563eb",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#3b82f6"
+  }
+}
