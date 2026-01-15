@@ -609,12 +609,15 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 	// 生成唯一的 API Key（使用 UUID）
 	apiKeyStr := uuid.Must(uuid.NewV7()).String()
 
-	// 生成 RSA 密钥对（用于签名验证）
+	// 生成 RSA 密钥对（用于加密/解密）
 	keyPair, err := util.GenerateKeyPair()
 	if err != nil {
 		logger.LOG.Error("生成密钥对失败", "error", err)
 		return nil, fmt.Errorf("生成密钥对失败: %w", err)
 	}
+
+	// 生成 S3 Secret Key（随机字符串，用于 HMAC-SHA256 签名）
+	s3SecretKey := uuid.Must(uuid.NewV7()).String() + uuid.Must(uuid.NewV7()).String() // 64字符的随机字符串
 
 	// 计算过期时间
 	var expiresAt custom_type.JsonTime
@@ -629,11 +632,12 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 
 	// 创建 API Key 记录
 	apiKey := &models.ApiKey{
-		UserID:     userID,
-		Key:        apiKeyStr,
-		PrivateKey: keyPair.PrivateKey,
-		ExpiresAt:  expiresAt,
-		CreatedAt:  custom_type.Now(),
+		UserID:      userID,
+		Key:         apiKeyStr,
+		PrivateKey:  keyPair.PrivateKey,
+		S3SecretKey: s3SecretKey,
+		ExpiresAt:   expiresAt,
+		CreatedAt:   custom_type.Now(),
 	}
 
 	// 保存到数据库
@@ -652,11 +656,12 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 
 	// 返回 API Key（注意：只返回一次，后续无法再获取）
 	return models.NewJsonResponse(200, "API Key生成成功", map[string]interface{}{
-		"id":         apiKey.ID,
-		"key":        apiKeyStr,
-		"public_key": keyPair.PublicKey, // 返回公钥，用于客户端签名
-		"expires_at": expiresAtResp,
-		"created_at": apiKey.CreatedAt,
+		"id":           apiKey.ID,
+		"key":          apiKeyStr,
+		"public_key":   keyPair.PublicKey, // 返回公钥，用于客户端加密
+		"s3_secret_key": s3SecretKey,      // 返回 S3 Secret Key，用于 S3 服务签名
+		"expires_at":   expiresAtResp,
+		"created_at":   apiKey.CreatedAt,
 	}), nil
 }
 

@@ -31,6 +31,12 @@ type RepositoryFactory struct {
 	s3BucketRepo         repository.S3BucketRepository
 	s3ObjectMetadataRepo repository.S3ObjectMetadataRepository
 	s3MultipartRepo      repository.S3MultipartRepository
+	s3BucketCORSRepo     *S3BucketCORSRepositoryImpl
+	s3ACLRepo            *S3ACLRepositoryImpl
+	s3BucketPolicyRepo   *S3BucketPolicyRepositoryImpl
+	s3BucketLifecycleRepo *S3BucketLifecycleRepositoryImpl
+	s3EncryptionKeyRepo   *S3EncryptionKeyRepositoryImpl
+	s3ObjectEncryptionRepo *S3ObjectEncryptionRepositoryImpl
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -190,6 +196,54 @@ func (f *RepositoryFactory) S3Multipart() repository.S3MultipartRepository {
 		f.s3MultipartRepo = NewS3MultipartRepository(f.db)
 	}
 	return f.s3MultipartRepo
+}
+
+// S3BucketCORS 获取S3 Bucket CORS配置仓储
+func (f *RepositoryFactory) S3BucketCORS() *S3BucketCORSRepositoryImpl {
+	if f.s3BucketCORSRepo == nil {
+		f.s3BucketCORSRepo = NewS3BucketCORSRepository(f.db)
+	}
+	return f.s3BucketCORSRepo
+}
+
+// S3ACL 获取S3 ACL配置仓储
+func (f *RepositoryFactory) S3ACL() *S3ACLRepositoryImpl {
+	if f.s3ACLRepo == nil {
+		f.s3ACLRepo = NewS3ACLRepository(f.db)
+	}
+	return f.s3ACLRepo
+}
+
+// S3BucketPolicy 获取S3 Bucket Policy配置仓储
+func (f *RepositoryFactory) S3BucketPolicy() *S3BucketPolicyRepositoryImpl {
+	if f.s3BucketPolicyRepo == nil {
+		f.s3BucketPolicyRepo = NewS3BucketPolicyRepository(f.db)
+	}
+	return f.s3BucketPolicyRepo
+}
+
+// S3BucketLifecycle 获取S3 Bucket Lifecycle配置仓储
+func (f *RepositoryFactory) S3BucketLifecycle() *S3BucketLifecycleRepositoryImpl {
+	if f.s3BucketLifecycleRepo == nil {
+		f.s3BucketLifecycleRepo = NewS3BucketLifecycleRepository(f.db)
+	}
+	return f.s3BucketLifecycleRepo
+}
+
+// S3EncryptionKey 获取S3加密密钥仓储
+func (f *RepositoryFactory) S3EncryptionKey() *S3EncryptionKeyRepositoryImpl {
+	if f.s3EncryptionKeyRepo == nil {
+		f.s3EncryptionKeyRepo = NewS3EncryptionKeyRepository(f.db)
+	}
+	return f.s3EncryptionKeyRepo
+}
+
+// S3ObjectEncryption 获取S3对象加密元数据仓储
+func (f *RepositoryFactory) S3ObjectEncryption() *S3ObjectEncryptionRepositoryImpl {
+	if f.s3ObjectEncryptionRepo == nil {
+		f.s3ObjectEncryptionRepo = NewS3ObjectEncryptionRepository(f.db)
+	}
+	return f.s3ObjectEncryptionRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

@@ -49,6 +49,16 @@
               </el-input>
             </div>
             <div class="key-item">
+              <span class="key-label">{{ t('settings.apiKey.s3SecretKeyLabel') }}</span>
+              <el-input :value="newApiKey.s3_secret_key" readonly class="key-input">
+                <template #append>
+                  <el-button @click="copyApiKey(newApiKey.s3_secret_key)" icon="CopyDocument">
+                    {{ t('settings.apiKey.copy') }}
+                  </el-button>
+                </template>
+              </el-input>
+            </div>
+            <div class="key-item">
               <span class="key-label">{{ t('settings.apiKey.publicKeyLabel') }}</span>
               <div class="public-key-wrapper">
                 <el-input :value="newApiKey.public_key" type="textarea" :rows="4" readonly class="key-input" />

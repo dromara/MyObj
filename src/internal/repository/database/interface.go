@@ -2,8 +2,10 @@ package database
 
 import (
 	"fmt"
+	"strings"
 	"myobj/src/config"
 	"myobj/src/pkg/logger"
+	"myobj/src/pkg/models"
 
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -96,4 +98,47 @@ func logLevel(level string) gormlogger.LogLevel {
 	default:
 		return gormlogger.Info
 	}
+}
+
+// MigrateS3Tables 迁移S3相关的数据表
+// 使用GORM的AutoMigrate自动创建或更新S3相关的表结构
+func MigrateS3Tables(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+
+	logger.LOG.Info("[数据库迁移] 开始迁移S3数据表...")
+
+	// 导入S3模型
+	models := []interface{}{
+		&models.S3Bucket{},
+		&models.S3ObjectMetadata{},
+		&models.S3MultipartUpload{},
+		&models.S3MultipartPart{},
+		&models.S3BucketCORS{},
+		&models.S3BucketACL{},
+		&models.S3ObjectACL{},
+		&models.S3BucketPolicy{},
+		&models.S3BucketLifecycle{},
+		&models.S3EncryptionKey{},
+		&models.S3ObjectEncryption{},
+	}
+
+	// 执行自动迁移
+	for _, model := range models {
+		if err := db.AutoMigrate(model); err != nil {
+			// 对于SQLite/MySQL等数据库，索引已存在的错误可以忽略（表结构已创建）
+			// 这种情况通常发生在重复运行迁移时
+			errStr := err.Error()
+			if strings.Contains(errStr, "already exists") || strings.Contains(errStr, "Duplicate key name") {
+				logger.LOG.Warn("[数据库迁移] 索引或约束已存在，跳过", "model", fmt.Sprintf("%T", model), "error", errStr)
+				continue
+			}
+			logger.LOG.Error("[数据库迁移] S3表迁移失败", "model", fmt.Sprintf("%T", model), "error", err)
+			return fmt.Errorf("failed to migrate S3 table %T: %w", model, err)
+		}
+	}
+
+	logger.LOG.Info("[数据库迁移] S3数据表迁移完成", "tables_count", len(models))
+	return nil
 }

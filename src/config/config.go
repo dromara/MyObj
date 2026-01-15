@@ -138,6 +138,8 @@ type WebDAV struct {
 
 // S3 S3服务配置
 type S3 struct {
+	// OperationTimeout 操作超时时间（秒），默认30秒
+	OperationTimeout int `toml:"operation_timeout"`
 	// Enable 是否启用S3服务
 	Enable bool `toml:"enable"`
 	// Region 区域名称
@@ -148,6 +150,8 @@ type S3 struct {
 	Port int `toml:"port"`
 	// PathPrefix 路径前缀
 	PathPrefix string `toml:"path_prefix"`
+	// EncryptionMasterKey 加密主密钥（用于服务端加密，支持环境变量 S3_ENCRYPTION_MASTER_KEY）
+	EncryptionMasterKey string `toml:"encryption_master_key"`
 }
 
 // InitConfig 初始化配置

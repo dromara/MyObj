@@ -6,7 +6,9 @@ MyObj S3服务提供兼容AWS S3协议的对象存储API，可以使用MinIO SDK
 
 ## 📋 功能特性
 
-### ✅ 已实现功能
+### ✅ 已实现功能（核心功能 100% 完成）
+
+**所有S3协议的核心功能已完整实现，包括：**
 
 - **Bucket操作**
   - ListBuckets - 列出所有Bucket
@@ -25,7 +27,34 @@ MyObj S3服务提供兼容AWS S3协议的对象存储API，可以使用MinIO SDK
     - 流式传输
   - HeadObject (HEAD /:bucket/:key) - 获取对象元数据
   - DeleteObject (DELETE /:bucket/:key) - 删除对象
-  - ListObjects/ListObjectsV2 - 列出对象（基础框架）
+  - ListObjects/ListObjectsV2 - 列出对象
+    - 支持 prefix、delimiter、marker/continuation-token
+    - 支持 CommonPrefixes（目录模拟）
+    - 支持分页（IsTruncated）
+  
+- **Multipart Upload（大文件分片上传）**
+  - InitiateMultipartUpload - 初始化分片上传
+  - UploadPart - 上传分片
+  - CompleteMultipartUpload - 完成分片上传
+  - AbortMultipartUpload - 取消分片上传
+  - ListParts - 列出分片
+  - ListMultipartUploads - 列出分片上传会话
+  
+- **对象复制**
+  - CopyObject - 复制对象
+    - 支持元数据指令（COPY/REPLACE）
+    - 支持存储类别设置
+    - 自动文件去重优化
+    - 同磁盘使用硬链接优化
+  
+- **批量操作**
+  - DeleteObjects - 批量删除对象
+    - 支持静默模式（Quiet）
+    - 返回成功和失败列表
+  
+- **文件管理优化**
+  - 文件引用计数与自动清理
+  - 删除对象时自动清理未引用的物理文件
   
 - **认证机制**
   - AWS Signature V4签名验证
@@ -36,11 +65,73 @@ MyObj S3服务提供兼容AWS S3协议的对象存储API，可以使用MinIO SDK
   - 一个用户可以创建多个Bucket
   - Bucket名称符合S3命名规范
 
-### 🚧 待实现功能
+- **预签名 URL（Presigned URL）**
+  - GeneratePresignedURL - 生成预签名URL
+    - 支持 GET 和 PUT 方法
+    - 支持自定义过期时间（最长7天）
+    - 自动验证预签名URL访问
 
-- Multipart Upload (大文件分片上传)
-- Object元数据管理
-- 版本控制
+- **CORS（跨域资源共享）**
+  - PutBucketCORS - 设置Bucket的CORS配置
+  - GetBucketCORS - 获取Bucket的CORS配置
+  - DeleteBucketCORS - 删除Bucket的CORS配置
+  - 自动处理OPTIONS预检请求
+  - 自动添加CORS响应头
+  - 支持通配符Origin匹配
+
+- **对象标签（Tagging）**
+  - PutObjectTagging - 设置对象标签
+  - GetObjectTagging - 获取对象标签
+  - DeleteObjectTagging - 删除对象标签
+  - 支持版本ID（?versionId=xxx）
+  - 最多10个标签，每个标签键值对不超过256字符
+
+- **ACL（访问控制列表）**
+  - PutBucketACL - 设置Bucket ACL
+  - GetBucketACL - 获取Bucket ACL
+  - PutObjectACL - 设置对象ACL
+  - GetObjectACL - 获取对象ACL
+  - 支持版本ID（?versionId=xxx）
+  - 支持权限类型：READ, WRITE, READ_ACP, WRITE_ACP, FULL_CONTROL
+  - 支持被授权者类型：CanonicalUser, Group (AllUsers, AuthenticatedUsers), EmailAddress
+
+- **Bucket策略（Bucket Policy）**
+  - PutBucketPolicy - 设置Bucket Policy
+  - GetBucketPolicy - 获取Bucket Policy
+  - DeleteBucketPolicy - 删除Bucket Policy
+  - 基于JSON的访问策略
+  - 支持条件表达式（IP、时间、Referer等）
+  - 支持Allow/Deny效果
+  - 支持多种Principal类型（AWS、CanonicalUser、Service等）
+
+- **Object版本控制**
+  - PutBucketVersioning - 启用/禁用Bucket版本控制
+  - GetBucketVersioning - 获取Bucket版本控制状态
+  - PutObject - 支持版本控制（自动创建新版本）
+  - ListObjectVersions - 列出对象的所有版本
+  - GetObject - 支持版本ID（通过?versionId=xxx获取特定版本）
+  - HeadObject - 支持版本ID（通过?versionId=xxx获取特定版本元数据）
+  - DeleteObject - 支持版本ID和DeleteMarker
+    - 版本控制启用时：创建DeleteMarker（软删除）
+    - 指定版本ID时：删除特定版本
+    - 版本控制未启用时：直接删除对象
+
+### ✅ 所有功能已完成
+
+所有S3协议的核心功能和高级特性已完整实现，包括：
+
+- **Bucket操作** - 完整实现
+- **Object操作** - 完整实现
+- **Multipart Upload** - 完整实现
+- **批量操作** - 完整实现
+- **版本控制** - 完整实现
+- **预签名URL** - 完整实现
+- **CORS** - 完整实现
+- **对象标签** - 完整实现
+- **ACL** - 完整实现
+- **Bucket策略** - 完整实现
+- **生命周期管理** - 完整实现
+- **服务端加密（SSE-S3）** - 完整实现
 
 ## 🚀 快速开始
 
@@ -196,13 +287,13 @@ Bucket信息表，每个Bucket对应一个用户虚拟目录
 | updated_at | datetime | 更新时间 |
 
 ### s3_object_metadata
-对象元数据表（待实现Object操作后使用）
+对象元数据表，存储S3对象的元数据信息
 
 ### s3_multipart_uploads
-分片上传会话表（待实现Multipart Upload后使用）
+分片上传会话表，存储分片上传会话信息
 
 ### s3_multipart_parts
-分片信息表（待实现Multipart Upload后使用）
+分片信息表，存储分片上传的分片信息
 
 ## 🧪 测试
 
@@ -235,7 +326,7 @@ s3cmd ls
 # 创建Bucket
 s3cmd mb s3://test-bucket
 
-# 上传文件（待实现）
+# 上传文件
 s3cmd put file.txt s3://test-bucket/
 ```
 
@@ -278,25 +369,82 @@ Error: InvalidBucketName
 - [x] DeleteBucket
 - [x] AWS Signature V4认证
 
-### Phase 2: Object基础操作 🚧
-- [ ] PutObject
-- [ ] GetObject
-- [ ] HeadObject
-- [ ] DeleteObject
-- [ ] ListObjects / ListObjectsV2
+### Phase 2: Object基础操作 ✅
+- [x] PutObject
+- [x] GetObject
+- [x] HeadObject
+- [x] DeleteObject
+- [x] ListObjects / ListObjectsV2
 
-### Phase 3: Multipart Upload 📋
-- [ ] InitiateMultipartUpload
-- [ ] UploadPart
-- [ ] CompleteMultipartUpload
-- [ ] AbortMultipartUpload
-- [ ] ListParts
+### Phase 3: Multipart Upload ✅
+- [x] InitiateMultipartUpload
+- [x] UploadPart
+- [x] CompleteMultipartUpload
+- [x] AbortMultipartUpload
+- [x] ListParts
+- [x] ListMultipartUploads
 
-### Phase 4: 高级特性 📋
-- [ ] CopyObject
-- [ ] Object版本控制
-- [ ] 对象生命周期管理
-- [ ] Bucket策略
+### Phase 4: 批量操作与优化 ✅
+- [x] DeleteObjects（批量删除）
+- [x] CopyObject（对象复制）
+- [x] 文件引用计数与自动清理
+- [x] CopyObject 硬链接优化
+
+### Phase 5: 预签名 URL ✅
+- [x] GeneratePresignedURL（生成预签名URL）
+- [x] 预签名URL验证（中间件支持）
+
+### Phase 6: 版本控制 ✅
+- [x] PutBucketVersioning（启用/禁用版本控制）
+- [x] GetBucketVersioning（获取版本控制状态）
+- [x] PutObject 支持版本控制（自动创建新版本）
+- [x] ListObjectVersions（列出对象版本）
+- [x] GetObject 支持版本ID
+- [x] HeadObject 支持版本ID
+- [x] DeleteObject 支持版本ID和DeleteMarker
+
+### Phase 7: 高级特性 ✅
+- [x] CORS（跨域资源共享）
+- [x] 对象标签（Tagging）
+- [x] ACL（访问控制列表）
+  - [x] PutBucketACL（设置Bucket ACL）
+  - [x] GetBucketACL（获取Bucket ACL）
+  - [x] PutObjectACL（设置对象ACL）
+  - [x] GetObjectACL（获取对象ACL）
+  - [x] 版本ID支持
+- [x] Bucket策略（Bucket Policy）
+  - [x] PutBucketPolicy（设置Bucket Policy）
+  - [x] GetBucketPolicy（获取Bucket Policy）
+  - [x] DeleteBucketPolicy（删除Bucket Policy）
+  - [x] JSON格式验证
+  - [x] 条件表达式支持
+- [x] 对象生命周期管理（Lifecycle）
+  - [x] PutBucketLifecycle（设置Bucket Lifecycle）
+  - [x] GetBucketLifecycle（获取Bucket Lifecycle）
+  - [x] DeleteBucketLifecycle（删除Bucket Lifecycle）
+  - [x] 过期删除规则（Expiration）
+  - [x] 非当前版本过期（NoncurrentVersionExpiration）
+  - [x] 存储类别转换（Transition）
+  - [x] 非当前版本转换（NoncurrentVersionTransition）
+  - [x] 取消未完成的分片上传（AbortIncompleteMultipartUpload）
+  - [x] 定时任务执行器
+  - [x] 服务端加密（Server-Side Encryption）
+    - [x] SSE-S3（使用S3管理的密钥）
+    - [x] PutObject自动加密
+    - [x] GetObject自动解密
+    - [x] 加密密钥管理
+    - [x] AES-256-CTR加密算法
+    - [x] 加密元数据存储
+    - [x] 临时文件自动清理
+    - [x] 配置主密钥支持
+
+### Phase 8: 代码质量优化 ✅
+- [x] 统一错误处理（MapErrorToS3Error）
+- [x] JSON序列化/反序列化规范化
+- [x] 事务保护（关键操作）
+- [x] 超时控制（所有操作）
+- [x] 资源清理（defer确保清理）
+- [x] 代码规范性检查
 
 ## 🤝 贡献
 

@@ -92,3 +92,8 @@ share_port = true
 port = 9000
 # S3 API 路径前缀（留空表示根路径 /）
 path_prefix = ""
+# 加密主密钥（用于服务端加密，32字节，支持环境变量 S3_ENCRYPTION_MASTER_KEY）
+# 如果未配置，将使用默认密钥（生产环境请务必配置）
+encryption_master_key = ""
+# 操作超时时间（秒），默认30秒，用于控制数据库操作和文件操作的超时
+operation_timeout = 30

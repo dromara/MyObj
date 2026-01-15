@@ -2,7 +2,40 @@ package types
 
 import (
 	"encoding/xml"
+	"errors"
 	"net/http"
+)
+
+// 定义业务错误类型，用于错误判断
+// 注意：这些是error类型，与下面的S3Error类型不同
+var (
+	ErrBucketAlreadyExistsError      = errors.New("bucket already exists")
+	ErrBucketNotFoundError           = errors.New("bucket not found")
+	ErrBucketNotEmptyError           = errors.New("bucket is not empty")
+	ErrObjectNotFoundError           = errors.New("object not found")
+	ErrUploadNotFoundError           = errors.New("upload not found")
+	ErrAccessDeniedError             = errors.New("access denied")
+	ErrInvalidBucketNameError        = errors.New("invalid bucket name")
+	ErrInvalidRangeError             = errors.New("invalid range")
+	ErrContentMD5MismatchError       = errors.New("content MD5 mismatch")
+	ErrInsufficientUserSpaceError    = errors.New("insufficient user space")
+	ErrNoAvailableDiskError          = errors.New("no available disk")
+	ErrUploadNotInProgressError      = errors.New("upload is not in progress")
+	ErrInvalidPartNumberError        = errors.New("invalid part number")
+	ErrPartsNotInAscendingOrderError = errors.New("parts must be in ascending order")
+	ErrPartNotFoundError             = errors.New("part not found")
+	ErrPartETagMismatchError         = errors.New("part etag mismatch")
+	ErrNoPartsProvidedError          = errors.New("no parts provided")
+	ErrBucketOrKeyMismatchError      = errors.New("bucket or key mismatch")
+	ErrPolicyNotFoundError           = errors.New("policy not found")
+	ErrLifecycleNotFoundError        = errors.New("lifecycle configuration not found")
+	ErrCORSNotFoundError             = errors.New("CORS configuration not found")
+	ErrACLRequiredError              = errors.New("ACL configuration is required")
+	ErrACLOwnerMismatchError         = errors.New("ACL owner must be the object owner")
+	ErrInvalidPermissionError        = errors.New("invalid permission")
+	ErrTooManyTagsError              = errors.New("too many tags")
+	ErrTagKeyTooLongError            = errors.New("tag key too long")
+	ErrTagValueTooLongError          = errors.New("tag value too long")
 )
 
 // S3Error S3错误码定义
@@ -104,7 +137,93 @@ var (
 		Description:    "The list of parts was not in ascending order",
 		HTTPStatusCode: http.StatusBadRequest,
 	}
+	ErrNoSuchCORSConfiguration = S3Error{
+		Code:           "NoSuchCORSConfiguration",
+		Description:    "The CORS configuration does not exist",
+		HTTPStatusCode: http.StatusNotFound,
+	}
+	ErrNoSuchPolicy = S3Error{
+		Code:           "NoSuchPolicy",
+		Description:    "The specified policy does not exist",
+		HTTPStatusCode: http.StatusNotFound,
+	}
+	ErrNoSuchLifecycleConfiguration = S3Error{
+		Code:           "NoSuchLifecycleConfiguration",
+		Description:    "The lifecycle configuration does not exist",
+		HTTPStatusCode: http.StatusNotFound,
+	}
 )
+
+// MapErrorToS3Error 将业务错误映射到S3错误响应
+func MapErrorToS3Error(err error) S3Error {
+	// 使用业务错误类型（error类型）进行判断
+	if errors.Is(err, ErrBucketAlreadyExistsError) {
+		// 返回HTTP响应错误（S3Error类型）
+		return ErrBucketAlreadyExists
+	}
+	if errors.Is(err, ErrBucketNotFoundError) {
+		return ErrNoSuchBucket
+	}
+	if errors.Is(err, ErrBucketNotEmptyError) {
+		return ErrBucketNotEmpty
+	}
+	if errors.Is(err, ErrObjectNotFoundError) {
+		return ErrNoSuchKey
+	}
+	if errors.Is(err, ErrUploadNotFoundError) {
+		return ErrNoSuchUpload
+	}
+	if errors.Is(err, ErrAccessDeniedError) {
+		return ErrAccessDenied
+	}
+	if errors.Is(err, ErrInvalidBucketNameError) {
+		return ErrInvalidBucketName
+	}
+	if errors.Is(err, ErrInvalidRangeError) {
+		return ErrInvalidRange
+	}
+	if errors.Is(err, ErrContentMD5MismatchError) {
+		return ErrInvalidArgument
+	}
+	if errors.Is(err, ErrInsufficientUserSpaceError) {
+		return ErrInvalidArgument
+	}
+	if errors.Is(err, ErrNoAvailableDiskError) {
+		return ErrInternalError
+	}
+	if errors.Is(err, ErrUploadNotInProgressError) {
+		return ErrInvalidArgument
+	}
+	if errors.Is(err, ErrInvalidPartNumberError) {
+		return ErrInvalidPart
+	}
+	if errors.Is(err, ErrPartsNotInAscendingOrderError) {
+		return ErrInvalidPartOrder
+	}
+	if errors.Is(err, ErrPartNotFoundError) {
+		return ErrInvalidPart
+	}
+	if errors.Is(err, ErrPartETagMismatchError) {
+		return ErrInvalidPart
+	}
+	if errors.Is(err, ErrNoPartsProvidedError) {
+		return ErrInvalidArgument
+	}
+	if errors.Is(err, ErrBucketOrKeyMismatchError) {
+		return ErrInvalidArgument
+	}
+	if errors.Is(err, ErrPolicyNotFoundError) {
+		return ErrNoSuchPolicy
+	}
+	if errors.Is(err, ErrLifecycleNotFoundError) {
+		return ErrNoSuchLifecycleConfiguration
+	}
+	if errors.Is(err, ErrCORSNotFoundError) {
+		return ErrNoSuchCORSConfiguration
+	}
+	// 默认返回内部错误
+	return ErrInternalError
+}
 
 // ErrorResponse S3错误响应XML结构
 type ErrorResponse struct {

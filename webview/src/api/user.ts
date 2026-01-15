@@ -40,7 +40,8 @@ export interface ApiKeyInfo {
 export interface GenerateApiKeyResponse {
   id: number
   key: string // 完整的 key（只在生成时返回一次）
-  public_key: string
+  public_key: string // RSA 公钥（用于加密/解密）
+  s3_secret_key: string // S3 Secret Key（用于 S3 服务签名，只在生成时返回一次）
   expires_at: string | null
   created_at: string
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"myobj/src/pkg/models"
+	"time"
 )
 
 // UserRepository 用户仓储接口
@@ -233,4 +234,45 @@ type UploadChunkRepository interface {
 	DeleteByUserID(ctx context.Context, userID string) error
 	// ListByPathID 根据路径ID获取分片列表
 	ListByPathID(ctx context.Context, pathID string, offset, limit int) ([]*models.UploadChunk, error)
+}
+
+// S3BucketRepository S3 Bucket仓储接口
+type S3BucketRepository interface {
+	Create(ctx context.Context, bucket *models.S3Bucket) error
+	GetByName(ctx context.Context, bucketName string, userID string) (*models.S3Bucket, error)
+	GetByID(ctx context.Context, id int) (*models.S3Bucket, error)
+	ListByUserID(ctx context.Context, userID string) ([]*models.S3Bucket, error)
+	Update(ctx context.Context, bucket *models.S3Bucket) error
+	Delete(ctx context.Context, id int) error
+	Exists(ctx context.Context, bucketName string, userID string) (bool, error)
+}
+
+// S3ObjectMetadataRepository S3对象元数据仓储接口
+type S3ObjectMetadataRepository interface {
+	Create(ctx context.Context, metadata *models.S3ObjectMetadata) error
+	GetByKey(ctx context.Context, bucketName, objectKey, userID string) (*models.S3ObjectMetadata, error)
+	GetByKeyAndVersion(ctx context.Context, bucketName, objectKey, versionID, userID string) (*models.S3ObjectMetadata, error)
+	ListByBucket(ctx context.Context, bucketName, userID, prefix string, maxKeys int, marker string) ([]*models.S3ObjectMetadata, error)
+	ListVersionsByBucket(ctx context.Context, bucketName, userID, prefix, keyMarker, versionIDMarker string, maxKeys int) ([]*models.S3ObjectMetadata, error)
+	Delete(ctx context.Context, bucketName, objectKey, userID string) error
+	DeleteByVersion(ctx context.Context, bucketName, objectKey, versionID, userID string) error
+	MarkOldVersions(ctx context.Context, bucketName, objectKey, userID string) error
+	ListObjectVersions(ctx context.Context, bucketName, userID, prefix, keyMarker, versionIDMarker string, maxKeys int) ([]*models.S3ObjectMetadata, error)
+	CountByFileID(ctx context.Context, fileID string) (int64, error)
+	Update(ctx context.Context, metadata *models.S3ObjectMetadata) error
+}
+
+// S3MultipartRepository S3分片上传仓储接口
+type S3MultipartRepository interface {
+	CreateUpload(ctx context.Context, upload *models.S3MultipartUpload) error
+	GetUpload(ctx context.Context, uploadID string) (*models.S3MultipartUpload, error)
+	UpdateUploadStatus(ctx context.Context, uploadID string, status string) error
+	DeleteUpload(ctx context.Context, uploadID string) error
+	ListUploads(ctx context.Context, bucketName, userID, prefix, keyMarker, uploadIDMarker string, maxUploads int) ([]*models.S3MultipartUpload, error)
+	CreatePart(ctx context.Context, part *models.S3MultipartPart) error
+	GetPart(ctx context.Context, uploadID string, partNumber int) (*models.S3MultipartPart, error)
+	ListParts(ctx context.Context, uploadID string) ([]*models.S3MultipartPart, error)
+	DeletePart(ctx context.Context, id int) error
+	DeletePartsByUploadID(ctx context.Context, uploadID string) error
+	ListMultipartUploadsByBucket(ctx context.Context, bucketName, userID string, beforeTime time.Time) ([]*models.S3MultipartUpload, error)
 }
