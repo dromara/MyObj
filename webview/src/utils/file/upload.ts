@@ -1,5 +1,5 @@
 import SparkMD5 from 'spark-md5'
-import { uploadPrecheck, uploadFile } from '@/api/file'
+import { uploadPrecheck, uploadFile, getUploadProgress } from '@/api/file'
 import { UPLOAD_CONFIG } from '@/config/api'
 import type { ApiResponse } from '@/types'
 import logger from '@/plugins/logger'
@@ -724,6 +724,72 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
           uploadTaskManager.failTask(taskId, errorMessage)
         }
         throw new Error(errorMessage)
+      }
+
+      // 所有分片上传完成，等待后端处理结果
+      // 最后一个分片的响应会告诉我们文件是否处理完成
+      if (taskId) {
+        uploadTaskManager.updateTask(taskId, {
+          currentStep: i18n.global.t('upload.processing') || '正在处理文件...'
+        })
+      }
+      
+      // 轮询上传任务状态，等待后端处理完成
+      const maxPollAttempts = 60 // 最多轮询60次（30秒）
+      let pollAttempts = 0
+      let processingComplete = false
+      
+      while (pollAttempts < maxPollAttempts && !processingComplete) {
+        await new Promise(resolve => setTimeout(resolve, 500)) // 等待500ms
+        
+        // 查询上传任务状态
+        try {
+          const progressResponse = await getUploadProgress(precheckId)
+          
+          if (progressResponse.code === 200 && progressResponse.data) {
+            const taskData = progressResponse.data as any
+            
+            // 检查是否处理完成
+            if (taskData.is_complete === true) {
+              processingComplete = true
+              
+              // 检查是否有file_id，如果没有说明后端处理失败
+              if (!taskData.file_id) {
+                const errorMsg = taskData.error_message || '文件处理失败，请重试'
+                if (taskId) {
+                  uploadTaskManager.failTask(taskId, errorMsg)
+                }
+                throw new Error(errorMsg)
+              }
+              
+              // 成功
+              break
+            }
+            
+            // 检查是否失败
+            if (taskData.status === 'failed') {
+              const errorMsg = taskData.error_message || '文件处理失败'
+              if (taskId) {
+                uploadTaskManager.failTask(taskId, errorMsg)
+              }
+              throw new Error(errorMsg)
+            }
+          }
+        } catch (error: any) {
+          // 如果查询失败，记录错误但继续等待
+          logger.warn(`查询上传任务状态失败 (${pollAttempts + 1}/${maxPollAttempts}):`, error)
+        }
+        
+        pollAttempts++
+      }
+      
+      // 超时检查
+      if (!processingComplete) {
+        const errorMsg = '文件处理超时，请刷新页面查看结果'
+        if (taskId) {
+          uploadTaskManager.failTask(taskId, errorMsg)
+        }
+        throw new Error(errorMsg)
       }
 
       if (taskId) {

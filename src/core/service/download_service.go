@@ -206,9 +206,11 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 		if task.State == enum.DownloadTaskStateFinished.Value() && task.FileID != "" {
 			userFile, err := d.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, task.FileID)
 			if err != nil {
-				logger.LOG.Warn("获取用户文件信息失败", "error", err, "fileID", task.FileID, "userID", userID)
+				// 文件可能已被删除（移到回收站或永久删除），这是正常场景
+				logger.LOG.Debug("下载任务关联的文件已不存在", "fileID", task.FileID, "taskID", task.ID, "error", err.Error())
 				// 不阻断整个列表，继续处理下一个任务
-				t.FileID = task.FileID // 使用原始 FileID
+				// 返回空字符串表示文件已不可用
+				t.FileID = ""
 			} else {
 				t.FileID = userFile.UfID // 返回 uf_id
 			}

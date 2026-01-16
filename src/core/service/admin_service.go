@@ -11,6 +11,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/util"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -678,13 +679,26 @@ func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*mo
 		return nil, fmt.Errorf("磁盘路径已存在")
 	}
 
+	// 将DataPath转换为绝对路径（如果是相对路径）
+	dataPath := req.DataPath
+	if !filepath.IsAbs(dataPath) {
+		// 相对路径，转换为绝对路径
+		absPath, err := filepath.Abs(dataPath)
+		if err != nil {
+			logger.LOG.Error("转换绝对路径失败", "error", err, "dataPath", dataPath)
+			return nil, fmt.Errorf("无效的数据路径: %w", err)
+		}
+		dataPath = absPath
+		logger.LOG.Info("将相对路径转换为绝对路径", "original", req.DataPath, "absolute", dataPath)
+	}
+
 	// 生成磁盘ID
 	diskID := uuid.New().String()
 
 	disk := &models.Disk{
 		ID:       diskID,
 		DiskPath: req.DiskPath,
-		DataPath: req.DataPath,
+		DataPath: dataPath, // 使用绝对路径
 		Size:     req.Size,
 	}
 
@@ -693,6 +707,7 @@ func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*mo
 		return nil, err
 	}
 
+	logger.LOG.Info("磁盘创建成功", "diskID", diskID, "diskPath", req.DiskPath, "dataPath", dataPath)
 	return models.NewJsonResponse(200, "创建成功", disk), nil
 }
 

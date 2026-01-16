@@ -59,78 +59,105 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	if user.Space > 0 && user.FreeSpace < req.FileSize {
 		return models.NewJsonResponse(400, "用户可用空间不足", nil), nil
 	}
+
+	// 检查磁盘空间（选择最大可用空间的磁盘）
+	disks, err := f.factory.Disk().List(ctx, 0, 1000)
+	if err != nil {
+		logger.LOG.Error("查询磁盘列表失败", "error", err)
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return models.NewJsonResponse(500, "没有可用的存储磁盘", nil), nil
+	}
+
+	// 查找能容纳此文件的磁盘
+	var hasEnoughSpace bool
+	for _, disk := range disks {
+		if disk.Size >= req.FileSize {
+			hasEnoughSpace = true
+			break
+		}
+	}
+	if !hasEnoughSpace {
+		return models.NewJsonResponse(400, "磁盘空间不足，请联系管理员扩容", nil), nil
+	}
+
 	signature, err := f.factory.FileInfo().GetByChunkSignature(ctx, req.ChunkSignature, req.FileSize)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询文件签名失败", "error", err, "chunkSignature", req.ChunkSignature)
 		return nil, err
 	}
-	if len(req.FilesMd5) >= 3 {
-		if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] && signature.IsEnc == false {
-			userFile := &models.UserFiles{
-				UserID:      user.ID,
-				FileID:      signature.ID,
-				FileName:    req.FileName,
-				VirtualPath: req.PathID,
-				IsPublic:    false,
-				CreatedAt:   custom_type.Now(),
-				UfID:        uuid.NewString(),
-			}
-			err := f.factory.UserFiles().Create(context.Background(), userFile)
-			if err != nil {
-				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
-				return nil, err
-			}
-			// 秒传成功后扣除用户空间（只对非无限空间用户）
-			if user.Space > 0 {
-				user.FreeSpace -= req.FileSize
-				if err := f.factory.User().Update(ctx, user); err != nil {
-					logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
-					// 回滚：删除刚创建的用户文件关联
-					if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
-						logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
-					}
+
+	// 只有当查询成功且找到记录时才尝试秒传
+	if err == nil && signature != nil && signature.ID != "" {
+		if len(req.FilesMd5) >= 3 {
+			if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] && signature.IsEnc == false {
+				userFile := &models.UserFiles{
+					UserID:      user.ID,
+					FileID:      signature.ID,
+					FileName:    req.FileName,
+					VirtualPath: req.PathID,
+					IsPublic:    false,
+					CreatedAt:   custom_type.Now(),
+					UfID:        uuid.NewString(),
+				}
+				err := f.factory.UserFiles().Create(context.Background(), userFile)
+				if err != nil {
+					logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
 					return nil, err
 				}
-				logger.LOG.Debug("秒传扣除用户空间",
-					"user_id", user.ID,
-					"file_size", req.FileSize,
-					"new_free_space", user.FreeSpace)
-			}
-			return models.NewJsonResponse(200, "秒传成功", nil), nil
-		}
-	} else {
-		if signature.FileHash == req.FilesMd5[0] && signature.IsEnc == false {
-			userFile := &models.UserFiles{
-				UserID:      user.ID,
-				FileID:      signature.ID,
-				FileName:    req.FileName,
-				VirtualPath: req.PathID,
-				IsPublic:    false,
-				CreatedAt:   custom_type.Now(),
-				UfID:        uuid.NewString(),
-			}
-			err := f.factory.UserFiles().Create(context.Background(), userFile)
-			if err != nil {
-				logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
-				return nil, err
-			}
-			// 秒传成功后扣除用户空间（只对非无限空间用户）
-			if user.Space > 0 {
-				user.FreeSpace -= req.FileSize
-				if err := f.factory.User().Update(ctx, user); err != nil {
-					logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
-					// 回滚：删除刚创建的用户文件关联
-					if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
-						logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
+				// 秒传成功后扣除用户空间（只对非无限空间用户）
+				if user.Space > 0 {
+					user.FreeSpace -= req.FileSize
+					if err := f.factory.User().Update(ctx, user); err != nil {
+						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
+						// 回滚：删除刚创建的用户文件关联
+						if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
+							logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
+						}
+						return nil, err
 					}
+					logger.LOG.Debug("秒传扣除用户空间",
+						"user_id", user.ID,
+						"file_size", req.FileSize,
+						"new_free_space", user.FreeSpace)
+				}
+				return models.NewJsonResponse(200, "秒传成功", nil), nil
+			}
+		} else {
+			if signature.FileHash == req.FilesMd5[0] && signature.IsEnc == false {
+				userFile := &models.UserFiles{
+					UserID:      user.ID,
+					FileID:      signature.ID,
+					FileName:    req.FileName,
+					VirtualPath: req.PathID,
+					IsPublic:    false,
+					CreatedAt:   custom_type.Now(),
+					UfID:        uuid.NewString(),
+				}
+				err := f.factory.UserFiles().Create(context.Background(), userFile)
+				if err != nil {
+					logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
 					return nil, err
 				}
-				logger.LOG.Debug("秒传扣除用户空间",
-					"user_id", user.ID,
-					"file_size", req.FileSize,
-					"new_free_space", user.FreeSpace)
+				// 秒传成功后扣除用户空间（只对非无限空间用户）
+				if user.Space > 0 {
+					user.FreeSpace -= req.FileSize
+					if err := f.factory.User().Update(ctx, user); err != nil {
+						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
+						// 回滚：删除刚创建的用户文件关联
+						if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
+							logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
+						}
+						return nil, err
+					}
+					logger.LOG.Debug("秒传扣除用户空间",
+						"user_id", user.ID,
+						"file_size", req.FileSize,
+						"new_free_space", user.FreeSpace)
+				}
+				return models.NewJsonResponse(200, "秒传成功", nil), nil
 			}
-			return models.NewJsonResponse(200, "秒传成功", nil), nil
 		}
 	}
 	uid := uuid.New().String()
@@ -191,16 +218,35 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 
 	// 存储预检请求信息到缓存（用于后续查询进度）
 	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", uid)
-	reqJSON, err := json.Marshal(req)
-	if err != nil {
-		logger.LOG.Error("序列化预检请求失败", "error", err)
-		return nil, err
+	// 根据缓存类型选择存储方式
+	var reqCacheValue any
+	switch f.cacheLocal.(type) {
+	case *cache.LocalCache:
+		// LocalCache直接存储对象，避免序列化开销
+		reqCacheValue = req
+	case *cache.RedisCache:
+		// Redis必须存储JSON字符串
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			logger.LOG.Error("序列化预检请求失败", "error", err)
+			return nil, err
+		}
+		reqCacheValue = string(reqJSON)
+	default:
+		// 默认序列化存储
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			logger.LOG.Error("序列化预检请求失败", "error", err)
+			return nil, err
+		}
+		reqCacheValue = string(reqJSON)
 	}
-	// 存储预检请求信息到缓存（24小时过期，86400秒）
-	if err := f.cacheLocal.Set(reqCacheKey, string(reqJSON), 86400); err != nil {
-		logger.LOG.Warn("存储预检请求到缓存失败", "error", err)
-		// 不阻塞主流程，继续执行
+
+	if err := f.cacheLocal.Set(reqCacheKey, reqCacheValue, 86400); err != nil {
+		logger.LOG.Error("存储预检请求到缓存失败", "error", err)
+		return nil, fmt.Errorf("存储预检信息失败: %w", err)
 	}
+	logger.LOG.Debug("预检信息已存储到缓存", "key", reqCacheKey, "precheckID", uid)
 	// 序列化为JSON字符串存储到Redis
 	resJSON, err := json.Marshal(res)
 	if err != nil {
@@ -1108,18 +1154,20 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 		return nil, fmt.Errorf("无法获取原始上传请求信息")
 	}
 
-	// 反序列化预检请求数据以获取文件大小
+	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
 	var precheckReq request.UploadPrecheckRequest
 	switch v := reqData.(type) {
 	case *request.UploadPrecheckRequest:
+		// LocalCache直接返回对象指针
 		precheckReq = *v
 	case string:
+		// Redis返回JSON字符串，需要反序列化
 		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-			logger.LOG.Error("反序列化预检请求失败", "error", err)
+			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
 			return nil, fmt.Errorf("预检请求信息格式错误")
 		}
 	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
 		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 	fileSize = precheckReq.FileSize
@@ -1272,15 +1320,15 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	logger.LOG.Info("所有分片上传完成，开始处理文件", "userID", userID, "fileName", header.Filename)
 
 	// 获取预检请求中的原始数据
-	var precheckReq request.UploadPrecheckRequest
 	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 	reqData, err := f.cacheLocal.Get(reqCacheKey)
 	if err != nil {
-		logger.LOG.Error("获取预检请求失败", "error", err)
-		return nil, fmt.Errorf("无法获取原始上传请求信息")
+		logger.LOG.Error("预检信息缓存未命中", "error", err, "precheckID", req.PrecheckID, "key", reqCacheKey)
+		return nil, fmt.Errorf("预检信息已过期或不存在，请重新预检")
 	}
 
-	// 反序列化预检请求数据
+	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
+	var precheckReq request.UploadPrecheckRequest
 	switch v := reqData.(type) {
 	case *request.UploadPrecheckRequest:
 		// LocalCache直接返回对象指针
@@ -1292,7 +1340,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 			return nil, fmt.Errorf("预检请求信息格式错误")
 		}
 	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
 		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
@@ -1369,15 +1417,15 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 	logger.LOG.Info("小文件上传成功", "fileName", header.Filename, "size", header.Size, "userID", userID)
 
 	// 2. 获取预检请求中的原始数据
-	var precheckReq request.UploadPrecheckRequest
 	cacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
 	reqData, err := f.cacheLocal.Get(cacheKey)
 	if err != nil {
-		logger.LOG.Error("获取预检请求失败", "error", err)
-		return nil, fmt.Errorf("无法获取原始上传请求信息")
+		logger.LOG.Error("预检信息缓存未命中", "error", err, "precheckID", req.PrecheckID, "key", cacheKey)
+		return nil, fmt.Errorf("预检信息已过期或不存在，请重新预检")
 	}
 
-	// 反序列化预检请求数据
+	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
+	var precheckReq request.UploadPrecheckRequest
 	switch v := reqData.(type) {
 	case *request.UploadPrecheckRequest:
 		// LocalCache直接返回对象指针
@@ -1389,7 +1437,7 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 			return nil, fmt.Errorf("预检请求信息格式错误")
 		}
 	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
 		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
@@ -1601,11 +1649,12 @@ func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, user
 	ctx := context.Background()
 
 	// 1. 优先查询缓存（快速判断任务是否存在）
-	cacheKey := fmt.Sprintf("fileUpload:%s", userID)
+	// 注意：缓存key应该是 fileUpload:{precheckID}，而不是 fileUpload:{userID}
+	cacheKey := fmt.Sprintf("fileUpload:%s", req.PrecheckID)
 	precheckData, err := f.cacheLocal.Get(cacheKey)
 	if err != nil {
 		// 缓存未命中，说明任务不存在或已过期
-		logger.LOG.Debug("预检信息缓存未命中", "precheckID", req.PrecheckID, "userID", userID)
+		logger.LOG.Debug("预检信息缓存未命中", "precheckID", req.PrecheckID, "userID", userID, "cacheKey", cacheKey)
 		return models.NewJsonResponse(404, "预检信息不存在或已过期", nil), nil
 	}
 
@@ -1643,17 +1692,20 @@ func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, user
 			return models.NewJsonResponse(404, "无法获取原始上传请求信息", nil), nil
 		}
 
+		// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
 		var precheckReq request.UploadPrecheckRequest
 		switch v := reqData.(type) {
 		case *request.UploadPrecheckRequest:
+			// LocalCache直接返回对象指针
 			precheckReq = *v
 		case string:
+			// Redis返回JSON字符串，需要反序列化
 			if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-				logger.LOG.Error("反序列化预检请求失败", "error", err)
+				logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
 				return models.NewJsonResponse(400, "预检请求信息格式错误", nil), nil
 			}
 		default:
-			logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", v))
+			logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
 			return models.NewJsonResponse(400, "预检请求信息类型错误", nil), nil
 		}
 
@@ -1715,16 +1767,19 @@ func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID s
 				return fmt.Errorf("无法获取预检请求信息: %w", err)
 			}
 
+			// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
 			var precheckReq request.UploadPrecheckRequest
 			switch v := reqData.(type) {
 			case *request.UploadPrecheckRequest:
+				// LocalCache直接返回对象指针
 				precheckReq = *v
 			case string:
+				// Redis返回JSON字符串，需要反序列化
 				if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
 					return fmt.Errorf("反序列化预检请求失败: %w", err)
 				}
 			default:
-				return fmt.Errorf("预检请求类型错误: %T", v)
+				return fmt.Errorf("预检请求类型错误: %T", reqData)
 			}
 
 			chunkSize := int64(5 * 1024 * 1024) // 5MB
