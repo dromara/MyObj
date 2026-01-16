@@ -18,11 +18,11 @@
       </div>
     </div>
 
-    <!-- 分隔线 -->
-    <el-divider />
+    <!-- 分隔线（仅登录后显示） -->
+    <el-divider v-if="isLoggedIn" />
 
-    <!-- 新手引导区域 -->
-    <div class="onboarding-section">
+    <!-- 新手引导区域（仅登录后显示） -->
+    <div v-if="isLoggedIn" class="onboarding-section">
       <div class="onboarding-hint">
         <el-icon><Guide /></el-icon>
         <span>{{ t('settings.onboarding.hint') }}</span>
@@ -47,11 +47,16 @@
   import type { ComponentInternalInstance } from 'vue'
   import { ElMessageBox } from 'element-plus'
   import { useKeyboardShortcuts, useI18n, useOnboarding } from '@/composables'
+  import { useAuthStore } from '@/stores/auth'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { shortcuts, showHelp, toggleHelp } = useKeyboardShortcuts()
   const { resetOnboarding } = useOnboarding()
   const { t } = useI18n()
+  const authStore = useAuthStore()
+  
+  // 检查是否已登录
+  const isLoggedIn = computed(() => !!authStore.token)
 
   // 检测是否为 Mac 系统
   const isMac = computed(() => {

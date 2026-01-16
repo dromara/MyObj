@@ -155,7 +155,7 @@ export default {
     newUsername: 'New Username',
     newUsernamePlaceholder: 'Set username',
     bindEmail: 'Bind Email',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: 'Please enter email address',
     setPassword: 'Set Password',
     passwordPlaceholder2: 'At least 6 characters',
     noAccount: "Don't have an account?",

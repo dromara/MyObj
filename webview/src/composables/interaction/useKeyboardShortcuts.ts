@@ -1,6 +1,7 @@
 import { useRouter } from 'vue-router'
 import type { ComponentInternalInstance } from 'vue'
 import { useI18n } from '@/composables'
+import { useAuthStore } from '@/stores/auth'
 
 interface ShortcutConfig {
   key: string
@@ -25,6 +26,7 @@ export function useKeyboardShortcuts() {
   const router = useRouter()
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t, locale } = useI18n()
+  const authStore = useAuthStore()
 
   // 注册快捷键
   const registerShortcut = (config: ShortcutConfig) => {
@@ -119,6 +121,10 @@ export function useKeyboardShortcuts() {
   const registerDefaultShortcuts = () => {
     // 先清空数组，避免重复注册
     shortcuts.value = []
+    
+    // 检查是否已登录
+    const isLoggedIn = !!authStore.token
+    
     // 触发上传的辅助函数
     const triggerUpload = () => {
       let uploadBtn: HTMLElement | null = null
@@ -252,119 +258,122 @@ export function useKeyboardShortcuts() {
       }
     }
 
-    registerShortcut({
-      key: 'e',
-      ctrl: true,
-      handler: () => {
-        // 检查是否在文件页面
-        const isFilesPage = router.currentRoute.value.name === 'Files' || router.currentRoute.value.path === '/files'
-        
-        // 如果不在文件页面，先跳转到文件页面
-        if (!isFilesPage) {
-          router.push('/files').then(() => {
-            // 使用重试机制等待页面加载完成
-            let retryCount = 0
-            const maxRetries = 20 // 最多重试 20 次（2秒）
-            const retryInterval = 100 // 每次间隔 100ms
-            
-            const tryTriggerNewFolder = () => {
-              const toolbarActions = document.querySelector('.toolbar-actions')
-              if (toolbarActions) {
-                // 页面已加载，尝试触发新建文件夹
-                triggerNewFolder()
-              } else if (retryCount < maxRetries) {
-                // 页面还未加载完成，继续等待
-                retryCount++
-                setTimeout(tryTriggerNewFolder, retryInterval)
-              } else {
-                // 超时，输出警告
-                proxy?.$log.warn('页面加载超时，无法执行新建文件夹操作')
+    // 只有登录后才注册需要登录的快捷键
+    if (isLoggedIn) {
+      registerShortcut({
+        key: 'e',
+        ctrl: true,
+        handler: () => {
+          // 检查是否在文件页面
+          const isFilesPage = router.currentRoute.value.name === 'Files' || router.currentRoute.value.path === '/files'
+          
+          // 如果不在文件页面，先跳转到文件页面
+          if (!isFilesPage) {
+            router.push('/files').then(() => {
+              // 使用重试机制等待页面加载完成
+              let retryCount = 0
+              const maxRetries = 20 // 最多重试 20 次（2秒）
+              const retryInterval = 100 // 每次间隔 100ms
+              
+              const tryTriggerNewFolder = () => {
+                const toolbarActions = document.querySelector('.toolbar-actions')
+                if (toolbarActions) {
+                  // 页面已加载，尝试触发新建文件夹
+                  triggerNewFolder()
+                } else if (retryCount < maxRetries) {
+                  // 页面还未加载完成，继续等待
+                  retryCount++
+                  setTimeout(tryTriggerNewFolder, retryInterval)
+                } else {
+                  // 超时，输出警告
+                  proxy?.$log.warn('页面加载超时，无法执行新建文件夹操作')
+                }
               }
-            }
-            
-            // 开始重试
-            setTimeout(tryTriggerNewFolder, retryInterval)
-          })
-          return
-        }
+              
+              // 开始重试
+              setTimeout(tryTriggerNewFolder, retryInterval)
+            })
+            return
+          }
 
-        // 在文件页面，直接触发新建文件夹
-        triggerNewFolder()
-      },
-      description: t('shortcuts.newFolder')
-    })
+          // 在文件页面，直接触发新建文件夹
+          triggerNewFolder()
+        },
+        description: t('shortcuts.newFolder')
+      })
 
-    registerShortcut({
-      key: 'k',
-      ctrl: true,
-      handler: () => {
-        const searchInput = document.querySelector('.search-input input') as HTMLInputElement
-        if (searchInput) {
-          searchInput.focus()
-        }
-      },
-      description: t('shortcuts.focusSearch')
-    })
+      registerShortcut({
+        key: 'k',
+        ctrl: true,
+        handler: () => {
+          const searchInput = document.querySelector('.search-input input') as HTMLInputElement
+          if (searchInput) {
+            searchInput.focus()
+          }
+        },
+        description: t('shortcuts.focusSearch')
+      })
 
-    registerShortcut({
-      key: 'u',
-      ctrl: true,
-      handler: () => {
-        // 检查是否在文件页面
-        const isFilesPage = router.currentRoute.value.name === 'Files' || router.currentRoute.value.path === '/files'
-        
-        // 如果不在文件页面，先跳转到文件页面
-        if (!isFilesPage) {
-          router.push('/files').then(() => {
-            // 使用重试机制等待页面加载完成
-            let retryCount = 0
-            const maxRetries = 20 // 最多重试 20 次（2秒）
-            const retryInterval = 100 // 每次间隔 100ms
-            
-            const tryTriggerUpload = () => {
-              const toolbarActions = document.querySelector('.toolbar-actions')
-              if (toolbarActions) {
-                // 页面已加载，尝试触发上传
-                triggerUpload()
-              } else if (retryCount < maxRetries) {
-                // 页面还未加载完成，继续等待
-                retryCount++
-                setTimeout(tryTriggerUpload, retryInterval)
-              } else {
-                // 超时，输出警告
-                proxy?.$log.warn('页面加载超时，无法执行上传操作')
+      registerShortcut({
+        key: 'u',
+        ctrl: true,
+        handler: () => {
+          // 检查是否在文件页面
+          const isFilesPage = router.currentRoute.value.name === 'Files' || router.currentRoute.value.path === '/files'
+          
+          // 如果不在文件页面，先跳转到文件页面
+          if (!isFilesPage) {
+            router.push('/files').then(() => {
+              // 使用重试机制等待页面加载完成
+              let retryCount = 0
+              const maxRetries = 20 // 最多重试 20 次（2秒）
+              const retryInterval = 100 // 每次间隔 100ms
+              
+              const tryTriggerUpload = () => {
+                const toolbarActions = document.querySelector('.toolbar-actions')
+                if (toolbarActions) {
+                  // 页面已加载，尝试触发上传
+                  triggerUpload()
+                } else if (retryCount < maxRetries) {
+                  // 页面还未加载完成，继续等待
+                  retryCount++
+                  setTimeout(tryTriggerUpload, retryInterval)
+                } else {
+                  // 超时，输出警告
+                  proxy?.$log.warn('页面加载超时，无法执行上传操作')
+                }
               }
-            }
-            
-            // 开始重试
-            setTimeout(tryTriggerUpload, retryInterval)
-          })
-          return
-        }
+              
+              // 开始重试
+              setTimeout(tryTriggerUpload, retryInterval)
+            })
+            return
+          }
 
-        // 在文件页面，直接触发上传
-        triggerUpload()
-      },
-      description: t('shortcuts.uploadFile')
-    })
+          // 在文件页面，直接触发上传
+          triggerUpload()
+        },
+        description: t('shortcuts.uploadFile')
+      })
 
-    registerShortcut({
-      key: 'f',
-      ctrl: true,
-      handler: () => {
-        router.push('/files')
-      },
-      description: t('shortcuts.goToFiles')
-    })
+      registerShortcut({
+        key: 'f',
+        ctrl: true,
+        handler: () => {
+          router.push('/files')
+        },
+        description: t('shortcuts.goToFiles')
+      })
 
-    registerShortcut({
-      key: 's',
-      ctrl: true,
-      handler: () => {
-        router.push('/shares')
-      },
-      description: t('shortcuts.goToShares')
-    })
+      registerShortcut({
+        key: 's',
+        ctrl: true,
+        handler: () => {
+          router.push('/shares')
+        },
+        description: t('shortcuts.goToShares')
+      })
+    }
 
     registerShortcut({
       key: 'Escape',

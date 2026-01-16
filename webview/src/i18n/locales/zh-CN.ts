@@ -155,7 +155,7 @@ export default {
     newUsername: '新用户名',
     newUsernamePlaceholder: '设置用户名',
     bindEmail: '绑定邮箱',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: '请输入邮箱地址',
     setPassword: '设置密码',
     passwordPlaceholder2: '至少 6 位字符',
     noAccount: '还没有账号？',
