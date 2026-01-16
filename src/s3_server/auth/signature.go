@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,13 +18,82 @@ import (
 type SignatureV4 struct {
 	region  string
 	service string
+	// 密钥缓存，提高性能
+	keyCache *signingKeyCache
+}
+
+// signingKeyCache 签名密钥缓存
+type signingKeyCache struct {
+	mu    sync.RWMutex
+	cache map[string]cachedKey
+}
+
+// cachedKey 缓存的密钥
+type cachedKey struct {
+	key      []byte
+	date     string
+	expires  time.Time
+}
+
+// newSigningKeyCache 创建新的密钥缓存
+func newSigningKeyCache() *signingKeyCache {
+	return &signingKeyCache{
+		cache: make(map[string]cachedKey),
+	}
+}
+
+// get 从缓存获取密钥
+func (c *signingKeyCache) get(key string, dateStamp string) ([]byte, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	
+	entry, ok := c.cache[key]
+	if !ok {
+		return nil, false
+	}
+	
+	// 检查日期是否匹配（同一天）
+	if entry.date != dateStamp {
+		return nil, false
+	}
+	
+	// 检查是否过期（缓存有效期24小时）
+	if time.Now().After(entry.expires) {
+		return nil, false
+	}
+	
+	return entry.key, true
+}
+
+// set 设置缓存
+func (c *signingKeyCache) set(key string, dateStamp string, signingKey []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// 缓存24小时
+	c.cache[key] = cachedKey{
+		key:     signingKey,
+		date:    dateStamp,
+		expires: time.Now().Add(24 * time.Hour),
+	}
+	
+	// 清理过期缓存（简单策略：如果缓存超过100个，清理一半）
+	if len(c.cache) > 100 {
+		now := time.Now()
+		for k, v := range c.cache {
+			if now.After(v.expires) {
+				delete(c.cache, k)
+			}
+		}
+	}
 }
 
 // NewSignatureV4 创建签名验证器
 func NewSignatureV4(region, service string) *SignatureV4 {
 	return &SignatureV4{
-		region:  region,
-		service: service,
+		region:   region,
+		service:  service,
+		keyCache: newSigningKeyCache(),
 	}
 }
 
@@ -162,7 +232,53 @@ func (sv *SignatureV4) buildCanonicalQueryString(query url.Values) string {
 		}
 	}
 
-	return strings.Join(parts, "&")
+	queryString := strings.Join(parts, "&")
+	// AWS 规范要求：将 + 替换为 %20（空格）
+	// url.QueryEscape 会将空格编码为 +，但 AWS 要求使用 %20
+	queryString = strings.Replace(queryString, "+", "%20", -1)
+	
+	return queryString
+}
+
+// stripExcessSpaces 移除多余空格（参考 AWS SDK v2 实现）
+func stripExcessSpaces(str string) string {
+	// 移除尾随空格
+	j := len(str) - 1
+	for j >= 0 && str[j] == ' ' {
+		j--
+	}
+	
+	// 移除前导空格
+	k := 0
+	for k < j && str[k] == ' ' {
+		k++
+	}
+	
+	if k > 0 || j < len(str)-1 {
+		str = str[k : j+1]
+	}
+	
+	// 移除多个连续空格
+	if strings.Contains(str, "  ") {
+		buf := []byte(str)
+		var result []byte
+		var lastSpace bool
+		
+		for _, b := range buf {
+			if b == ' ' {
+				if !lastSpace {
+					result = append(result, b)
+					lastSpace = true
+				}
+			} else {
+				result = append(result, b)
+				lastSpace = false
+			}
+		}
+		str = string(result)
+	}
+	
+	return str
 }
 
 // buildCanonicalHeaders 构建规范请求头
@@ -193,9 +309,8 @@ func (sv *SignatureV4) buildCanonicalHeaders(r *http.Request, signedHeaders stri
 			value = strings.ToLower(value)
 		}
 		
-		// 规范化：移除多余空格，合并连续空格为单个空格
-		value = strings.TrimSpace(value)
-		value = strings.Join(strings.Fields(value), " ")
+		// 规范化：使用更严格的空格处理（参考 AWS SDK v2）
+		value = strings.TrimSpace(stripExcessSpaces(value))
 		
 		parts = append(parts, headerName+":"+value)
 	}
@@ -216,12 +331,25 @@ func (sv *SignatureV4) buildStringToSign(requestDateTime, credentialScope, canon
 	)
 }
 
-// deriveSigningKey 派生签名密钥
+// deriveSigningKey 派生签名密钥（带缓存）
 func (sv *SignatureV4) deriveSigningKey(secretKey, dateStamp string) []byte {
+	// 构建缓存键：secretKey + region + service + dateStamp
+	cacheKey := fmt.Sprintf("%s:%s:%s:%s", secretKey, sv.region, sv.service, dateStamp)
+	
+	// 尝试从缓存获取
+	if cachedKey, ok := sv.keyCache.get(cacheKey, dateStamp); ok {
+		return cachedKey
+	}
+	
+	// 计算签名密钥
 	kDate := sv.hmacSHA256([]byte("AWS4"+secretKey), []byte(dateStamp))
 	kRegion := sv.hmacSHA256(kDate, []byte(sv.region))
 	kService := sv.hmacSHA256(kRegion, []byte(sv.service))
 	kSigning := sv.hmacSHA256(kService, []byte("aws4_request"))
+	
+	// 存入缓存
+	sv.keyCache.set(cacheKey, dateStamp, kSigning)
+	
 	return kSigning
 }
 
@@ -302,7 +430,29 @@ func (sv *SignatureV4) GeneratePresignedURL(baseURL string, params PresignedURLP
 	query.Set("X-Amz-Credential", credential)
 	query.Set("X-Amz-Date", dateTime)
 	query.Set("X-Amz-Expires", expiresSeconds)
-	query.Set("X-Amz-SignedHeaders", "host")
+	
+	// 构建规范 headers（支持更多 headers，如 X-Amz-Acl）
+	canonicalHeaders := fmt.Sprintf("host:%s\n", strings.ToLower(parsedURL.Host))
+	signedHeadersList := []string{"host"}
+	
+	// 处理额外的 headers（Header Hoisting）
+	if params.Headers != nil {
+		for k, v := range params.Headers {
+			lowerKey := strings.ToLower(k)
+			// 支持 X-Amz-* headers
+			if strings.HasPrefix(lowerKey, "x-amz-") {
+				// 将 header 添加到查询参数（Header Hoisting）
+				query.Set(k, v)
+				// 添加到规范 headers
+				canonicalHeaders += fmt.Sprintf("%s:%s\n", lowerKey, strings.TrimSpace(v))
+				signedHeadersList = append(signedHeadersList, lowerKey)
+			}
+		}
+	}
+	
+	sort.Strings(signedHeadersList)
+	signedHeaders := strings.Join(signedHeadersList, ";")
+	query.Set("X-Amz-SignedHeaders", signedHeaders)
 
 	// 6. 构建规范请求
 	canonicalURI := parsedURL.EscapedPath()
@@ -311,8 +461,6 @@ func (sv *SignatureV4) GeneratePresignedURL(baseURL string, params PresignedURLP
 	}
 
 	canonicalQueryString := sv.buildCanonicalQueryString(query)
-	canonicalHeaders := fmt.Sprintf("host:%s\n", parsedURL.Host)
-	signedHeaders := "host"
 	payloadHash := "UNSIGNED-PAYLOAD"
 
 	canonicalRequest := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
@@ -368,8 +516,10 @@ func (sv *SignatureV4) VerifyPresignedURL(r *http.Request, secretKey string) err
 		return fmt.Errorf("invalid date format")
 	}
 
-	// 检查是否过期
-	if time.Since(requestTime) > time.Duration(expiresSeconds)*time.Second {
+	// 检查是否过期（修复：使用正确的过期时间计算）
+	// requestTime 是签名时间，expiresSeconds 是相对过期时间（秒）
+	expiresAt := requestTime.Add(time.Duration(expiresSeconds) * time.Second)
+	if time.Now().After(expiresAt) {
 		return fmt.Errorf("presigned URL expired")
 	}
 
