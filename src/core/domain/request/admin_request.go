@@ -114,7 +114,7 @@ type AdminDiskListRequest struct{}
 type AdminCreateDiskRequest struct {
 	DiskPath string `json:"disk_path" binding:"required"`
 	DataPath string `json:"data_path" binding:"required"`
-	Size     int    `json:"size" binding:"required,min=0"` // 大小（GB）
+	Size     int64  `json:"size" binding:"required,min=0"` // 大小（字节）
 }
 
 // AdminUpdateDiskRequest 管理员更新磁盘请求
@@ -122,7 +122,7 @@ type AdminUpdateDiskRequest struct {
 	ID       string `json:"id" binding:"required"`
 	DiskPath string `json:"disk_path"`
 	DataPath string `json:"data_path"`
-	Size     int    `json:"size"`
+	Size     int64  `json:"size"` // 大小（字节）
 }
 
 // AdminDeleteDiskRequest 管理员删除磁盘请求

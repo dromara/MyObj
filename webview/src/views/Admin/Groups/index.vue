@@ -163,7 +163,7 @@
     type AdminGroup,
     type AdminPower
   } from '@/api/admin'
-  import { bytesToGB, GBToBytes } from '@/utils'
+  import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import { useI18n } from '@/composables'
   import { getPermissionName, getPermissionDescription } from '@/utils/business/permission'
 
@@ -337,7 +337,7 @@
   // 格式化存储空间
   const formatStorage = (bytes: number) => {
     if (bytes === 0 || bytes === -1) return t('admin.groups.unlimited')
-    return bytesToGB(bytes) + ' GB'
+    return formatSize(bytes)
   }
 
   // 加载组列表

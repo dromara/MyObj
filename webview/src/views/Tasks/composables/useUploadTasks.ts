@@ -19,6 +19,11 @@ export function useUploadTasks() {
   const pageSize = ref(20)
   const total = computed(() => allUploadTasks.value.length)
 
+  // 防抖相关
+  let syncTimer: number | null = null
+  let lastSyncTime = 0
+  const SYNC_DEBOUNCE_TIME = 2000 // 2秒内最多同步一次
+
   // 更新分页数据
   const updatePaginatedTasks = () => {
     const start = (currentPage.value - 1) * pageSize.value
@@ -26,16 +31,39 @@ export function useUploadTasks() {
     uploadTasks.value = allUploadTasks.value.slice(start, end)
   }
 
-  // 加载上传任务列表
-  const loadUploadTasks = async (showLoading = true) => {
+  // 加载上传任务列表（带防抖）
+  const loadUploadTasks = async (showLoading = true, forceSync = false) => {
     if (showLoading) {
       uploadLoading.value = true
     }
     try {
+      // 先加载本地任务并更新UI
       const localTasks = uploadTaskManager.getAllTasks()
       allUploadTasks.value = localTasks
       updatePaginatedTasks()
 
+      // 防抖：如果不是强制同步，且距离上次同步时间小于防抖时间，则跳过后端同步
+      const now = Date.now()
+      if (!forceSync && now - lastSyncTime < SYNC_DEBOUNCE_TIME) {
+        // 取消之前的定时器
+        if (syncTimer) {
+          clearTimeout(syncTimer)
+        }
+        // 设置新的定时器，延迟执行同步
+        syncTimer = window.setTimeout(async () => {
+          const syncResult = await loadAndSyncBackendTasks()
+          if (syncResult.success) {
+            const allTasks = uploadTaskManager.getAllTasks()
+            allUploadTasks.value = allTasks
+            updatePaginatedTasks()
+          }
+          lastSyncTime = Date.now()
+        }, SYNC_DEBOUNCE_TIME)
+        return
+      }
+
+      // 执行后端同步
+      lastSyncTime = now
       const syncResult = await loadAndSyncBackendTasks()
 
       if (syncResult.success) {

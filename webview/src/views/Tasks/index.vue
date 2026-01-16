@@ -115,14 +115,16 @@
   let unsubscribe: (() => void) | null = null
 
   onMounted(() => {
-    loadUploadTasks()
+    loadUploadTasks(true, true) // 初始加载，强制同步后端
     loadDownloadTasks(true, 1, 20) // 初始加载，第一页，每页20条
     getExpiredTaskCount() // 加载过期任务数量
 
     // 订阅上传任务更新（保持当前分页）
+    // 注意：不强制同步，使用防抖机制
     unsubscribe = uploadTaskManager.subscribe(() => {
       // 重新加载以更新分页数据，保持当前页
-      loadUploadTasks(false)
+      // forceSync = false，使用防抖机制，避免频繁调用后端接口
+      loadUploadTasks(false, false)
     })
 
     // 启动自动同步（30秒）
@@ -132,7 +134,7 @@
       }
       syncTimer = window.setInterval(() => {
         if (activeTab.value === 'upload') {
-          loadUploadTasks(false) // 自动刷新时不显示loading
+          loadUploadTasks(false, true) // 定时任务强制同步
           getExpiredTaskCount() // 定期更新过期任务数量
         }
       }, 30000)

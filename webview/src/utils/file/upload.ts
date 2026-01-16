@@ -11,13 +11,17 @@ export interface UploadConfig {
   maxConcurrentChunks: number
   maxFileSize: number
   maxConcurrentFiles?: number
+  maxRetries?: number // 分片上传最大重试次数
+  retryDelay?: number // 重试延迟基数（毫秒），使用指数退避算法
 }
 
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   chunkSize: UPLOAD_CONFIG.CHUNK_SIZE || 5 * 1024 * 1024,
   maxConcurrentChunks: 3,
   maxFileSize: UPLOAD_CONFIG.MAX_FILE_SIZE || 10 * 1024 * 1024 * 1024,
-  maxConcurrentFiles: 2
+  maxConcurrentFiles: 2,
+  maxRetries: 3, // 每个分片最多重试3次
+  retryDelay: 1000 // 重试延迟基数1秒，使用指数退避（1s, 2s, 4s）
 }
 
 export interface UploadParams {
@@ -562,120 +566,141 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
 
         ;(async chunkIndex => {
           const uploadChunkTask = async () => {
-            try {
-              // 等待任务从暂停状态恢复，或检查是否已取消/失败
-              const waitForResumeOrCheckCancelled = async (): Promise<boolean> => {
-                if (!taskId) return true
-
-                const task = uploadTaskManager.getTask(taskId)
-                if (!task) return false
-
-                // 如果任务已取消或失败，直接返回 false
-                if (task.status === 'cancelled' || task.status === 'failed') {
-                  return false
-                }
-
-                // 如果任务已暂停，等待恢复
-                if (task.status === 'paused') {
-                  while (task.status === 'paused') {
-                    await new Promise(resolve => setTimeout(resolve, 100))
-                    const currentTask = uploadTaskManager.getTask(taskId)
-                    if (!currentTask) return false
-                    if (currentTask.status === 'cancelled' || currentTask.status === 'failed') {
-                      return false
-                    }
-                    if (currentTask.status !== 'paused') {
-                      break
-                    }
+            let retryCount = 0
+            const maxRetries = uploadConfig.maxRetries || 3
+            const retryDelay = uploadConfig.retryDelay || 1000
+        
+            // 重试逻辑：使用指数退避算法
+            while (retryCount <= maxRetries) {
+              try {
+                // 等待任务从暂停状态恢复，或检查是否已取消/失败
+                const waitForResumeOrCheckCancelled = async (): Promise<boolean> => {
+                  if (!taskId) return true
+        
+                  const task = uploadTaskManager.getTask(taskId)
+                  if (!task) return false
+        
+                  // 如果任务已取消或失败，直接返回 false
+                  if (task.status === 'cancelled' || task.status === 'failed') {
+                    return false
                   }
-                }
-
-                return true
-              }
-
-              // 在计算MD5前检查任务状态
-              if (!(await waitForResumeOrCheckCancelled())) {
-                return
-              }
-
-              const chunkMD5 = await calculateChunkMD5(chunk)
-
-              // 在计算MD5后再次检查任务状态
-              if (!(await waitForResumeOrCheckCancelled())) {
-                return
-              }
-
-              let cancelUpload: (() => void) | null = null
-              await uploadFile(
-                {
-                  precheck_id: precheckId,
-                  file: chunkFile,
-                  chunk_index: chunkIndex,
-                  total_chunks: totalChunks,
-                  chunk_md5: chunkMD5,
-                  is_enc: is_enc,
-                  file_password: file_password
-                },
-                (_percent, loaded, _total) => {
-                  if (taskId) {
-                    const task = uploadTaskManager.getTask(taskId)
-                    if (task && task.status === 'paused' && cancelUpload) {
-                      cancelUpload()
-                      return
-                    }
-                  }
-                  if (taskId && loaded !== undefined) {
-                    const chunkUploaded = loaded
-                    const previousChunksSize = Array.from(uploadedChunks).reduce((sum, chunkIdx) => {
-                      if (chunkIdx === totalChunks - 1) {
-                        const lastChunkSize = file.size - (totalChunks - 1) * uploadConfig.chunkSize
-                        return sum + lastChunkSize
-                      } else {
-                        return sum + uploadConfig.chunkSize
+        
+                  // 如果任务已暂停，等待恢复
+                  if (task.status === 'paused') {
+                    while (task.status === 'paused') {
+                      await new Promise(resolve => setTimeout(resolve, 100))
+                      const currentTask = uploadTaskManager.getTask(taskId)
+                      if (!currentTask) return false
+                      if (currentTask.status === 'cancelled' || currentTask.status === 'failed') {
+                        return false
                       }
-                    }, 0)
-                    const currentChunkSize = Math.min(chunkUploaded, uploadConfig.chunkSize)
-                    const totalUploaded = previousChunksSize + currentChunkSize
-                    // 确保 totalUploaded 不超过 file.size
-                    const clampedTotalUploaded = Math.min(Math.max(0, totalUploaded), file.size)
-                    // 确保进度在 10-100 范围内（预检占 10%，实际上传占 90%）
-                    const totalProgress = Math.max(10, Math.min(100, Math.floor(10 + (clampedTotalUploaded / file.size) * 90)))
-                    uploadTaskManager.updateProgress(taskId, totalProgress, clampedTotalUploaded)
-                  }
-                },
-                {
-                  onCancel: cancel => {
-                    cancelUpload = cancel
-                    if (taskId && typeof cancel === 'function') {
-                      cancelFunctions.push(cancel)
+                      if (currentTask.status !== 'paused') {
+                        break
+                      }
                     }
                   }
+        
+                  return true
                 }
-              ).catch(error => {
-                if (error.message === '上传已取消' || error.message === '请求已取消') {
+        
+                // 在计算MD5前检查任务状态
+                if (!(await waitForResumeOrCheckCancelled())) {
                   return
                 }
-                throw error
-              })
-
-              uploadedChunks.add(chunkIndex)
-
-              const uploadProgress = Math.floor(10 + (uploadedChunks.size / totalChunks) * 90)
-              const uploadedSize = Math.floor((file.size * uploadProgress) / 100)
-              if (taskId) {
-                uploadTaskManager.updateProgress(taskId, uploadProgress, uploadedSize)
+        
+                const chunkMD5 = await calculateChunkMD5(chunk)
+        
+                // 在计算MD5后再次检查任务状态
+                if (!(await waitForResumeOrCheckCancelled())) {
+                  return
+                }
+        
+                let cancelUpload: (() => void) | null = null
+                await uploadFile(
+                  {
+                    precheck_id: precheckId,
+                    file: chunkFile,
+                    chunk_index: chunkIndex,
+                    total_chunks: totalChunks,
+                    chunk_md5: chunkMD5,
+                    is_enc: is_enc,
+                    file_password: file_password
+                  },
+                  (_percent, loaded, _total) => {
+                    if (taskId) {
+                      const task = uploadTaskManager.getTask(taskId)
+                      if (task && task.status === 'paused' && cancelUpload) {
+                        cancelUpload()
+                        return
+                      }
+                    }
+                    if (taskId && loaded !== undefined) {
+                      const chunkUploaded = loaded
+                      const previousChunksSize = Array.from(uploadedChunks).reduce((sum, chunkIdx) => {
+                        if (chunkIdx === totalChunks - 1) {
+                          const lastChunkSize = file.size - (totalChunks - 1) * uploadConfig.chunkSize
+                          return sum + lastChunkSize
+                        } else {
+                          return sum + uploadConfig.chunkSize
+                        }
+                      }, 0)
+                      const currentChunkSize = Math.min(chunkUploaded, uploadConfig.chunkSize)
+                      const totalUploaded = previousChunksSize + currentChunkSize
+                      // 确保 totalUploaded 不超过 file.size
+                      const clampedTotalUploaded = Math.min(Math.max(0, totalUploaded), file.size)
+                      // 确保进度在 10-100 范围内（预检占 10%，实际上传占 90%）
+                      const totalProgress = Math.max(10, Math.min(100, Math.floor(10 + (clampedTotalUploaded / file.size) * 90)))
+                      uploadTaskManager.updateProgress(taskId, totalProgress, clampedTotalUploaded)
+                    }
+                  },
+                  {
+                    onCancel: cancel => {
+                      cancelUpload = cancel
+                      if (taskId && typeof cancel === 'function') {
+                        cancelFunctions.push(cancel)
+                      }
+                    }
+                  }
+                ).catch(error => {
+                  if (error.message === '上传已取消' || error.message === '请求已取消') {
+                    return
+                  }
+                  throw error
+                })
+        
+                // 上传成功，跳出重试循环
+                uploadedChunks.add(chunkIndex)
+        
+                const uploadProgress = Math.floor(10 + (uploadedChunks.size / totalChunks) * 90)
+                const uploadedSize = Math.floor((file.size * uploadProgress) / 100)
+                if (taskId) {
+                  uploadTaskManager.updateProgress(taskId, uploadProgress, uploadedSize)
+                }
+                onProgress?.(uploadProgress, file.name)
+                break // 成功后退出重试循环
+              } catch (error) {
+                if (error instanceof Error && error.message === '上传已取消') {
+                  return
+                }
+        
+                retryCount++
+                        
+                if (retryCount > maxRetries) {
+                  // 超过最大重试次数，记录错误
+                  logger.error(`分片 ${chunkIndex} 上传失败（已重试 ${maxRetries} 次）:`, error)
+                  onError?.(error as Error, file.name)
+                  // 不投出错误，让其他分片继续上传
+                  // 错误会在 waitForAll 后通过 uploadedChunks.size 检查发现
+                  break
+                }
+                        
+                // 指数退避：第1次重试等待1s，第2次等待2s，第3次等待4s
+                const delay = retryDelay * Math.pow(2, retryCount - 1)
+                logger.warn(`分片 ${chunkIndex} 上传失败，${delay}ms 后进行第 ${retryCount} 次重试...`, error)
+                        
+                // 等待指定延迟后重试
+                await new Promise(resolve => setTimeout(resolve, delay))
               }
-              onProgress?.(uploadProgress, file.name)
-            } catch (error) {
-              if (error instanceof Error && error.message === '上传已取消') {
-                return
-              }
-              // 不要在这里将整个任务标记为失败，因为可能还有其他分片在上传
-              // 只记录错误，等待所有分片完成后再统一判断
-              logger.error(`分片 ${chunkIndex} 上传失败:`, error)
-              onError?.(error as Error, file.name)
-              // 不抛出错误，让其他分片继续上传
-              // 错误会在 waitForAll 后通过 uploadedChunks.size 检查发现
             }
           }
 

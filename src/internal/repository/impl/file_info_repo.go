@@ -44,7 +44,7 @@ func (r *fileInfoRepository) GetByChunkSignature(ctx context.Context, signature 
 	var files models.FileInfo
 	err := r.db.WithContext(ctx).
 		Where("chunk_signature = ? AND size = ?", signature, fileSize).
-		Find(&files).Error
+		First(&files).Error
 	if err != nil {
 		return nil, err
 	}

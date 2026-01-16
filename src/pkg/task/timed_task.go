@@ -378,3 +378,143 @@ func (t *UploadTask) StartScheduledCleanup(interval time.Duration) {
 		}
 	}()
 }
+
+// TempFileCleanup 临时文件清理任务
+type TempFileCleanup struct {
+	factory *impl.RepositoryFactory
+}
+
+// NewTempFileCleanup 创建临时文件清理任务
+func NewTempFileCleanup(factory *impl.RepositoryFactory) *TempFileCleanup {
+	return &TempFileCleanup{
+		factory: factory,
+	}
+}
+
+// CleanupOrphanedTempFiles 清理孤儿临时文件
+// 孤儿临时文件：超过指定时间未完成上传的临时分片文件
+func (t *TempFileCleanup) CleanupOrphanedTempFiles(maxAge time.Duration) error {
+	ctx := context.Background()
+	logger.LOG.Info("开始清理孤儿临时文件", "max_age", maxAge)
+
+	// 1. 获取所有磁盘
+	disks, err := t.factory.Disk().List(ctx, 0, 1000)
+	if err != nil {
+		logger.LOG.Error("获取磁盘列表失败", "error", err)
+		return fmt.Errorf("获取磁盘列表失败: %w", err)
+	}
+
+	if len(disks) == 0 {
+		logger.LOG.Debug("没有配置磁盘，跳过临时文件清理")
+		return nil
+	}
+
+	totalCleaned := 0
+	totalSize := int64(0)
+	cutoffTime := time.Now().Add(-maxAge)
+
+	// 2. 遍历所有磁盘的temp目录
+	for _, disk := range disks {
+		tempDir := filepath.Join(disk.DataPath, "temp")
+
+		// 检查temp目录是否存在
+		if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+			continue
+		}
+
+		// 遍历temp目录下的所有子目录
+		entries, err := os.ReadDir(tempDir)
+		if err != nil {
+			logger.LOG.Warn("读取临时目录失败", "path", tempDir, "error", err)
+			continue
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			dirPath := filepath.Join(tempDir, entry.Name())
+
+			// 获取目录信息
+			info, err := entry.Info()
+			if err != nil {
+				logger.LOG.Warn("获取目录信息失败", "path", dirPath, "error", err)
+				continue
+			}
+
+			// 检查目录修改时间
+			if info.ModTime().Before(cutoffTime) {
+				// 计算目录大小
+				dirSize, err := calculateDirSize(dirPath)
+				if err != nil {
+					logger.LOG.Warn("计算目录大小失败", "path", dirPath, "error", err)
+					dirSize = 0
+				}
+
+				// 删除过期的临时目录
+				if err := os.RemoveAll(dirPath); err != nil {
+					logger.LOG.Warn("删除临时目录失败", "path", dirPath, "error", err)
+					continue
+				}
+
+				totalCleaned++
+				totalSize += dirSize
+				logger.LOG.Info("清理孤儿临时文件成功",
+					"path", dirPath,
+					"age", time.Since(info.ModTime()),
+					"size", dirSize)
+			}
+		}
+	}
+
+	if totalCleaned > 0 {
+		logger.LOG.Info("临时文件清理完成",
+			"cleaned_dirs", totalCleaned,
+			"freed_space", totalSize)
+	} else {
+		logger.LOG.Debug("没有需要清理的孤儿临时文件")
+	}
+
+	return nil
+}
+
+// calculateDirSize 计算目录大小
+func calculateDirSize(dirPath string) (int64, error) {
+	var size int64
+	err := filepath.Walk(dirPath, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
+}
+
+// StartScheduledCleanup 启动定时清理任务
+// maxAge: 临时文件最大保留时间（超过此时间视为孤儿文件）
+// interval: 执行间隔
+func (t *TempFileCleanup) StartScheduledCleanup(maxAge time.Duration, interval time.Duration) {
+	logger.LOG.Info("启动临时文件定时清理任务",
+		"max_age", maxAge,
+		"interval", interval)
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		// 启动时延迟5分钟执行第一次（避免启动时立即清理）
+		time.Sleep(5 * time.Minute)
+		if err := t.CleanupOrphanedTempFiles(maxAge); err != nil {
+			logger.LOG.Error("临时文件清理任务执行失败", "error", err)
+		}
+
+		// 然后按间隔执行
+		for range ticker.C {
+			if err := t.CleanupOrphanedTempFiles(maxAge); err != nil {
+				logger.LOG.Error("临时文件清理任务执行失败", "error", err)
+			}
+		}
+	}()
+}

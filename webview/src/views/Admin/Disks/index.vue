@@ -104,7 +104,7 @@
     type AdminDisk,
     type ScannedDiskInfo
   } from '@/api/admin'
-  import { formatSize, bytesToGB } from '@/utils'
+  import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import { useI18n } from '@/composables'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
@@ -147,11 +147,10 @@
     ]
   }
 
-  // 格式化存储空间（后端返回的是字节，需要转换为GB显示）
+  // 格式化存储空间（后端返回的是字节，自适应显示）
   const formatStorage = (bytes: number) => {
     if (bytes === 0) return t('admin.disks.notSet')
-    // return formatSize(bytes)
-    return bytes + 'GB'
+    return formatSize(bytes)
   }
 
   // 格式化字节（用于扫描磁盘显示）
@@ -242,20 +241,20 @@
           ? `${selectedDisk.mount}data`
           : `${selectedDisk.mount}/data`
       formData.data_path = dataPath
-      // 将字节转换为GB（向下取整）
-      formData.size = Math.floor(selectedDisk.total / (1024 * 1024 * 1024))
+      // 将扫描到的字节转换为GB用于表单输入
+      formData.size = bytesToGB(selectedDisk.total)
     }
   }
 
   // 编辑磁盘
   const handleEdit = (disk: AdminDisk) => {
     isEdit.value = true
-    // 后端返回的 size 是字节，需要转换为 GB 用于表单输入
+    // 后端返回的 size 是字节，转换为GB用于表单输入
     Object.assign(formData, {
       id: disk.id,
       disk_path: disk.disk_path,
       data_path: disk.data_path,
-      size: bytesToGB(disk.size) // 将字节转换为 GB
+      size: bytesToGB(disk.size) // 转换为GB
     })
     showDialog.value = true
   }
@@ -267,10 +266,10 @@
       if (valid) {
         submitting.value = true
         try {
-          // 前端输入的是 GB，后端期望的也是 GB（后端会转换为字节）
+          // 前端输入的是GB，转换为字节后传给后端
           const submitData = {
             ...formData,
-            size: formData.size // 保持 GB，后端会转换
+            size: GBToBytes(formData.size) // GB转换为字节
           }
           if (isEdit.value) {
             const res = await updateAdminDisk(submitData)

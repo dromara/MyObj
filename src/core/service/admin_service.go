@@ -149,9 +149,10 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 		CreatedAt: custom_type.Now(),
 		State:     0,
 	}
+	// 如果用户Space为0且组有限制，使用组的Space
 	if req.Space == 0 && group.Space > 0 {
-		user.Space = group.Space * 1024 * 1024 * 1024
-		user.FreeSpace = group.Space * 1024 * 1024 * 1024 // Convert to bytes (GB)
+		user.Space = group.Space
+		user.FreeSpace = group.Space
 	}
 
 	if err = a.factory.User().Create(ctx, user); err != nil {
@@ -712,7 +713,7 @@ func (a *AdminService) AdminUpdateDisk(req *request.AdminUpdateDiskRequest) (*mo
 		disk.DataPath = req.DataPath
 	}
 	if req.Size > 0 {
-		disk.Size = req.Size * 1024 * 1024 * 1024 // GB转字节
+		disk.Size = req.Size // 前端已传递字节
 	}
 
 	if err = a.factory.Disk().Update(ctx, disk); err != nil {

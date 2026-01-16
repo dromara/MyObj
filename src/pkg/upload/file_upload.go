@@ -438,8 +438,8 @@ func selectBestDisk(ctx context.Context, repoFactory *impl.RepositoryFactory, fi
 	var maxFreeSpace int64 = -1
 
 	for _, disk := range disks {
-		// 磁盘大小单位是GB，需要转换为字节
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024 // GB转字节
+		// 磁盘大小单位是字节
+		freeSpaceBytes := disk.Size
 
 		if freeSpaceBytes >= fileSize && freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes

@@ -134,6 +134,9 @@ func Execute(cacheLocal cache.Cache) {
 	// 启动上传任务定时清理任务（每天清理一次过期任务）
 	uploadTask := task.NewUploadTask(factory)
 	uploadTask.StartScheduledCleanup(24 * time.Hour)
+	// 启动临时文件定时清理任务（清理超过24小时的孤儿临时文件，每6小时执行一次）
+	tempFileCleanup := task.NewTempFileCleanup(factory)
+	tempFileCleanup.StartScheduledCleanup(24*time.Hour, 6*time.Hour)
 
 	// 启动S3生命周期管理定时任务（如果启用S3服务）
 	if config.CONFIG.S3.Enable {
