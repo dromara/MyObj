@@ -3,4 +3,5 @@
  */
 export * from './useDragAndDrop'
 export * from './useKeyboardShortcuts'
+export * from './useOnboarding'
 export * from './usePreload'

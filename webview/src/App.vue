@@ -1,6 +1,6 @@
 <script setup lang="ts">
   // App只作为路由容器，逻辑由router守卫和各页面处理
-  import { useTheme, useKeyboardShortcuts } from '@/composables'
+  import { useTheme, useKeyboardShortcuts, useOnboarding } from '@/composables'
   import { useAppStore } from '@/stores'
 
   // 初始化主题系统
@@ -9,8 +9,30 @@
   // 初始化快捷键系统
   useKeyboardShortcuts()
 
+  // 初始化新手引导系统
+  const { checkAndStartOnboarding, checkOnboardingStatus } = useOnboarding()
+
   // 获取 Element Plus 语言包
   const appStore = useAppStore()
+
+  // 监听路由变化，检查是否需要启动引导
+  const router = useRouter()
+  router.afterEach(() => {
+    // 延迟检查，确保页面已渲染
+    setTimeout(() => {
+      checkOnboardingStatus()
+      checkAndStartOnboarding()
+    }, 300)
+  })
+
+  // 初始化时也检查一次（处理首次加载或清除 localStorage 后的情况）
+  onMounted(() => {
+    checkOnboardingStatus()
+    // 延迟检查，确保页面已渲染
+    setTimeout(() => {
+      checkAndStartOnboarding()
+    }, 500)
+  })
 </script>
 
 <template>
@@ -19,6 +41,9 @@
 
     <!-- 快捷键帮助对话框 -->
     <ShortcutHelp />
+
+    <!-- 新手引导欢迎对话框 -->
+    <OnboardingWelcome />
   </ElConfigProvider>
 </template>
 

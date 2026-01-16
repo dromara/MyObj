@@ -1,9 +1,13 @@
 <template>
   <el-dialog v-model="visible" :title="t('shortcuts.title')" width="500px" :close-on-click-modal="true">
+    <div class="shortcut-hint">
+      <el-icon><InfoFilled /></el-icon>
+      <span>{{ t('shortcuts.hint') }}</span>
+    </div>
     <div class="shortcut-list">
       <div v-for="(shortcut, index) in shortcuts" :key="index" class="shortcut-item">
         <div class="shortcut-keys">
-          <kbd v-if="shortcut.ctrl || shortcut.meta">Ctrl</kbd>
+          <kbd v-if="shortcut.ctrl || shortcut.meta">{{ isMac ? 'Cmd' : 'Ctrl' }}</kbd>
           <kbd v-if="shortcut.shift">Shift</kbd>
           <kbd v-if="shortcut.alt">Alt</kbd>
           <kbd>{{ shortcut.key.toUpperCase() }}</kbd>
@@ -20,10 +24,16 @@
 </template>
 
 <script setup lang="ts">
+  import { InfoFilled } from '@element-plus/icons-vue'
   import { useKeyboardShortcuts, useI18n } from '@/composables'
 
   const { shortcuts, showHelp, toggleHelp } = useKeyboardShortcuts()
   const { t } = useI18n()
+
+  // 检测是否为 Mac 系统
+  const isMac = computed(() => {
+    return /Mac|iPhone|iPod|iPad/i.test(navigator.userAgent)
+  })
 
   const visible = computed({
     get: () => showHelp.value,
@@ -36,6 +46,23 @@
 </script>
 
 <style scoped>
+  .shortcut-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: var(--el-color-info-light-9);
+    border-radius: 6px;
+    color: var(--el-color-info);
+    font-size: 13px;
+  }
+
+  html.dark .shortcut-hint {
+    background: rgba(64, 158, 255, 0.1);
+    color: var(--el-color-info-light-3);
+  }
+
   .shortcut-list {
     display: flex;
     flex-direction: column;

@@ -9,15 +9,15 @@
       <!-- 主题设置 -->
       <el-form-item :label="t('settings.theme')">
         <el-radio-group v-model="currentTheme" @change="handleThemeChange">
-          <el-radio-button label="light">
+          <el-radio-button value="light">
             <el-icon><Sunny /></el-icon>
             <span style="margin-left: 4px">{{ t('settings.light') }}</span>
           </el-radio-button>
-          <el-radio-button label="dark">
+          <el-radio-button value="dark">
             <el-icon><Moon /></el-icon>
             <span style="margin-left: 4px">{{ t('settings.dark') }}</span>
           </el-radio-button>
-          <el-radio-button label="auto">
+          <el-radio-button value="auto">
             <el-icon><Monitor /></el-icon>
             <span style="margin-left: 4px">{{ t('settings.auto') }}</span>
           </el-radio-button>

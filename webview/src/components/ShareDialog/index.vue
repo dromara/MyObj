@@ -33,7 +33,7 @@
           class="expire-options desktop-only"
           @change="handleExpireChange"
         >
-          <el-radio-button v-for="option in expireOptions" :key="option.value" :label="option.value">
+          <el-radio-button v-for="option in expireOptions" :key="option.value" :value="option.value">
             {{ option.label }}
           </el-radio-button>
         </el-radio-group>
