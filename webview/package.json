@@ -21,6 +21,7 @@
     "@element-plus/icons-vue": "^2.3.2",
     "@vueuse/core": "^14.1.0",
     "axios": "^1.13.2",
+    "driver.js": "^1.4.0",
     "element-plus": "^2.11.7",
     "jsencrypt": "^3.5.4",
     "pinia": "^3.0.4",

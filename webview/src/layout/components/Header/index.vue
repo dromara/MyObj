@@ -42,6 +42,16 @@
     </div>
 
     <div class="header-right">
+      <!-- 帮助按钮（快捷键帮助） -->
+      <el-tooltip :content="t('shortcuts.title')" placement="bottom" class="desktop-only">
+        <el-button
+          class="header-action-btn"
+          icon="QuestionFilled"
+          circle
+          text
+          @click="handleHelpClick"
+        />
+      </el-tooltip>
       <!-- 全屏切换按钮（桌面端） -->
       <el-tooltip
         :content="isFullscreen ? t('header.exitFullscreen') : t('header.fullscreen')"
@@ -144,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-  import { useTheme, useSearchHistory, useI18n } from '@/composables'
+  import { useTheme, useSearchHistory, useI18n, useKeyboardShortcuts } from '@/composables'
   import { useFullscreen } from '@vueuse/core'
   import logoImage from '@/assets/images/LOGO.png'
 
@@ -172,6 +182,7 @@
   const { isDark, toggleTheme } = useTheme()
   const { searchHistory, addHistory, clearHistory, removeHistory } = useSearchHistory()
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen()
+  const { toggleHelp } = useKeyboardShortcuts()
 
   const searchKeyword = ref('')
   let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -335,6 +346,11 @@
   const handleSearchDialogClosed = () => {
     // 对话框关闭后，如果需要可以清空搜索关键词
     // 这里不清空，保留搜索关键词以便用户继续搜索
+  }
+
+  // 处理帮助按钮点击
+  const handleHelpClick = () => {
+    toggleHelp()
   }
 
   const handleCommand = (command: string) => {

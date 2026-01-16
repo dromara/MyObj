@@ -34,9 +34,21 @@
   import Appearance from './components/Appearance.vue'
   import ApiKey from './components/ApiKey.vue'
   import { useI18n } from '@/composables'
+  import { useRoute } from 'vue-router'
 
   const { t } = useI18n()
+  const route = useRoute()
   const activeTab = ref('userInfo')
+
+  // 支持通过查询参数设置激活的 tab
+  watch(() => route.query.tab, (tab) => {
+    if (tab && typeof tab === 'string') {
+      const validTabs = ['userInfo', 'password', 'appearance', 'apiKey']
+      if (validTabs.includes(tab)) {
+        activeTab.value = tab
+      }
+    }
+  }, { immediate: true })
 </script>
 
 <style scoped>

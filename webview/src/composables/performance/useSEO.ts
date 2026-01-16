@@ -171,10 +171,13 @@ export function useSEO(options: SEOOptions = {}) {
     setRobots(finalOptions.noindex, finalOptions.nofollow)
   }
 
-  // 初始化时应用设置
-  onMounted(() => {
-    applySEO()
-  })
+  // 只在组件上下文中自动应用 SEO（检查是否有活跃的组件实例）
+  // 在路由守卫等非组件上下文中，需要手动调用 applySEO()
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      applySEO()
+    })
+  }
 
   return {
     setTitle,

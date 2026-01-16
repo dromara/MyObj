@@ -155,7 +155,7 @@ export default {
     newUsername: '新用户名',
     newUsernamePlaceholder: '设置用户名',
     bindEmail: '绑定邮箱',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: '请输入邮箱地址',
     setPassword: '设置密码',
     passwordPlaceholder2: '至少 6 位字符',
     noAccount: '还没有账号？',
@@ -677,6 +677,18 @@ export default {
       deleteSuccess: '删除成功',
       deleteFailed: '删除失败',
       loadFailed: '加载失败'
+    },
+    shortcuts: {
+      title: '快捷键',
+      hint: '按 ? 键可随时查看所有快捷键，或点击下方按钮查看完整帮助',
+      viewAll: '查看完整帮助'
+    },
+    onboarding: {
+      title: '新手引导',
+      hint: '重新查看新手引导，了解系统功能',
+      reset: '重新开始引导',
+      resetConfirm: '确定要重新开始新手引导吗？',
+      resetSuccess: '已重置引导状态，刷新页面后将显示引导'
     }
   },
   collaboration: {
@@ -1013,6 +1025,7 @@ export default {
   },
   shortcuts: {
     title: '快捷键帮助',
+    hint: '按 ? 键可随时打开此帮助对话框',
     search: '搜索',
     searchDesc: 'Ctrl + K',
     help: '帮助',
@@ -1020,7 +1033,57 @@ export default {
     refresh: '刷新',
     refreshDesc: 'F5',
     noDescription: '未描述',
-    close: '关闭'
+    close: '关闭',
+    focusSearch: '聚焦搜索框',
+    newFolder: '新建文件夹',
+    uploadFile: '上传文件',
+    goToFiles: '跳转到文件页面',
+    goToShares: '跳转到分享页面',
+    closeDialog: '关闭对话框'
+  },
+  onboarding: {
+    welcome: {
+      title: '欢迎使用 MyObj',
+      subtitle: '开始您的文件管理之旅',
+      description: 'MyObj 是一个功能强大的文件管理系统，帮助您轻松管理、分享和保护您的文件。',
+      hint: '提示：按 ? 键可随时查看快捷键帮助',
+      skip: '跳过',
+      start: '开始探索',
+      features: {
+        upload: '文件上传',
+        uploadDesc: '支持拖拽上传、批量上传，快速管理您的文件',
+        manage: '文件管理',
+        manageDesc: '创建文件夹、移动、重命名，轻松组织您的文件',
+        share: '文件分享',
+        shareDesc: '一键生成分享链接，安全便捷地分享文件',
+        search: '快速搜索',
+        searchDesc: '使用快捷键 Ctrl+K 快速搜索文件',
+        customize: '个性化设置',
+        customizeDesc: '自定义主题、语言，打造专属体验'
+      }
+    },
+    features: {
+      upload: {
+        title: '文件上传',
+        description: '点击此按钮可以上传文件，也支持拖拽文件到页面进行上传。快捷键：Ctrl+U'
+      },
+      newFolder: {
+        title: '新建文件夹',
+        description: '点击此按钮可以创建新文件夹，帮助您更好地组织文件。快捷键：Ctrl+E'
+      },
+      search: {
+        title: '快速搜索',
+        description: '在此输入框搜索文件，支持按文件名、类型等搜索。快捷键：Ctrl+K'
+      },
+      offlineDownload: {
+        title: '离线下载',
+        description: '选择文件后，点击此按钮可以离线下载文件到本地，这是系统的特色功能'
+      },
+      customize: {
+        title: '个性化设置',
+        description: '点击用户头像可以进入设置页面，自定义主题、语言等个性化选项'
+      }
+    }
   },
   searchSuggestions: {
     title: '搜索建议',

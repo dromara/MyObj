@@ -21,13 +21,13 @@
     <div class="filter-bar">
       <div class="filter-type-group">
         <el-radio-group v-model="fileTypeFilter" @change="handleFilterChange" class="type-radio-group">
-          <el-radio-button label="all">{{ t('square.filterAll') }}</el-radio-button>
-          <el-radio-button label="image">{{ t('square.filterImage') }}</el-radio-button>
-          <el-radio-button label="video">{{ t('square.filterVideo') }}</el-radio-button>
-          <el-radio-button label="doc">{{ t('square.filterDoc') }}</el-radio-button>
-          <el-radio-button label="audio">{{ t('square.filterAudio') }}</el-radio-button>
-          <el-radio-button label="archive">{{ t('square.filterArchive') }}</el-radio-button>
-          <el-radio-button label="other">{{ t('square.filterOther') }}</el-radio-button>
+          <el-radio-button value="all">{{ t('square.filterAll') }}</el-radio-button>
+          <el-radio-button value="image">{{ t('square.filterImage') }}</el-radio-button>
+          <el-radio-button value="video">{{ t('square.filterVideo') }}</el-radio-button>
+          <el-radio-button value="doc">{{ t('square.filterDoc') }}</el-radio-button>
+          <el-radio-button value="audio">{{ t('square.filterAudio') }}</el-radio-button>
+          <el-radio-button value="archive">{{ t('square.filterArchive') }}</el-radio-button>
+          <el-radio-button value="other">{{ t('square.filterOther') }}</el-radio-button>
         </el-radio-group>
       </div>
 

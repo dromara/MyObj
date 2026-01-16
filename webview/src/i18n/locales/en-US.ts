@@ -155,7 +155,7 @@ export default {
     newUsername: 'New Username',
     newUsernamePlaceholder: 'Set username',
     bindEmail: 'Bind Email',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: 'Please enter email address',
     setPassword: 'Set Password',
     passwordPlaceholder2: 'At least 6 characters',
     noAccount: "Don't have an account?",
@@ -682,6 +682,18 @@ export default {
       deleteSuccess: 'Delete success',
       deleteFailed: 'Delete failed',
       loadFailed: 'Load failed'
+    },
+    shortcuts: {
+      title: 'Keyboard Shortcuts',
+      hint: 'Press ? to view all shortcuts anytime, or click the button below to view full help',
+      viewAll: 'View Full Help'
+    },
+    onboarding: {
+      title: 'Onboarding',
+      hint: 'Review the onboarding guide to learn about system features',
+      reset: 'Restart Onboarding',
+      resetConfirm: 'Are you sure you want to restart the onboarding?',
+      resetSuccess: 'Onboarding status has been reset. The guide will be shown after page refresh'
     }
   },
   collaboration: {
@@ -1021,6 +1033,7 @@ export default {
   },
   shortcuts: {
     title: 'Keyboard Shortcuts',
+    hint: 'Press ? to open this help dialog anytime',
     search: 'Search',
     searchDesc: 'Ctrl + K',
     help: 'Help',
@@ -1028,7 +1041,57 @@ export default {
     refresh: 'Refresh',
     refreshDesc: 'F5',
     noDescription: 'No description',
-    close: 'Close'
+    close: 'Close',
+    focusSearch: 'Focus search box',
+    newFolder: 'New folder',
+    uploadFile: 'Upload file',
+    goToFiles: 'Go to files page',
+    goToShares: 'Go to shares page',
+    closeDialog: 'Close dialog'
+  },
+  onboarding: {
+    welcome: {
+      title: 'Welcome to MyObj',
+      subtitle: 'Start Your File Management Journey',
+      description: 'MyObj is a powerful file management system that helps you easily manage, share, and protect your files.',
+      hint: 'Tip: Press ? to view keyboard shortcuts anytime',
+      skip: 'Skip',
+      start: 'Start Exploring',
+      features: {
+        upload: 'File Upload',
+        uploadDesc: 'Support drag-and-drop and batch upload for quick file management',
+        manage: 'File Management',
+        manageDesc: 'Create folders, move, rename, and easily organize your files',
+        share: 'File Sharing',
+        shareDesc: 'Generate sharing links with one click for secure and convenient file sharing',
+        search: 'Quick Search',
+        searchDesc: 'Use Ctrl+K shortcut to quickly search for files',
+        customize: 'Customization',
+        customizeDesc: 'Customize theme and language for a personalized experience'
+      }
+    },
+    features: {
+      upload: {
+        title: 'File Upload',
+        description: 'Click this button to upload files. You can also drag and drop files onto the page. Shortcut: Ctrl+U'
+      },
+      newFolder: {
+        title: 'New Folder',
+        description: 'Click this button to create a new folder to better organize your files. Shortcut: Ctrl+E'
+      },
+      search: {
+        title: 'Quick Search',
+        description: 'Search for files in this input box. Supports searching by filename, type, etc. Shortcut: Ctrl+K'
+      },
+      offlineDownload: {
+        title: 'Offline Download',
+        description: 'After selecting files, click this button to download files offline to local storage. This is a featured function of the system'
+      },
+      customize: {
+        title: 'Personalization Settings',
+        description: 'Click the user avatar to enter the settings page and customize theme, language, and other personalization options'
+      }
+    }
   },
   searchSuggestions: {
     title: 'Search Suggestions',

@@ -22,6 +22,8 @@ type UserInfoResponse struct {
 	Email string `json:"email"`
 	//用户手机号
 	Phone string `json:"phone"`
+	//用户组id
+	GroupID int `json:"group_id"`
 	//用户可用存储空间
 	Space int64 `json:"space"`
 	//用户剩余存储空间
