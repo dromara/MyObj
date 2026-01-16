@@ -54,8 +54,8 @@ func (r *powerRepository) GetByGroupID(ctx context.Context, groupID int) ([]*mod
 	var powers []*models.Power
 	err := r.db.WithContext(ctx).Model(&models.Power{}).
 		Joins("LEFT JOIN group_power ON power.id = group_power.power_id").
-		Joins("LEFT JOIN groups ON group_power.group_id = groups.id").
-		Where("groups.id = ?", groupID).
+		Joins("LEFT JOIN `groups` ON group_power.group_id = `groups`.id").
+		Where("`groups`.id = ?", groupID).
 		Find(&powers).Error
 	return powers, err
 }
