@@ -761,6 +761,7 @@ func (u *UserService) GetUserInfo(userID string) (*models.JsonResponse, error) {
 		Name:      id.Name,
 		Email:     id.Email,
 		Phone:     id.Phone,
+		GroupID:   id.GroupID,
 		State:     id.State,
 		Space:     id.Space,
 		FreeSpace: id.FreeSpace,
