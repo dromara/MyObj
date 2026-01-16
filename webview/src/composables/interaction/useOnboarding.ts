@@ -2,6 +2,8 @@ import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import type { ComponentInternalInstance } from 'vue'
 import { useI18n } from '@/composables'
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
 
 export interface OnboardingStep {
   element: string
@@ -21,6 +23,8 @@ const STORAGE_KEY_FEATURES = 'onboarding_features_completed'
 export function useOnboarding() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
+  const authStore = useAuthStore()
+  const router = useRouter()
   const driverInstance = ref<ReturnType<typeof driver> | null>(null)
   const showWelcomeDialog = ref(false)
   
@@ -478,6 +482,17 @@ export function useOnboarding() {
   const checkAndStartOnboarding = () => {
     // 如果正在检查中，直接返回，防止重复调用
     if (isCheckingOnboarding.value) {
+      return
+    }
+    
+    // 检查用户是否已登录
+    if (!authStore.token) {
+      return
+    }
+    
+    // 检查当前路由，登录页和分享页不需要新手引导
+    const currentRoute = router.currentRoute.value
+    if (currentRoute.path === '/login' || currentRoute.path.startsWith('/share/')) {
       return
     }
     
