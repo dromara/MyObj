@@ -369,7 +369,12 @@ export function useKeyboardShortcuts() {
     registerShortcut({
       key: 'Escape',
       handler: () => {
-        // 关闭对话框或取消选择
+        // 如果快捷键帮助对话框打开，先关闭它
+        if (showHelp.value) {
+          toggleHelp()
+          return
+        }
+        // 关闭其他对话框或取消选择
         const dialogs = document.querySelectorAll('.el-overlay')
         if (dialogs.length > 0) {
           const closeBtn = document.querySelector('.el-dialog__close') as HTMLElement

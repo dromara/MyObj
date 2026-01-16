@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="t('shortcuts.title')" width="500px" :close-on-click-modal="true">
+  <el-dialog v-model="visible" :title="t('shortcuts.title')" width="500px" :close-on-click-modal="true" :close-on-press-escape="true">
     <div class="shortcut-hint">
       <el-icon><InfoFilled /></el-icon>
       <span>{{ t('shortcuts.hint') }}</span>
@@ -29,7 +29,6 @@
       </div>
       <el-button
         type="primary"
-        plain
         @click="handleRestartOnboarding"
         class="onboarding-button"
       >
@@ -205,5 +204,18 @@
   .onboarding-button {
     width: 100%;
     justify-content: center;
+  }
+
+  /* 确保按钮文字是白色 - 蓝色按钮配白色文字 */
+  :deep(.onboarding-button.el-button--primary) {
+    color: #ffffff !important;
+  }
+
+  :deep(.onboarding-button.el-button--primary .el-icon) {
+    color: #ffffff !important;
+  }
+
+  :deep(.onboarding-button.el-button--primary span) {
+    color: #ffffff !important;
   }
 </style>
