@@ -101,12 +101,18 @@ html.dark {
   --el-text-color-primary: #f1f5f9;
   --el-text-color-regular: #cbd5e1;
   --el-text-color-secondary: #94a3b8;
+  --el-text-color-placeholder: #64748b;
+  --el-text-color-disabled: #475569;
   --el-border-color: rgba(255, 255, 255, 0.1);
   --el-border-color-light: rgba(255, 255, 255, 0.05);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.03);
   --el-fill-color: rgba(255, 255, 255, 0.05);
   --el-fill-color-light: rgba(255, 255, 255, 0.03);
   --el-fill-color-lighter: rgba(255, 255, 255, 0.02);
   --el-fill-color-extra-light: rgba(255, 255, 255, 0.01);
+  --el-disabled-bg-color: rgba(255, 255, 255, 0.02);
+  --el-disabled-text-color: #475569;
+  --el-disabled-border-color: rgba(255, 255, 255, 0.05);
 
   /* TagsView Variables */
   --tags-view-active-bg: var(--primary-color);

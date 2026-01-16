@@ -1,3 +1,25 @@
+/* ============================================
+   Element Plus 全局深色模式配置
+   ============================================ */
+
+/* 
+ * 重要：Element Plus 深色模式需要同时满足以下条件：
+ * 1. 导入 'element-plus/theme-chalk/dark/css-vars.css'（已在 main.ts 中导入）
+ * 2. html 元素上有 'dark' 类（已在 useTheme 中设置）
+ * 3. 确保 CSS 变量优先级正确（通过 !important 和全局样式）
+ */
+
+/* 确保 portal 渲染的下拉菜单也能应用深色模式 */
+/* 这些样式会应用到挂载到 body 的弹出层元素 */
+html.dark body .el-select-dropdown,
+html.dark body .el-popper,
+html.dark body .el-tree-select__popper,
+html.dark body .el-tree-select__dropdown {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
 /* Element Plus Customization */
 .el-button {
   font-weight: 500;
@@ -157,30 +179,64 @@
   width: 240px;
 }
 
-/* 深色模式：选择框下拉菜单 */
-html.dark .el-select-dropdown {
-  background-color: var(--el-bg-color);
-  border-color: var(--el-border-color);
+/* ============================================
+   深色模式：选择框下拉菜单（完整覆盖）
+   ============================================ */
+
+/* 下拉菜单容器（portal 渲染，需要全局样式） */
+html.dark .el-select-dropdown,
+html.dark .el-popper.is-dark {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
 }
 
+/* 下拉菜单包装器 */
+html.dark .el-select-dropdown__wrap {
+  background-color: var(--el-bg-color) !important;
+}
+
+/* 下拉菜单项 */
 html.dark .el-select-dropdown__item {
-  background-color: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
 }
 
 html.dark .el-select-dropdown__item:hover {
-  background-color: var(--el-fill-color-light);
-  color: var(--primary-color);
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
 }
 
 html.dark .el-select-dropdown__item.selected {
-  background-color: var(--el-fill-color-light);
-  color: var(--primary-color);
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
   font-weight: 600;
 }
 
 html.dark .el-select-dropdown__item.selected::after {
-  color: var(--primary-color);
+  color: var(--primary-color) !important;
+}
+
+/* 下拉菜单项禁用状态 */
+html.dark .el-select-dropdown__item.is-disabled {
+  color: var(--el-text-color-disabled) !important;
+  background-color: var(--el-bg-color) !important;
+  cursor: not-allowed;
+}
+
+html.dark .el-select-dropdown__item.is-disabled:hover {
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-disabled) !important;
+}
+
+/* 下拉菜单空状态 */
+html.dark .el-select-dropdown__empty {
+  color: var(--el-text-color-secondary) !important;
+}
+
+/* 下拉菜单加载状态 */
+html.dark .el-select-dropdown__loading {
+  color: var(--el-text-color-secondary) !important;
 }
 
 /* ============================================
@@ -316,8 +372,18 @@ html.dark .el-select .el-input__wrapper {
 }
 
 html.dark .el-select .el-input__inner {
-  background-color: var(--el-bg-color);
+  background-color: var(--el-bg-color) !important;
   color: var(--el-text-color-primary) !important;
+}
+
+/* 选择框占位符文本 */
+html.dark .el-select .el-input__inner::placeholder {
+  color: var(--el-text-color-placeholder) !important;
+}
+
+/* 选择框后缀图标 */
+html.dark .el-select .el-input__suffix {
+  color: var(--el-text-color-secondary) !important;
 }
 
 html.dark .el-select:hover .el-input__wrapper {
@@ -330,7 +396,24 @@ html.dark .el-select.is-focus .el-input__wrapper {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) inset !important;
 }
 
+/* 选择框禁用状态 */
+html.dark .el-select.is-disabled .el-input__wrapper {
+  background-color: var(--el-disabled-bg-color) !important;
+  border-color: var(--el-disabled-border-color) !important;
+  color: var(--el-disabled-text-color) !important;
+  cursor: not-allowed;
+}
+
+html.dark .el-select.is-disabled .el-input__inner {
+  color: var(--el-disabled-text-color) !important;
+  cursor: not-allowed;
+}
+
 /* 树形选择框 */
+html.dark .el-tree-select {
+  background-color: var(--el-bg-color);
+}
+
 html.dark .el-tree-select .el-input__wrapper {
   background-color: var(--el-bg-color) !important;
   border-color: var(--el-border-color) !important;
@@ -338,7 +421,7 @@ html.dark .el-tree-select .el-input__wrapper {
 }
 
 html.dark .el-tree-select .el-input__inner {
-  background-color: var(--el-bg-color);
+  background-color: var(--el-bg-color) !important;
   color: var(--el-text-color-primary) !important;
 }
 
@@ -350,6 +433,80 @@ html.dark .el-tree-select:hover .el-input__wrapper {
 html.dark .el-tree-select.is-focus .el-input__wrapper {
   border-color: var(--primary-color) !important;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) inset !important;
+}
+
+/* ============================================
+   深色模式：树形选择框下拉菜单（TreeSelect 专用）
+   ============================================ */
+
+/* TreeSelect 下拉菜单容器 */
+html.dark .el-tree-select__popper,
+html.dark .el-tree-select__dropdown {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* TreeSelect 下拉菜单中的树组件 */
+html.dark .el-tree-select__popper .el-tree,
+html.dark .el-tree-select__dropdown .el-tree {
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点 */
+html.dark .el-tree-select__popper .el-tree-node,
+html.dark .el-tree-select__dropdown .el-tree-node {
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点内容 */
+html.dark .el-tree-select__popper .el-tree-node__content,
+html.dark .el-tree-select__dropdown .el-tree-node__content {
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree-select__popper .el-tree-node__content:hover,
+html.dark .el-tree-select__dropdown .el-tree-node__content:hover {
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
+}
+
+/* 树节点选中状态 */
+html.dark .el-tree-select__popper .el-tree-node.is-current > .el-tree-node__content,
+html.dark .el-tree-select__dropdown .el-tree-node.is-current > .el-tree-node__content {
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
+  font-weight: 600;
+}
+
+/* 树节点展开/折叠图标 */
+html.dark .el-tree-select__popper .el-tree-node__expand-icon,
+html.dark .el-tree-select__dropdown .el-tree-node__expand-icon {
+  color: var(--el-text-color-secondary) !important;
+}
+
+html.dark .el-tree-select__popper .el-tree-node__expand-icon:hover,
+html.dark .el-tree-select__dropdown .el-tree-node__expand-icon:hover {
+  color: var(--primary-color) !important;
+}
+
+/* 树节点复选框（如果启用） */
+html.dark .el-tree-select__popper .el-tree-node__content .el-checkbox,
+html.dark .el-tree-select__dropdown .el-tree-node__content .el-checkbox {
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点标签 */
+html.dark .el-tree-select__popper .el-tree-node__label,
+html.dark .el-tree-select__dropdown .el-tree-node__label {
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree-select__popper .el-tree-node__label:hover,
+html.dark .el-tree-select__dropdown .el-tree-node__label:hover {
+  color: var(--primary-color) !important;
 }
 
 /* ============================================
@@ -787,4 +944,83 @@ html.dark .el-loading-spinner {
 
 html.dark .el-loading-text {
   color: var(--el-text-color-primary) !important;
+}
+
+/* ============================================
+   深色模式：Popper/Popover 通用样式（确保所有弹出层正确显示）
+   ============================================ */
+
+/* 所有 Popper 弹出层的基础样式 */
+html.dark .el-popper,
+html.dark .el-popper.is-dark {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+/* Popper 箭头 */
+html.dark .el-popper__arrow::before {
+  background-color: var(--el-bg-color) !important;
+  border-color: var(--el-border-color) !important;
+}
+
+/* ============================================
+   深色模式：Tree 组件样式（TreeSelect 内部使用）
+   ============================================ */
+
+/* 树组件基础样式 */
+html.dark .el-tree {
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点 */
+html.dark .el-tree-node {
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点内容 */
+html.dark .el-tree-node__content {
+  background-color: var(--el-bg-color) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree-node__content:hover {
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
+}
+
+/* 树节点选中状态 */
+html.dark .el-tree-node.is-current > .el-tree-node__content {
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--primary-color) !important;
+  font-weight: 600;
+}
+
+/* 树节点展开/折叠图标 */
+html.dark .el-tree-node__expand-icon {
+  color: var(--el-text-color-secondary) !important;
+}
+
+html.dark .el-tree-node__expand-icon:hover {
+  color: var(--primary-color) !important;
+}
+
+/* 树节点标签 */
+html.dark .el-tree-node__label {
+  color: var(--el-text-color-primary) !important;
+}
+
+html.dark .el-tree-node__label:hover {
+  color: var(--primary-color) !important;
+}
+
+/* 树节点复选框 */
+html.dark .el-tree-node__content .el-checkbox {
+  color: var(--el-text-color-primary) !important;
+}
+
+/* 树节点加载状态 */
+html.dark .el-tree-node__loading-icon {
+  color: var(--el-text-color-secondary) !important;
 }
