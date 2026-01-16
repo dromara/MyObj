@@ -87,10 +87,11 @@ enable = true
 # 区域名称
 region = "us-east-1"
 # 是否与主服务共用端口（true: 共用 8080 端口，false: 使用独立端口）
-share_port = true
+share_port = false
 # 独立端口（当 share_port = false 时生效）
 port = 9000
-# S3 API 路径前缀（留空表示根路径 /）
+# S3 API 路径前缀（仅在 share_port=true 时生效，留空表示根路径 /）
+# 注意：使用路径前缀会导致与标准S3客户端SDK不兼容，推荐使用独立端口
 path_prefix = ""
 # 加密主密钥（用于服务端加密，32字节，支持环境变量 S3_ENCRYPTION_MASTER_KEY）
 # 如果未配置，将使用默认密钥（生产环境请务必配置）

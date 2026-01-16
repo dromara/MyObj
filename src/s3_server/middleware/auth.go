@@ -91,7 +91,7 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 						return
 					}
 				}
-				
+
 				logger.LOG.Warn("S3 request missing Authorization header",
 					"path", c.Request.URL.Path,
 					"method", c.Request.Method,
@@ -255,7 +255,7 @@ func hasPublicReadAccess(acl *types.AccessControlPolicy) bool {
 	}
 
 	allUsersURI := "http://acs.amazonaws.com/groups/global/AllUsers"
-	
+
 	for _, grant := range acl.AccessControlList.Grants {
 		// 检查是否是 AllUsers
 		if grant.Grantee.URI == allUsersURI || grant.Grantee.Type == "Group" {

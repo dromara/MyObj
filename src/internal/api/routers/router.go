@@ -87,8 +87,19 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 		// TODO: 这里可以注册更多的路由处理器
 	}
 
+	// 注册S3路由（如果启用且共用端口） - 必须在 NoRoute 之前注册
+	if config.CONFIG.S3.Enable && config.CONFIG.S3.SharePort {
+		logger.LOG.Info("[路由] 正在注册S3 API路由（共用端口模式）...")
+		factory := impl.NewRepositoryFactory(database.GetDB())
+		fileService := service.NewFileService(factory, cache)
+		router.SetupS3Router(r, factory, fileService)
+		logger.LOG.Info("[路由] S3 API路由注册完成 ✔️")
+		logger.LOG.Info("[路由] S3服务共用主端口", "port", config.CONFIG.Server.Port)
+	}
+
 	// 前端路由处理（SPA支持）
 	// 所有非API、非静态资源请求都返回 index.html，由前端路由处理
+	// 注意：NoRoute 必须在S3路由之后注册，作为最后的fallback
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		// API路径和静态资源路径不处理
@@ -102,21 +113,6 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 
 	logger.LOG.Info("[路由] 路由初始化完成 ✔️")
 	logger.LOG.Info("[路由] 前端页面访问地址", "url", "http://"+config.CONFIG.Server.Host+fmt.Sprintf(":%d", config.CONFIG.Server.Port))
-
-	// 注册S3路由（如果启用）
-	if config.CONFIG.S3.Enable {
-		logger.LOG.Info("[路由] 正在注册S3 API路由...")
-		factory := impl.NewRepositoryFactory(database.GetDB())
-		fileService := service.NewFileService(factory, cache)
-		router.SetupS3Router(r, factory, fileService)
-		logger.LOG.Info("[路由] S3 API路由注册完成 ✔️")
-
-		if config.CONFIG.S3.SharePort {
-			logger.LOG.Info("[路由] S3服务共用主端口", "port", config.CONFIG.Server.Port)
-		} else {
-			logger.LOG.Info("[路由] S3服务独立端口（待实现）", "port", config.CONFIG.S3.Port)
-		}
-	}
 
 	return r
 }
@@ -149,17 +145,48 @@ func Execute(cacheLocal cache.Cache) {
 		logger.LOG.Info("[定时任务] S3生命周期管理任务已启动 ✔️")
 	}
 
-	// 初始化路由
+	// 初始化主服务器路由
 	router := initRouter(serverFactory, cacheLocal)
+
+	// 如果S3启用且使用独立端口，在后台启动S3服务器
+	if config.CONFIG.S3.Enable && !config.CONFIG.S3.SharePort {
+		go startS3Server(factory, cacheLocal)
+	}
 
 	// 构建监听地址
 	addr := fmt.Sprintf("%s:%d", config.CONFIG.Server.Host, config.CONFIG.Server.Port)
-	logger.LOG.Info("服务器将在以下地址启动", "address", addr)
+	logger.LOG.Info("主服务器将在以下地址启动", "address", addr)
 
-	// 启动服务器
-	logger.LOG.Info("服务器正在启动，按 Ctrl+C 停止...")
+	// 启动主服务器
+	logger.LOG.Info("主服务器正在启动，按 Ctrl+C 停止...")
 	if err := router.Run(addr); err != nil {
-		logger.LOG.Error("服务器启动失败", "error", err)
-		panic(fmt.Sprintf("HTTP服务器启动失败: %v", err))
+		logger.LOG.Error("主服务器启动失败", "error", err)
+		panic(fmt.Sprintf("HTTP主服务器启动失败: %v", err))
+	}
+}
+
+// startS3Server 启动S3独立服务器
+func startS3Server(factory *impl.RepositoryFactory, cache cache.Cache) {
+	logger.LOG.Info("========== S3服务器启动 ==========")
+
+	// 创建S3服务器路由
+	s3Router := gin.New()
+	s3Router.Use(middleware.GinLogger()) // 自定义日志中间件
+	s3Router.Use(gin.Recovery())         // 恢复中间件
+
+	// 注册S3路由
+	fileService := service.NewFileService(factory, cache)
+	router.SetupS3Router(s3Router, factory, fileService)
+
+	// 构建S3监听地址
+	s3Addr := fmt.Sprintf("%s:%d", config.CONFIG.Server.Host, config.CONFIG.S3.Port)
+	logger.LOG.Info("S3服务器将在以下地址启动", "address", s3Addr)
+	logger.LOG.Info("S3 Endpoint", "url", fmt.Sprintf("http://%s:%d", config.CONFIG.Server.Host, config.CONFIG.S3.Port))
+
+	// 启动S3服务器
+	logger.LOG.Info("S3服务器正在启动...")
+	if err := s3Router.Run(s3Addr); err != nil {
+		logger.LOG.Error("S3服务器启动失败", "error", err)
+		panic(fmt.Sprintf("S3服务器启动失败: %v", err))
 	}
 }

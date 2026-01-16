@@ -19,11 +19,27 @@ func SetupS3Router(router *gin.Engine, factory *impl.RepositoryFactory, fileServ
 		region = config.CONFIG.S3.Region
 	}
 
+	// 获取路径前缀（仅在共用端口模式下生效）
+	pathPrefix := "/"
+	if config.CONFIG.S3.SharePort && config.CONFIG.S3.PathPrefix != "" {
+		pathPrefix = config.CONFIG.S3.PathPrefix
+		logger.LOG.Warn("S3 路由使用路径前缀（不推荐）",
+			"path_prefix", pathPrefix,
+			"warning", "使用路径前缀会导致与标准S3客户端SDK不兼容，建议使用独立端口",
+		)
+	}
+
+	logger.LOG.Info("S3 路由配置",
+		"path_prefix", pathPrefix,
+		"region", region,
+		"share_port", config.CONFIG.S3.SharePort,
+	)
+
 	// 创建S3处理器
 	s3Handler := handler.NewS3Handler(factory, fileService)
 
-	// S3 API路由组
-	s3Group := router.Group("/")
+	// S3 API路由组 - 使用配置的路径前缀
+	s3Group := router.Group(pathPrefix)
 
 	// 应用S3中间件
 	s3Group.Use(middleware.S3LoggerMiddleware())
@@ -46,7 +62,7 @@ func SetupS3Router(router *gin.Engine, factory *impl.RepositoryFactory, fileServ
 	s3Group.HEAD("/:bucket/*key", handleObjectRequest(s3Handler))
 	s3Group.DELETE("/:bucket/*key", handleObjectRequest(s3Handler))
 
-	logger.LOG.Info("S3 routes configured successfully")
+	logger.LOG.Info("S3 routes configured successfully", "path_prefix", pathPrefix)
 }
 
 // handleBucketRequest 处理Bucket级别的请求
