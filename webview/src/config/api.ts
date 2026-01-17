@@ -1,8 +1,8 @@
 // API配置文件
-// 使用环境变量配置的代理路径（如 /dev-api 或 /prod-api）
+// 使用环境变量配置的代理路径（开发环境）或直接路径（生产环境）
 // 开发环境：/dev-api -> 代理到后端 /api
-// 生产环境：/prod-api -> 代理到后端 /api
-export const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || '/dev-api'
+// 生产环境：/api -> 直接访问后端 /api
+export const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || '/api'
 
 // API端点
 export const API_ENDPOINTS = {

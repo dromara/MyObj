@@ -1186,7 +1186,7 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024 // GB转字节
+		freeSpaceBytes := disk.Size
 		if freeSpaceBytes >= fileSize && freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk
