@@ -42,16 +42,41 @@ DELETE FROM `disk`;
 DELETE FROM `sys_config`;
 
 -- ================================
--- 6. 重置自增主键
+-- 6. 删除S3服务相关数据
+-- ================================
+DELETE FROM `s3_object_encryption`;
+DELETE FROM `s3_encryption_keys`;
+DELETE FROM `s3_bucket_lifecycle`;
+DELETE FROM `s3_bucket_policy`;
+DELETE FROM `s3_object_acl`;
+DELETE FROM `s3_bucket_acl`;
+DELETE FROM `s3_bucket_cors`;
+DELETE FROM `s3_multipart_parts`;
+DELETE FROM `s3_multipart_uploads`;
+DELETE FROM `s3_object_metadata`;
+DELETE FROM `s3_buckets`;
+
+-- ================================
+-- 7. 重置自增主键
 -- ================================
 -- MySQL 的自增主键重置
 ALTER TABLE `api_key` AUTO_INCREMENT = 1;
 ALTER TABLE `virtual_path` AUTO_INCREMENT = 1;
 ALTER TABLE `shares` AUTO_INCREMENT = 1;
 ALTER TABLE `sys_config` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_buckets` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_object_metadata` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_multipart_parts` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_bucket_cors` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_bucket_acl` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_object_acl` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_bucket_policy` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_bucket_lifecycle` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_encryption_keys` AUTO_INCREMENT = 1;
+ALTER TABLE `s3_object_encryption` AUTO_INCREMENT = 1;
 
 -- ================================
--- 7. 保留的表（不做任何操作）
+-- 8. 保留的表（不做任何操作）
 -- ================================
 -- groups (组表) - 保留
 -- power (权限表) - 保留
