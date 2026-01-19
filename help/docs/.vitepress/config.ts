@@ -39,7 +39,8 @@ export default defineConfig({
         { text: 'S3 协议', link: '/guide/s3' }
       ]},
       { text: 'API 文档', link: '/api/overview' },
-      { text: '常见问题', link: '/faq' }
+      { text: '常见问题', link: '/faq' },
+      { text: '页面展示', link: '/guide/preview' }
     ],
     
     // 侧边栏
@@ -50,7 +51,8 @@ export default defineConfig({
           items: [
             { text: '快速开始', link: '/guide/getting-started' },
             { text: '安装部署', link: '/guide/installation' },
-            { text: '配置说明', link: '/guide/configuration' }
+            { text: '配置说明', link: '/guide/configuration' },
+            { text: '磁盘管理', link: '/guide/disk' },
           ]
         },
         {
