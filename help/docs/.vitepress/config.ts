@@ -6,6 +6,7 @@ export default defineConfig({
   title: 'MyObj 帮助文档',
   description: 'MyObj 私有云存储系统使用指南',
   base: base,
+  outDir:'../dist',
   
   // Head 配置 - 设置 favicon
   // 注意：public 目录下的文件会被原样复制到输出目录根目录
