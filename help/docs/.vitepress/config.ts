@@ -1,28 +1,30 @@
 import { defineConfig } from 'vitepress'
 
+const base = '/help/'
+
 export default defineConfig({
   title: 'MyObj 帮助文档',
   description: 'MyObj 私有云存储系统使用指南',
-  base: '/help/',
+  base: base,
   
   // Head 配置 - 设置 favicon
   // 注意：public 目录下的文件会被原样复制到输出目录根目录
-  // 使用绝对路径（以 / 开头），VitePress 会自动处理 base 路径
+  // 使用 base 路径确保在子路径部署时正确加载
   head: [
     // SVG favicon（现代浏览器支持，可缩放，优先使用）
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
     // 标准 favicon 回退（使用现有的 LOGO.png）
-    ['link', { rel: 'icon', type: 'image/png', href: '/LOGO.png' }],
+    ['link', { rel: 'icon', type: 'image/png', href: `${base}LOGO.png` }],
     // Apple Touch Icon（iOS 设备）
-    ['link', { rel: 'apple-touch-icon', href: '/LOGO.png' }],
+    ['link', { rel: 'apple-touch-icon', href: `${base}LOGO.png` }],
     // 网站清单
     ['meta', { name: 'theme-color', content: '#1e1e1e' }]
   ],
   
   // 主题配置
   themeConfig: {
-    // Logo 配置（public 目录下的文件，使用绝对路径）
-    logo: '/LOGO.png',
+    // Logo 配置（public 目录下的文件，使用 base 路径）
+    logo: `${base}LOGO.png`,
     // 网站标题
     siteTitle: 'MyObj 帮助',
     
