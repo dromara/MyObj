@@ -73,6 +73,7 @@
 
   interface Props {
     src: string
+    mimeType?: string
     autoplay?: boolean
     loop?: boolean
     options?: Partial<Plyr.Options>
@@ -87,6 +88,7 @@
   }
 
   const props = withDefaults(defineProps<Props>(), {
+    mimeType: 'video/mp4',
     autoplay: false,
     loop: false,
     options: () => ({})
@@ -132,7 +134,7 @@
       sources: [
         {
           src: props.src,
-          type: 'video/mp4' // 根据实际类型调整
+          type: props.mimeType || 'video/mp4'
         }
       ]
     }
@@ -174,10 +176,10 @@
     }
   }
 
-  // 监听 src 变化
+  // 监听 src 和 mimeType 变化
   watch(
-    () => props.src,
-    newSrc => {
+    [() => props.src, () => props.mimeType],
+    ([newSrc, newMimeType]) => {
       if (newSrc && plyrInstance && videoElement.value) {
         // 如果 Plyr 已初始化，更新 source
         plyrInstance.source = {
@@ -185,13 +187,15 @@
           sources: [
             {
               src: newSrc,
-              type: 'video/mp4'
+              type: newMimeType || 'video/mp4'
             }
           ]
         }
       } else if (newSrc) {
-        // 如果还没有初始化，初始化 Plyr
-        initPlyr()
+        // 如果还没有初始化，延迟初始化 Plyr（确保 DOM 已渲染）
+        nextTick(() => {
+          initPlyr()
+        })
       }
     },
     { immediate: false }
@@ -208,9 +212,12 @@
   })
 
   onMounted(() => {
-    if (props.src) {
-      initPlyr()
-    }
+    // 延迟初始化，确保 DOM 已完全渲染
+    nextTick(() => {
+      if (props.src) {
+        initPlyr()
+      }
+    })
   })
 
   onUnmounted(() => {

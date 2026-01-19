@@ -188,6 +188,14 @@ type DownloadTaskRepository interface {
 	ListByStateAndType(ctx context.Context, userID string, state int, taskType int, offset, limit int) ([]*models.DownloadTask, error)
 	// CountByStateAndType 统计指定状态和类型的任务数量
 	CountByStateAndType(ctx context.Context, userID string, state int, taskType int) (int64, error)
+	// ListByTypeRange 查询类型在指定范围内的任务（type < typeMax）
+	ListByTypeRange(ctx context.Context, userID string, typeMax int, offset, limit int) ([]*models.DownloadTask, error)
+	// CountByTypeRange 统计类型在指定范围内的任务数量
+	CountByTypeRange(ctx context.Context, userID string, typeMax int) (int64, error)
+	// ListByStateAndTypeRange 查询指定状态且类型在指定范围内的任务
+	ListByStateAndTypeRange(ctx context.Context, userID string, state int, typeMax int, offset, limit int) ([]*models.DownloadTask, error)
+	// CountByStateAndTypeRange 统计指定状态且类型在指定范围内的任务数量
+	CountByStateAndTypeRange(ctx context.Context, userID string, state int, typeMax int) (int64, error)
 }
 
 // SysConfigRepository 系统配置仓储接口

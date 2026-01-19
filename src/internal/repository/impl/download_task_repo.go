@@ -117,3 +117,43 @@ func (r *downloadTaskRepository) CountByStateAndType(ctx context.Context, userID
 		Count(&count).Error
 	return count, err
 }
+
+func (r *downloadTaskRepository) ListByTypeRange(ctx context.Context, userID string, typeMax int, offset, limit int) ([]*models.DownloadTask, error) {
+	var tasks []*models.DownloadTask
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND type < ?", userID, typeMax).
+		Order("create_time DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
+
+func (r *downloadTaskRepository) CountByTypeRange(ctx context.Context, userID string, typeMax int) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.DownloadTask{}).
+		Where("user_id = ? AND type < ?", userID, typeMax).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *downloadTaskRepository) ListByStateAndTypeRange(ctx context.Context, userID string, state int, typeMax int, offset, limit int) ([]*models.DownloadTask, error) {
+	var tasks []*models.DownloadTask
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND state = ? AND type < ?", userID, state, typeMax).
+		Order("create_time DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&tasks).Error
+	return tasks, err
+}
+
+func (r *downloadTaskRepository) CountByStateAndTypeRange(ctx context.Context, userID string, state int, typeMax int) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&models.DownloadTask{}).
+		Where("user_id = ? AND state = ? AND type < ?", userID, state, typeMax).
+		Count(&count).Error
+	return count, err
+}

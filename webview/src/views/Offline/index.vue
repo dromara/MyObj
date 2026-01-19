@@ -5,7 +5,7 @@
       <div class="page-header">
         <div class="header-left">
           <h2>{{ t('offline.title') }}</h2>
-          <el-tag type="info">{{ t('offline.taskCount', { count: taskList.length }) }}</el-tag>
+          <el-tag type="info">{{ t('offline.taskCount', { count: total }) }}</el-tag>
         </div>
         <div class="header-right">
           <el-button type="primary" icon="Plus" @click="showDownloadDialog = true">{{
@@ -188,6 +188,19 @@
       <el-empty v-if="taskList.length === 0 && !loading" :description="t('offline.noDownloads')" />
     </el-card>
 
+    <!-- 分页 -->
+    <div v-if="total > 0" class="pagination-wrapper">
+      <pagination
+        :page="currentPage"
+        :limit="pageSize"
+        :total="total"
+        :page-sizes="[20, 50, 100]"
+        float="center"
+        @pagination="handlePagination"
+        class="pagination"
+      />
+    </div>
+
     <!-- 统一下载对话框 -->
     <el-dialog
       v-model="showDownloadDialog"
@@ -328,34 +341,84 @@
           <el-divider />
           <div class="file-selection-section">
             <div class="selection-header">
-              <el-checkbox v-model="selectAllFiles" :indeterminate="isIndeterminate" @change="handleSelectAll">
-                {{ t('offline.allSelect') }}
-              </el-checkbox>
-              <span class="selected-count">{{
-                t('offline.selectedFiles', { count: selectedFileIndexes.length })
-              }}</span>
+              <div class="selection-left">
+                <el-checkbox v-model="selectAllFiles" :indeterminate="isIndeterminate" @change="handleSelectAll">
+                  {{ t('offline.allSelect') }}
+                </el-checkbox>
+                <span class="selected-count">{{
+                  t('offline.selectedFiles', { count: selectedFileIndexes.length })
+                }}</span>
+              </div>
+              <div class="file-type-filters">
+                <el-button-group>
+                  <el-button
+                    :type="selectedFileType === 'all' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('all')"
+                  >
+                    {{ t('offline.fileTypeAll') }}
+                  </el-button>
+                  <el-button
+                    :type="selectedFileType === 'video' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('video')"
+                  >
+                    {{ t('offline.fileTypeVideo') }}
+                  </el-button>
+                  <el-button
+                    :type="selectedFileType === 'audio' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('audio')"
+                  >
+                    {{ t('offline.fileTypeAudio') }}
+                  </el-button>
+                  <el-button
+                    :type="selectedFileType === 'image' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('image')"
+                  >
+                    {{ t('offline.fileTypeImage') }}
+                  </el-button>
+                  <el-button
+                    :type="selectedFileType === 'doc' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('doc')"
+                  >
+                    {{ t('offline.fileTypeDoc') }}
+                  </el-button>
+                  <el-button
+                    :type="selectedFileType === 'archive' ? 'primary' : 'default'"
+                    size="small"
+                    @click="handleFileTypeFilter('archive')"
+                  >
+                    {{ t('offline.fileTypeArchive') }}
+                  </el-button>
+                </el-button-group>
+              </div>
             </div>
             <el-scrollbar height="300px" class="file-list-scrollbar">
               <el-table
                 ref="torrentFileTableRef"
-                :data="torrentParseResult.files"
+                :data="filteredTorrentFiles"
                 @selection-change="handleFileSelectionChange"
                 :row-key="(row: any) => row.index"
               >
                 <el-table-column type="selection" width="55" :reserve-selection="true" />
-                <el-table-column :label="t('tasks.fileName')" min-width="200">
+                <el-table-column :label="t('tasks.fileName')" min-width="250">
                   <template #default="{ row }">
                     <file-name-tooltip :file-name="row.name" view-mode="table" custom-class="torrent-file-name" />
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('tasks.fileSize')" width="120">
+                <el-table-column :label="t('offline.fileType')" width="100">
                   <template #default="{ row }">
-                    {{ formatSize(row.size) }}
+                    <el-tag :type="getFileTypeTagType(getFileTypeFromName(row.name))" size="small">
+                      {{ getFileTypeText(getFileTypeFromName(row.name)) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('offline.filePath')" min-width="150" class-name="mobile-hide">
+                <el-table-column :label="t('tasks.fileSize')" width="110">
                   <template #default="{ row }">
-                    <span class="file-path">{{ row.path }}</span>
+                    {{ formatSize(row.size) }}
                   </template>
                 </el-table-column>
               </el-table>
@@ -461,6 +524,7 @@
   import { getVirtualPathTree } from '@/api/file'
   import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
   import { useResponsive, useI18n } from '@/composables'
+  import { getFileTypeFromMimeType, getMimeTypeFromFileName, type FileTypeCategory } from '@/utils/file/mime'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
@@ -475,6 +539,11 @@
   let refreshTimer: number | null = null // 支持 setTimeout 和 setInterval
   const loadingTree = ref(false)
   const folderTreeData = ref<any[]>([])
+
+  // 分页状态
+  const currentPage = ref(1)
+  const pageSize = ref(20)
+  const total = ref(0)
 
   const downloadFormRef = ref<FormInstance>()
   const torrentUploadRef = ref()
@@ -500,6 +569,7 @@
   const selectedFileIndexes = ref<number[]>([])
   const selectAllFiles = ref(false)
   const isIndeterminate = ref(false)
+  const selectedFileType = ref<'all' | 'video' | 'audio' | 'image' | 'doc' | 'archive' | 'other'>('all')
 
   // 检测到的输入类型
   const detectedInputType = ref<'url' | 'magnet' | 'torrent' | null>(null)
@@ -589,26 +659,24 @@
     }
 
     try {
-      // 查询所有类型的离线下载任务（type < 7），不包含网盘文件下载（type=7）
-      // 由于后端不支持 type < 7 的查询，这里先查询所有任务，然后在前端过滤
-      // 或者可以分别查询 type=0,1,2,3,4,5,6，但这样需要多次请求
-      // 为了简化，暂时保持前端过滤，但可以优化为后端支持范围查询
+      // 使用范围查询，查询 type < 7 的任务（即 type 0-6，离线下载任务）
+      // 这样可以直接在后端过滤掉 type=7 的任务，总数更准确
       const res = await getDownloadTaskList({
-        page: 1,
-        pageSize: 100,
-        state: -1 // 查询所有状态
+        page: currentPage.value,
+        pageSize: pageSize.value,
+        state: -1, // 查询所有状态
+        typeMax: 7 // 查询 type < 7 的任务（即 type 0-6，离线下载任务）
       })
       if (res.code === 200 && res.data) {
-        // 过滤掉网盘下载任务（type=7），只显示离线下载（type=0-6）
-        const newTasks = (res.data.tasks || []).filter((task: any) => task.type !== 7)
+        // 更新任务列表（后端已经过滤了 type=7 的任务）
+        taskList.value = (res.data.tasks || []).map((task: any) => ({ ...task }))
 
-        // 确保数据更新（即使值相同，也要触发响应式更新）
-        // 通过创建新数组来触发 Vue 的响应式更新
-        taskList.value = newTasks.map((task: any) => ({ ...task }))
+        // 更新总数（后端返回的是过滤后的准确总数）
+        total.value = res.data.total || 0
 
         // 调试日志：检查数据更新（仅在开发环境）
         if (import.meta.env.DEV) {
-          const downloadingTasks = newTasks.filter((t: any) => t.state === 1)
+          const downloadingTasks = taskList.value.filter((t: any) => t.state === 1)
           if (downloadingTasks.length > 0) {
             downloadingTasks.forEach((task: any) => {
               proxy?.$log?.debug('任务数据更新', {
@@ -638,10 +706,20 @@
 
   // 刷新任务列表
   const refreshTaskList = () => {
+    // 重置到第一页
+    currentPage.value = 1
     loadTaskList().then(() => {
       // 刷新后重新启动智能刷新
       startSmartRefresh()
     })
+  }
+
+  // 处理分页事件
+  const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+    currentPage.value = page
+    pageSize.value = limit
+    // 使用后端分页，直接加载对应页的数据
+    loadTaskList()
   }
 
   // 构建文件夹树结构
@@ -745,12 +823,14 @@
           })
 
           if (res.code === 200) {
-            proxy?.$modal.msgSuccess('任务创建成功')
+            proxy?.$modal.msgSuccess(t('offline.taskCreatedSuccess'))
             showDownloadDialog.value = false
+            // 创建任务后重置到第一页并刷新
+            currentPage.value = 1
             loadTaskList()
           }
         } catch (error: any) {
-          proxy?.$modal.msgError(error.message || '创建任务失败')
+          proxy?.$modal.msgError(error.message || t('offline.taskCreatedFailed'))
         } finally {
           creating.value = false
         }
@@ -863,6 +943,7 @@
     selectedFileIndexes.value = []
     selectAllFiles.value = false
     isIndeterminate.value = false
+    selectedFileType.value = 'all'
     detectedInputType.value = null
     if (torrentUploadRef.value) {
       torrentUploadRef.value.clearFiles()
@@ -872,12 +953,12 @@
   // 解析种子
   const handleParseTorrent = async () => {
     if (!canParse.value) {
-      proxy?.$modal.msgWarning('请先上传种子文件或输入磁力链接')
+      proxy?.$modal.msgWarning(t('offline.uploadTorrentFirst'))
       return
     }
 
     if (detectedInputType.value !== 'magnet' && detectedInputType.value !== 'torrent') {
-      proxy?.$modal.msgWarning('请输入磁力链接或上传种子文件')
+      proxy?.$modal.msgWarning(t('offline.enterMagnetOrTorrent'))
       return
     }
 
@@ -900,15 +981,70 @@
         selectedFileIndexes.value = res.data.files.map((f: TorrentFileInfo) => f.index)
         selectAllFiles.value = true
         isIndeterminate.value = false
-        proxy?.$modal.msgSuccess('解析成功')
+        proxy?.$modal.msgSuccess(t('offline.parseSuccess'))
       } else {
-        proxy?.$modal.msgError(res.message || '解析失败')
+        proxy?.$modal.msgError(res.message || t('offline.parseFailed'))
       }
     } catch (error: any) {
-      proxy?.$modal.msgError(error.message || '解析失败')
+      proxy?.$modal.msgError(error.message || t('offline.parseFailed'))
     } finally {
       parsing.value = false
     }
+  }
+
+  // 根据文件名获取文件类型
+  const getFileTypeFromName = (fileName: string): FileTypeCategory => {
+    const mimeType = getMimeTypeFromFileName(fileName)
+    return getFileTypeFromMimeType(mimeType)
+  }
+
+  // 获取文件类型标签的类型（用于 el-tag）
+  const getFileTypeTagType = (fileType: FileTypeCategory): 'success' | 'warning' | 'info' | 'primary' | 'danger' | undefined => {
+    const typeMap: Record<FileTypeCategory, 'success' | 'warning' | 'info' | 'primary' | 'danger' | undefined> = {
+      image: 'success',
+      video: 'warning',
+      audio: 'info',
+      doc: 'primary',
+      archive: 'danger',
+      other: undefined
+    }
+    return typeMap[fileType]
+  }
+
+  // 获取文件类型的显示文本
+  const getFileTypeText = (fileType: FileTypeCategory): string => {
+    const typeKey = fileType === 'other' ? 'fileTypeOther' : `fileType${fileType.charAt(0).toUpperCase() + fileType.slice(1)}`
+    return t(`offline.${typeKey}`)
+  }
+
+  // 筛选后的文件列表
+  const filteredTorrentFiles = computed(() => {
+    if (!torrentParseResult.value) return []
+    if (selectedFileType.value === 'all') {
+      return torrentParseResult.value.files
+    }
+    return torrentParseResult.value.files.filter((file: TorrentFileInfo) => {
+      const fileType = getFileTypeFromName(file.name)
+      return fileType === selectedFileType.value
+    })
+  })
+
+  // 处理文件类型筛选
+  const handleFileTypeFilter = (type: 'all' | 'video' | 'audio' | 'image' | 'doc' | 'archive' | 'other') => {
+    selectedFileType.value = type
+    // 筛选后，更新全选状态
+    nextTick(() => {
+      if (torrentFileTableRef.value && torrentParseResult.value) {
+        const filtered = filteredTorrentFiles.value
+        const selectedInFiltered = filtered.filter((f: TorrentFileInfo) =>
+          selectedFileIndexes.value.includes(f.index)
+        )
+        const total = filtered.length
+        const selected = selectedInFiltered.length
+        selectAllFiles.value = selected === total && total > 0
+        isIndeterminate.value = selected > 0 && selected < total
+      }
+    })
   }
 
   // 处理文件选择变化
@@ -947,7 +1083,7 @@
     if (!downloadFormRef.value || !torrentParseResult.value) return
 
     if (selectedFileIndexes.value.length === 0) {
-      proxy?.$modal.msgWarning('请至少选择一个文件')
+      proxy?.$modal.msgWarning(t('offline.selectFileFirst'))
       return
     }
 
@@ -968,6 +1104,8 @@
           if (res.code === 200 && res.data) {
             proxy?.$modal.msgSuccess(t('offline.taskCreatedWithCount', { count: res.data.task_count }))
             showDownloadDialog.value = false
+            // 创建任务后重置到第一页并刷新
+            currentPage.value = 1
             loadTaskList()
           } else {
             proxy?.$modal.msgError(res.message || t('offline.taskCreatedFailed'))
@@ -989,6 +1127,8 @@
     }
 
     const refresh = async () => {
+      // 智能刷新时重新获取数据以更新任务状态和进度
+      // 使用 loadTaskList，但不会显示 loading（因为 isManualRefresh = false）
       await loadTaskList()
 
       // 检查是否有正在下载的任务
@@ -1093,6 +1233,16 @@
   .task-list-card {
     flex: 1;
     overflow: hidden;
+  }
+
+  .pagination-wrapper {
+    flex-shrink: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  .pagination {
+    justify-content: center;
   }
 
   .file-name-cell {
@@ -1390,6 +1540,7 @@
     border-radius: 8px;
   }
 
+
   .input-section {
     margin-bottom: 20px;
   }
@@ -1495,6 +1646,49 @@
     align-items: center;
     margin-bottom: 12px;
     padding: 8px 0;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .selection-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .file-type-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .file-type-filters .el-button-group {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 768px) {
+    .selection-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .file-type-filters {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .file-type-filters .el-button-group {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .file-type-filters .el-button-group .el-button {
+      width: 100%;
+    }
   }
 
   .selected-count {

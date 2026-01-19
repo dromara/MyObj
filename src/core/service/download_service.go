@@ -155,17 +155,27 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 	var err error
 
 	// 判断是否指定了类型过滤
+	// 注意：如果同时指定了 Type 和 TypeMax，优先使用 Type（单个类型查询，向后兼容）
 	hasTypeFilter := req.Type >= 0
+	hasTypeRangeFilter := req.TypeMax > 0 && !hasTypeFilter // 只有在没有指定 Type 时才使用 TypeMax
 	hasStateFilter := req.State >= 0
 
 	if hasStateFilter && hasTypeFilter {
-		// 按状态和类型查询
+		// 按状态和类型查询（单个类型）
 		tasks, err = d.factory.DownloadTask().ListByStateAndType(ctx, userID, req.State, req.Type, offset, req.PageSize)
 		if err != nil {
 			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State, "type", req.Type)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
 		total, err = d.factory.DownloadTask().CountByStateAndType(ctx, userID, req.State, req.Type)
+	} else if hasStateFilter && hasTypeRangeFilter {
+		// 按状态和类型范围查询
+		tasks, err = d.factory.DownloadTask().ListByStateAndTypeRange(ctx, userID, req.State, req.TypeMax, offset, req.PageSize)
+		if err != nil {
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State, "typeMax", req.TypeMax)
+			return nil, fmt.Errorf("查询任务失败: %w", err)
+		}
+		total, err = d.factory.DownloadTask().CountByStateAndTypeRange(ctx, userID, req.State, req.TypeMax)
 	} else if hasStateFilter {
 		// 只按状态查询
 		tasks, err = d.factory.DownloadTask().ListByState(ctx, userID, req.State, offset, req.PageSize)
@@ -175,13 +185,21 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 		}
 		total, err = d.factory.DownloadTask().CountByState(ctx, userID, req.State)
 	} else if hasTypeFilter {
-		// 只按类型查询
+		// 只按类型查询（单个类型）
 		tasks, err = d.factory.DownloadTask().ListByType(ctx, userID, req.Type, offset, req.PageSize)
 		if err != nil {
 			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "type", req.Type)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
 		total, err = d.factory.DownloadTask().CountByType(ctx, userID, req.Type)
+	} else if hasTypeRangeFilter {
+		// 只按类型范围查询
+		tasks, err = d.factory.DownloadTask().ListByTypeRange(ctx, userID, req.TypeMax, offset, req.PageSize)
+		if err != nil {
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "typeMax", req.TypeMax)
+			return nil, fmt.Errorf("查询任务失败: %w", err)
+		}
+		total, err = d.factory.DownloadTask().CountByTypeRange(ctx, userID, req.TypeMax)
 	} else {
 		// 查询所有任务
 		tasks, err = d.factory.DownloadTask().ListByUserID(ctx, userID, offset, req.PageSize)

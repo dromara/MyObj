@@ -43,8 +43,20 @@ export interface DownloadTaskListResponse {
 
 /**
  * 获取下载任务列表
+ * @param params.page 页码
+ * @param params.pageSize 每页数量
+ * @param params.state 任务状态（可选，0=初始化,1=下载中,2=暂停,3=完成,4=失败，-1=所有状态）
+ * @param params.type 任务类型（可选，单个类型值，0-6=离线下载，7=网盘文件下载，-1=所有类型）
+ * @param params.typeMax 任务类型最大值（可选，用于范围查询，查询 type < typeMax 的任务，例如：typeMax=7 表示查询 type 0-6）
+ * @note 如果同时指定了 type 和 typeMax，优先使用 type（单个类型查询，向后兼容）
  */
-export const getDownloadTaskList = (params: { page: number; pageSize: number; state?: number; type?: number }) => {
+export const getDownloadTaskList = (params: {
+  page: number
+  pageSize: number
+  state?: number
+  type?: number
+  typeMax?: number
+}) => {
   const filteredParams = filterParams(params)
   return get<ApiResponse<DownloadTaskListResponse>>(API_ENDPOINTS.DOWNLOAD.LIST, filteredParams)
 }

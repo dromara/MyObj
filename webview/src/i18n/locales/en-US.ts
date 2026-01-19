@@ -474,7 +474,21 @@ export default {
     taskCreatedWithCount: 'Task created successfully, {count} download tasks created',
     confirmCancelTask: 'Confirm cancel this task?',
     confirmDeleteTask: 'Confirm delete this task?',
-    readTorrentFailed: 'Failed to read torrent file'
+    readTorrentFailed: 'Failed to read torrent file',
+    fileType: 'Type',
+    fileTypeAll: 'All',
+    fileTypeVideo: 'Video',
+    fileTypeAudio: 'Audio',
+    fileTypeImage: 'Image',
+    fileTypeDoc: 'Document',
+    fileTypeArchive: 'Archive',
+    fileTypeOther: 'Other',
+    selectThisType: 'Select This Type',
+    parseSuccess: 'Parse successful',
+    parseFailed: 'Parse failed',
+    uploadTorrentFirst: 'Please upload a torrent file or enter a magnet link first',
+    enterMagnetOrTorrent: 'Please enter a magnet link or upload a torrent file',
+    selectFileFirst: 'Please select at least one file'
   },
   trash: {
     title: 'Trash',
@@ -1164,7 +1178,14 @@ export default {
     cannotPrintOfficeType:
       'Cannot directly print this document type.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.',
     cannotLoadDocument:
-      'Cannot load document.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.'
+      'Cannot load document.\\n\\nPlease click the "Download File" link above, download it, then open and print it with the corresponding Office software.',
+    cannotPrintOfficeDocument: 'Cannot directly print this document type. Please download the file first, then open and print it with the corresponding Office software (such as Excel, Word).',
+    fileTypeNotPrintable: 'This file type does not support printing',
+    getOriginalImageFailed: 'Failed to get original image, cannot print',
+    pdfNotLoaded: 'PDF not loaded yet, please wait',
+    textNotLoaded: 'Text content not loaded yet, please wait',
+    cannotPrintFileType: 'Cannot directly print this file type. Please download the file first, then open and print it with the corresponding software.',
+    printFailed: 'Print failed'
   },
   upload: {
     fileSizeExceeded: 'File {fileName} size exceeds limit (max {maxSizeMB}MB)',

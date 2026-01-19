@@ -280,7 +280,6 @@
   import FileGrid from './components/FileGrid.vue'
   import FileList from './components/FileList.vue'
   import Breadcrumb from './components/Breadcrumb.vue'
-  import EmptyState from '@/components/EmptyState/index.vue'
   import type { FileItem, FolderItem } from '@/types'
   import { Upload, FolderAdd } from '@element-plus/icons-vue'
 

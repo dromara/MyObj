@@ -1,7 +1,7 @@
 <script setup lang="ts">
   // App只作为路由容器，逻辑由router守卫和各页面处理
   import { useTheme, useKeyboardShortcuts, useOnboarding } from '@/composables'
-  import { useAppStore } from '@/stores'
+  import { useAppStore, useAuthStore } from '@/stores'
 
   // 初始化主题系统
   useTheme()
@@ -14,6 +14,7 @@
 
   // 获取 Element Plus 语言包
   const appStore = useAppStore()
+  const authStore = useAuthStore()
 
   // 监听路由变化，检查是否需要启动引导
   const router = useRouter()
@@ -24,6 +25,22 @@
       checkAndStartOnboarding()
     }, 300)
   })
+
+  // 监听 token 变化，登录成功后触发引导检查
+  watch(
+    () => authStore.token,
+    (newToken, oldToken) => {
+      // 当从无 token 变为有 token 时（即登录成功），触发引导检查
+      if (!oldToken && newToken) {
+        // 延迟检查，确保登录状态已完全更新
+        setTimeout(() => {
+          checkOnboardingStatus()
+          checkAndStartOnboarding()
+        }, 500)
+      }
+    },
+    { immediate: false }
+  )
 
   // 初始化时也检查一次（处理首次加载或清除 localStorage 后的情况）
   onMounted(() => {

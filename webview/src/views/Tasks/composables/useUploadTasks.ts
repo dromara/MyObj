@@ -100,7 +100,7 @@ export function useUploadTasks() {
   const resumeUpload = async (taskId: string) => {
     const task = uploadTaskManager.getTask(taskId)
     if (!task) {
-      proxy?.$modal.msgError(t('tasks.taskNotExists') || '任务不存在')
+      proxy?.$modal.msgError(t('tasks.taskNotExists'))
       return
     }
 
@@ -304,7 +304,7 @@ export function useUploadTasks() {
     try {
       const allTasks = uploadTaskManager.getAllTasks()
       if (allTasks.length === 0) {
-        proxy?.$modal.msgWarning(t('tasks.noTasksToClear') || '没有可清空的任务')
+        proxy?.$modal.msgWarning(t('tasks.noTasksToClear'))
         return
       }
 
@@ -351,7 +351,7 @@ export function useUploadTasks() {
 
       // 清空所有本地任务
       uploadTaskManager.clearAllTasks()
-      proxy?.$modal.msgSuccess(t('tasks.clearAllSuccess', { count: allTasks.length }) || `已清空 ${allTasks.length} 个任务`)
+      proxy?.$modal.msgSuccess(t('tasks.clearAllSuccess', { count: allTasks.length }))
 
       // 重置分页并重新加载
       currentPage.value = 1

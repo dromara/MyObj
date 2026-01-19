@@ -471,7 +471,21 @@ export default {
     taskCreatedWithCount: '任务创建成功，共创建 {count} 个下载任务',
     confirmCancelTask: '确认取消该任务？',
     confirmDeleteTask: '确认删除该任务？',
-    readTorrentFailed: '读取种子文件失败'
+    readTorrentFailed: '读取种子文件失败',
+    fileType: '类型',
+    fileTypeAll: '全部',
+    fileTypeVideo: '视频',
+    fileTypeAudio: '音频',
+    fileTypeImage: '图片',
+    fileTypeDoc: '文档',
+    fileTypeArchive: '压缩包',
+    fileTypeOther: '其他',
+    selectThisType: '选择此类型',
+    parseSuccess: '解析成功',
+    parseFailed: '解析失败',
+    uploadTorrentFirst: '请先上传种子文件或输入磁力链接',
+    enterMagnetOrTorrent: '请输入磁力链接或上传种子文件',
+    selectFileFirst: '请至少选择一个文件'
   },
   trash: {
     title: '回收站',
@@ -1155,7 +1169,14 @@ export default {
     downloadFile: '下载文件',
     cannotPrintOfficeType:
       '无法直接打印此文档类型。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
-    cannotLoadDocument: '无法加载文档。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。'
+    cannotLoadDocument: '无法加载文档。\\n\\n请点击上方"下载文件"链接，下载后用相应的Office软件打开并打印。',
+    cannotPrintOfficeDocument: '无法直接打印此文档类型，请先下载文件，然后用相应的Office软件（如Excel、Word）打开并打印。',
+    fileTypeNotPrintable: '该文件类型不支持打印',
+    getOriginalImageFailed: '获取原图失败，无法打印',
+    pdfNotLoaded: 'PDF未加载完成，请稍候再试',
+    textNotLoaded: '文本内容未加载完成，请稍候再试',
+    cannotPrintFileType: '无法直接打印此文件类型，请先下载文件，然后用相应的软件打开并打印。',
+    printFailed: '打印失败'
   },
   upload: {
     fileSizeExceeded: '文件 {fileName} 大小超过限制（最大 {maxSizeMB}MB）',

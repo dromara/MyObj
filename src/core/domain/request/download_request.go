@@ -17,7 +17,11 @@ type DownloadTaskListRequest struct {
 	// 任务状态（可选，0=初始化,1=下载中,2=暂停,3=完成,4=失败，-1=所有状态）
 	State int `form:"state"`
 	// 任务类型（可选，0-6=离线下载，7=网盘文件下载，-1=所有类型）
+	// 注意：如果同时指定了 Type 和 TypeMax，优先使用 Type（单个类型查询）
 	Type int `form:"type"`
+	// 任务类型最大值（可选，用于范围查询，查询 type < TypeMax 的任务）
+	// 例如：TypeMax=7 表示查询 type < 7 的任务（即 type 0-6，离线下载任务）
+	TypeMax int `form:"typeMax"`
 	// 页码
 	Page int `form:"page" binding:"required,min=1"`
 	// 每页数量

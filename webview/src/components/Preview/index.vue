@@ -79,6 +79,7 @@
       <plyr-player
         v-if="videoUrl"
         :src="videoUrl"
+        :mime-type="videoMimeType"
         :autoplay="options.autoplay"
         :loop="options.loop"
         class="preview-video-plyr"
@@ -267,6 +268,7 @@
 
   const imageUrl = ref('')
   const videoUrl = ref('')
+  const videoMimeType = ref<string>('video/mp4')
   const audioUrl = ref('')
   const pdfUrl = ref('')
   const textContent = ref('')
@@ -277,6 +279,12 @@
     try {
       const res = await createVideoPlayPrecheck(fileId)
       if (res.code === 200 && res.data) {
+        // 从返回数据中获取 MIME 类型
+        if (res.data.file_info?.mime_type) {
+          videoMimeType.value = res.data.file_info.mime_type
+        } else if (currentFile.value?.mime_type) {
+          videoMimeType.value = currentFile.value.mime_type
+        }
         // 获取 JWT token 并添加到 URL 参数中
         const jwtToken = proxy?.$cache.local.get('token')
         // 构建视频流 URL（包含 playToken 和 JWT token）
@@ -531,16 +539,14 @@
         } catch (error: any) {
           proxy?.$log.error('打印Office文档失败', error)
           // 如果打印失败，提示用户下载后打印
-          proxy?.$modal.msgWarning(
-            '无法直接打印此文档类型，请先下载文件，然后用相应的Office软件（如Excel、Word）打开并打印。'
-          )
+          proxy?.$modal.msgWarning(t('print.cannotPrintOfficeDocument'))
         }
         return
       }
 
       // 检查是否支持打印
       if (!isPrintableType(mimeType)) {
-        proxy?.$modal.msgWarning('该文件类型不支持打印')
+        proxy?.$modal.msgWarning(t('print.fileTypeNotPrintable'))
         return
       }
 
@@ -554,7 +560,7 @@
             })
           } catch (error: any) {
             proxy?.$log.error('获取原图失败', error)
-            proxy?.$modal.msgError('获取原图失败，无法打印')
+            proxy?.$modal.msgError(t('print.getOriginalImageFailed'))
           }
           break
 
@@ -564,7 +570,7 @@
               title: file.file_name
             })
           } else {
-            proxy?.$modal.msgWarning('PDF未加载完成，请稍候再试')
+            proxy?.$modal.msgWarning(t('print.pdfNotLoaded'))
           }
           break
 
@@ -575,7 +581,7 @@
               title: file.file_name
             })
           } else {
-            proxy?.$modal.msgWarning('文本内容未加载完成，请稍候再试')
+            proxy?.$modal.msgWarning(t('print.textNotLoaded'))
           }
           break
 
@@ -588,12 +594,12 @@
             })
           } catch (error: any) {
             proxy?.$log.error('打印失败', error)
-            proxy?.$modal.msgWarning('无法直接打印此文件类型，请先下载文件，然后用相应的软件打开并打印。')
+            proxy?.$modal.msgWarning(t('print.cannotPrintFileType'))
           }
       }
     } catch (error: any) {
       proxy?.$log.error('打印失败', error)
-      proxy?.$modal.msgError(error.message || '打印失败')
+      proxy?.$modal.msgError(error.message || t('print.printFailed'))
     }
   }
 
@@ -625,6 +631,7 @@
     // 清理资源
     imageUrl.value = ''
     videoUrl.value = ''
+    videoMimeType.value = 'video/mp4'
     audioUrl.value = ''
     pdfUrl.value = ''
     textContent.value = ''
