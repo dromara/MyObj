@@ -59,7 +59,8 @@ export default defineConfig({
             { text: '文件预览', link: '/guide/file-preview' },
             { text: '文件加密', link: '/guide/file-encryption' },
             { text: '文件分享', link: '/guide/file-sharing' },
-            { text: '文件广场', link: '/guide/file-square' }
+            { text: '文件广场', link: '/guide/file-square' },
+            { text: 'cli工具', link: '/guide/cli' }
           ]
         },
         {

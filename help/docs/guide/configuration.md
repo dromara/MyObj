@@ -46,12 +46,12 @@ jwt_expire = 2              # Token 有效期（小时）
 ```
 
 ### 文件存储配置
-
+大文件分片配置用于兼容部分格式硬盘（例如FAT32最大支持单文件4G）可根据磁盘格式进行配置，防止单文件过大导致上传失败
 ```toml
 [file]
 thumbnail = true            # 是否生成缩略图
-big_file_threshold = 1      # 大文件分片阈值（GB）
-big_chunk_size = 1          # 大文件分片大小（GB）
+big_file_threshold = 3      # 大文件分片阈值（GB）
+big_chunk_size = 3          # 大文件分片大小（GB）
 data_dir = "obj_data"       # 文件存储目录
 temp_dir = "obj_temp"       # 临时文件目录
 ```
@@ -74,6 +74,58 @@ level = "debug"             # 日志级别: debug, info, warn, error
 log_path = "./logs/"        # 日志路径
 max_size = 10               # 日志文件最大大小（MB）
 max_age = 7                 # 日志保留天数
+```
+
+### 跨域配置
+跨域配置可用于开启跨域访问
+```toml
+[cors]
+# 跨域开启
+enable = true
+# 跨域域名配置 , 多个用,隔开
+allow_origin = "*"
+# 跨域请求方法 , 多个用,隔开
+allow_methods = "*"
+# 跨域请求头 , 多个用,隔开
+allow_headers = "*"
+# 允许发送凭证(cookies)
+allow_credentials = true
+# 跨域响应头 , 多个用,隔开
+expose_headers = "*"
+```
+
+### 缓存配置
+系统缓存支持两种形式，redis和系统内存缓存，以下示例为redis示例，如需使用系统内存缓存，则type设置为`local`
+```toml
+[cache]
+type = "redis"
+host = "127.0.0.1"
+port = 6379
+password = ""
+db = 0
+pool_size = 10
+```
+
+### S3服务配置
+```toml
+# S3 服务配置
+[s3]
+# 是否启用 S3 服务
+enable = true
+# 区域名称
+region = "us-east-1"
+# 是否与主服务共用端口（true: 共用 8080 端口，false: 使用独立端口,强烈建议使用独立端口部署）
+share_port = false
+# 独立端口（当 share_port = false 时生效）
+port = 9000
+# S3 API 路径前缀（仅在 share_port=true 时生效，留空表示根路径 /）
+# 注意：使用路径前缀会导致与标准S3客户端SDK不兼容，推荐使用独立端口
+path_prefix = ""
+# 加密主密钥（用于服务端加密，32字节，支持环境变量 S3_ENCRYPTION_MASTER_KEY）
+# 如果未配置，将使用默认密钥（生产环境请务必配置）
+encryption_master_key = ""
+# 操作超时时间（秒），默认30秒，用于控制数据库操作和文件操作的超时
+operation_timeout = 30
 ```
 
 ## 安全建议

@@ -12,13 +12,15 @@ enable = true               # 是否启用 WebDAV 服务
 host = "0.0.0.0"           # 监听地址
 port = 8081                 # 监听端口
 prefix = "/dav"             # 路径前缀
+[auth]
+api_key = true #开启apikey
 ```
 
 ## 连接信息
 
 - **服务器地址**：`http://your-domain:8081/dav`
 - **用户名**：你的 MyObj 用户名
-- **密码**：你的 MyObj 密码
+- **密码**：系统设置中生成的API-KEY
 
 ## 客户端配置
 
@@ -31,7 +33,7 @@ prefix = "/dav"             # 路径前缀
 3. 输入 WebDAV 地址
 4. 输入用户名和密码
 
-#### 使用 RaiDrive
+#### 使用 RaiDrive（推荐）
 
 1. 下载安装 [RaiDrive](https://www.raidrive.com/)
 2. 添加 WebDAV 驱动器
