@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "from": "/",
+      "to": "/help/docs/.vitepress/dist",
+      "status": 301
+    }
+  ]
+}

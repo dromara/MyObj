@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitepress'
 
-const base = '/help/docs/.vitepress/dist'
+const base = '/help/'
 
 export default defineConfig({
   title: 'MyObj 帮助文档',
