@@ -1,5 +1,5 @@
 # 文件分享
-<img src='${base}fenxiang.png'>
+<img src='../public/fenxiang.png'>
 
 ## 创建分享链接
 
