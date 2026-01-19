@@ -1,0 +1,37 @@
+/* 自定义样式 */
+
+/* Hero 区域 Logo 大小优化 */
+.VPHero .image {
+  max-width: 200px !important;
+  height: auto !important;
+}
+
+.VPHero .image img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* 导航栏 Logo 大小优化 */
+.VPNavBarTitle .logo {
+  height: 32px !important;
+  width: auto !important;
+  max-width: 150px;
+}
+
+.VPNavBarTitle .logo img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .VPHero .image {
+    max-width: 150px !important;
+  }
+  
+  .VPNavBarTitle .logo {
+    max-width: 120px;
+  }
+}
