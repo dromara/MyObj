@@ -1,11 +1,11 @@
 # 登录
-<img src='${base}login.png'>
+<img src='../public/login.png'>
   
 # 注册
-<img src='${base}zhuce.png'>
+<img src='../public/zhuce.png'>
   
 # 首页
-<img src='${base}home.png'>
+<img src='../public/home.png'>
   
 # 文件预览
-<img src='${base}yulan.png'>
+<img src='../public/yulan.png'>
