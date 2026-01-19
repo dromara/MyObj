@@ -224,6 +224,52 @@
   import { useI18n } from '@/composables/core/useI18n'
   import { useTheme } from '@/composables/core/useTheme'
   import hljs from 'highlight.js'
+  // 注册常用语言模块（highlight.js 默认不包含所有语言）
+  import javascript from 'highlight.js/lib/languages/javascript'
+  import typescript from 'highlight.js/lib/languages/typescript'
+  import xml from 'highlight.js/lib/languages/xml' // 用于 HTML 和 Vue 文件
+  import python from 'highlight.js/lib/languages/python'
+  import java from 'highlight.js/lib/languages/java'
+  import go from 'highlight.js/lib/languages/go'
+  import rust from 'highlight.js/lib/languages/rust'
+  import cpp from 'highlight.js/lib/languages/cpp'
+  import c from 'highlight.js/lib/languages/c'
+  import php from 'highlight.js/lib/languages/php'
+  import ruby from 'highlight.js/lib/languages/ruby'
+  import swift from 'highlight.js/lib/languages/swift'
+  import sql from 'highlight.js/lib/languages/sql'
+  import bash from 'highlight.js/lib/languages/bash'
+  import css from 'highlight.js/lib/languages/css'
+  import scss from 'highlight.js/lib/languages/scss'
+  import less from 'highlight.js/lib/languages/less'
+  import json from 'highlight.js/lib/languages/json'
+  import yaml from 'highlight.js/lib/languages/yaml'
+  import powershell from 'highlight.js/lib/languages/powershell'
+
+  // 注册语言
+  // 注意：xml 语言已经包含了 'html' 作为别名，所以不需要单独注册 html
+  hljs.registerLanguage('javascript', javascript)
+  hljs.registerLanguage('typescript', typescript)
+  hljs.registerLanguage('xml', xml) // XML 语法（已包含 html 别名）
+  hljs.registerLanguage('vue', xml) // Vue 文件使用 XML 语法高亮（因为 highlight.js 没有专门的 vue 语言）
+  hljs.registerLanguage('python', python)
+  hljs.registerLanguage('java', java)
+  hljs.registerLanguage('go', go)
+  hljs.registerLanguage('rust', rust)
+  hljs.registerLanguage('cpp', cpp)
+  hljs.registerLanguage('c', c)
+  hljs.registerLanguage('php', php)
+  hljs.registerLanguage('ruby', ruby)
+  hljs.registerLanguage('swift', swift)
+  hljs.registerLanguage('sql', sql)
+  hljs.registerLanguage('bash', bash)
+  hljs.registerLanguage('css', css)
+  hljs.registerLanguage('scss', scss)
+  hljs.registerLanguage('less', less)
+  hljs.registerLanguage('json', json)
+  hljs.registerLanguage('yaml', yaml)
+  hljs.registerLanguage('powershell', powershell)
+
   // 使用自定义主题包装，根据系统主题动态应用
   import '@/assets/styles/highlight-themes.css'
 
@@ -526,11 +572,37 @@
 
       // 应用语法高亮
       if (codeLanguage.value) {
-        // 使用指定的语言进行高亮
-        result = hljs.highlight(textContent.value, {
-          language: codeLanguage.value,
-          ignoreIllegals: true // 忽略无法识别的代码，避免报错
-        })
+        // 检查语言是否已注册
+        if (!hljs.getLanguage(codeLanguage.value)) {
+          // 如果语言未注册，尝试使用相近的语言或回退到纯文本
+          proxy?.$log.warn(`语言 "${codeLanguage.value}" 未注册，尝试自动检测`)
+          result = hljs.highlightAuto(textContent.value, [
+            'javascript',
+            'typescript',
+            'python',
+            'java',
+            'go',
+            'rust',
+            'cpp',
+            'c',
+            'php',
+            'ruby',
+            'swift',
+            'sql',
+            'bash',
+            'html',
+            'css',
+            'json',
+            'xml',
+            'yaml'
+          ])
+        } else {
+          // 使用指定的语言进行高亮
+          result = hljs.highlight(textContent.value, {
+            language: codeLanguage.value,
+            ignoreIllegals: true // 忽略无法识别的代码，避免报错
+          })
+        }
       } else {
         // 自动检测语言
         result = hljs.highlightAuto(textContent.value, [

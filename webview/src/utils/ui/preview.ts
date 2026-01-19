@@ -185,7 +185,7 @@ export const getCodeLanguage = (fileName: string): string => {
     ts: 'typescript',
     jsx: 'javascript',
     tsx: 'typescript',
-    vue: 'vue',
+    vue: 'xml', // Vue 文件使用 XML 语法高亮（因为 highlight.js 没有专门的 vue 语言）
     html: 'html',
     css: 'css',
     scss: 'scss',
