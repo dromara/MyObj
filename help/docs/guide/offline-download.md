@@ -1,7 +1,7 @@
 # 离线下载
 离线下载可以解放你的时间，让下载任务于服务端后台进行，不必“苦守电脑”，离线下载的内容会自动存入MyObj网盘之中，方便随时使用。  
 目前MyObj 支持两种离线下载方式：HTTP/HTTPS 下载和种子下载。
-<img src='../public/lixian.png'>
+<img src='${base}lixian.png'>
 
 ## HTTP/HTTPS 下载
 
