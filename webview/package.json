@@ -23,6 +23,7 @@
     "axios": "^1.13.2",
     "driver.js": "^1.4.0",
     "element-plus": "^2.11.7",
+    "highlight.js": "^11.11.1",
     "jsencrypt": "^3.5.4",
     "pinia": "^3.0.4",
     "plyr": "^3.8.3",

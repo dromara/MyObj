@@ -144,8 +144,21 @@
         </el-button-group>
       </div>
       <pre
-        :class="['preview-text-content', previewType === 'code' ? `language-${codeLanguage}` : '']"
-      ><code>{{ textContent }}</code></pre>
+        ref="codeBlockRef"
+        :key="`code-${isDark}-${codeLanguage}`"
+        :class="[
+          'preview-text-content',
+          previewType === 'code' ? `language-${codeLanguage}` : '',
+          previewType === 'code' ? 'hljs' : ''
+        ]"
+      >
+        <code
+          v-if="previewType === 'code'"
+          :class="`language-${codeLanguage}`"
+          v-html="highlightedContent || textContent"
+        ></code>
+        <code v-else>{{ textContent }}</code>
+      </pre>
     </div>
 
     <!-- 不支持预览 -->
@@ -209,8 +222,13 @@
   } from '@/utils/ui/print'
   import { Lock, InfoFilled, FullScreen } from '@element-plus/icons-vue'
   import { useI18n } from '@/composables/core/useI18n'
+  import { useTheme } from '@/composables/core/useTheme'
+  import hljs from 'highlight.js'
+  // 使用自定义主题包装，根据系统主题动态应用
+  import '@/assets/styles/highlight-themes.css'
 
   const { t } = useI18n()
+  const { isDark } = useTheme()
 
   interface Props {
     modelValue: boolean
@@ -272,7 +290,9 @@
   const audioUrl = ref('')
   const pdfUrl = ref('')
   const textContent = ref('')
+  const highlightedContent = ref('') // 存储高亮后的 HTML 内容
   const codeLanguage = ref('')
+  const codeBlockRef = ref<HTMLElement | null>(null)
 
   // 加载视频内容
   const loadVideoContent = async (fileId: string) => {
@@ -479,6 +499,9 @@
           textContent.value = await getFileTextContent(fileId)
           if (previewType.value === 'code') {
             codeLanguage.value = getCodeLanguage(file.file_name)
+            // 等待 DOM 更新后应用语法高亮
+            await nextTick()
+            applySyntaxHighlight()
           }
           break
       }
@@ -488,6 +511,72 @@
       loading.value = false
       error.value = err?.message || '加载文件失败'
       proxy?.$log.error('加载文件内容失败', err)
+    }
+  }
+
+  // 应用语法高亮
+  const applySyntaxHighlight = (force = false) => {
+    if (previewType.value !== 'code' || !textContent.value) {
+      highlightedContent.value = ''
+      return
+    }
+
+    try {
+      let result: ReturnType<typeof hljs.highlight>
+
+      // 应用语法高亮
+      if (codeLanguage.value) {
+        // 使用指定的语言进行高亮
+        result = hljs.highlight(textContent.value, {
+          language: codeLanguage.value,
+          ignoreIllegals: true // 忽略无法识别的代码，避免报错
+        })
+      } else {
+        // 自动检测语言
+        result = hljs.highlightAuto(textContent.value, [
+          // 限制自动检测的语言范围，提高准确性
+          'javascript',
+          'typescript',
+          'python',
+          'java',
+          'go',
+          'rust',
+          'cpp',
+          'c',
+          'php',
+          'ruby',
+          'swift',
+          'sql',
+          'bash',
+          'html',
+          'css',
+          'json',
+          'xml',
+          'yaml'
+        ])
+        if (result.language) {
+          // 更新 codeLanguage 以便后续使用
+          codeLanguage.value = result.language
+        }
+      }
+
+      // 更新高亮后的内容
+      highlightedContent.value = result.value
+
+      // 如果是强制更新，等待 DOM 更新后强制重新计算样式
+      if (force) {
+        nextTick(() => {
+          const codeElement = codeBlockRef.value?.querySelector('code')
+          if (codeElement) {
+            // 触发重排，强制浏览器重新应用 CSS
+            void codeElement.offsetHeight
+          }
+        })
+      }
+    } catch (err) {
+      // 如果高亮失败，保持原始文本
+      proxy?.$log.warn('语法高亮失败，使用原始文本', err)
+      highlightedContent.value = ''
     }
   }
 
@@ -716,6 +805,26 @@
       handleClose()
     }
   })
+
+  // 监听主题变化，重新应用语法高亮
+  watch(
+    () => isDark.value,
+    async (newIsDark, oldIsDark) => {
+      // 只有当主题真正改变时才重新应用
+      if (newIsDark === oldIsDark) return
+      
+      // 当主题切换时，如果当前正在预览代码文件，重新应用高亮
+      if (visible.value && previewType.value === 'code' && textContent.value) {
+        // 等待主题切换动画和 DOM 更新完成
+        await new Promise(resolve => setTimeout(resolve, 300))
+        await nextTick()
+        // 强制重新应用高亮（force = true）
+        // key 的变化会触发组件重新渲染，这里再次应用高亮确保样式正确
+        applySyntaxHighlight(true)
+      }
+    },
+    { immediate: false }
+  )
 
   // 组件卸载时清理
   onUnmounted(() => {
@@ -986,6 +1095,14 @@
     color: var(--text-primary);
     background: transparent;
     padding: 0;
+    font-family: inherit;
+  }
+
+  /* Highlight.js 样式已通过 highlight-themes.css 根据主题动态应用 */
+  /* 这里只需要确保过渡动画正常工作 */
+  .preview-text-content :deep(.hljs),
+  .preview-text-content :deep(.hljs *) {
+    transition: color 0.3s ease, background-color 0.3s ease;
   }
 
   .preview-toolbar {
