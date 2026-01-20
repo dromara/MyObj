@@ -306,6 +306,46 @@ export const listExpiredUploads = () => {
   return get<ApiResponse<UncompletedUploadTask[]>>(API_ENDPOINTS.FILE.EXPIRED)
 }
 
+// 上传任务列表请求参数
+export interface UploadTaskListParams {
+  page: number
+  pageSize: number
+}
+
+// 上传任务列表项
+export interface UploadTaskListItem {
+  id: string
+  file_name: string
+  file_size: number
+  chunk_size: number
+  total_chunks: number
+  uploaded_chunks: number
+  chunk_signature: string
+  path_id: string
+  status: string
+  error_message?: string
+  progress: number
+  create_time: string
+  update_time: string
+  expire_time: string
+}
+
+// 上传任务列表响应
+export interface UploadTaskListResponse {
+  tasks: UploadTaskListItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/**
+ * 获取上传任务列表（包括所有状态的任务）
+ */
+export const getUploadTaskList = (params: UploadTaskListParams) => {
+  const filteredParams = filterParams(params)
+  return get<ApiResponse<UploadTaskListResponse>>('/file/upload/taskList', filteredParams)
+}
+
 /**
  * 延期过期任务请求参数
  */

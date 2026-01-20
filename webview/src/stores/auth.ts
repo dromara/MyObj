@@ -3,6 +3,7 @@ import { useUserStore } from './user'
 import cache from '@/plugins/cache'
 import logger from '@/plugins/logger'
 import { StoreId } from '@/enums/StoreId'
+import { uploadTaskManager } from '@/utils/file/uploadTaskManager'
 
 /**
  * 认证 Store
@@ -62,12 +63,16 @@ export const useAuthStore = defineStore(StoreId.Auth, () => {
   const login = (newToken: string, userInfo: any) => {
     setToken(newToken)
     userStore.setUserInfo(userInfo)
+    // 初始化上传任务管理器（切换到新用户的任务）
+    uploadTaskManager.init()
   }
 
   /**
    * 登出
    */
   const logout = () => {
+    // 清空当前用户的上传任务
+    uploadTaskManager.clearCurrentUserTasks()
     clearToken()
     userStore.clearUserInfo()
   }

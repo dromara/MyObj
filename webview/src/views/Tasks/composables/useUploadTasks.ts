@@ -1,6 +1,6 @@
 import { uploadTaskManager } from '@/utils/file/uploadTaskManager'
-import { loadAndSyncBackendTasks, findBackendTask } from '@/utils/file/uploadTaskSync'
-import { deleteUploadTask, getUploadProgress, listExpiredUploads } from '@/api/file'
+import { findBackendTask, syncBackendTasksToFrontend } from '@/utils/file/uploadTaskSync'
+import { deleteUploadTask, getUploadProgress, listExpiredUploads, getUploadTaskList } from '@/api/file'
 import { formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/file/upload'
 import { useI18n } from '@/composables'
@@ -51,12 +51,7 @@ export function useUploadTasks() {
         }
         // 设置新的定时器，延迟执行同步
         syncTimer = window.setTimeout(async () => {
-          const syncResult = await loadAndSyncBackendTasks()
-          if (syncResult.success) {
-            const allTasks = uploadTaskManager.getAllTasks()
-            allUploadTasks.value = allTasks
-            updatePaginatedTasks()
-          }
+          await syncTasksFromBackend()
           lastSyncTime = Date.now()
         }, SYNC_DEBOUNCE_TIME)
         return
@@ -64,21 +59,84 @@ export function useUploadTasks() {
 
       // 执行后端同步
       lastSyncTime = now
-      const syncResult = await loadAndSyncBackendTasks()
-
-      if (syncResult.success) {
-        const allTasks = uploadTaskManager.getAllTasks()
-        allUploadTasks.value = allTasks
-        updatePaginatedTasks()
-      } else if (syncResult.error) {
-        proxy?.$log.warn('任务同步失败:', syncResult.error)
-      }
+      await syncTasksFromBackend()
     } catch (error: any) {
       proxy?.$log.error('加载上传任务失败:', error)
     } finally {
       if (showLoading) {
         uploadLoading.value = false
       }
+    }
+  }
+
+  // 从后端同步任务（包括所有状态的任务）
+  const syncTasksFromBackend = async () => {
+    try {
+      // 获取所有任务列表（包括已完成和未完成的任务）
+      // 使用较大的分页大小，获取所有任务
+      const pageSize = 100
+      let currentPage = 1
+      let hasMore = true
+      const allBackendTasks: any[] = []
+
+      while (hasMore) {
+        try {
+          const response = await getUploadTaskList({
+            page: currentPage,
+            pageSize: pageSize
+          })
+
+          if (response.code === 200 && response.data) {
+            const { tasks, total } = response.data
+            if (tasks && Array.isArray(tasks)) {
+              allBackendTasks.push(...tasks)
+              
+              // 检查是否还有更多数据
+              if (allBackendTasks.length >= total || tasks.length < pageSize) {
+                hasMore = false
+              } else {
+                currentPage++
+              }
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
+        } catch (error: any) {
+          proxy?.$log.warn('获取任务列表失败:', error)
+          hasMore = false
+        }
+      }
+
+      // 将后端的所有任务同步到前端（包括已完成和未完成的任务）
+      if (allBackendTasks.length > 0) {
+        // 使用现有的同步函数，但需要适配新的数据结构
+        const backendTasks = allBackendTasks.map(task => ({
+          id: task.id,
+          file_name: task.file_name,
+          file_size: task.file_size,
+          chunk_size: task.chunk_size,
+          total_chunks: task.total_chunks,
+          uploaded_chunks: task.uploaded_chunks,
+          progress: task.progress || 0,
+          status: task.status,
+          error_message: task.error_message,
+          path_id: task.path_id,
+          create_time: task.create_time,
+          update_time: task.update_time,
+          expire_time: task.expire_time
+        }))
+
+        syncBackendTasksToFrontend(backendTasks)
+      }
+
+      // 更新前端任务列表
+      const allTasks = uploadTaskManager.getAllTasks()
+      allUploadTasks.value = allTasks
+      updatePaginatedTasks()
+    } catch (error: any) {
+      proxy?.$log.error('同步任务失败:', error)
     }
   }
 
