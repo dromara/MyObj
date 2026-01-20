@@ -1,10 +1,10 @@
 # 在RuoYi-Plus 框架里集成
 
-本文档介绍如何在 RuoYi-Vue-Plus 或 RuoYi-Cloud-Plus 中集成 MyObj S3 服务。
+本文档介绍如何在 RuoYi-Vue-Plus 或 RuoYi-Cloud-Plus 中作为对象存储集成 MyObj S3 服务。
 
 ## 📋 概述
 
-RuoYi-Plus 框架（包括 RuoYi-Vue-Plus 和 RuoYi-Cloud-Plus）采用插件式开发，OSS 模块代码位于 `ruoyi-common/ruoyi-common-oss` 中。MyObj 完全兼容 AWS S3 协议，可以直接作为 OSS 存储服务使用。
+RuoYi-Plus 框架（包括 RuoYi-Vue-Plus 和 RuoYi-Cloud-Plus）采用插件式开发，OSS 模块代码位于 `ruoyi-common/ruoyi-common-oss` 中。MyObj 完全兼容 AWS S3 协议，可以直接作为 OSS 存储服务使用，且通过S3服务上传的文件可直接通过web网盘端查看和操作，同理，web端上传的文件S3也可以访问。
 
 **注意**：RuoYi-Plus 框架与传统的 RuoYi 框架有本质区别，本文档仅适用于 RuoYi-Plus 系列框架。
 

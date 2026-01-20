@@ -238,8 +238,8 @@
       // 自动生成数据路径
       const dataPath =
         selectedDisk.mount.endsWith('/') || selectedDisk.mount.endsWith('\\')
-          ? `${selectedDisk.mount}data`
-          : `${selectedDisk.mount}/data`
+          ? `${selectedDisk.mount}obj_data`
+          : `${selectedDisk.mount}/obj_data`
       formData.data_path = dataPath
       // 将扫描到的字节转换为GB用于表单输入
       formData.size = bytesToGB(selectedDisk.total)

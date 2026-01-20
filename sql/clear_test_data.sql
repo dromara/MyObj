@@ -42,7 +42,22 @@ DELETE FROM disk;
 DELETE FROM sys_config;
 
 -- ================================
--- 6. 重置自增主键
+-- 6. 删除S3服务相关数据
+-- ================================
+DELETE FROM s3_object_encryption;
+DELETE FROM s3_encryption_keys;
+DELETE FROM s3_bucket_lifecycle;
+DELETE FROM s3_bucket_policy;
+DELETE FROM s3_object_acl;
+DELETE FROM s3_bucket_acl;
+DELETE FROM s3_bucket_cors;
+DELETE FROM s3_multipart_parts;
+DELETE FROM s3_multipart_uploads;
+DELETE FROM s3_object_metadata;
+DELETE FROM s3_buckets;
+
+-- ================================
+-- 7. 重置自增主键
 -- ================================
 -- SQLite 的自增主键重置
 DELETE FROM sqlite_sequence WHERE name IN (
@@ -58,11 +73,21 @@ DELETE FROM sqlite_sequence WHERE name IN (
     'shares',
     'recycled',
     'disk',
-    'sys_config'
+    'sys_config',
+    's3_buckets',
+    's3_object_metadata',
+    's3_multipart_parts',
+    's3_bucket_cors',
+    's3_bucket_acl',
+    's3_object_acl',
+    's3_bucket_policy',
+    's3_bucket_lifecycle',
+    's3_encryption_keys',
+    's3_object_encryption'
 );
 
 -- ================================
--- 7. 保留的表（不做任何操作）
+-- 8. 保留的表（不做任何操作）
 -- ================================
 -- groups (组表) - 保留
 -- power (权限表) - 保留

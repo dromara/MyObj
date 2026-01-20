@@ -3,6 +3,7 @@
 MyObj 支持标准的 WebDAV 协议，可以与各种 WebDAV 客户端集成。
 
 ## 启用 WebDAV
+配置文件启用webDAV只是启动了webDAV的端口，还需管理员在页面中开启webDAV权限方可使用，如果配置文件未开启，web页面无法启用webDAV功能
 
 在 `config.toml` 中配置：
 
@@ -15,6 +16,8 @@ prefix = "/dav"             # 路径前缀
 [auth]
 api_key = true #开启apikey
 ```
+管理员开启webDAV使用权限：
+`系统管理 - 系统配置 - 启用webDAV`
 
 ## 连接信息
 
@@ -31,7 +34,7 @@ api_key = true #开启apikey
 1. 打开"此电脑"
 2. 右键 → "添加网络位置"
 3. 输入 WebDAV 地址
-4. 输入用户名和密码
+4. 输入用户名和API-KEY
 
 #### 使用 RaiDrive（推荐）
 

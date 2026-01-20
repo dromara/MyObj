@@ -71,7 +71,7 @@ func PrepareLocalFileDownload(
 	if !needTempFile {
 		// 不需要临时文件，直接返回data路径
 		result.TempFilePath = fileInfo.Path
-		logger.LOG.Info("文件无需处理，直接使用data路径", "fileID", fileID, "path", fileInfo.Path)
+		logger.LOG.Debug("文件无需处理，直接使用data路径", "fileID", fileID, "path", fileInfo.Path)
 		return result, nil
 	}
 

@@ -776,7 +776,7 @@ func (a *AdminService) AdminGetSystemConfig() (*models.JsonResponse, error) {
 	config := response.AdminSystemConfigResponse{
 		AllowRegister: allowRegister != nil && allowRegister.Value == "true",
 		WebdavEnabled: webdavEnabled != nil && webdavEnabled.Value == "true",
-		Version:       "1.0.0", // TODO: 从配置或构建信息获取
+		Version:       "1.1.0", // TODO: 从配置或构建信息获取
 		TotalUsers:    totalUsers,
 		TotalFiles:    totalFiles,
 		Uptime:        custom_type.GetSystemRuntime().String(),
