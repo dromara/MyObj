@@ -52,18 +52,22 @@ FROM alpine:latest
 # 设置工作目录
 WORKDIR /app
 
-# 安装运行时依赖
-RUN apk --no-cache add ca-certificates tzdata
+# 安装运行时依赖（包括 C++ 运行时库，因为使用了 CGO）
+RUN apk --no-cache add ca-certificates tzdata libstdc++ libgcc
 
 # 设置时区为上海
 ENV TZ=Asia/Shanghai
+
+# 标识运行在 Docker 容器中
+ENV MYOBJ_IN_DOCKER=1
 
 # 创建必要的目录
 RUN mkdir -p /app/logs \
     /app/libs \
     /app/obj_data \
     /app/obj_temp \
-    /app/webview/dist
+    /app/webview/dist \
+    /app/default-libs
 
 # 从构建阶段复制可执行文件
 COPY --from=builder /build/myobj .
@@ -77,6 +81,13 @@ COPY --from=builder /build/templates ./templates
 # 复制 docs 目录（Swagger 文档）
 COPY --from=builder /build/docs ./docs
 
+# 复制默认数据库文件（用于初始化）
+COPY libs/my_obj.db /app/default-libs/my_obj.db
+
+# 复制初始化脚本
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # 暴露端口
 # 8080: HTTP服务端口
 # 8081: WebDAV服务端口
@@ -85,5 +96,6 @@ EXPOSE 8080 8081
 # 设置挂载点
 VOLUME ["/app/config.toml", "/app/logs", "/app/libs", "/app/obj_data", "/app/obj_temp"]
 
-# 启动应用
+# 设置入口点（运行初始化脚本后启动应用）
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["./myobj"]

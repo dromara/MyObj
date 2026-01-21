@@ -43,7 +43,6 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/myobj
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=${{ steps.version.outputs.version }}-${{ github.sha }}
             type=raw,value=latest
       
       - name: Build and push Docker image
