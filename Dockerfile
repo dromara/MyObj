@@ -41,8 +41,10 @@ COPY . .
 # 从前端构建阶段复制构建好的前端文件
 COPY --from=frontend-builder /build/webview/dist ./webview/dist
 
-# 构建应用
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o myobj ./src/cmd/server/main.go
+# 构建应用（支持多架构）
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o myobj ./src/cmd/server/main.go
 
 # 运行阶段
 FROM alpine:latest
