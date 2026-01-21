@@ -1,0 +1,28 @@
+# 日志文件
+logs/
+*.log
+
+# 构建产物
+bin/
+webview/dist/
+webview/node_modules/
+
+# 临时文件
+obj_temp/
+obj_data/
+*.tmp
+
+# 开发工具
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# 其他
+examples/
+.DS_Store
+*.db

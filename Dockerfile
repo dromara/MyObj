@@ -4,16 +4,15 @@ FROM node:22-alpine AS frontend-builder
 # 安装 pnpm
 RUN npm install -g pnpm
 
-WORKDIR /build/webview
+WORKDIR /build
 
-# 复制前端依赖文件（优先使用 pnpm）
-COPY webview/package.json webview/pnpm-lock.yaml ./
+# 复制前端目录（排除 node_modules 和 dist，利用 .dockerignore）
+COPY webview ./webview
+
+WORKDIR /build/webview
 
 # 安装前端依赖
 RUN pnpm install --frozen-lockfile
-
-# 复制前端源代码
-COPY webview/ .
 
 # 构建前端
 RUN pnpm run build
