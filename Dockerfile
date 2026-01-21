@@ -15,7 +15,7 @@ WORKDIR /build/webview
 RUN ls -la package.json pnpm-lock.yaml 2>/dev/null || echo "Files check"
 
 # 安装前端依赖
-RUN pnpm install --frozen-lockfile
+RUN pnpm install 
 
 # 构建前端
 RUN pnpm run build
