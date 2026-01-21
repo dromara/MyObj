@@ -607,13 +607,15 @@ export default {
             title: '自动识别下载链接',
             enabled: '启用',
             disabled: '禁用',
-            description: '启用后，系统会自动识别您复制的 HTTP/HTTPS 链接、磁力链接和种子文件，并提示创建下载任务',
+            description:
+              '启用后，系统会自动识别您复制的下载链接（需包含文件扩展名，如 .mp4、.zip 等）、磁力链接和种子文件，并提示创建下载任务',
+            descriptionNote: '注意：普通网页链接不会被识别',
             enabledSuccess: '剪贴板监听已启用',
             disabledSuccess: '剪贴板监听已禁用',
             confirmTitle: '创建下载任务',
             confirmMessage: '检测到 {linkType}：\n{displayName}\n\n是否创建离线下载任务？',
             linkType: {
-              http: 'HTTP/HTTPS 下载',
+              http: '文件下载',
               magnet: '磁力链接',
               torrent: '种子文件'
             },

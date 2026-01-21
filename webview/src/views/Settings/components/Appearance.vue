@@ -66,6 +66,9 @@
           <p class="clipboard-monitor-description">
             {{ t('settings.clipboardMonitor.description') }}
           </p>
+          <p class="clipboard-monitor-note">
+            {{ t('settings.clipboardMonitor.descriptionNote') }}
+          </p>
           <div class="clipboard-monitor-features">
             <div class="feature-item">
               <el-icon class="feature-icon"><Link /></el-icon>
@@ -1112,10 +1115,17 @@
   }
 
   .clipboard-monitor-description {
-    margin: 0 0 16px 0;
+    margin: 0 0 8px 0;
     font-size: 14px;
     color: var(--text-secondary);
     line-height: 1.6;
+  }
+
+  .clipboard-monitor-note {
+    margin: 0 0 16px 0;
+    font-size: 12px;
+    color: var(--el-color-warning);
+    line-height: 1.5;
   }
 
   .clipboard-monitor-features {
