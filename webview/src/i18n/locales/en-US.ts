@@ -563,7 +563,8 @@ export default {
     groups: {
       basic: 'Basic Settings',
       theme: 'Theme & Colors',
-      layout: 'Layout Settings'
+      layout: 'Layout Settings',
+      features: 'Features'
     },
     theme: 'Theme',
     light: 'Light',
@@ -606,6 +607,27 @@ export default {
     presetApplied: 'Preset applied: {name}',
     apply: 'Apply',
     applied: 'Applied',
+    clipboardMonitor: {
+      title: 'Auto Detect Download Links',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      description: 'When enabled, the system will automatically detect HTTP/HTTPS links, magnet links, and torrent files you copy, and prompt you to create download tasks',
+      enabledSuccess: 'Clipboard monitor enabled',
+      disabledSuccess: 'Clipboard monitor disabled',
+      confirmTitle: 'Create Download Task',
+      confirmMessage: 'Detected {linkType}:\n{displayName}\n\nDo you want to create an offline download task?',
+      linkType: {
+        http: 'HTTP/HTTPS Download',
+        magnet: 'Magnet Link',
+        torrent: 'Torrent File'
+      },
+      parsing: 'Parsing torrent/magnet link...',
+      creating: 'Creating download task...',
+      createSuccess: 'Download task created successfully',
+      createFailed: 'Failed to create download task: {error}',
+      singleFile: 'Detected file: {fileName}, please go to the offline download page to confirm download',
+      multipleFiles: 'Detected {count} files, please go to the offline download page to select files to download'
+    },
     presets: {
       default: {
         name: 'Default Preset',

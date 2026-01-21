@@ -559,7 +559,8 @@ export default {
     groups: {
       basic: '基础设置',
       theme: '主题与颜色',
-      layout: '布局设置'
+      layout: '布局设置',
+      features: '功能设置'
     },
     theme: '主题',
     light: '浅色',
@@ -602,6 +603,27 @@ export default {
     presetApplied: '已应用预设：{name}',
     apply: '应用',
     applied: '已应用',
+          clipboardMonitor: {
+            title: '自动识别下载链接',
+            enabled: '启用',
+            disabled: '禁用',
+            description: '启用后，系统会自动识别您复制的 HTTP/HTTPS 链接、磁力链接和种子文件，并提示创建下载任务',
+            enabledSuccess: '剪贴板监听已启用',
+            disabledSuccess: '剪贴板监听已禁用',
+            confirmTitle: '创建下载任务',
+            confirmMessage: '检测到 {linkType}：\n{displayName}\n\n是否创建离线下载任务？',
+            linkType: {
+              http: 'HTTP/HTTPS 下载',
+              magnet: '磁力链接',
+              torrent: '种子文件'
+            },
+            parsing: '正在解析种子/磁力链...',
+            creating: '正在创建下载任务...',
+            createSuccess: '下载任务创建成功',
+            createFailed: '创建下载任务失败：{error}',
+            singleFile: '检测到文件：{fileName}，请前往离线下载页面确认下载',
+            multipleFiles: '检测到 {count} 个文件，请前往离线下载页面选择要下载的文件'
+          },
     presets: {
       default: {
         name: '默认预设',

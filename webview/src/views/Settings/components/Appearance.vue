@@ -32,6 +32,57 @@
         </el-select>
       </el-form-item>
 
+      <!-- 功能设置分组 -->
+      <el-divider content-position="left">
+        <span class="divider-title">{{ t('settings.groups.features') }}</span>
+      </el-divider>
+
+      <!-- 剪贴板监听 -->
+      <el-form-item>
+        <div class="clipboard-monitor-card" :class="{ 'is-enabled': clipboardMonitorEnabled }">
+          <div class="clipboard-monitor-header">
+            <div class="clipboard-monitor-title-group">
+              <el-icon class="clipboard-monitor-icon" :size="24">
+                <Link v-if="clipboardMonitorEnabled" />
+                <Link v-else />
+              </el-icon>
+              <div class="clipboard-monitor-title-content">
+                <h4 class="clipboard-monitor-title">{{ t('settings.clipboardMonitor.title') }}</h4>
+                <el-tag
+                  :type="clipboardMonitorEnabled ? 'success' : 'info'"
+                  size="small"
+                  class="clipboard-monitor-status"
+                >
+                  {{ clipboardMonitorEnabled ? t('settings.clipboardMonitor.enabled') : t('settings.clipboardMonitor.disabled') }}
+                </el-tag>
+              </div>
+            </div>
+            <el-switch
+              :model-value="clipboardMonitorEnabled"
+              @change="handleClipboardMonitorChange"
+              size="large"
+            />
+          </div>
+          <p class="clipboard-monitor-description">
+            {{ t('settings.clipboardMonitor.description') }}
+          </p>
+          <div class="clipboard-monitor-features">
+            <div class="feature-item">
+              <el-icon class="feature-icon"><Link /></el-icon>
+              <span class="feature-text">{{ t('settings.clipboardMonitor.linkType.http') }}</span>
+            </div>
+            <div class="feature-item">
+              <el-icon class="feature-icon"><Link /></el-icon>
+              <span class="feature-text">{{ t('settings.clipboardMonitor.linkType.magnet') }}</span>
+            </div>
+            <div class="feature-item">
+              <el-icon class="feature-icon"><Document /></el-icon>
+              <span class="feature-text">{{ t('settings.clipboardMonitor.linkType.torrent') }}</span>
+            </div>
+          </div>
+        </div>
+      </el-form-item>
+
       <!-- 主题与颜色分组 -->
       <el-divider content-position="left">
         <span class="divider-title">{{ t('settings.groups.theme') }}</span>
@@ -208,7 +259,8 @@
 </template>
 
 <script setup lang="ts">
-  import { useTheme, useI18n, useResponsive } from '@/composables'
+  import { Sunny, Moon, Monitor, RefreshLeft, Link, Document } from '@element-plus/icons-vue'
+  import { useTheme, useI18n, useResponsive, useClipboardMonitor } from '@/composables'
   import { LanguageEnum } from '@/enums/LanguageEnum'
   import { themePresets } from '@/theme/presets'
   import { useLayoutStore } from '@/stores'
@@ -229,8 +281,24 @@
   const { locale, setLocale } = useI18n()
   const { isMobile } = useResponsive()
   const layoutStore = useLayoutStore()
+  const clipboardMonitor = useClipboardMonitor()
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
+
+  // 剪贴板监听状态
+  const clipboardMonitorEnabled = computed(() => clipboardMonitor.isEnabled.value)
+  
+  // 处理剪贴板监听开关变化
+  const handleClipboardMonitorChange = (value: string | number | boolean) => {
+    const boolValue = value === true || value === 'true' || value === 1
+    if (boolValue) {
+      clipboardMonitor.enable()
+      proxy?.$modal.msgSuccess(t('settings.clipboardMonitor.enabledSuccess'))
+    } else {
+      clipboardMonitor.disable()
+      proxy?.$modal.msgSuccess(t('settings.clipboardMonitor.disabledSuccess'))
+    }
+  }
 
   const currentTheme = ref(theme.value)
   const currentLocale = ref(locale.value)
@@ -940,6 +1008,174 @@
   .setting-item .unit {
     font-size: 14px;
     color: var(--text-secondary);
+  }
+
+  /* 剪贴板监听卡片样式 */
+  .clipboard-monitor-card {
+    padding: 20px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-light);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .clipboard-monitor-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .clipboard-monitor-card.is-enabled {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.03) 0%, rgba(79, 70, 229, 0.03) 100%);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
+
+  .clipboard-monitor-card.is-enabled::before {
+    transform: scaleX(1);
+  }
+
+  .clipboard-monitor-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .clipboard-monitor-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  html.dark .clipboard-monitor-card {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  html.dark .clipboard-monitor-card.is-enabled {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  }
+
+  html.dark .clipboard-monitor-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .clipboard-monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 16px;
+  }
+
+  .clipboard-monitor-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clipboard-monitor-icon {
+    color: var(--primary-color);
+    flex-shrink: 0;
+  }
+
+  .clipboard-monitor-title-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clipboard-monitor-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .clipboard-monitor-status {
+    align-self: flex-start;
+    font-weight: 500;
+  }
+
+  .clipboard-monitor-description {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .clipboard-monitor-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--el-fill-color-lighter);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .feature-item:hover {
+    background: var(--el-fill-color-light);
+    transform: translateY(-1px);
+  }
+
+  .feature-icon {
+    color: var(--primary-color);
+    font-size: 16px;
+  }
+
+  .feature-text {
+    font-size: 13px;
+    color: var(--text-regular);
+    font-weight: 500;
+  }
+
+  html.dark .feature-item {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  html.dark .feature-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* 响应式优化 */
+  @media (max-width: 768px) {
+    .clipboard-monitor-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .clipboard-monitor-features {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-item {
+      width: 100%;
+    }
   }
 
   /* 分组标题样式 */
