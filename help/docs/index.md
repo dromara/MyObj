@@ -92,7 +92,7 @@ MyObj 是一个基于 **Go + Vue3** 开发的现代化开源私有云存储系�
 - 🐛 [问题反馈](https://gitee.com/dromara/my-obj/issues)
 - 💬 [讨论区](https://gitee.com/dromara/my-obj/discussions)
 - 📧 联系项目维护者
-
+- 优惠服务器咨询：依依vx:qq1744492996
 ---
 
 <div style="text-align: center; margin-top: 2rem;">
