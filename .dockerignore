@@ -26,3 +26,4 @@ obj_data/
 examples/
 .DS_Store
 *.db
+!libs/my_obj.db
