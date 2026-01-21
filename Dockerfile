@@ -1,4 +1,24 @@
-# 构建阶段
+# 前端构建阶段
+FROM node:22-alpine AS frontend-builder
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+WORKDIR /build/webview
+
+# 复制前端依赖文件（优先使用 pnpm）
+COPY webview/package.json webview/pnpm-lock.yaml ./
+
+# 安装前端依赖
+RUN pnpm install --frozen-lockfile
+
+# 复制前端源代码
+COPY webview/ .
+
+# 构建前端
+RUN pnpm run build
+
+# Go 后端构建阶段
 FROM golang:1.25-alpine AS builder
 
 # 设置工作目录
@@ -15,6 +35,9 @@ RUN go mod download
 
 # 复制源代码
 COPY . .
+
+# 从前端构建阶段复制构建好的前端文件
+COPY --from=frontend-builder /build/webview/dist ./webview/dist
 
 # 构建应用
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o myobj ./src/cmd/server/main.go
