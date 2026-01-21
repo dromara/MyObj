@@ -117,31 +117,33 @@ export default defineConfig(({ mode, command }) => {
           manualChunks: (id) => {
             // node_modules 中的包
             if (id.includes('node_modules')) {
-              // Vue 核心（最常用，单独打包，必须在 Element Plus 之前检查）
-              if (id.includes('vue') && !id.includes('vue-router') && !id.includes('vue-i18n') && !id.includes('element-plus')) {
+              // Vue 核心（最常用，单独打包，必须在所有其他 Vue 相关库之前检查）
+              if (id.includes('vue') && 
+                  !id.includes('vue-router') && 
+                  !id.includes('vue-i18n') && 
+                  !id.includes('element-plus') &&
+                  !id.includes('@element-plus') &&
+                  !id.includes('pinia') &&
+                  !id.includes('@vueuse')) {
                 return 'vue-core'
               }
               // Element Plus（UI框架，体积较大，单独打包，依赖 Vue）
-              if (id.includes('element-plus')) {
+              if (id.includes('element-plus') || id.includes('@element-plus')) {
                 return 'element-plus'
               }
-              // Element Plus Icons（图标库）
-              if (id.includes('@element-plus/icons-vue')) {
-                return 'element-plus-icons'
-              }
-              // Vue Router（路由相关）
+              // Vue Router（路由相关，依赖 Vue）
               if (id.includes('vue-router')) {
                 return 'vue-router'
               }
-              // Pinia（状态管理）
+              // Pinia（状态管理，依赖 Vue）
               if (id.includes('pinia')) {
                 return 'pinia'
               }
-              // Vue I18n（国际化）
+              // Vue I18n（国际化，依赖 Vue）
               if (id.includes('vue-i18n')) {
                 return 'vue-i18n'
               }
-              // VueUse（工具库）
+              // VueUse（工具库，依赖 Vue）
               if (id.includes('@vueuse')) {
                 return 'vueuse'
               }

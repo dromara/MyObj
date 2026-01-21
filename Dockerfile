@@ -1,8 +1,8 @@
 # 前端构建阶段
 FROM node:22-alpine AS frontend-builder
 
-# 安装 pnpm
-RUN npm install -g pnpm
+# 安装固定版本的 pnpm（确保构建一致性）
+RUN npm install -g pnpm@latest
 
 WORKDIR /build
 
@@ -14,11 +14,12 @@ WORKDIR /build/webview
 # 验证关键文件是否存在
 RUN ls -la package.json pnpm-lock.yaml 2>/dev/null || echo "Files check"
 
-# 安装前端依赖
-RUN pnpm install 
+# 安装前端依赖（使用 --frozen-lockfile 确保依赖一致性）
+RUN pnpm install --frozen-lockfile
 
-# 构建前端
-RUN pnpm run build
+# 构建前端（使用生产模式，设置 NODE_ENV）
+ENV NODE_ENV=production
+RUN pnpm run build:prod || pnpm run build
 
 # Go 后端构建阶段
 FROM golang:1.25-alpine AS builder
