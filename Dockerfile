@@ -6,10 +6,13 @@ RUN npm install -g pnpm
 
 WORKDIR /build
 
-# 复制前端目录（排除 node_modules 和 dist，利用 .dockerignore）
-COPY webview ./webview
+# 复制整个 webview 目录（.dockerignore 会排除 node_modules 和 dist）
+COPY webview /build/webview
 
 WORKDIR /build/webview
+
+# 验证关键文件是否存在
+RUN ls -la package.json pnpm-lock.yaml 2>/dev/null || echo "Files check"
 
 # 安装前端依赖
 RUN pnpm install --frozen-lockfile
