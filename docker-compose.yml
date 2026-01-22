@@ -1,6 +1,6 @@
 services:
   myobj:
-    image: myobj/myobj:1.1
+    image: myobj/myobj:laster
     container_name: myobj-server
     restart: unless-stopped
     ports:
