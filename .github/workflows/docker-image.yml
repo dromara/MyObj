@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - feature/add-github-docker-build-action
     paths:
       - 'VERSION'
 
