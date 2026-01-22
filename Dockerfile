@@ -4,15 +4,14 @@ FROM node:24-alpine AS frontend-builder
 # 安装固定版本的 pnpm（确保构建一致性）
 RUN npm install -g pnpm@latest
 
+RUN pnpm config set registry https://registry.npmmirror.com/
+
 WORKDIR /build
 
 # 复制整个 webview 目录（.dockerignore 会排除 node_modules 和 dist）
 COPY webview /build/webview
 
 WORKDIR /build/webview
-
-# 验证关键文件是否存在
-RUN ls -la package.json pnpm-lock.yaml 2>/dev/null || echo "Files check"
 
 # 安装前端依赖
 RUN pnpm install
