@@ -525,9 +525,12 @@
   import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
   import { useResponsive, useI18n } from '@/composables'
   import { getFileTypeFromMimeType, getMimeTypeFromFileName, type FileTypeCategory } from '@/utils/file/mime'
+  import { useRoute, useRouter } from 'vue-router'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
+  const route = useRoute()
+  const router = useRouter()
 
   // 使用响应式检测 composable
   const { isMobile } = useResponsive()
@@ -1148,6 +1151,86 @@
   }
 
   // 页面加载时获取任务列表
+  // 监听路由查询参数，如果存在 openDialog，则自动打开弹窗并填充内容
+  watch(
+    () => route.query,
+    async (newQuery) => {
+      if (newQuery.openDialog === 'true') {
+        // 延迟打开弹窗，确保页面已渲染
+        await nextTick()
+        showDownloadDialog.value = true
+
+        // 如果存在剪贴板中的内容，填充到表单
+        const clipboardContent = sessionStorage.getItem('clipboardTorrentContent')
+        const clipboardType = sessionStorage.getItem('clipboardTorrentType')
+        const autoParse = newQuery.autoParse === 'true' // 是否需要自动解析
+        
+        if (clipboardContent) {
+          if (clipboardType === 'magnet') {
+            // 磁力链接 - 定位到"输入链接"tab
+            inputType.value = 'text'
+            // 等待 tab 切换完成
+            await nextTick()
+            downloadForm.inputText = clipboardContent
+            // 等待响应式更新完成
+            await nextTick()
+            // 手动触发类型检测
+            handleInputTextChange()
+            // 再次等待，确保 detectedInputType 已更新
+            await nextTick()
+            // 如果需要自动解析，检查是否可以解析
+            if (autoParse) {
+              // 延迟一下，确保 UI 更新完成，解析按钮已启用
+              setTimeout(() => {
+                if (canParse.value && detectedInputType.value === 'magnet') {
+                  handleParseTorrent()
+                }
+              }, 500)
+            }
+          } else if (clipboardType === 'torrent') {
+            // 种子文件（Base64）- 定位到"上传种子文件"tab
+            inputType.value = 'file'
+            // 等待 tab 切换完成
+            await nextTick()
+            torrentFileContent.value = clipboardContent
+            // 等待响应式更新完成
+            await nextTick()
+            // 手动触发类型检测
+            handleInputTextChange()
+            // 再次等待，确保 detectedInputType 已更新
+            await nextTick()
+            // 如果需要自动解析，检查是否可以解析
+            if (autoParse) {
+              // 延迟一下，确保 UI 更新完成，解析按钮已启用
+              setTimeout(() => {
+                if (canParse.value && detectedInputType.value === 'torrent') {
+                  handleParseTorrent()
+                }
+              }, 500)
+            }
+          } else if (clipboardType === 'http') {
+            // HTTP/HTTPS 链接 - 定位到"输入链接"tab
+            inputType.value = 'text'
+            // 等待 tab 切换完成
+            await nextTick()
+            downloadForm.inputText = clipboardContent
+            // 等待响应式更新完成
+            await nextTick()
+            // 手动触发类型检测
+            handleInputTextChange()
+          }
+          // 清除 sessionStorage
+          sessionStorage.removeItem('clipboardTorrentContent')
+          sessionStorage.removeItem('clipboardTorrentType')
+        }
+
+        // 清除查询参数，避免刷新时重复打开
+        router.replace({ path: '/offline', query: {} })
+      }
+    },
+    { immediate: true }
+  )
+
   onMounted(() => {
     loadTaskList()
 

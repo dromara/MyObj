@@ -33,13 +33,80 @@ export interface UploadTask {
 class UploadTaskManager {
   private tasks: Map<string, UploadTask> = new Map()
   private listeners: Set<(tasks: UploadTask[]) => void> = new Set()
-  private readonly STORAGE_KEY = 'upload_tasks'
-  private readonly DELETED_TASKS_KEY = 'deleted_upload_tasks'
+  private readonly STORAGE_KEY_PREFIX = 'upload_tasks'
+  private readonly DELETED_TASKS_KEY_PREFIX = 'deleted_upload_tasks'
   private deletedPrecheckIds: Set<string> = new Set()
+  private currentUserId: string | null = null
 
   constructor() {
-    this.loadTasksFromStorage()
-    this.loadDeletedPrecheckIds()
+    // 延迟加载，等待用户ID确定后再加载
+  }
+
+  /**
+   * 获取当前用户ID（从缓存中读取）
+   */
+  private getCurrentUserId(): string | null {
+    try {
+      // 从 userInfo 键读取（与 user store 保持一致）
+      const userInfo = cache.local.getJSON('userInfo')
+      if (!userInfo) {
+        return null
+      }
+      return userInfo.id || userInfo.user_id || null
+    } catch (error) {
+      logger.error('获取用户ID失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 获取存储键（包含用户ID）
+   */
+  private getStorageKey(): string {
+    const userId = this.getCurrentUserId()
+    if (!userId) {
+      logger.error('无法获取用户ID，无法确定存储键')
+      throw new Error('用户未登录，无法访问上传任务')
+    }
+    return `${this.STORAGE_KEY_PREFIX}_${userId}`
+  }
+
+  /**
+   * 获取已删除任务列表的存储键（包含用户ID）
+   */
+  private getDeletedTasksKey(): string {
+    const userId = this.getCurrentUserId()
+    if (!userId) {
+      logger.error('无法获取用户ID，无法确定存储键')
+      throw new Error('用户未登录，无法访问上传任务')
+    }
+    return `${this.DELETED_TASKS_KEY_PREFIX}_${userId}`
+  }
+
+  /**
+   * 初始化（在用户登录后调用）
+   */
+  init() {
+    const userId = this.getCurrentUserId()
+    // 如果用户ID发生变化，清空当前任务并加载新用户的任务
+    if (userId !== this.currentUserId) {
+      this.tasks.clear()
+      this.deletedPrecheckIds.clear()
+      this.currentUserId = userId
+      this.loadTasksFromStorage()
+      this.loadDeletedPrecheckIds()
+      this.notifyListeners()
+    }
+  }
+
+  /**
+   * 清空当前用户的所有任务（在用户登出时调用）
+   */
+  clearCurrentUserTasks() {
+    this.tasks.clear()
+    this.deletedPrecheckIds.clear()
+    this.currentUserId = null
+    this.notifyListeners()
   }
 
   /**
@@ -352,7 +419,7 @@ class UploadTaskManager {
 
   private loadDeletedPrecheckIds() {
     try {
-      const deletedIds: string[] | null = cache.local.getJSON(this.DELETED_TASKS_KEY)
+      const deletedIds: string[] | null = cache.local.getJSON(this.getDeletedTasksKey())
       if (deletedIds && Array.isArray(deletedIds)) {
         this.deletedPrecheckIds = new Set(deletedIds)
       }
@@ -364,7 +431,7 @@ class UploadTaskManager {
   private saveDeletedPrecheckIds() {
     try {
       const deletedIds = Array.from(this.deletedPrecheckIds)
-      cache.local.setJSON(this.DELETED_TASKS_KEY, deletedIds)
+      cache.local.setJSON(this.getDeletedTasksKey(), deletedIds)
     } catch (error) {
       logger.error('保存已删除任务列表失败:', error)
     }
@@ -481,7 +548,7 @@ class UploadTaskManager {
   saveTasksToStorage() {
     try {
       const tasks = Array.from(this.tasks.values())
-      cache.local.setJSON(this.STORAGE_KEY, tasks)
+      cache.local.setJSON(this.getStorageKey(), tasks)
     } catch (error) {
       logger.error('保存上传任务到 localStorage 失败:', error)
     }
@@ -489,7 +556,7 @@ class UploadTaskManager {
 
   private loadTasksFromStorage() {
     try {
-      const tasks: UploadTask[] | null = cache.local.getJSON(this.STORAGE_KEY)
+      const tasks: UploadTask[] | null = cache.local.getJSON(this.getStorageKey())
       if (tasks && Array.isArray(tasks)) {
         tasks.forEach(task => {
           const validStatuses: UploadTask['status'][] = [

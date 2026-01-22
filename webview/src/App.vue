@@ -1,6 +1,6 @@
 <script setup lang="ts">
   // App只作为路由容器，逻辑由router守卫和各页面处理
-  import { useTheme, useKeyboardShortcuts, useOnboarding } from '@/composables'
+  import { useTheme, useKeyboardShortcuts, useOnboarding, useClipboardMonitor } from '@/composables'
   import { useAppStore, useAuthStore } from '@/stores'
 
   // 初始化主题系统
@@ -8,6 +8,9 @@
 
   // 初始化快捷键系统
   useKeyboardShortcuts()
+
+  // 初始化剪贴板监听系统
+  useClipboardMonitor()
 
   // 初始化新手引导系统
   const { checkAndStartOnboarding, checkOnboardingStatus } = useOnboarding()

@@ -3,6 +3,7 @@ import { useUserStore } from './user'
 import cache from '@/plugins/cache'
 import logger from '@/plugins/logger'
 import { StoreId } from '@/enums/StoreId'
+import { uploadTaskManager } from '@/utils/file/uploadTaskManager'
 
 /**
  * 认证 Store
@@ -62,14 +63,23 @@ export const useAuthStore = defineStore(StoreId.Auth, () => {
   const login = (newToken: string, userInfo: any) => {
     setToken(newToken)
     userStore.setUserInfo(userInfo)
+    // 初始化上传任务管理器（切换到新用户的任务）
+    uploadTaskManager.init()
+    
+    // 启动剪贴板监听（如果已启用）
+    // 注意：这里不直接调用，而是通过 composable 的 watch 自动启动
+    // 因为 composable 需要在组件中初始化
   }
 
   /**
    * 登出
    */
   const logout = () => {
+    // 清空当前用户的上传任务
+    uploadTaskManager.clearCurrentUserTasks()
     clearToken()
     userStore.clearUserInfo()
+    // 剪贴板监听会通过 watch 自动停止
   }
 
   // 初始化：从缓存加载

@@ -1,10 +1,6 @@
-version: '1.0.0'
-
 services:
   myobj:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: myobj/myobj:laster
     container_name: myobj-server
     restart: unless-stopped
     ports:
@@ -23,6 +19,7 @@ services:
       - ./obj_temp:/app/obj_temp
     environment:
       - TZ=Asia/Shanghai
+      - MYOBJ_CACHE_HOST=redis
     depends_on:
       - redis
     networks:
@@ -35,8 +32,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      # Redis 数据持久化
-      - redis-data:/data
+      - ./redis-data:/data
     command: redis-server --appendonly yes
     networks:
       - myobj-network
@@ -44,7 +40,3 @@ services:
 networks:
   myobj-network:
     driver: bridge
-
-volumes:
-  redis-data:
-    driver: local

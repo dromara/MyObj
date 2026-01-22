@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -155,21 +158,25 @@ type S3 struct {
 }
 
 // InitConfig 初始化配置
-// 自动搜索并加载 config.toml 文件
+// 自动搜索并加载 config.toml 文件，然后使用环境变量覆盖
 // 搜索顺序:
 // 1. 当前工作目录
 // 2. 可执行文件所在目录
 // 3. 项目根目录（通过向上查找）
+// 环境变量命名规则: MYOBJ_<SECTION>_<FIELD> (例如: MYOBJ_SERVER_PORT, MYOBJ_DATABASE_HOST)
 func InitConfig() error {
+	config := new(MyObjConfig)
+
+	// 尝试加载 TOML 配置文件（可选）
 	configPath := findConfigFile()
-	if configPath == "" {
-		return fmt.Errorf("找不到配置文件 config.toml，请确保配置文件存在")
+	if configPath != "" {
+		if _, err := toml.DecodeFile(configPath, config); err != nil {
+			return fmt.Errorf(fmt.Sprintf("配置文件解析失败: %v", err))
+		}
 	}
 
-	config := new(MyObjConfig)
-	if _, err := toml.DecodeFile(configPath, config); err != nil {
-		return fmt.Errorf(fmt.Sprintf("配置文件解析失败: %v", err))
-	}
+	// 应用环境变量覆盖
+	applyEnvOverrides(config)
 
 	// 验证必要的配置
 	if err := validateConfig(config); err != nil {
@@ -280,4 +287,117 @@ func validateConfig(cfg *MyObjConfig) error {
 // 返回当前的配置对象
 func GetConfig() *MyObjConfig {
 	return CONFIG
+}
+
+// applyEnvOverrides 应用环境变量覆盖配置
+// 使用反射自动遍历配置结构，根据 TOML tag 构建环境变量名
+// 环境变量命名规则: MYOBJ_<SECTION>_<FIELD> (例如: MYOBJ_SERVER_PORT, MYOBJ_DATABASE_HOST)
+func applyEnvOverrides(cfg *MyObjConfig) {
+	applyEnvOverridesRecursive(reflect.ValueOf(cfg).Elem(), "MYOBJ", "")
+	
+	// S3 加密主密钥特殊处理（保持向后兼容，支持 S3_ENCRYPTION_MASTER_KEY）
+	if val := getEnv("S3_ENCRYPTION_MASTER_KEY"); val != "" {
+		cfg.S3.EncryptionMasterKey = val
+	}
+}
+
+// applyEnvOverridesRecursive 递归应用环境变量覆盖
+// v: 结构体的反射值
+// prefix: 环境变量前缀（如 "MYOBJ"）
+// sectionPrefix: 当前节的名称（如 "SERVER", "DATABASE"）
+func applyEnvOverridesRecursive(v reflect.Value, prefix, sectionPrefix string) {
+	t := v.Type()
+	
+	// 遍历结构体的所有字段
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+		
+		// 跳过未导出的字段
+		if !field.CanSet() {
+			continue
+		}
+		
+		// 获取 TOML tag
+		tomlTag := fieldType.Tag.Get("toml")
+		if tomlTag == "" || tomlTag == "-" {
+			continue
+		}
+		
+		// 构建环境变量名
+		// 将 toml tag 转换为大写，例如: "api_key" -> "API_KEY"
+		envKey := strings.ToUpper(tomlTag)
+		
+		// 如果是嵌套结构体，递归处理
+		if field.Kind() == reflect.Struct {
+			// 构建新的 section 前缀
+			newSectionPrefix := tomlTag
+			if sectionPrefix != "" {
+				newSectionPrefix = sectionPrefix + "_" + strings.ToUpper(tomlTag)
+			} else {
+				newSectionPrefix = strings.ToUpper(tomlTag)
+			}
+			applyEnvOverridesRecursive(field, prefix, newSectionPrefix)
+			continue
+		}
+		
+		// 构建完整的环境变量名: MYOBJ_<SECTION>_<FIELD>
+		var envVarName string
+		if sectionPrefix != "" {
+			envVarName = prefix + "_" + sectionPrefix + "_" + envKey
+		} else {
+			envVarName = prefix + "_" + envKey
+		}
+		
+		// 根据字段类型设置值
+		setFieldFromEnv(field, envVarName)
+	}
+}
+
+// setFieldFromEnv 根据环境变量设置字段值
+func setFieldFromEnv(field reflect.Value, envVarName string) {
+	envValue := os.Getenv(envVarName)
+	if envValue == "" {
+		return
+	}
+	
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(envValue)
+		
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if intVal, err := strconv.Atoi(envValue); err == nil {
+			field.SetInt(int64(intVal))
+		}
+		
+	case reflect.Bool:
+		if boolVal := parseBool(envValue); boolVal != nil {
+			field.SetBool(*boolVal)
+		}
+		
+	default:
+		// 其他类型暂不支持
+	}
+}
+
+// getEnv 获取环境变量（字符串）
+func getEnv(key string) string {
+	return os.Getenv(key)
+}
+
+// parseBool 解析布尔值字符串
+// 支持: "true"/"false", "1"/"0", "yes"/"no", "on"/"off"
+func parseBool(val string) *bool {
+	val = strings.ToLower(strings.TrimSpace(val))
+	var result bool
+	switch val {
+	case "true", "1", "yes", "on":
+		result = true
+		return &result
+	case "false", "0", "no", "off":
+		result = false
+		return &result
+	default:
+		return nil
+	}
 }

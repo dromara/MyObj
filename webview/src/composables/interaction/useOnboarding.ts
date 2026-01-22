@@ -485,14 +485,22 @@ export function useOnboarding() {
       return
     }
     
-    // 检查用户是否已登录
-    if (!authStore.token) {
+    // 检查当前路由，登录页和分享页不需要新手引导（先检查路由，避免不必要的登录检查）
+    const currentRoute = router.currentRoute.value
+    const routePath = currentRoute.path
+    const routeName = currentRoute.name
+    
+    // 排除登录页、分享下载页面（/share/:token）
+    if (
+      routePath === '/login' ||
+      routePath.startsWith('/share/') ||
+      routeName === 'ShareDownload'
+    ) {
       return
     }
     
-    // 检查当前路由，登录页和分享页不需要新手引导
-    const currentRoute = router.currentRoute.value
-    if (currentRoute.path === '/login' || currentRoute.path.startsWith('/share/')) {
+    // 检查用户是否已登录（分享页面不需要登录，所以先检查路由再检查登录）
+    if (!authStore.token) {
       return
     }
     

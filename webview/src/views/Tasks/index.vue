@@ -115,6 +115,8 @@
   let unsubscribe: (() => void) | null = null
 
   onMounted(() => {
+    // 初始化上传任务管理器（确保用户隔离）
+    uploadTaskManager.init()
     loadUploadTasks(true, true) // 初始加载，强制同步后端
     loadDownloadTasks(true, 1, 20) // 初始加载，第一页，每页20条
     getExpiredTaskCount() // 加载过期任务数量
