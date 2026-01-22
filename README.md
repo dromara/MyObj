@@ -946,10 +946,10 @@ ERROR: upload failed: connection timeout
 
 ## 📮 联系方式
 
-- 🏠 **项目主页**: [https://gitee.com/dromara/my-ob](https://gitee.com/dromara/my-ob)
-- 🐛 **问题反馈**: [Gitee Issues](https://gitee.com/dromara/my-ob/issues)
-- 💬 **讨论区**: [Gitee Discussions](https://gitee.com/dromara/my-ob/discussions)
-- 🌐 **官方网站**: [https://gitee.com/dromara/my-ob](https://gitee.com/dromara/my-ob)
+- 🏠 **项目主页**: [https://gitee.com/dromara/my-obj](https://gitee.com/dromara/my-obj)
+- 🐛 **问题反馈**: [Gitee Issues](https://gitee.com/dromara/my-obj/issues)
+- 💬 **讨论区**: [Gitee Discussions](https://gitee.com/dromara/my-obj/discussions)
+- 🌐 **官方网站**: [https://gitee.com/dromara/my-obj](https://gitee.com/dromara/my-obj)
 
 ---
 
@@ -959,7 +959,7 @@ ERROR: upload failed: connection timeout
 
 ### ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=https://gitee.com/MR-wind/myobj&type=Date)](https://star-history.com/#https://gitee.com/MR-wind/myobj&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=dromara/MyObj&type=date&legend=top-left)](https://www.star-history.com/#dromara/MyObj&type=date&legend=top-left)
 
 ---
 
