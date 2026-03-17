@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/md5"
@@ -222,9 +221,7 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 	defer tempFile.Close()
 
 	// 5. 读取文件内容并计算哈希
-	// var testBuf bytes.Buffer
 	hasher := md5.New()
-	// multiWriter := io.MultiWriter(tempFile, hasher, &testBuf)
 	multiWriter := io.MultiWriter(tempFile, hasher)
 	fileSize, err := io.Copy(multiWriter, input.Body)
 	if err != nil {
@@ -245,7 +242,6 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 		logger.LOG.Debug("content MD5 mismatch",
 			"calculated", base64hash,
 			"provided", input.ContentMD5,
-			// "content", testBuf.String(),
 		)
 		return nil, types.ErrContentMD5MismatchError
 	}

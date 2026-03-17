@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"myobj/src/pkg/logger"
 )
 
 // SignatureV4 AWS Signature V4验证器
@@ -138,13 +137,6 @@ func (sv *SignatureV4) VerifyRequest(r *http.Request, secretKey string) error {
 		dateStamp[:8], sv.region, sv.service)
 	stringToSign := sv.buildStringToSign(dateStamp, credentialScope, canonicalRequest)
 
-	// logger.LOG.Debug("s3 SignatureV4", 
-	// 	"dateStamp", dateStamp,
-	// 	"canonicalRequest", canonicalRequest,
-	// 	"credentialScope", credentialScope,
-	// 	"stringToSign", stringToSign,
-	// );
-
 	// 5. 计算签名密钥
 	signingKey := sv.deriveSigningKey(secretKey, dateStamp[:8])
 
@@ -169,7 +161,6 @@ func (sv *SignatureV4) parseAuthHeader(authHeader string) map[string]string {
 
 	// 分割键值对
 	re := regexp.MustCompile(`,\s*`)
-	// parts := strings.Split(authHeader, ", ")
 	parts := re.Split(authHeader, -1)
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
