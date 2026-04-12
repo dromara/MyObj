@@ -190,7 +190,7 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024
+		freeSpaceBytes := int64(disk.Size)
 		if freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk
@@ -232,11 +232,17 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 		return nil, fmt.Errorf("sync temp file failed: %w", err)
 	}
 
+	var md5bytes = hasher.Sum(nil)
 	// 计算MD5作为ETag
-	etag := hex.EncodeToString(hasher.Sum(nil))
+	etag := hex.EncodeToString(md5bytes)
 
+	var base64hash = base64.StdEncoding.EncodeToString(md5bytes)
 	// 6. 如果提供了Content-MD5，验证完整性
-	if input.ContentMD5 != "" && input.ContentMD5 != etag {
+	if input.ContentMD5 != "" && input.ContentMD5 != base64hash {
+		logger.LOG.Debug("content MD5 mismatch",
+			"calculated", base64hash,
+			"provided", input.ContentMD5,
+		)
 		return nil, types.ErrContentMD5MismatchError
 	}
 
@@ -1470,7 +1476,7 @@ func (s *S3ObjectService) UploadPart(ctx context.Context, input *UploadPartInput
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024
+		freeSpaceBytes := int64(disk.Size)
 		if freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk
@@ -1631,7 +1637,7 @@ func (s *S3ObjectService) CompleteMultipartUpload(ctx context.Context, input *Co
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024
+		freeSpaceBytes := int64(disk.Size)
 		if freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk
@@ -2165,7 +2171,7 @@ func (s *S3ObjectService) CopyObject(ctx context.Context, input *CopyObjectInput
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := int64(disk.Size) * 1024 * 1024 * 1024
+		freeSpaceBytes := int64(disk.Size)
 		if freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk

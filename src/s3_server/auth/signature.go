@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -159,7 +160,8 @@ func (sv *SignatureV4) parseAuthHeader(authHeader string) map[string]string {
 	authHeader = strings.TrimPrefix(authHeader, "AWS4-HMAC-SHA256 ")
 
 	// 分割键值对
-	parts := strings.Split(authHeader, ", ")
+	re := regexp.MustCompile(`,\s*`)
+	parts := re.Split(authHeader, -1)
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) == 2 {
