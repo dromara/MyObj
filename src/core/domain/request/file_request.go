@@ -155,3 +155,31 @@ type UploadTaskListRequest struct {
 	// 每页数量
 	PageSize int `form:"pageSize" binding:"required,min=1,max=100"`
 }
+
+// ExtractCheckRequest 解压冲突检测请求
+type ExtractCheckRequest struct {
+	// 文件ID（uf_id）
+	FileID string `json:"file_id" binding:"required"`
+	// 目标目录的虚拟路径ID
+	TargetPathID string `json:"target_path_id" binding:"required"`
+	// 文件加密密码（如果是加密文件）
+	FilePassword string `json:"file_password"`
+}
+
+// ExtractFileRequest 在线解压缩请求
+type ExtractFileRequest struct {
+	// 文件ID（uf_id）
+	FileID string `json:"file_id" binding:"required"`
+	// 目标目录的虚拟路径ID
+	TargetPathID string `json:"target_path_id" binding:"required"`
+	// 文件加密密码（如果是加密文件）
+	FilePassword string `json:"file_password"`
+	// 冲突解决策略: overwrite/keep_both/cancel
+	ConflictResolution string `json:"conflict_resolution"`
+}
+
+// ExtractProgressRequest 查询解压进度请求
+type ExtractProgressRequest struct {
+	// 任务ID
+	TaskID string `form:"task_id" binding:"required"`
+}

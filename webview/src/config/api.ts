@@ -153,6 +153,13 @@ export const API_ENDPOINTS = {
     }
   },
 
+  // 在线解压缩
+  EXTRACT: {
+    CREATE: '/file/extract/create',
+    PROGRESS: '/file/extract/progress',
+    CHECK: '/file/extract/check'
+  },
+
   // 打包下载
   PACKAGE: {
     CREATE: '/file/package/create',

@@ -15,7 +15,10 @@ export function useFileOperations(
   const { t } = useI18n()
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const router = useRouter()
+  const route = useRoute()
   const userStore = useUserStore()
+
+  const extractDialogRef = ref<any>(null)
 
   const previewVisible = ref(false)
   const previewFile = ref<FileItem | null>(null)
@@ -356,6 +359,11 @@ export function useFileOperations(
     }
   }
 
+  const handleExtractFile = (file: FileItem) => {
+    const currentPath = (route.query.virtualPath as string) || ''
+    extractDialogRef.value?.open(file, currentPath)
+  }
+
   const handleSetFilePublic = async (file: FileItem, isPublic: boolean) => {
     try {
       // 如果要设置为公开，检查文件是否加密
@@ -392,6 +400,9 @@ export function useFileOperations(
       case 'delete':
         handleDeleteFile(file)
         break
+      case 'extract':
+        handleExtractFile(file)
+        break
       case 'setPublic':
         handleSetFilePublic(file, true)
         break
@@ -402,6 +413,8 @@ export function useFileOperations(
   }
 
   return {
+    extractDialogRef,
+    handleExtractFile,
     previewVisible,
     previewFile,
     showShareDialog,

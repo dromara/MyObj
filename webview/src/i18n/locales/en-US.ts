@@ -1280,5 +1280,35 @@ export default {
       daysMinutes: '{days}d {minutes}m',
       daysHoursMinutes: '{days}d {hours}h {minutes}m'
     }
-  }
+  },
+  extract: {
+    title: 'Online Extract',
+    extract: 'Extract',
+    targetPath: 'Extract to',
+    rootDir: 'Root Directory',
+    currentDir: 'Current Directory',
+    password: 'File Password',
+    passwordPlaceholder: 'Enter encrypted file password',
+    passwordTip: 'Encrypted archives require a password to extract',
+    startExtract: 'Start Extract',
+    creating: 'Creating task...',
+    createFailed: 'Failed to create extract task',
+    completed: 'Extract completed, {completed} files total',
+    failed: 'Extract failed',
+    extracting: 'Extracting',
+    statusPreparing: 'Preparing...',
+    statusDownloading: 'Downloading...',
+    statusExtracting: 'Extracting...',
+    statusUploading: 'Uploading...',
+    conflictTitle: 'Duplicate files detected',
+    conflictDesc: '{count} file(s) already exist in the target directory:',
+    overwrite: 'Overwrite',
+    overwriteTip: 'Duplicate files will be overwritten, identical content will be skipped',
+    keepBoth: 'Keep Both',
+    keepBothTip: 'Duplicate files will be auto-renamed (e.g. a (1).txt)',
+    skipConflict: 'Skip Duplicates',
+    skipConflictTip: 'Skip all duplicate files, only extract non-conflicting ones',
+    skipped: '{skipped} duplicate file(s) skipped',
+    checking: 'Checking conflicts...'
+  },
 }

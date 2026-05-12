@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"errors"
@@ -91,6 +91,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/package/create", middleware.PowerVerify("file:download"), f.CreatePackage)
 		fileGroup.GET("/package/progress", middleware.PowerVerify("file:download"), f.GetPackageProgress)
 		fileGroup.GET("/package/download", middleware.PowerVerify("file:download"), f.DownloadPackage)
+		// 在线解压缩
+		fileGroup.POST("/extract/create", middleware.PowerVerify("file:download"), f.CreateExtract)
+		fileGroup.GET("/extract/progress", middleware.PowerVerify("file:download"), f.GetExtractProgress)
+		fileGroup.POST("/extract/check", middleware.PowerVerify("file:download"), f.CheckExtractConflict)
 	}
 
 	logger.LOG.Info("[路由] 文件路由注册完成✔️")
@@ -685,6 +689,90 @@ func (f *FileHandler) RenewExpiredTask(c *gin.Context) {
 	result, err := f.service.RenewExpiredTask(req.TaskID, userID, req.Days)
 	if err != nil {
 		c.JSON(500, models.NewJsonResponse(500, "延期失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// CheckExtractConflict godoc
+// @Summary 解压冲突检测
+// @Description 检测解压目标路径是否存在同名文件
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.ExtractCheckRequest true "检测请求"
+// @Success 200 {object} models.JsonResponse{data=response.ExtractCheckResponse} "检测结果"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Router /file/extract/check [post]
+func (f *FileHandler) CheckExtractConflict(c *gin.Context) {
+	req := new(request.ExtractCheckRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := f.service.CheckExtractConflict(req, userID)
+	if err != nil {
+		logger.LOG.Error("解压冲突检测失败", "error", err)
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// CreateExtract godoc
+// @Summary 创建在线解压缩任务
+// @Description 选择网盘中的压缩文件（zip/tar/tar.gz/tar.bz2），直接解压到指定目录
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.ExtractFileRequest true "解压请求"
+// @Success 200 {object} models.JsonResponse{data=response.ExtractCreateResponse} "任务创建成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Router /file/extract/create [post]
+func (f *FileHandler) CreateExtract(c *gin.Context) {
+	req := new(request.ExtractFileRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := f.service.CreateExtractTask(req, userID)
+	if err != nil {
+		logger.LOG.Error("创建解压任务失败", "error", err)
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// GetExtractProgress godoc
+// @Summary 查询解压缩进度
+// @Description 查询解压缩任务的执行进度
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param task_id query string true "任务ID"
+// @Success 200 {object} models.JsonResponse{data=response.ExtractProgressResponse} "查询成功"
+// @Failure 400 {object} models.JsonResponse "参数错误"
+// @Router /file/extract/progress [get]
+func (f *FileHandler) GetExtractProgress(c *gin.Context) {
+	taskID := c.Query("task_id")
+	if taskID == "" {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := f.service.GetExtractProgress(taskID, userID)
+	if err != nil {
+		logger.LOG.Error("获取解压进度失败", "error", err)
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
 	c.JSON(200, result)

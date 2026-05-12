@@ -65,6 +65,7 @@
               >
                 {{ file.public ? t('files.cancelPublic') : t('files.setPublic') }}
               </el-dropdown-item>
+              <el-dropdown-item command="extract" icon="FolderOpened">{{ t('extract.extract') }}</el-dropdown-item>
               <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>

@@ -1268,5 +1268,35 @@ export default {
       daysMinutes: '{days}天{minutes}分钟',
       daysHoursMinutes: '{days}天{hours}小时{minutes}分钟'
     }
-  }
+  },
+  extract: {
+    title: '在线解压缩',
+    extract: '解压缩',
+    targetPath: '解压到',
+    rootDir: '根目录',
+    currentDir: '当前目录',
+    password: '文件密码',
+    passwordPlaceholder: '请输入加密文件密码',
+    passwordTip: '加密的压缩文件需要输入密码才能解压',
+    startExtract: '开始解压',
+    creating: '创建任务中...',
+    createFailed: '创建解压任务失败',
+    completed: '解压完成，共 {completed} 个文件',
+    failed: '解压失败',
+    extracting: '正在解压',
+    statusPreparing: '准备中...',
+    statusDownloading: '下载中...',
+    statusExtracting: '解压中...',
+    statusUploading: '上传中...',
+    conflictTitle: '检测到同名文件',
+    conflictDesc: '以下 {count} 个文件在目标目录中已存在：',
+    overwrite: '覆盖',
+    overwriteTip: '同名文件将被覆盖，内容相同的文件将自动跳过',
+    keepBoth: '保留两者',
+    keepBothTip: '同名文件将自动重命名（如 a (1).txt）',
+    skipConflict: '跳过同名',
+    skipConflictTip: '将跳过所有同名文件，仅解压不冲突的文件',
+    skipped: '已跳过 {skipped} 个同名文件',
+    checking: '检测冲突中...'
+  },
 }

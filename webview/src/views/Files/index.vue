@@ -85,6 +85,7 @@
         @rename-file="handleRenameFile"
         @share-file="handleShareFile"
         @set-file-public="(file, isPublic) => handleSetFilePublic(file, isPublic)"
+        @extract-file="handleExtractFile"
         @delete-file="handleDeleteFile"
         @rename-dir="handleRenameDir"
         @delete-dir="handleDeleteDir"
@@ -170,6 +171,9 @@
         <el-button type="primary" :loading="moving" @click="handleConfirmMove">{{ t('files.confirmMove') }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 解压缩组件 -->
+    <ExtractDialog ref="extractDialogRef" @completed="loadFileList" />
 
     <!-- 分享文件组件 -->
     <share-dialog
@@ -278,7 +282,8 @@
   import { handleFileUpload } from '@/utils/file/upload'
   import { useI18n } from '@/composables'
   import FileGrid from './components/FileGrid.vue'
-  import FileList from './components/FileList.vue'
+  import ExtractDialog from '@/components/ExtractDialog/index.vue'
+import FileList from './components/FileList.vue'
   import Breadcrumb from './components/Breadcrumb.vue'
   import type { FileItem, FolderItem } from '@/types'
   import { Upload, FolderAdd } from '@element-plus/icons-vue'
@@ -337,6 +342,8 @@
     downloadPasswordForm,
     downloadingFile,
     getFileSize,
+    extractDialogRef,
+    handleExtractFile,
     handleShareSuccess,
     handleFilePreview,
     handleShareFile,

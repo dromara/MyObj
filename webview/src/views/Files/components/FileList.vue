@@ -240,6 +240,7 @@
     'rename-file': [file: FileItem]
     'share-file': [file: FileItem]
     'set-file-public': [file: FileItem, isPublic: boolean]
+    'extract-file': [file: FileItem]
     'delete-file': [file: FileItem]
     'rename-dir': [folder: FolderItem]
     'delete-dir': [folder: FolderItem]
@@ -325,6 +326,9 @@
           break
         case 'setPrivate':
           emit('set-file-public', row as FileItem, false)
+          break
+        case 'extract':
+          emit('extract-file', row as FileItem)
           break
         case 'delete':
           emit('delete-file', row as FileItem)

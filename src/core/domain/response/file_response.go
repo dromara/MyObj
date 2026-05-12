@@ -213,3 +213,34 @@ type UploadTaskListResponse struct {
 	// 每页数量
 	PageSize int `json:"page_size"`
 }
+
+// ExtractCheckResponse 解压冲突检测响应
+type ExtractCheckResponse struct {
+	HasConflict   bool     `json:"has_conflict"`
+	ConflictFiles []string `json:"conflict_files"`
+	TotalFiles    int      `json:"total_files"`
+}
+
+// ExtractCreateResponse 解压缩任务创建响应
+type ExtractCreateResponse struct {
+	TaskID      string `json:"task_id"`
+	ArchiveName string `json:"archive_name"`
+	ArchiveType string `json:"archive_type"`
+	TotalFiles  int    `json:"total_files"`
+	TotalSize   int64  `json:"total_size"`
+	Status      string `json:"status"`
+}
+
+// ExtractProgressResponse 解压缩进度响应
+type ExtractProgressResponse struct {
+	TaskID       string `json:"task_id"`
+	Status       string `json:"status"`
+	Progress     int    `json:"progress"`
+	CurrentFile  string `json:"current_file"`
+	CurrentIndex int    `json:"current_index"`
+	TotalFiles   int    `json:"total_files"`
+	Completed    int    `json:"completed"`
+	Failed       int    `json:"failed"`
+	Skipped      int    `json:"skipped"`
+	ErrorMsg     string `json:"error_msg"`
+}

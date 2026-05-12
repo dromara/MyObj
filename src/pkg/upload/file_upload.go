@@ -52,6 +52,8 @@ type FileUploadData struct {
 	UserID string `json:"user_id"`
 	// 文件加密密码（明文）
 	FilePassword string `json:"file_password"`
+	// 跳过临时文件清理（由调用方自行管理生命周期）
+	SkipCleanup bool `json:"skip_cleanup"`
 }
 
 // ProcessUploadedFile 处理已上传的文件
@@ -534,7 +536,7 @@ func copyFile(src, dst string) error {
 
 // cleanupTempFiles 清理临时文件和临时目录
 func cleanupTempFiles(data *FileUploadData) {
-	if data.TempFilePath == "" {
+	if data.TempFilePath == "" || data.SkipCleanup {
 		return
 	}
 
