@@ -117,7 +117,7 @@ export const getFilePreviewUrl = async (fileId: string, fileType?: string): Prom
       }
     })
 
-    const blob = new Blob([response.data])
+    const blob = new Blob([response.data], { type: response.data.type || 'application/octet-stream' })
     return window.URL.createObjectURL(blob)
   } catch (error) {
     throw new Error('获取文件预览失败: ' + (error instanceof Error ? error.message : '未知错误'))
