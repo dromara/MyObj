@@ -1,0 +1,11 @@
+{
+  "name": "@myobj/http",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@myobj/shared": "workspace:*",
+    "axios": "^1.16.1"
+  }
+}

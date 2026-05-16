@@ -7,11 +7,10 @@ import type { ComponentInternalInstance } from 'vue'
 import { onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useI18n } from '@/composables'
+import { useI18n } from '../core/useI18n'
 import { readClipboardText, readClipboardFile, fileToBase64 } from '@/utils/ui/clipboard'
 import { detectLinkType, formatLinkDisplayName, type DetectedLink } from '@/utils/clipboard/linkDetector'
-import logger from '@/plugins/logger'
-import cache from '@/plugins/cache'
+import { logger, cache } from '@myobj/shared'
 
 // 用户设置键名
 const SETTINGS_KEY = 'clipboardMonitorEnabled'

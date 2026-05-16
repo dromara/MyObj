@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAdmin, useI18n } from '@/composables'
+import { useAdmin } from './useAdmin'
+import { useI18n } from '../core/useI18n'
 
 /**
  * 菜单项接口

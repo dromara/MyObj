@@ -6,7 +6,7 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
 import router from './router'
 import '@/assets/styles/index.css'
-import { setupI18n } from '@/i18n'
+import { setupI18n } from '@myobj/shared'
 
 // 注册插件
 import plugins from './plugins/index'
@@ -28,7 +28,7 @@ ElDialog.props.closeOnClickModal.default = false
 // VITE_LOG_ENABLE=true           # 是否启用日志: true/false
 // VITE_LOG_ENABLE_TIMESTAMP=true # 是否显示时间戳: true/false
 // VITE_LOG_ENABLE_CALLER=true    # 是否显示调用者信息: true/false
-import { loadLoggerConfigFromEnv } from '@/utils/config/logger-config'
+import { loadLoggerConfigFromEnv } from '@myobj/shared'
 loadLoggerConfigFromEnv()
 
 const app = createApp(App)

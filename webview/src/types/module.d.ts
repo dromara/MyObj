@@ -1,7 +1,5 @@
 import type { ComponentInternalInstance as ComponentInstance } from 'vue'
-import modal from '@/plugins/modal'
-import cache from '@/plugins/cache'
-import logger from '@/plugins/logger'
+import { modal, cache, logger } from '@myobj/shared'
 
 export {}
 

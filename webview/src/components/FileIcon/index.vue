@@ -38,8 +38,8 @@
 </template>
 
 <script setup lang="ts">
-  import { getFileIcon } from '@/utils/file/fileIcon'
-  import type { FileIconConfig } from '@/utils/file/fileIcon'
+  import { getFileIcon } from '@myobj/shared'
+  import type { FileIconConfig } from '@myobj/shared'
   import { useI18n } from '@/composables'
 
   const { t } = useI18n()

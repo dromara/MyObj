@@ -138,25 +138,23 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth && !authStore.token) {
-    next('/login')
-  } else if (to.path === '/login' && authStore.token) {
-    next('/files')
-  } else if (to.meta.requiresAdmin) {
-    // 检查管理员权限
+    return '/login'
+  }
+  if (to.path === '/login' && authStore.token) {
+    return '/files'
+  }
+  if (to.meta.requiresAdmin) {
     const { useAdmin } = await import('@/composables/business/useAdmin')
     const { isAdmin } = useAdmin()
     if (!isAdmin.value) {
-      next('/files')
-    } else {
-      next()
+      return '/files'
     }
-  } else {
-    next()
   }
+  return true
 })
 
 router.afterEach(to => {

@@ -264,8 +264,8 @@
 <script setup lang="ts">
   import { Sunny, Moon, Monitor, RefreshLeft, Link, Document } from '@element-plus/icons-vue'
   import { useTheme, useI18n, useResponsive, useClipboardMonitor } from '@/composables'
-  import { LanguageEnum } from '@/enums/LanguageEnum'
-  import { themePresets } from '@/theme/presets'
+  import { LanguageEnum } from '@myobj/shared'
+  import { themePresets } from '@myobj/shared'
   import { useLayoutStore } from '@/stores'
   import LayoutModeCard from '@/components/LayoutModeCard/index.vue'
 

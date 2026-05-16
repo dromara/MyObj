@@ -2,12 +2,11 @@
  * 文件预览工具函数
  */
 
-import type { FileItem } from '@/types'
-import type { PreviewType } from '@/types/preview'
-import { API_BASE_URL } from '@/config/api'
-import { API_ENDPOINTS } from '@/config/api'
-import cache from '@/plugins/cache'
-import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
+import axios from 'axios'
+import type { FileItem, PreviewType } from '@myobj/shared'
+import { API_BASE_URL, API_ENDPOINTS, cache } from '@myobj/shared'
+import { videoApi } from '@myobj/api'
+const { createVideoPlayPrecheck, getVideoStreamUrl } = videoApi
 
 /**
  * 检测文件类型
@@ -111,18 +110,14 @@ export const getFilePreviewUrl = async (fileId: string, fileType?: string): Prom
     const token = cache.local.get('token')
     const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
 
-    const response = await fetch(url, {
-      method: 'GET',
+    const response = await axios.get(url, {
+      responseType: 'blob',
       headers: {
         Authorization: token ? `Bearer ${token}` : ''
       }
     })
 
-    if (!response.ok) {
-      throw new Error('获取文件失败: ' + response.status)
-    }
-
-    const blob = await response.blob()
+    const blob = new Blob([response.data])
     return window.URL.createObjectURL(blob)
   } catch (error) {
     throw new Error('获取文件预览失败: ' + (error instanceof Error ? error.message : '未知错误'))
@@ -158,18 +153,14 @@ export const getFileTextContent = async (fileId: string): Promise<string> => {
     const url = getFileDownloadUrl(fileId)
     const token = cache.local.get('token')
 
-    const response = await fetch(url, {
-      method: 'GET',
+    const response = await axios.get(url, {
+      responseType: 'text',
       headers: {
         Authorization: token ? `Bearer ${token}` : ''
       }
     })
 
-    if (!response.ok) {
-      throw new Error('获取文件内容失败')
-    }
-
-    return await response.text()
+    return response.data
   } catch (error) {
     throw new Error('获取文件内容失败')
   }

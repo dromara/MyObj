@@ -237,8 +237,10 @@
 </template>
 
 <script setup lang="ts">
-  import { getRecycledList, restoreFile, deleteFilePermanently, emptyRecycled, type RecycledItem } from '@/api/recycled'
-  import { getThumbnailUrl } from '@/api/file'
+  import { recycledApi, fileApi } from '@myobj/api'
+  import type { RecycledItem } from '@myobj/api/recycled'
+  const { getRecycledList, restoreFile, deleteFilePermanently, emptyRecycled } = recycledApi
+  const { getThumbnailUrl } = fileApi
   import { formatSize, formatDate } from '@/utils'
   import { useI18n } from '@/composables'
   import { useUserStore } from '@/stores'

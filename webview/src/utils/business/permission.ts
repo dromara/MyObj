@@ -14,19 +14,18 @@ import { useI18n } from '@/composables'
  * @returns 国际化后的权限名称
  */
 export function getPermissionName(characteristic: string, fallback?: string): string {
+  if (!characteristic) return fallback || ''
   try {
     const { t } = useI18n()
     const key = `admin.permissions.dict.${characteristic}.name` as any
     const translated = t(key)
 
-    // 如果翻译结果就是 key 本身（说明没有找到对应的翻译），返回 fallback 或原始值
     if (translated === key || !translated) {
       return fallback || characteristic
     }
 
     return translated
   } catch (error) {
-    // 如果 useI18n 不可用（例如在非组件上下文中），返回 fallback
     return fallback || characteristic
   }
 }
@@ -38,19 +37,18 @@ export function getPermissionName(characteristic: string, fallback?: string): st
  * @returns 国际化后的权限描述
  */
 export function getPermissionDescription(characteristic: string, fallback?: string): string {
+  if (!characteristic) return fallback || ''
   try {
     const { t } = useI18n()
     const key = `admin.permissions.dict.${characteristic}.description` as any
     const translated = t(key)
 
-    // 如果翻译结果就是 key 本身（说明没有找到对应的翻译），返回 fallback 或原始值
     if (translated === key || !translated) {
       return fallback || characteristic
     }
 
     return translated
   } catch (error) {
-    // 如果 useI18n 不可用（例如在非组件上下文中），返回 fallback
     return fallback || characteristic
   }
 }

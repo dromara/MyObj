@@ -1,12 +1,13 @@
-import {
+import { downloadApi } from '@myobj/api'
+import { useI18n } from '@/composables'
+import type { OfflineDownloadTask } from '@myobj/api/download'
+const {
   getDownloadTaskList,
-  cancelDownload as cancelDownloadApi,
-  deleteDownload as deleteDownloadApi,
+  cancelDownload: cancelDownloadApi,
+  deleteDownload: deleteDownloadApi,
   pauseDownload,
   resumeDownload
-} from '@/api/download'
-import { useI18n } from '@/composables'
-import type { OfflineDownloadTask } from '@/api/download'
+} = downloadApi
 
 export function useDownloadTasks() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

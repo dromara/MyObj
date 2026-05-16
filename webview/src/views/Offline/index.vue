@@ -520,8 +520,9 @@
     type OfflineDownloadTask,
     type ParseTorrentResponse,
     type TorrentFileInfo
-  } from '@/api/download'
-  import { getVirtualPathTree } from '@/api/file'
+  } from '@myobj/api/download'
+  import { fileApi } from '@myobj/api'
+  const { getVirtualPathTree } = fileApi
   import { formatSize, formatDate, formatSpeed, truncateUrl, getTaskStatusType } from '@/utils'
   import { useResponsive, useI18n } from '@/composables'
   import { getFileTypeFromMimeType, getMimeTypeFromFileName, type FileTypeCategory } from '@/utils/file/mime'

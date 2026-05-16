@@ -1,4 +1,5 @@
-import { createFolder } from '@/api/folder'
+import { folderApi } from '@myobj/api'
+const { createFolder } = folderApi
 import { useI18n } from '@/composables'
 
 export function useFolderOperations(currentPath: Ref<string>, loadFileList: () => Promise<void>) {

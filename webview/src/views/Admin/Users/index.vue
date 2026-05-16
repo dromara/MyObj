@@ -117,18 +117,16 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import {
+  import { adminApi } from '@myobj/api'
+  import type { AdminUser, CreateUserRequest, UpdateUserRequest, AdminGroup } from '@myobj/shared'
+  const {
     getAdminUserList,
     createAdminUser,
     updateAdminUser,
     deleteAdminUser,
     toggleUserState,
-    getAdminGroupList,
-    type AdminUser,
-    type CreateUserRequest,
-    type UpdateUserRequest,
-    type AdminGroup
-  } from '@/api/admin'
+    getAdminGroupList
+  } = adminApi
   import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import type { FormRules } from 'element-plus'
   import { useI18n } from '@/composables'

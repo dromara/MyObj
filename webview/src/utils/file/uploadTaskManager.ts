@@ -1,6 +1,4 @@
-import cache from '@/plugins/cache'
-import logger from '@/plugins/logger'
-import { formatSpeed as formatSpeedUtil } from '@/utils/format/format'
+import { cache, logger, formatSpeed as formatSpeedUtil } from '@myobj/shared'
 
 export interface UploadTask {
   id: string

@@ -3,8 +3,7 @@
  * 支持图片、PDF、文本等文件的打印
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import logger from '@/plugins/logger'
-import i18n from '@/i18n'
+import { logger, i18n } from '@myobj/shared'
 
 /**
  * 打印选项
@@ -73,15 +72,18 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
                 size: ${options?.orientation === 'landscape' ? 'A4 landscape' : 'A4'};
                 margin: ${options?.margin?.top || 10}mm ${options?.margin?.right || 10}mm ${options?.margin?.bottom || 10}mm ${options?.margin?.left || 10}mm;
               }
-              body {
+              html, body {
                 margin: 0;
                 padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: white;
+              }
+              body {
                 display: flex;
-                flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                min-height: 100vh;
-                background: white;
               }
               .print-header {
                 display: none;
@@ -97,7 +99,7 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
                 width: auto;
                 height: auto;
                 max-width: 100%;
-                max-height: 100%;
+                max-height: 100vh;
                 object-fit: contain;
                 background: white;
               }

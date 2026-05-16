@@ -155,7 +155,7 @@
 
 <script setup lang="ts">
   import { useTheme, useSearchHistory, useI18n, useKeyboardShortcuts } from '@/composables'
-  import { useFullscreen } from '@vueuse/core'
+  import { useFullscreen } from '@myobj/hooks'
   import logoImage from '@/assets/images/LOGO.png'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

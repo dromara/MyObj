@@ -1,6 +1,7 @@
 import { uploadTaskManager } from '@/utils/file/uploadTaskManager'
 import { findBackendTask, syncBackendTasksToFrontend } from '@/utils/file/uploadTaskSync'
-import { deleteUploadTask, getUploadProgress, listExpiredUploads, getUploadTaskList } from '@/api/file'
+import { fileApi } from '@myobj/api'
+const { deleteUploadTask, getUploadProgress, listExpiredUploads, getUploadTaskList } = fileApi
 import { formatFileSizeForDisplay } from '@/utils'
 import { isUploadTaskActive, openFileDialog, uploadSingleFile } from '@/utils/file/upload'
 import { useI18n } from '@/composables'

@@ -178,7 +178,7 @@
 <script setup lang="ts">
   import { formatSize, formatDate, formatSpeed } from '@/utils'
   import { useI18n } from '@/composables'
-  import type { OfflineDownloadTask } from '@/api/download'
+  import type { OfflineDownloadTask } from '@myobj/api/download'
 
   const { t } = useI18n()
 

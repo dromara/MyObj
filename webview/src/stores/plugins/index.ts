@@ -1,5 +1,5 @@
 import type { PiniaPluginContext } from 'pinia'
-import { StoreId } from '@/enums/StoreId'
+import { StoreId } from '@myobj/shared'
 
 /**
  * 深拷贝对象（简单实现，用于 store 状态重置）

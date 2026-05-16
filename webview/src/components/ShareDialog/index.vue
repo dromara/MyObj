@@ -118,8 +118,9 @@
 </template>
 
 <script setup lang="ts">
-  import { createShare } from '@/api/share'
-  import type { CreateShareRequest } from '@/types'
+  import { shareApi } from '@myobj/api'
+  import type { CreateShareRequest } from '@myobj/shared'
+  const { createShare } = shareApi
   import { formatSize, generateRandomPassword as generatePassword, copyToClipboard, getShareUrl } from '@/utils'
   import { useI18n } from '@/composables'
 

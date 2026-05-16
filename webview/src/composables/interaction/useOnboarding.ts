@@ -1,7 +1,7 @@
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import type { ComponentInternalInstance } from 'vue'
-import { useI18n } from '@/composables'
+import { useI18n } from '../core/useI18n'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
@@ -142,16 +142,20 @@ export function useOnboarding() {
   // 完成欢迎引导
   const completeWelcome = (skip = false) => {
     showWelcomeDialog.value = false
+    // 无论跳过还是完成，都标记为已完成，避免重复弹出
+    localStorage.setItem(STORAGE_KEY_WELCOME, 'true')
+    checkOnboardingStatus()
+
     if (!skip) {
-      localStorage.setItem(STORAGE_KEY_WELCOME, 'true')
-      // 更新状态
-      checkOnboardingStatus()
       // 欢迎弹窗关闭后，继续检查功能引导
       setTimeout(() => {
         isCheckingOnboarding.value = false
         checkAndStartOnboarding()
       }, 300)
     } else {
+      // 跳过时也标记功能引导为已完成
+      localStorage.setItem(STORAGE_KEY_FEATURES, 'true')
+      checkOnboardingStatus()
       isCheckingOnboarding.value = false
     }
   }

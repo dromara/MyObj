@@ -152,17 +152,17 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import {
+  import { adminApi } from '@myobj/api'
+  import type { AdminGroup, AdminPower } from '@myobj/shared'
+  const {
     getAdminGroupList,
     createAdminGroup,
     updateAdminGroup,
     deleteAdminGroup,
     getAdminPowerList,
     getGroupPowers,
-    assignPowerToGroup,
-    type AdminGroup,
-    type AdminPower
-  } from '@/api/admin'
+    assignPowerToGroup
+  } = adminApi
   import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import { useI18n } from '@/composables'
   import { getPermissionName, getPermissionDescription } from '@/utils/business/permission'

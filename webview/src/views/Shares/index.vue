@@ -233,8 +233,9 @@
 
 <script setup lang="ts">
   import { useResponsive, useI18n } from '@/composables'
-  import { getShareList, deleteShare, updateSharePassword } from '@/api/share'
-  import type { ShareInfo } from '@/types'
+  import { shareApi } from '@myobj/api'
+  import type { ShareInfo } from '@myobj/shared'
+  const { getShareList, deleteShare, updateSharePassword } = shareApi
   import { formatDate, getShareUrl, generateRandomPassword, copyToClipboard } from '@/utils'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

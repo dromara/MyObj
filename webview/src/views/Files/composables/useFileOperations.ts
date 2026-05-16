@@ -1,10 +1,11 @@
-import { deleteFiles, setFilePublic } from '@/api/file'
-import { createPackage, getPackageProgress, downloadPackage } from '@/api/package'
-import { useFileDownload } from '@/composables/business/useFileDownload'
-import { useI18n } from '@/composables/core/useI18n'
+import axios from 'axios'
+import { fileApi, packageApi } from '@myobj/api'
+import { useFileDownload, useI18n } from '@/composables'
 import { useUserStore } from '@/stores'
-import cache from '@/plugins/cache'
-import type { FileItem, FileListResponse } from '@/types'
+import { cache } from '@myobj/shared'
+import type { FileItem, FileListResponse } from '@myobj/shared'
+const { deleteFiles, setFilePublic } = fileApi
+const { createPackage, getPackageProgress, downloadPackage } = packageApi
 
 export function useFileOperations(
   fileListData: Ref<FileListResponse>,
@@ -140,29 +141,18 @@ export function useFileOperations(
         // 如果状态是 ready，直接下载
         if (res.data.status === 'ready') {
           const downloadUrl = downloadPackage(packageId)
-          // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
           try {
-            // 获取 token 用于 Authorization header
             const token = cache.local.get('token')
-            const response = await fetch(downloadUrl, {
-              method: 'GET',
+            const response = await axios.get(downloadUrl, {
+              responseType: 'blob',
+              timeout: 0,
               headers: {
                 Authorization: token ? `Bearer ${token}` : ''
               },
-              credentials: 'include' // 同时携带 Cookie 作为备用
+              withCredentials: true
             })
 
-            // 检查响应类型，如果是 JSON 错误则显示错误信息
-            const contentType = response.headers.get('content-type') || ''
-            if (contentType.includes('application/json') || !response.ok) {
-              const errorData = await response.json()
-              proxy?.$modal.closeLoading()
-              proxy?.$modal.msgError(errorData.message || t('files.downloadFailed'))
-              return
-            }
-
-            // 是文件，创建 blob 并下载
-            const blob = await response.blob()
+            const blob = new Blob([response.data])
             const blobUrl = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = blobUrl
@@ -219,28 +209,18 @@ export function useFileOperations(
           if (status === 'ready') {
             proxy?.$modal.closeLoading()
             const downloadUrl = downloadPackage(packageId)
-            // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
             try {
-              // 获取 token 用于 Authorization header
               const token = cache.local.get('token')
-              const response = await fetch(downloadUrl, {
-                method: 'GET',
+              const response = await axios.get(downloadUrl, {
+                responseType: 'blob',
+                timeout: 0,
                 headers: {
                   Authorization: token ? `Bearer ${token}` : ''
                 },
-                credentials: 'include' // 同时携带 Cookie 作为备用
+                withCredentials: true
               })
 
-              // 检查响应类型，如果是 JSON 错误则显示错误信息
-              const contentType = response.headers.get('content-type') || ''
-              if (contentType.includes('application/json') || !response.ok) {
-                const errorData = await response.json()
-                proxy?.$modal.msgError(errorData.message || t('files.downloadFailed'))
-                return
-              }
-
-              // 是文件，创建 blob 并下载
-              const blob = await response.blob()
+              const blob = new Blob([response.data])
               const blobUrl = window.URL.createObjectURL(blob)
               const a = document.createElement('a')
               a.href = blobUrl
@@ -359,7 +339,21 @@ export function useFileOperations(
     }
   }
 
+  // 支持的压缩文件扩展名
+  const SUPPORTED_ARCHIVE_EXTENSIONS = [
+    '.zip', '.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tbz',
+    '.tar.xz', '.txz', '.tar.zst', '.tzst', '.7z', '.rar'
+  ]
+
   const handleExtractFile = (file: FileItem) => {
+    const fileName = file.file_name.toLowerCase()
+    const isArchive = SUPPORTED_ARCHIVE_EXTENSIONS.some(ext => fileName.endsWith(ext))
+
+    if (!isArchive) {
+      proxy?.$modal.msgWarning(t('extract.unsupportedFormat') || '不支持的压缩格式，仅支持: ' + SUPPORTED_ARCHIVE_EXTENSIONS.join(', '))
+      return
+    }
+
     const currentPath = (route.query.virtualPath as string) || ''
     extractDialogRef.value?.open(file, currentPath)
   }

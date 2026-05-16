@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { RouteLocationNormalized } from 'vue-router'
-import { $t } from '@/i18n'
-import { StoreId } from '@/enums/StoreId'
+import { $t } from '@myobj/shared'
+import { StoreId } from '@myobj/shared'
 
 export const useTagsViewStore = defineStore(StoreId.TagsView, () => {
   const visitedViews = ref<RouteLocationNormalized[]>([])

@@ -31,9 +31,13 @@ components.d.ts
 
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 .yarn
 .yarnrc.yml
+
+# Monorepo
+packages/*/node_modules
+packages/*/dist
+*.tgz
 
 # Environment variables
 .env

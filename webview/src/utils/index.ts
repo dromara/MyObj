@@ -1,15 +1,13 @@
 /**
  * 工具函数统一导出
+ * 从 @myobj/shared 重新导出 + 本地工具
  */
 
-// 格式化相关
-export * from './format'
+// 从 @myobj/shared 重新导出所有通用工具
+export * from '@myobj/shared'
 
 // UI 相关
 export * from './ui'
-
-// 网络相关
-export * from './network'
 
 // 业务相关
 export * from './business'
@@ -17,14 +15,5 @@ export * from './business'
 // 文件相关
 export * from './file'
 
-// 通用工具
-export * from './common'
-
-// 存储相关
-export * from './storage'
-
-// 验证相关
-export * from './validation'
-
-// 配置相关
-export * from './config'
+// 网络相关（本地工具）
+export * from './network'

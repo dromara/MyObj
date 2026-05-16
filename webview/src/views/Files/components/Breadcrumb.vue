@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { Breadcrumb } from '@/types'
+  import type { Breadcrumb } from '@myobj/shared'
   import { useI18n } from '@/composables'
 
   const { t } = useI18n()

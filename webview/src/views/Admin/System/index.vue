@@ -54,7 +54,9 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import { getSystemConfig, updateSystemConfig, type SystemConfig } from '@/api/admin'
+  import { adminApi } from '@myobj/api'
+  import type { SystemConfig } from '@myobj/shared'
+  const { getSystemConfig, updateSystemConfig } = adminApi
   import { useI18n } from '@/composables'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

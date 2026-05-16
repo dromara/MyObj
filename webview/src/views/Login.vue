@@ -110,8 +110,9 @@
 </template>
 
 <script setup lang="ts">
-  import { login, register, getChallenge, getSysInfo } from '@/api/auth'
-  import { rsaEncrypt } from '@/utils/validation/crypto'
+  import { authApi } from '@myobj/api'
+  import { rsaEncrypt } from '@myobj/shared'
+  const { login, register, getChallenge, getSysInfo } = authApi
   import { useI18n } from '@/composables'
   import { useAuthStore } from '@/stores'
 

@@ -144,10 +144,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
-import { useI18n } from '@/composables/core/useI18n'
-import { createExtract, getExtractProgress, checkExtractConflict } from '@/api/extract'
-import type { ExtractCheckResponse } from '@/api/extract'
-import type { FileItem } from '@/types'
+import { useI18n } from '@/composables'
+import { extractApi } from '@myobj/api'
+import type { ExtractCheckResponse } from '@myobj/api/extract'
+import type { FileItem } from '@myobj/shared'
+const { createExtract, getExtractProgress, checkExtractConflict } = extractApi
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance() as any

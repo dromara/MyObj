@@ -1,10 +1,11 @@
 import SparkMD5 from 'spark-md5'
-import { uploadPrecheck, uploadFile, getUploadProgress } from '@/api/file'
-import { UPLOAD_CONFIG } from '@/config/api'
-import type { ApiResponse } from '@/types'
-import logger from '@/plugins/logger'
+import { fileApi } from '@myobj/api'
+import { UPLOAD_CONFIG } from '@myobj/shared'
+import type { ApiResponse } from '@myobj/shared'
+import { logger } from '@myobj/shared'
 import { uploadTaskManager } from './uploadTaskManager'
-import i18n from '@/i18n'
+import { i18n } from '@myobj/shared'
+const { uploadPrecheck, uploadFile, getUploadProgress } = fileApi
 
 export interface UploadConfig {
   chunkSize: number

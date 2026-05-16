@@ -1,4 +1,5 @@
-import { moveFile, getVirtualPathTree } from '@/api/file'
+import { fileApi } from '@myobj/api'
+const { moveFile, getVirtualPathTree } = fileApi
 import { useI18n } from '@/composables'
 
 export function useMoveFile(

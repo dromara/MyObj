@@ -1,0 +1,15 @@
+{
+  "name": "@myobj/ui",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@myobj/shared": "workspace:*",
+    "@myobj/hooks": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "element-plus": "^2.14.0"
+  }
+}

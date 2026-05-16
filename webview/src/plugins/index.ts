@@ -1,8 +1,6 @@
 import { App, Plugin } from 'vue'
 import { Router } from 'vue-router'
-import modal from './modal'
-import cache from './cache'
-import logger from './logger'
+import { modal, cache, logger } from '@myobj/shared'
 
 // 存储 router 实例，以便在插件中使用
 let routerInstance: Router | null = null

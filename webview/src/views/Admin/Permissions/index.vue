@@ -85,16 +85,15 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import {
+  import { adminApi } from '@myobj/api'
+  import type { AdminPower, CreatePowerRequest, UpdatePowerRequest } from '@myobj/shared'
+  const {
     getAdminPowerList,
     createAdminPower,
     updateAdminPower,
     deleteAdminPower,
-    batchDeleteAdminPower,
-    type AdminPower,
-    type CreatePowerRequest,
-    type UpdatePowerRequest
-  } from '@/api/admin'
+    batchDeleteAdminPower
+  } = adminApi
   import type { FormRules, FormInstance } from 'element-plus'
   import { useResponsive, useI18n } from '@/composables'
   import { getPermissionName, getPermissionDescription } from '@/utils/business/permission'

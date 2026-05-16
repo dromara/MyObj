@@ -2,7 +2,7 @@
  * 剪贴板工具函数
  */
 
-import logger from '@/plugins/logger'
+import { logger } from '@myobj/shared'
 
 /**
  * 复制文本到剪贴板

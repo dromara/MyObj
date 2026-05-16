@@ -43,9 +43,10 @@
 </template>
 
 <script setup lang="ts">
-  import { updatePassword } from '@/api/user'
-  import { getChallenge } from '@/api/auth'
-  import { rsaEncrypt } from '@/utils/validation/crypto'
+  import { userApi, authApi } from '@myobj/api'
+  import { rsaEncrypt } from '@myobj/shared'
+  const { updatePassword } = userApi
+  const { getChallenge } = authApi
   import { useI18n } from '@/composables'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

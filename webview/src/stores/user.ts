@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import type { UserInfo } from '@/types'
-import { getUserInfo } from '@/api/user'
-import cache from '@/plugins/cache'
-import logger from '@/plugins/logger'
-import { StoreId } from '@/enums/StoreId'
+import type { UserInfo } from '@myobj/shared'
+import { userApi } from '@myobj/api'
+const { getUserInfo } = userApi
+import { cache, logger } from '@myobj/shared'
+import { StoreId } from '@myobj/shared'
 
 interface StorageInfo {
   used: number

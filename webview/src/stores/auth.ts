@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
-import cache from '@/plugins/cache'
-import logger from '@/plugins/logger'
-import { StoreId } from '@/enums/StoreId'
+import { cache, logger } from '@myobj/shared'
+import { StoreId } from '@myobj/shared'
 import { uploadTaskManager } from '@/utils/file/uploadTaskManager'
 
 /**

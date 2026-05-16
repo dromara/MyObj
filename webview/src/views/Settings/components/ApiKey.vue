@@ -138,10 +138,10 @@
 </template>
 
 <script setup lang="ts">
-  import { generateApiKey, listApiKeys, deleteApiKey } from '@/api/user'
-  import { copyToClipboard } from '@/utils'
-  import { formatDate } from '@/utils'
-  import type { ApiKeyInfo, GenerateApiKeyResponse } from '@/api/user'
+  import { userApi } from '@myobj/api'
+  import type { ApiKeyInfo, GenerateApiKeyResponse } from '@myobj/api/user'
+  import { copyToClipboard, formatDate } from '@/utils'
+  const { generateApiKey, listApiKeys, deleteApiKey } = userApi
   import { useI18n } from '@/composables'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

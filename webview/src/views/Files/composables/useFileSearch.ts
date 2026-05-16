@@ -1,6 +1,7 @@
-import { searchUserFiles } from '@/api/file'
+import { fileApi } from '@myobj/api'
 import { useSearch } from '@/composables'
-import type { FileListResponse, FileItem } from '@/types'
+import type { FileListResponse, FileItem } from '@myobj/shared'
+const { searchUserFiles } = fileApi
 
 /**
  * 文件搜索 composable（用户文件）

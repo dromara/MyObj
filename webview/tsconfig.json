@@ -28,11 +28,28 @@
     /* Path alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@myobj/shared": ["packages/shared/index.ts"],
+      "@myobj/shared/*": ["packages/shared/*"],
+      "@myobj/http": ["packages/http/index.ts"],
+      "@myobj/http/*": ["packages/http/*"],
+      "@myobj/api": ["packages/api/index.ts"],
+      "@myobj/api/*": ["packages/api/*"],
+      "@myobj/hooks": ["packages/hooks/index.ts"],
+      "@myobj/hooks/*": ["packages/hooks/*"],
+      "@myobj/ui": ["packages/ui/index.ts"],
+      "@myobj/ui/*": ["packages/ui/*"]
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "packages/**/*.ts",
+    "packages/**/*.vue"
+  ],
   "exclude": ["node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

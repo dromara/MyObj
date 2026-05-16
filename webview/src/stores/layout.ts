@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { StoreId } from '@/enums/StoreId'
+import { StoreId } from '@myobj/shared'
 
 export type LayoutMode =
   | 'vertical'

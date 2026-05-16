@@ -65,7 +65,7 @@
               >
                 {{ file.public ? t('files.cancelPublic') : t('files.setPublic') }}
               </el-dropdown-item>
-              <el-dropdown-item command="extract" icon="FolderOpened">{{ t('extract.extract') }}</el-dropdown-item>
+              <el-dropdown-item v-if="isArchiveFile(file)" command="extract" icon="FolderOpened">{{ t('extract.extract') }}</el-dropdown-item>
               <el-dropdown-item command="delete" icon="Delete" divided>{{ t('files.delete') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -100,12 +100,21 @@
 
 <script setup lang="ts">
   import { formatSize, formatDate } from '@/utils'
-  import { useResponsive } from '@/composables/ui/useResponsive'
+  import { useResponsive, useI18n } from '@/composables'
   import { isPreviewable } from '@/utils/ui/preview'
-  import type { FileItem, FolderItem } from '@/types'
-  import { useI18n } from '@/composables/core/useI18n'
+  import type { FileItem, FolderItem } from '@myobj/shared'
 
   const { t } = useI18n()
+
+  // 支持的压缩文件扩展名
+  const ARCHIVE_EXTENSIONS = [
+    '.zip', '.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tbz',
+    '.tar.xz', '.txz', '.tar.zst', '.tzst', '.7z', '.rar'
+  ]
+  const isArchiveFile = (file: FileItem) => {
+    const name = file.file_name.toLowerCase()
+    return ARCHIVE_EXTENSIONS.some(ext => name.endsWith(ext))
+  }
 
   defineProps<{
     folders: FolderItem[]

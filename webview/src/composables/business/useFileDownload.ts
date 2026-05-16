@@ -2,10 +2,12 @@
  * 文件下载 Composable
  * 统一处理文件下载逻辑，支持加密文件
  */
-import { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } from '@/api/download'
-import cache from '@/plugins/cache'
-import type { FileItem } from '@/types'
-import { useI18n } from '@/composables'
+import axios from 'axios'
+import { downloadApi } from '@myobj/api'
+const { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } = downloadApi
+import { cache } from '@myobj/shared'
+import type { FileItem } from '@myobj/shared'
+import { useI18n } from '../core/useI18n'
 
 export interface DownloadPasswordForm {
   file_id: string
@@ -96,33 +98,23 @@ export function useFileDownload(options?: {
                   options.onTaskReady()
                 }
 
-                // 开始下载文件 - 使用 fetch 先检查响应
+                // 开始下载文件
                 const downloadUrl = getLocalFileDownloadUrl(taskId)
 
                 proxy?.$log.debug('开始下载文件:', downloadUrl)
 
                 try {
-                  // 使用 fetch 先检查响应，确保是文件而不是 JSON 错误
-                  // 获取 token 用于 Authorization header
                   const token = cache.local.get('token')
-                  const response = await fetch(downloadUrl, {
-                    method: 'GET',
+                  const response = await axios.get(downloadUrl, {
+                    responseType: 'blob',
+                    timeout: 0,
                     headers: {
                       Authorization: token ? `Bearer ${token}` : ''
                     },
-                    credentials: 'include' // 同时携带 Cookie 作为备用
+                    withCredentials: true
                   })
 
-                  // 检查响应类型，如果是 JSON 错误则显示错误信息
-                  const contentType = response.headers.get('content-type') || ''
-                  if (contentType.includes('application/json') || !response.ok) {
-                    const errorData = await response.json()
-                    proxy?.$modal.msgError(errorData.message || t('tasks.downloadFailed') || '下载失败')
-                    return
-                  }
-
-                  // 是文件，创建 blob 并下载
-                  const blob = await response.blob()
+                  const blob = new Blob([response.data])
                   const blobUrl = window.URL.createObjectURL(blob)
                   const link = document.createElement('a')
                   link.href = blobUrl

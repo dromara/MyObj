@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, watch, computed } from 'vue'
-import { useTitle } from '@vueuse/core'
-import { LanguageEnum } from '@/enums/LanguageEnum'
-import { StoreId } from '@/enums/StoreId'
-import { $t, setLocale } from '@/i18n'
+import { LanguageEnum } from '@myobj/shared'
+import { StoreId } from '@myobj/shared'
+import { $t, setLocale } from '@myobj/shared'
 import router from '@/router'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import enUS from 'element-plus/dist/locale/en.mjs'
@@ -59,10 +58,9 @@ export const useAppStore = defineStore(StoreId.App, () => {
     const i18nKey = route.meta.i18nKey as string
 
     if (i18nKey) {
-      const documentTitle = $t(i18nKey)
-      useTitle(documentTitle)
+      document.title = $t(i18nKey)
     } else if (routeTitle) {
-      useTitle(routeTitle)
+      document.title = routeTitle
     }
   }
 

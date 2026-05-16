@@ -170,8 +170,9 @@
 <script setup lang="ts">
   import { formatSize, formatDate, getUploadStatusType, getUploadStatusText } from '@/utils'
   import { useI18n } from '@/composables'
-  import { listExpiredUploads, renewExpiredTask, deleteUploadTask } from '@/api/file'
-  import type { UncompletedUploadTask } from '@/api/file'
+  import { fileApi } from '@myobj/api'
+  import type { UncompletedUploadTask } from '@myobj/api/file'
+  const { listExpiredUploads, renewExpiredTask, deleteUploadTask } = fileApi
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()

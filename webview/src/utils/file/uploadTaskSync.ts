@@ -1,6 +1,7 @@
 import { uploadTaskManager, type UploadTask } from './uploadTaskManager'
-import { listUncompletedUploads } from '@/api/file'
-import logger from '@/plugins/logger'
+import { fileApi } from '@myobj/api'
+import { logger } from '@myobj/shared'
+const { listUncompletedUploads } = fileApi
 
 /**
  * 计算已上传大小（根据分片信息）

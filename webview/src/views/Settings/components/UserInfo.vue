@@ -51,7 +51,8 @@
 </template>
 
 <script setup lang="ts">
-  import { updateUser } from '@/api/user'
+  import { userApi } from '@myobj/api'
+  const { updateUser } = userApi
   import { useI18n } from '@/composables'
 
   import { useUserStore } from '@/stores'

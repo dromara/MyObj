@@ -1,6 +1,6 @@
 import { useRouter } from 'vue-router'
 import type { ComponentInternalInstance } from 'vue'
-import { useI18n } from '@/composables'
+import { useI18n } from '../core/useI18n'
 import { useAuthStore } from '@/stores/auth'
 
 interface ShortcutConfig {

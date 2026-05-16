@@ -1,7 +1,8 @@
-import { renameFile } from '@/api/file'
-import { renameDir, deleteFolder } from '@/api/folder'
+import { fileApi, folderApi } from '@myobj/api'
 import { useI18n } from '@/composables'
-import type { FileItem, FolderItem } from '@/types'
+import type { FileItem, FolderItem } from '@myobj/shared'
+const { renameFile } = fileApi
+const { renameDir, deleteFolder } = folderApi
 
 export function useRename(
   selectedFileIds: Ref<string[]>,

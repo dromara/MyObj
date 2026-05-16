@@ -206,12 +206,13 @@
 </template>
 
 <script setup lang="ts">
-  import type { FileItem } from '@/types'
-  import type { PreviewType, PreviewOptions } from '@/types/preview'
+  import axios from 'axios'
+  import type { FileItem, PreviewType, PreviewOptions } from '@myobj/shared'
   import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage } from '@/utils/ui/preview'
-  import { useFileDownload } from '@/composables/business/useFileDownload'
-  import { API_BASE_URL, API_ENDPOINTS } from '@/config/api'
-  import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
+  import { useFileDownload } from '@/composables'
+  import { API_BASE_URL, API_ENDPOINTS } from '@myobj/shared'
+  import { videoApi } from '@myobj/api'
+  const { createVideoPlayPrecheck, getVideoStreamUrl } = videoApi
   import {
     printImage,
     printPDF,
@@ -221,8 +222,7 @@
     isOfficeDocument
   } from '@/utils/ui/print'
   import { Lock, InfoFilled, FullScreen } from '@element-plus/icons-vue'
-  import { useI18n } from '@/composables/core/useI18n'
-  import { useTheme } from '@/composables/core/useTheme'
+  import { useI18n, useTheme } from '@/composables'
   import hljs from 'highlight.js'
   // 注册常用语言模块（highlight.js 默认不包含所有语言）
   import javascript from 'highlight.js/lib/languages/javascript'
@@ -502,22 +502,18 @@
         case 'image':
           // 优先使用缩略图，如果没有则使用预览URL（blob URL）
           if (file.has_thumbnail) {
-            // 缩略图也需要通过fetch获取（带认证），然后创建blob URL
+            // 缩略图也需要通过axios获取（带认证），然后创建blob URL
             try {
               const token = proxy?.$cache.local.get('token')
               const thumbnailUrl = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
-              const response = await fetch(thumbnailUrl, {
+              const response = await axios.get(thumbnailUrl, {
+                responseType: 'blob',
                 headers: {
                   Authorization: token ? `Bearer ${token}` : ''
                 }
               })
-              if (response.ok) {
-                const blob = await response.blob()
-                imageUrl.value = window.URL.createObjectURL(blob)
-              } else {
-                // 缩略图获取失败，使用预览URL
-                imageUrl.value = await getFilePreviewUrl(fileId)
-              }
+              const blob = new Blob([response.data])
+              imageUrl.value = window.URL.createObjectURL(blob)
             } catch (err) {
               // 缩略图获取失败，使用预览URL
               imageUrl.value = await getFilePreviewUrl(fileId)

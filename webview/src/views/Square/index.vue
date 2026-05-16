@@ -180,12 +180,11 @@
 
 <script setup lang="ts">
   import { formatSize, formatDate } from '@/utils'
-  import { useResponsive } from '@/composables/ui/useResponsive'
-  import { getPublicFileList, searchPublicFiles, type PublicFileItem, type PublicFileListParams } from '@/api/file'
-  import { useSearch } from '@/composables/business/useSearch'
-  import { getFileIcon } from '@/utils/file/fileIcon'
-  import { useFileDownload } from '@/composables/business/useFileDownload'
-  import { useI18n } from '@/composables/core/useI18n'
+  import { useResponsive, useSearch, useFileDownload, useI18n } from '@/composables'
+  import { fileApi } from '@myobj/api'
+  import type { PublicFileItem, PublicFileListParams } from '@myobj/api/file'
+  import { getFileIcon } from '@myobj/shared'
+  const { getPublicFileList, searchPublicFiles } = fileApi
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const route = useRoute()

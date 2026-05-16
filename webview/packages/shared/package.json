@@ -1,0 +1,15 @@
+{
+  "name": "@myobj/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "jsencrypt": "^3.5.4",
+    "vue-i18n": "^11.4.2"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "pinia": "^3.0.0"
+  }
+}

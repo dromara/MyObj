@@ -1,6 +1,7 @@
-import { getFileList, getThumbnail } from '@/api/file'
+import { fileApi } from '@myobj/api'
 import { useI18n } from '@/composables'
-import type { FileListResponse } from '@/types'
+import type { FileListResponse } from '@myobj/shared'
+const { getFileList, getThumbnail } = fileApi
 
 export function useFileList() {
   const { proxy } = getCurrentInstance() as ComponentInternalInstance

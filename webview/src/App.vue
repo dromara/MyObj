@@ -1,5 +1,6 @@
 <script setup lang="ts">
   // App只作为路由容器，逻辑由router守卫和各页面处理
+  import { provide, toRef } from 'vue'
   import { useTheme, useKeyboardShortcuts, useOnboarding, useClipboardMonitor } from '@/composables'
   import { useAppStore, useAuthStore } from '@/stores'
 
@@ -18,6 +19,9 @@
   // 获取 Element Plus 语言包
   const appStore = useAppStore()
   const authStore = useAuthStore()
+
+  // 为 hooks 包的 useI18n 提供 locale
+  provide('app-locale', toRef(appStore, 'locale'))
 
   // 监听路由变化，检查是否需要启动引导
   const router = useRouter()

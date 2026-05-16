@@ -285,7 +285,7 @@
   import ExtractDialog from '@/components/ExtractDialog/index.vue'
 import FileList from './components/FileList.vue'
   import Breadcrumb from './components/Breadcrumb.vue'
-  import type { FileItem, FolderItem } from '@/types'
+  import type { FileItem, FolderItem } from '@myobj/shared'
   import { Upload, FolderAdd } from '@element-plus/icons-vue'
 
   const { t } = useI18n()

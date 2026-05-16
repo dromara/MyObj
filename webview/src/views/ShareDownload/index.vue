@@ -116,7 +116,9 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import { getShareInfo, getShareDownloadUrl, type ShareInfoResponse } from '@/api/share'
+  import { shareApi } from '@myobj/api'
+  import type { ShareInfoResponse } from '@myobj/api/share'
+  const { getShareInfo, getShareDownloadUrl } = shareApi
   import { formatSize } from '@/utils'
   import { useI18n } from '@/composables'
 

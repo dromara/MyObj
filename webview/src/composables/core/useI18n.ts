@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import { useI18n as useI18nVue } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { LanguageEnum } from '@/enums/LanguageEnum'
+import { LanguageEnum } from '@myobj/shared'
 
 /**
  * 国际化 Composable

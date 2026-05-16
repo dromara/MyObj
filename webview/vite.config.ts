@@ -15,7 +15,12 @@ export default defineConfig(({ mode, command }) => {
     
     resolve: {
       alias: {
-        '@': resolve(__dirname, 'src')
+        '@': resolve(__dirname, 'src'),
+        '@myobj/shared': resolve(__dirname, 'packages/shared'),
+        '@myobj/http': resolve(__dirname, 'packages/http'),
+        '@myobj/api': resolve(__dirname, 'packages/api'),
+        '@myobj/hooks': resolve(__dirname, 'packages/hooks'),
+        '@myobj/ui': resolve(__dirname, 'packages/ui')
       },
       // 文件扩展名解析顺序
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']

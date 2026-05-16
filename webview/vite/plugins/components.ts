@@ -7,7 +7,7 @@ export default (path: any) => {
       // 自动导入 Element Plus 组件
       ElementPlusResolver(),
     ],
-    // 自动导入 src/components 目录下的组件
+    // 自动导入 src/components 目录下的组件（packages/ui 组件通过显式导入使用）
     dirs: ['src/components'],
     // 组件名称包含的目录
     directoryAsNamespace: false,

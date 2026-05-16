@@ -95,15 +95,9 @@
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
-  import {
-    getAdminDiskList,
-    createAdminDisk,
-    updateAdminDisk,
-    deleteAdminDisk,
-    scanDisks,
-    type AdminDisk,
-    type ScannedDiskInfo
-  } from '@/api/admin'
+  import { adminApi } from '@myobj/api'
+  import type { AdminDisk, ScannedDiskInfo } from '@myobj/shared'
+  const { getAdminDiskList, createAdminDisk, updateAdminDisk, deleteAdminDisk, scanDisks } = adminApi
   import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import { useI18n } from '@/composables'
 
