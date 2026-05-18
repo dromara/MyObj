@@ -153,6 +153,11 @@ func initDatabase() error {
 		}
 	}
 
+	// 迁移审计日志表
+	if err := database.MigrateAuditLogTable(database.GetDB()); err != nil {
+		logger.LOG.Error("审计日志表迁移失败", "error", err)
+	}
+
 	return nil
 }
 

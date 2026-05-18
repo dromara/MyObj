@@ -4,9 +4,10 @@ import (
 	"context"
 	"io"
 	"myobj/src/core/domain/request"
-	_ "myobj/src/core/domain/response" // 导入用于Swagger文档生成
+	"myobj/src/core/domain/response"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
+	"myobj/src/pkg/audit"
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/download"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type DownloadHandler struct {
@@ -214,6 +216,18 @@ func (h *DownloadHandler) CreateLocalFileDownload(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "创建失败", err.Error()))
 		return
 	}
+
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "download", TargetType: "file", TargetName: req.FileID,
+		Detail: "创建文件下载任务", IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 
 	c.JSON(200, result)
 }

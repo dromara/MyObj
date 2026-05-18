@@ -16,6 +16,7 @@ type ServerFactory struct {
 	downloadService *DownloadService
 	recycledService *RecycledService
 	adminService    *AdminService
+	auditService    *AuditService
 }
 
 func NewServiceFactory(factory *impl.RepositoryFactory, cacheLocal cache.Cache) *ServerFactory {
@@ -26,6 +27,7 @@ func NewServiceFactory(factory *impl.RepositoryFactory, cacheLocal cache.Cache) 
 		downloadService: NewDownloadService(factory),
 		recycledService: NewRecycledService(factory, cacheLocal),
 		adminService:    NewAdminService(factory),
+		auditService:    NewAuditService(factory),
 	}
 }
 
@@ -51,4 +53,8 @@ func (f *ServerFactory) RecycledService() *RecycledService {
 
 func (f *ServerFactory) AdminService() *AdminService {
 	return f.adminService
+}
+
+func (f *ServerFactory) AuditService() *AuditService {
+	return f.auditService
 }

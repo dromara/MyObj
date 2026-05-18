@@ -142,3 +142,22 @@ func MigrateS3Tables(db *gorm.DB) error {
 	logger.LOG.Info("[数据库迁移] S3数据表迁移完成", "tables_count", len(models))
 	return nil
 }
+
+// MigrateAuditLogTable 迁移审计日志表
+func MigrateAuditLogTable(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	logger.LOG.Info("[数据库迁移] 开始迁移审计日志表...")
+	if err := db.AutoMigrate(&models.AuditLog{}); err != nil {
+		errStr := err.Error()
+		if strings.Contains(errStr, "already exists") || strings.Contains(errStr, "Duplicate key name") {
+			logger.LOG.Warn("[数据库迁移] 审计日志表已存在，跳过")
+			return nil
+		}
+		logger.LOG.Error("[数据库迁移] 审计日志表迁移失败", "error", err)
+		return fmt.Errorf("failed to migrate audit_log table: %w", err)
+	}
+	logger.LOG.Info("[数据库迁移] 审计日志表迁移完成 ✔️")
+	return nil
+}

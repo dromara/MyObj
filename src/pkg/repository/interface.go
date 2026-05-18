@@ -284,3 +284,20 @@ type S3MultipartRepository interface {
 	DeletePartsByUploadID(ctx context.Context, uploadID string) error
 	ListMultipartUploadsByBucket(ctx context.Context, bucketName, userID string, beforeTime time.Time) ([]*models.S3MultipartUpload, error)
 }
+
+// AuditLogQuery 审计日志查询条件
+type AuditLogQuery struct {
+	UserID    string
+	Action    string
+	Keyword   string
+	StartTime string
+	EndTime   string
+	Page      int
+	PageSize  int
+}
+
+// AuditLogRepository 审计日志仓储接口
+type AuditLogRepository interface {
+	Create(ctx context.Context, log *models.AuditLog) error
+	ListByCondition(ctx context.Context, query *AuditLogQuery) ([]*models.AuditLog, int64, error)
+}

@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"net/url"
 	"myobj/src/core/domain/request"
+	"myobj/src/core/domain/response"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
 	"myobj/src/internal/repository/impl"
+	"myobj/src/pkg/audit"
 	"myobj/src/pkg/cache"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type SharesHandler struct {
@@ -62,11 +66,23 @@ func (s *SharesHandler) CreateShare(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
-	createShare, err := s.service.CreateShare(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	createShare, err := s.service.CreateShare(req, userID)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(s.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "share", TargetType: "file", TargetName: req.FileID,
+		Detail: "创建文件分享链接", IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, createShare)
 }
 

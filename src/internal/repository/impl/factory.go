@@ -37,6 +37,7 @@ type RepositoryFactory struct {
 	s3BucketLifecycleRepo *S3BucketLifecycleRepositoryImpl
 	s3EncryptionKeyRepo   *S3EncryptionKeyRepositoryImpl
 	s3ObjectEncryptionRepo *S3ObjectEncryptionRepositoryImpl
+	auditLogRepo           repository.AuditLogRepository
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -244,6 +245,14 @@ func (f *RepositoryFactory) S3ObjectEncryption() *S3ObjectEncryptionRepositoryIm
 		f.s3ObjectEncryptionRepo = NewS3ObjectEncryptionRepository(f.db)
 	}
 	return f.s3ObjectEncryptionRepo
+}
+
+// AuditLog 获取审计日志仓储
+func (f *RepositoryFactory) AuditLog() repository.AuditLogRepository {
+	if f.auditLogRepo == nil {
+		f.auditLogRepo = NewAuditLogRepository(f.db)
+	}
+	return f.auditLogRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

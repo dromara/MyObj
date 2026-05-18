@@ -312,7 +312,30 @@ CREATE TABLE `sys_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
 -- ================================
--- 8. 创建S3服务相关表
+-- 8. 创建审计日志表
+-- ================================
+
+-- 审计日志表
+CREATE TABLE `audit_log` (
+    `id` VARCHAR(64) NOT NULL COMMENT '日志ID',
+    `user_id` VARCHAR(64) NOT NULL COMMENT '操作用户ID',
+    `user_name` VARCHAR(255) NOT NULL COMMENT '操作用户名',
+    `action` VARCHAR(32) NOT NULL COMMENT '操作类型',
+    `target_type` VARCHAR(16) NOT NULL COMMENT '目标类型(file/dir)',
+    `target_path` VARCHAR(1024) DEFAULT NULL COMMENT '目标路径',
+    `target_name` VARCHAR(255) DEFAULT NULL COMMENT '目标名称',
+    `detail` TEXT DEFAULT NULL COMMENT '操作详情',
+    `ip` VARCHAR(64) DEFAULT NULL COMMENT '客户端IP',
+    `created_at` DATETIME NOT NULL COMMENT '操作时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_id` (`id`),
+    KEY `idx_audit_user_id` (`user_id`),
+    KEY `idx_audit_action` (`action`),
+    KEY `idx_audit_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审计日志表';
+
+-- ================================
+-- 9. 创建S3服务相关表
 -- ================================
 
 -- S3存储桶表
@@ -485,7 +508,7 @@ CREATE TABLE `s3_object_encryption` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='S3对象加密元数据表';
 
 -- ================================
--- 9. 插入初始数据
+-- 10. 插入初始数据
 -- ================================
 
 -- 插入组数据
@@ -568,7 +591,7 @@ INSERT INTO `group_power` (`group_id`, `power_id`) VALUES
 COMMIT;
 
 -- ================================
--- 10. 验证初始数据
+-- 11. 验证初始数据
 -- ================================
 SELECT '=== 数据库初始化完成，以下是初始数据统计 ===' AS info;
 SELECT 'groups 表记录数:' AS info, COUNT(*) AS count FROM `groups`;

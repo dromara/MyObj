@@ -2,16 +2,20 @@
 
 import (
 	"errors"
+	"fmt"
 	"myobj/src/core/domain/request"
-	_ "myobj/src/core/domain/response" // 导入用于Swagger文档生成
+	"myobj/src/core/domain/response"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
+	"myobj/src/pkg/audit"
 	"myobj/src/pkg/cache"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -98,6 +102,16 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 	}
 
 	logger.LOG.Info("[路由] 文件路由注册完成✔️")
+}
+
+// getUserName 从gin.Context中获取当前登录用户名
+func getUserName(c *gin.Context) string {
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			return info.User.Name
+		}
+	}
+	return ""
 }
 
 // Precheck godoc
@@ -278,6 +292,11 @@ func (f *FileHandler) MakeDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "创建目录失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "mkdir", TargetType: "dir", TargetName: req.DirPath, TargetPath: req.ParentLevel,
+		Detail: fmt.Sprintf("创建目录「%s」", req.DirPath), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, makeDir)
 }
 
@@ -288,11 +307,17 @@ func (f *FileHandler) MoveFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	moveFile, err := f.service.MoveFile(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	moveFile, err := f.service.MoveFile(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "移动文件失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "move", TargetType: "file", TargetName: req.FileID, TargetPath: req.SourcePath,
+		Detail: fmt.Sprintf("从「%s」移动到「%s」", req.SourcePath, req.TargetPath), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, moveFile)
 }
 
@@ -324,11 +349,17 @@ func (f *FileHandler) DeleteFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := f.service.DeleteFiles(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	result, err := f.service.DeleteFiles(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "删除文件失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "delete", TargetType: "file", TargetName: fmt.Sprintf("%d个文件", len(req.FileIDs)),
+		Detail: fmt.Sprintf("删除文件 %v", req.FileIDs), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -350,11 +381,17 @@ func (f *FileHandler) RenameFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := f.service.RenameFile(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	result, err := f.service.RenameFile(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "重命名文件失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "rename", TargetType: "file", TargetName: req.NewFileName,
+		Detail: fmt.Sprintf("重命名文件为「%s」", req.NewFileName), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -377,11 +414,17 @@ func (f *FileHandler) RenameDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := f.service.RenameDir(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	result, err := f.service.RenameDir(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "重命名目录失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "rename", TargetType: "dir", TargetName: req.NewDirName,
+		Detail: fmt.Sprintf("重命名目录为「%s」", req.NewDirName), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -404,11 +447,17 @@ func (f *FileHandler) DeleteDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := f.service.DeleteDir(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	result, err := f.service.DeleteDir(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "删除目录失败", err.Error()))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "delete", TargetType: "dir", TargetName: fmt.Sprintf("目录ID:%d", req.DirID),
+		Detail: fmt.Sprintf("删除目录 ID=%d", req.DirID), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -431,12 +480,22 @@ func (f *FileHandler) SetFilePublic(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := f.service.SetFilePublic(req, c.GetString("userID"))
+	userID := c.GetString("userID")
+	result, err := f.service.SetFilePublic(req, userID)
 	if err != nil {
 		logger.LOG.Error("设置文件公开状态失败", "err", err)
 		c.JSON(200, models.NewJsonResponse(500, "设置文件公开状态失败", err.Error()))
 		return
 	}
+	publicStatus := "私密"
+	if req.Public {
+		publicStatus = "公开"
+	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "set_public", TargetType: "file", TargetName: req.FileID,
+		Detail: fmt.Sprintf("设置文件为「%s」", publicStatus), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -480,6 +539,19 @@ func (f *FileHandler) UploadFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "上传失败", err.Error()))
 		return
 	}
+
+	// 审计日志
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID:         uuid.New().String(),
+		UserID:     userID,
+		UserName:   getUserName(c),
+		Action:     "upload",
+		TargetType: "file",
+		TargetName: header.Filename,
+		Detail:     fmt.Sprintf("上传文件「%s」", header.Filename),
+		IP:         c.ClientIP(),
+		CreatedAt:  custom_type.Now(),
+	})
 
 	c.JSON(200, result)
 }
@@ -747,6 +819,11 @@ func (f *FileHandler) CreateExtract(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
+	audit.Record(f.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: getUserName(c),
+		Action: "extract", TargetType: "file", TargetName: req.FileID,
+		Detail: "在线解压文件", IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 

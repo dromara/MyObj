@@ -1,14 +1,19 @@
 package handlers
 
 import (
+	"fmt"
 	"myobj/src/core/domain/request"
+	"myobj/src/core/domain/response"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
+	"myobj/src/pkg/audit"
 	"myobj/src/pkg/cache"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type RecycledHandler struct {
@@ -99,7 +104,17 @@ func (h *RecycledHandler) RestoreFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "还原文件失败", err.Error()))
 		return
 	}
-
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "restore", TargetType: "file", TargetName: req.RecycledID,
+		Detail: fmt.Sprintf("从回收站还原文件 %s", req.RecycledID), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -127,7 +142,17 @@ func (h *RecycledHandler) DeletePermanently(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "永久删除失败", err.Error()))
 		return
 	}
-
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "permanent_delete", TargetType: "file", TargetName: req.RecycledID,
+		Detail: fmt.Sprintf("永久删除文件 %s", req.RecycledID), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
 
@@ -147,6 +172,16 @@ func (h *RecycledHandler) EmptyRecycled(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "清空回收站失败", err.Error()))
 		return
 	}
-
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "empty_recycle", TargetType: "dir",
+		Detail: "清空回收站", IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 	c.JSON(200, result)
 }
