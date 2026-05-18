@@ -26,6 +26,9 @@ func (r *auditLogRepository) ListByCondition(ctx context.Context, query *reposit
 
 	db := r.db.WithContext(ctx).Model(&models.AuditLog{})
 
+	if query.EnterpriseID != "" {
+		db = db.Where("enterprise_id = ?", query.EnterpriseID)
+	}
 	if query.UserID != "" {
 		db = db.Where("user_id = ?", query.UserID)
 	}

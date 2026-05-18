@@ -205,6 +205,9 @@ export interface SetFilePasswordRequest {
 // Admin types
 export * from './admin'
 
+// Enterprise types
+export * from './enterprise'
+
 // Preview types
 export * from './preview'
 

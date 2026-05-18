@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"context"
 	"fmt"
 	"myobj/src/config"
 	"myobj/src/core/service"
@@ -86,6 +87,9 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 		handlers.NewAdminHandler(factory.AdminService(), cache).Router(api)
 		// 审计日志路由
 		handlers.NewAuditHandler(factory.AuditService(), cache).Router(api)
+		// 企业路由
+		spaceHandler := handlers.NewEnterpriseSpaceHandler(factory.EnterpriseSpaceService(), cache)
+		handlers.NewEnterpriseHandler(factory.EnterpriseService(), spaceHandler, cache).Router(api)
 		// TODO: 这里可以注册更多的路由处理器
 	}
 
@@ -126,6 +130,13 @@ func Execute(cacheLocal cache.Cache) {
 
 	factory := impl.NewRepositoryFactory(database.GetDB())
 	serverFactory := service.NewServiceFactory(factory, cacheLocal)
+
+	// 初始化企业权限（幂等，确保已有部署能获取新权限）
+	userService := service.NewUserService(factory, cacheLocal)
+	if err := userService.InitEnterprisePowers(context.Background()); err != nil {
+		logger.LOG.Warn("[启动] 初始化企业权限失败", "error", err)
+	}
+
 	// 启动回收站定时清理任务
 	recycledTask := task.NewRecycledTask(factory)
 	recycledTask.StartScheduledCleanup(30, 24*time.Hour)

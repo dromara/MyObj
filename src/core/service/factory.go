@@ -10,24 +10,28 @@ type ServerFactoryInterface interface {
 }
 
 type ServerFactory struct {
-	userService     *UserService
-	fileService     *FileService
-	shareService    *SharesService
-	downloadService *DownloadService
-	recycledService *RecycledService
-	adminService    *AdminService
-	auditService    *AuditService
+	userService              *UserService
+	fileService              *FileService
+	shareService             *SharesService
+	downloadService          *DownloadService
+	recycledService          *RecycledService
+	adminService             *AdminService
+	auditService             *AuditService
+	enterpriseService        *EnterpriseService
+	enterpriseSpaceService   *EnterpriseSpaceService
 }
 
 func NewServiceFactory(factory *impl.RepositoryFactory, cacheLocal cache.Cache) *ServerFactory {
 	return &ServerFactory{
-		userService:     NewUserService(factory, cacheLocal),
-		fileService:     NewFileService(factory, cacheLocal),
-		shareService:    NewSharesService(factory, cacheLocal),
-		downloadService: NewDownloadService(factory),
-		recycledService: NewRecycledService(factory, cacheLocal),
-		adminService:    NewAdminService(factory),
-		auditService:    NewAuditService(factory),
+		userService:            NewUserService(factory, cacheLocal),
+		fileService:            NewFileService(factory, cacheLocal),
+		shareService:           NewSharesService(factory, cacheLocal),
+		downloadService:        NewDownloadService(factory),
+		recycledService:        NewRecycledService(factory, cacheLocal),
+		adminService:           NewAdminService(factory),
+		auditService:           NewAuditService(factory),
+		enterpriseService:      NewEnterpriseService(factory),
+		enterpriseSpaceService: NewEnterpriseSpaceService(factory, cacheLocal),
 	}
 }
 
@@ -57,4 +61,12 @@ func (f *ServerFactory) AdminService() *AdminService {
 
 func (f *ServerFactory) AuditService() *AuditService {
 	return f.auditService
+}
+
+func (f *ServerFactory) EnterpriseService() *EnterpriseService {
+	return f.enterpriseService
+}
+
+func (f *ServerFactory) EnterpriseSpaceService() *EnterpriseSpaceService {
+	return f.enterpriseSpaceService
 }

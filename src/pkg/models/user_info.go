@@ -30,6 +30,8 @@ type UserInfo struct {
 	FreeSpace int64 `gorm:"type:free_space" json:"free_space"`
 	//用户状态 0正常 1禁用
 	State int `gorm:"type:INTEGER;not null" json:"state"`
+	//当前活跃企业ID（空=个人空间）
+	CurrentEnterpriseID string `gorm:"type:VARCHAR" json:"current_enterprise_id"`
 }
 
 func (UserInfo) TableName() string {

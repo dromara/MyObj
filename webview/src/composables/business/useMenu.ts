@@ -41,7 +41,8 @@ export function useMenu() {
           { path: '/shares', label: t('menu.shares'), icon: 'Share' },
           { path: '/offline', label: t('menu.offline'), icon: 'Download' },
           { path: '/tasks', label: t('menu.tasks'), icon: 'List' },
-          { path: '/trash', label: t('menu.trash'), icon: 'Delete' }
+          { path: '/trash', label: t('menu.trash'), icon: 'Delete' },
+          { path: '/enterprise', label: t('menu.enterprise'), icon: 'OfficeBuilding' }
         ]
       },
       {

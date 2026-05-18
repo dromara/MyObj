@@ -74,6 +74,30 @@ const routes: RouteRecordRaw[] = [
       //   meta: { title: '协作', i18nKey: 'route.collaboration' }
       // },
       {
+        path: '/enterprise',
+        name: 'Enterprise',
+        component: () => import('@/views/Enterprise/index.vue'),
+        meta: { title: '企业空间', i18nKey: 'route.enterprise' },
+        redirect: '/enterprise/manage',
+        children: [
+          {
+            path: 'manage',
+            name: 'EnterpriseManage',
+            meta: { title: '企业管理', i18nKey: 'route.enterpriseManage' }
+          },
+          {
+            path: 'space',
+            name: 'EnterpriseSpace',
+            meta: { title: '共享空间', i18nKey: 'route.enterpriseSpace' }
+          },
+          {
+            path: 'settings',
+            name: 'EnterpriseSettings',
+            meta: { title: '企业设置', i18nKey: 'route.enterpriseSettings' }
+          }
+        ]
+      },
+      {
         path: '/admin',
         name: 'Admin',
         component: () => import('@/views/Admin/index.vue'),

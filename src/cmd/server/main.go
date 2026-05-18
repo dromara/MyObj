@@ -158,6 +158,11 @@ func initDatabase() error {
 		logger.LOG.Error("审计日志表迁移失败", "error", err)
 	}
 
+	// 迁移企业数据表
+	if err := database.MigrateEnterpriseTables(database.GetDB()); err != nil {
+		logger.LOG.Error("企业数据表迁移失败", "error", err)
+	}
+
 	return nil
 }
 

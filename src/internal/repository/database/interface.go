@@ -161,3 +161,36 @@ func MigrateAuditLogTable(db *gorm.DB) error {
 	logger.LOG.Info("[数据库迁移] 审计日志表迁移完成 ✔️")
 	return nil
 }
+
+// MigrateEnterpriseTables 迁移企业相关数据表
+func MigrateEnterpriseTables(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	logger.LOG.Info("[数据库迁移] 开始迁移企业数据表...")
+
+	enterpriseModels := []interface{}{
+		&models.Enterprise{},
+		&models.EnterpriseMember{},
+		&models.EnterpriseRole{},
+		&models.EnterpriseRolePower{},
+		&models.EnterpriseInvite{},
+		&models.EnterpriseSharedPath{},
+		&models.EnterpriseSharedFile{},
+	}
+
+	for _, model := range enterpriseModels {
+		if err := db.AutoMigrate(model); err != nil {
+			errStr := err.Error()
+			if strings.Contains(errStr, "already exists") || strings.Contains(errStr, "Duplicate key name") {
+				logger.LOG.Warn("[数据库迁移] 索引或约束已存在，跳过", "model", fmt.Sprintf("%T", model), "error", errStr)
+				continue
+			}
+			logger.LOG.Error("[数据库迁移] 企业表迁移失败", "model", fmt.Sprintf("%T", model), "error", err)
+			return fmt.Errorf("failed to migrate enterprise table %T: %w", model, err)
+		}
+	}
+
+	logger.LOG.Info("[数据库迁移] 企业数据表迁移完成 ✔️")
+	return nil
+}

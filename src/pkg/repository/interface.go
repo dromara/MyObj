@@ -287,17 +287,90 @@ type S3MultipartRepository interface {
 
 // AuditLogQuery 审计日志查询条件
 type AuditLogQuery struct {
-	UserID    string
-	Action    string
-	Keyword   string
-	StartTime string
-	EndTime   string
-	Page      int
-	PageSize  int
+	EnterpriseID string
+	UserID       string
+	Action       string
+	Keyword      string
+	StartTime    string
+	EndTime      string
+	Page         int
+	PageSize     int
 }
 
 // AuditLogRepository 审计日志仓储接口
 type AuditLogRepository interface {
 	Create(ctx context.Context, log *models.AuditLog) error
 	ListByCondition(ctx context.Context, query *AuditLogQuery) ([]*models.AuditLog, int64, error)
+}
+
+// EnterpriseRepository 企业仓储接口
+type EnterpriseRepository interface {
+	Create(ctx context.Context, enterprise *models.Enterprise) error
+	GetByID(ctx context.Context, id string) (*models.Enterprise, error)
+	GetByInviteCode(ctx context.Context, code string) (*models.Enterprise, error)
+	Update(ctx context.Context, enterprise *models.Enterprise) error
+	Delete(ctx context.Context, id string) error
+}
+
+// EnterpriseMemberRepository 企业成员仓储接口
+type EnterpriseMemberRepository interface {
+	Create(ctx context.Context, member *models.EnterpriseMember) error
+	GetByID(ctx context.Context, id string) (*models.EnterpriseMember, error)
+	GetByEnterpriseAndUser(ctx context.Context, enterpriseID, userID string) (*models.EnterpriseMember, error)
+	ListByEnterpriseID(ctx context.Context, enterpriseID string, offset, limit int) ([]*models.EnterpriseMember, error)
+	CountByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
+	ListByUserID(ctx context.Context, userID string) ([]*models.EnterpriseMember, error)
+	Update(ctx context.Context, member *models.EnterpriseMember) error
+	Delete(ctx context.Context, id string) error
+}
+
+// EnterpriseRoleRepository 企业角色仓储接口
+type EnterpriseRoleRepository interface {
+	Create(ctx context.Context, role *models.EnterpriseRole) error
+	GetByID(ctx context.Context, id string) (*models.EnterpriseRole, error)
+	GetDefaultByEnterpriseID(ctx context.Context, enterpriseID string) (*models.EnterpriseRole, error)
+	GetAdminByEnterpriseID(ctx context.Context, enterpriseID string) (*models.EnterpriseRole, error)
+	ListByEnterpriseID(ctx context.Context, enterpriseID string) ([]*models.EnterpriseRole, error)
+	Update(ctx context.Context, role *models.EnterpriseRole) error
+	Delete(ctx context.Context, id string) error
+}
+
+// EnterpriseRolePowerRepository 企业角色权限仓储接口
+type EnterpriseRolePowerRepository interface {
+	BatchCreate(ctx context.Context, rolePowers []*models.EnterpriseRolePower) error
+	DeleteByRoleID(ctx context.Context, roleID string) error
+	GetByRoleID(ctx context.Context, roleID string) ([]*models.EnterpriseRolePower, error)
+}
+
+// EnterpriseInviteRepository 企业邀请仓储接口
+type EnterpriseInviteRepository interface {
+	Create(ctx context.Context, invite *models.EnterpriseInvite) error
+	GetByID(ctx context.Context, id string) (*models.EnterpriseInvite, error)
+	ListPendingByInviteeID(ctx context.Context, inviteeID string) ([]*models.EnterpriseInvite, error)
+	ListByEnterpriseID(ctx context.Context, enterpriseID string, offset, limit int) ([]*models.EnterpriseInvite, error)
+	CountByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
+	Update(ctx context.Context, invite *models.EnterpriseInvite) error
+}
+
+// EnterpriseSharedPathRepository 企业共享空间目录仓储接口
+type EnterpriseSharedPathRepository interface {
+	Create(ctx context.Context, path *models.EnterpriseSharedPath) error
+	GetByID(ctx context.Context, id int) (*models.EnterpriseSharedPath, error)
+	ListByParentID(ctx context.Context, enterpriseID string, parentID int) ([]*models.EnterpriseSharedPath, error)
+	Update(ctx context.Context, path *models.EnterpriseSharedPath) error
+	Delete(ctx context.Context, id int) error
+	DeleteByEnterpriseID(ctx context.Context, enterpriseID string) error
+}
+
+// EnterpriseSharedFileRepository 企业共享空间文件仓储接口
+type EnterpriseSharedFileRepository interface {
+	Create(ctx context.Context, file *models.EnterpriseSharedFile) error
+	GetByID(ctx context.Context, id string) (*models.EnterpriseSharedFile, error)
+	ListByPathID(ctx context.Context, enterpriseID string, pathID int, offset, limit int) ([]*models.EnterpriseSharedFile, error)
+	CountByPathID(ctx context.Context, enterpriseID string, pathID int) (int64, error)
+	CountByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
+	SumSizeByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
+	Update(ctx context.Context, file *models.EnterpriseSharedFile) error
+	Delete(ctx context.Context, id string) error
+	DeleteByEnterpriseID(ctx context.Context, enterpriseID string) error
 }

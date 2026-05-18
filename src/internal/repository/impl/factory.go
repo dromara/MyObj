@@ -38,6 +38,13 @@ type RepositoryFactory struct {
 	s3EncryptionKeyRepo   *S3EncryptionKeyRepositoryImpl
 	s3ObjectEncryptionRepo *S3ObjectEncryptionRepositoryImpl
 	auditLogRepo           repository.AuditLogRepository
+	enterpriseRepo         repository.EnterpriseRepository
+	enterpriseMemberRepo   repository.EnterpriseMemberRepository
+	enterpriseRoleRepo     repository.EnterpriseRoleRepository
+	enterpriseRolePowerRepo repository.EnterpriseRolePowerRepository
+	enterpriseInviteRepo   repository.EnterpriseInviteRepository
+	enterpriseSharedPathRepo repository.EnterpriseSharedPathRepository
+	enterpriseSharedFileRepo repository.EnterpriseSharedFileRepository
 }
 
 // NewRepositoryFactory 创建仓储工厂实例
@@ -253,6 +260,62 @@ func (f *RepositoryFactory) AuditLog() repository.AuditLogRepository {
 		f.auditLogRepo = NewAuditLogRepository(f.db)
 	}
 	return f.auditLogRepo
+}
+
+// Enterprise 获取企业仓储
+func (f *RepositoryFactory) Enterprise() repository.EnterpriseRepository {
+	if f.enterpriseRepo == nil {
+		f.enterpriseRepo = NewEnterpriseRepository(f.db)
+	}
+	return f.enterpriseRepo
+}
+
+// EnterpriseMember 获取企业成员仓储
+func (f *RepositoryFactory) EnterpriseMember() repository.EnterpriseMemberRepository {
+	if f.enterpriseMemberRepo == nil {
+		f.enterpriseMemberRepo = NewEnterpriseMemberRepository(f.db)
+	}
+	return f.enterpriseMemberRepo
+}
+
+// EnterpriseRole 获取企业角色仓储
+func (f *RepositoryFactory) EnterpriseRole() repository.EnterpriseRoleRepository {
+	if f.enterpriseRoleRepo == nil {
+		f.enterpriseRoleRepo = NewEnterpriseRoleRepository(f.db)
+	}
+	return f.enterpriseRoleRepo
+}
+
+// EnterpriseRolePower 获取企业角色权限仓储
+func (f *RepositoryFactory) EnterpriseRolePower() repository.EnterpriseRolePowerRepository {
+	if f.enterpriseRolePowerRepo == nil {
+		f.enterpriseRolePowerRepo = NewEnterpriseRolePowerRepository(f.db)
+	}
+	return f.enterpriseRolePowerRepo
+}
+
+// EnterpriseInvite 获取企业邀请仓储
+func (f *RepositoryFactory) EnterpriseInvite() repository.EnterpriseInviteRepository {
+	if f.enterpriseInviteRepo == nil {
+		f.enterpriseInviteRepo = NewEnterpriseInviteRepository(f.db)
+	}
+	return f.enterpriseInviteRepo
+}
+
+// EnterpriseSharedPath 获取企业共享空间目录仓储
+func (f *RepositoryFactory) EnterpriseSharedPath() repository.EnterpriseSharedPathRepository {
+	if f.enterpriseSharedPathRepo == nil {
+		f.enterpriseSharedPathRepo = NewEnterpriseSharedPathRepository(f.db)
+	}
+	return f.enterpriseSharedPathRepo
+}
+
+// EnterpriseSharedFile 获取企业共享空间文件仓储
+func (f *RepositoryFactory) EnterpriseSharedFile() repository.EnterpriseSharedFileRepository {
+	if f.enterpriseSharedFileRepo == nil {
+		f.enterpriseSharedFileRepo = NewEnterpriseSharedFileRepository(f.db)
+	}
+	return f.enterpriseSharedFileRepo
 }
 
 // DB 获取数据库实例（用于事务操作）

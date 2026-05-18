@@ -209,6 +209,10 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 				logger.LOG.Warn("初始化默认权限失败", "error", err)
 				// 不阻止用户注册，只记录警告
 			}
+			// 初始化企业权限
+			if err = u.InitEnterprisePowers(ctx); err != nil {
+				logger.LOG.Warn("初始化企业权限失败", "error", err)
+			}
 		} else {
 			logger.LOG.Error("查询组信息失败", "error", err)
 			return nil, err
@@ -374,6 +378,70 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 		logger.LOG.Info("成功将默认权限分配给管理员组", "count", len(groupPowers))
 	}
 	
+	return nil
+}
+
+// InitEnterprisePowers 初始化企业相关权限
+// 创建 enterprise:* 命名空间的权限记录（幂等，已存在则跳过）
+func (u *UserService) InitEnterprisePowers(ctx context.Context) error {
+	logger.LOG.Info("开始初始化企业权限")
+
+	allPowers := []struct {
+		Name           string
+		Description    string
+		Characteristic string
+	}{
+		{"企业管理", "管理企业设置和信息", "enterprise:manage"},
+		{"邀请成员", "邀请新成员加入企业", "enterprise:member:invite"},
+		{"移除成员", "从企业中移除成员", "enterprise:member:remove"},
+		{"角色管理", "创建、编辑、删除企业角色", "enterprise:role:manage"},
+		{"上传到共享空间", "上传文件到企业共享空间", "enterprise:space:upload"},
+		{"从共享空间下载", "下载企业共享空间中的文件", "enterprise:space:download"},
+		{"删除共享空间文件", "删除企业共享空间中的文件", "enterprise:space:delete"},
+		{"查看审计日志", "查看企业审计日志", "enterprise:audit:view"},
+	}
+
+	existingPowers, err := u.factory.Power().List(ctx, 0, 1000)
+	if err != nil {
+		return fmt.Errorf("查询现有权限失败: %w", err)
+	}
+
+	powerMap := make(map[string]*models.Power)
+	maxID := 0
+	for _, p := range existingPowers {
+		powerMap[p.Characteristic] = p
+		if p.ID > maxID {
+			maxID = p.ID
+		}
+	}
+
+	created := 0
+	for _, dp := range allPowers {
+		if _, ok := powerMap[dp.Characteristic]; ok {
+			continue
+		}
+		maxID++
+		power := &models.Power{
+			ID:             maxID,
+			Name:           dp.Name,
+			Description:    dp.Description,
+			Characteristic: dp.Characteristic,
+			CreatedAt:      custom_type.Now(),
+		}
+		if err = u.factory.Power().Create(ctx, power); err != nil {
+			logger.LOG.Error("创建企业权限失败", "error", err, "characteristic", dp.Characteristic)
+			return fmt.Errorf("创建企业权限失败: %w", err)
+		}
+		powerMap[dp.Characteristic] = power
+		created++
+		logger.LOG.Info("创建企业权限", "name", dp.Name, "characteristic", dp.Characteristic, "id", maxID)
+	}
+
+	if created == 0 {
+		logger.LOG.Info("企业权限已全部存在，无需创建")
+	} else {
+		logger.LOG.Info("企业权限初始化完成", "created", created)
+	}
 	return nil
 }
 

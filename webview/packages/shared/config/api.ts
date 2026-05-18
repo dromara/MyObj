@@ -157,6 +157,54 @@ export const API_ENDPOINTS = {
     }
   },
 
+  // 企业相关
+  ENTERPRISE: {
+    CREATE: '/enterprise/create',
+    LIST: '/enterprise/list',
+    INFO: '/enterprise/info',
+    UPDATE: '/enterprise/update',
+    SWITCH: '/enterprise/switch',
+    TRANSFER: '/enterprise/transfer',
+    DISSOLVE: '/enterprise/dissolve',
+    TOGGLE_STATE: '/enterprise/toggle-state',
+    MEMBER: {
+      LIST: '/enterprise/member/list',
+      INVITE: '/enterprise/member/invite',
+      REMOVE: '/enterprise/member/remove',
+      UPDATE_ROLE: '/enterprise/member/role',
+      LEAVE: '/enterprise/member/leave',
+      JOIN: '/enterprise/member/join',
+      ACCEPT: '/enterprise/member/accept',
+      INVITE_CODE: '/enterprise/member/invite-code',
+      REFRESH_CODE: '/enterprise/member/refresh-code',
+      PENDING: '/enterprise/member/pending',
+    },
+    ROLE: {
+      LIST: '/enterprise/role/list',
+      CREATE: '/enterprise/role/create',
+      UPDATE: '/enterprise/role/update',
+      DELETE: '/enterprise/role/delete',
+    },
+    POWERS: '/enterprise/powers',
+    SPACE: {
+      MKDIR: '/enterprise/space/mkdir',
+      LIST: '/enterprise/space/list',
+      UPLOAD_PRECHECK: '/enterprise/space/upload/precheck',
+      UPLOAD: '/enterprise/space/upload',
+      DELETE: '/enterprise/space/delete',
+      DELETE_DIR: '/enterprise/space/delete-dir',
+      RENAME: '/enterprise/space/rename',
+      RENAME_DIR: '/enterprise/space/rename-dir',
+      DOWNLOAD: '/enterprise/space/download',
+      USAGE: '/enterprise/space/usage',
+    },
+    AUDIT: {
+      LIST: '/enterprise/audit/list',
+      EXPORT: '/enterprise/audit/export',
+    },
+    SET_QUOTA: '/enterprise/space/set-quota',
+  },
+
   // 在线解压缩
   EXTRACT: {
     CREATE: '/file/extract/create',
