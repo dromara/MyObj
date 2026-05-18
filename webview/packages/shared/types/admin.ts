@@ -146,6 +146,37 @@ export interface ScannedDiskInfo {
   avail: number
 }
 
+// 审计日志相关类型
+export interface AuditLogEntry {
+  id: string
+  user_id: string
+  user_name: string
+  action: string
+  target_type: string
+  target_path: string
+  target_name: string
+  detail: string
+  ip: string
+  created_at: string
+}
+
+export interface AuditLogListRequest {
+  page: number
+  pageSize: number
+  user_id?: string
+  action?: string
+  keyword?: string
+  start_time?: string
+  end_time?: string
+}
+
+export interface AuditLogListResponse {
+  list: AuditLogEntry[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 // 系统配置相关类型
 export interface SystemConfig {
   allow_register: boolean

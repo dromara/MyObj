@@ -13,7 +13,8 @@ export default {
     adminGroups: 'Group Management',
     adminPermissions: 'Permission Management',
     adminDisks: 'Disk Management',
-    adminSystem: 'System Configuration'
+    adminSystem: 'System Configuration',
+    adminAuditLog: 'Audit Log'
   },
   error: {
     title: 'Error Occurred',
@@ -954,6 +955,48 @@ export default {
       saveFailed: 'Save failed',
       loadConfigFailed: 'Failed to load configuration',
       featureDeveloping: 'System configuration feature is under development'
+    },
+    audit: {
+      title: 'Audit Log',
+      export: 'Export CSV',
+      refresh: 'Refresh',
+      user: 'User',
+      action: 'Action',
+      targetType: 'Target Type',
+      targetName: 'Target Name',
+      targetPath: 'Target Path',
+      detail: 'Detail',
+      ip: 'IP Address',
+      time: 'Time',
+      searchPlaceholder: 'Search username, path, detail...',
+      noLogs: 'No audit logs',
+      loadFailed: 'Failed to load audit logs',
+      exportSuccess: 'Export successful',
+      exportFailed: 'Export failed',
+      allActions: 'All Actions',
+      allTargets: 'All Types',
+      startTime: 'Start Time',
+      endTime: 'End Time',
+      actions: {
+        upload: 'Upload',
+        download: 'Download',
+        rename: 'Rename',
+        move: 'Move',
+        delete: 'Delete',
+        open: 'Open',
+        mkdir: 'Create Directory',
+        set_public: 'Set Public',
+        extract: 'Extract',
+        package: 'Package Download',
+        share: 'Share',
+        restore: 'Restore',
+        permanent_delete: 'Permanent Delete',
+        empty_recycle: 'Empty Recycle Bin'
+      },
+      targets: {
+        file: 'File',
+        dir: 'Directory'
+      }
     }
   },
   preview: {

@@ -109,6 +109,12 @@ const routes: RouteRecordRaw[] = [
             name: 'AdminSystem',
             component: () => import('@/views/Admin/System/index.vue'),
             meta: { title: '系统配置', i18nKey: 'route.adminSystem' }
+          },
+          {
+            path: 'audit',
+            name: 'AdminAuditLog',
+            component: () => import('@/views/Admin/AuditLog/index.vue'),
+            meta: { title: '审计日志', i18nKey: 'route.adminAuditLog' }
           }
         ]
       }

@@ -13,7 +13,8 @@ export default {
     adminGroups: '组管理',
     adminPermissions: '权限管理',
     adminDisks: '磁盘管理',
-    adminSystem: '系统配置'
+    adminSystem: '系统配置',
+    adminAuditLog: '审计日志'
   },
   error: {
     title: '出现错误',
@@ -943,6 +944,48 @@ export default {
       saveFailed: '保存失败',
       loadConfigFailed: '加载配置失败',
       featureDeveloping: '系统配置功能开发中'
+    },
+    audit: {
+      title: '审计日志',
+      export: '导出CSV',
+      refresh: '刷新',
+      user: '用户',
+      action: '操作类型',
+      targetType: '目标类型',
+      targetName: '目标名称',
+      targetPath: '目标路径',
+      detail: '详情',
+      ip: 'IP地址',
+      time: '时间',
+      searchPlaceholder: '搜索用户名、路径、详情...',
+      noLogs: '暂无审计日志',
+      loadFailed: '加载审计日志失败',
+      exportSuccess: '导出成功',
+      exportFailed: '导出失败',
+      allActions: '全部操作',
+      allTargets: '全部类型',
+      startTime: '开始时间',
+      endTime: '结束时间',
+      actions: {
+        upload: '上传',
+        download: '下载',
+        rename: '重命名',
+        move: '移动',
+        delete: '删除',
+        open: '打开',
+        mkdir: '创建目录',
+        set_public: '设置公开',
+        extract: '解压',
+        package: '打包下载',
+        share: '分享',
+        restore: '还原',
+        permanent_delete: '永久删除',
+        empty_recycle: '清空回收站'
+      },
+      targets: {
+        file: '文件',
+        dir: '目录'
+      }
     }
   },
   preview: {

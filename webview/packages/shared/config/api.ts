@@ -150,6 +150,10 @@ export const API_ENDPOINTS = {
     SYSTEM: {
       CONFIG: '/admin/system/config',
       UPDATE_CONFIG: '/admin/system/update-config'
+    },
+    AUDIT: {
+      LIST: '/admin/audit/list',
+      EXPORT: '/admin/audit/export'
     }
   },
 
