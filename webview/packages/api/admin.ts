@@ -1,7 +1,7 @@
 import { get, post, download } from '@myobj/http'
 import { filterParams, API_BASE_URL } from '@myobj/shared'
 import { API_ENDPOINTS } from '@myobj/shared'
-import type { ApiResponse, AdminUser, CreateUserRequest, UpdateUserRequest, UserListRequest, UserListResponse, AdminGroup, CreateGroupRequest, UpdateGroupRequest, GroupListResponse, AdminPower, PowerListResponse, CreatePowerRequest, UpdatePowerRequest, BatchDeletePowerRequest, AssignPowerRequest, AdminDisk, CreateDiskRequest, UpdateDiskRequest, DiskListResponse, ScannedDiskInfo, SystemConfig, UpdateSystemConfigRequest, AuditLogListRequest, AuditLogListResponse } from '@myobj/shared'
+import type { ApiResponse, AdminUser, CreateUserRequest, UpdateUserRequest, UserListRequest, UserListResponse, AdminGroup, CreateGroupRequest, UpdateGroupRequest, GroupListResponse, AdminPower, PowerListResponse, CreatePowerRequest, UpdatePowerRequest, BatchDeletePowerRequest, AssignPowerRequest, AdminDisk, CreateDiskRequest, UpdateDiskRequest, DiskListResponse, ScannedDiskInfo, SystemConfig, UpdateSystemConfigRequest, AuditLogListRequest, AuditLogListResponse, SpaceConfig, UpdateSpaceConfigRequest } from '@myobj/shared'
 // ========== 用户管理 API ==========
 
 /**
@@ -193,7 +193,23 @@ export const exportAuditLog = (params: Omit<AuditLogListRequest, 'page' | 'pageS
   if (params.start_time) query.set('start_time', params.start_time)
   if (params.end_time) query.set('end_time', params.end_time)
   const qs = query.toString()
-  const url = API_BASE_URL + API_ENDPOINTS.ADMIN.AUDIT.EXPORT + (qs ? '?' + qs : '')
+  const url = API_ENDPOINTS.ADMIN.AUDIT.EXPORT + (qs ? '?' + qs : '')
   const filename = `audit_log_${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.csv`
   return download(url, filename)
+}
+
+// ========== 空间配置 API ==========
+
+/**
+ * 获取空间配置
+ */
+export const getSpaceConfig = () => {
+  return get<ApiResponse<SpaceConfig>>(API_ENDPOINTS.ADMIN.SPACE_CONFIG.GET)
+}
+
+/**
+ * 更新空间配置
+ */
+export const updateSpaceConfig = (data: UpdateSpaceConfigRequest) => {
+  return post<ApiResponse<SpaceConfig>>(API_ENDPOINTS.ADMIN.SPACE_CONFIG.UPDATE, data)
 }

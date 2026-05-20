@@ -7,12 +7,15 @@ export interface Enterprise {
   creator_id: string
   space: number
   free_space: number
+  space_unlimited: boolean
   invite_code: string
   invite_link: string
   state: number
   created_at: string
   member_count?: number
   role?: string
+  is_admin?: number
+  powers?: string[]
 }
 
 // 企业成员
@@ -138,12 +141,14 @@ export interface CreateRoleRequest {
 }
 
 export interface UpdateRoleRequest {
+  enterprise_id: string
   role_id: string
   name?: string
   power_ids?: number[]
 }
 
 export interface DeleteRoleRequest {
+  enterprise_id: string
   role_id: string
 }
 
@@ -165,6 +170,7 @@ export interface ToggleEnterpriseStateRequest {
 export interface SetEnterpriseQuotaRequest {
   enterprise_id: string
   space: number
+  space_unlimited?: boolean
 }
 
 export interface EnterpriseListRequest {
@@ -186,6 +192,8 @@ export interface EnterpriseAuditListRequest {
 export interface SharedFileListRequest {
   enterprise_id: string
   path_id?: number
+  sort_by?: string
+  sort_order?: number | string
   page: number
   pageSize: number
 }

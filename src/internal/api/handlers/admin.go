@@ -67,6 +67,10 @@ func (a *AdminHandler) Router(c *gin.RouterGroup) {
 		// 系统配置
 		admin.GET("/system/config", a.GetSystemConfig)
 		admin.POST("/system/update-config", a.UpdateSystemConfig)
+
+		// 空间配置
+		admin.GET("/space/config", a.GetSpaceConfig)
+		admin.POST("/space/update-config", a.UpdateSpaceConfig)
 	}
 
 	logger.LOG.Info("[路由] 管理路由注册完成✔️")
@@ -401,6 +405,33 @@ func (a *AdminHandler) UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 	res, err := a.service.AdminUpdateSystemConfig(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, res)
+}
+
+// ========== 空间配置 ==========
+
+// GetSpaceConfig 获取空间配置
+func (a *AdminHandler) GetSpaceConfig(c *gin.Context) {
+	res, err := a.service.AdminGetSpaceConfig()
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, res)
+}
+
+// UpdateSpaceConfig 更新空间配置
+func (a *AdminHandler) UpdateSpaceConfig(c *gin.Context) {
+	req := new(request.AdminUpdateSpaceConfigRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+	res, err := a.service.AdminUpdateSpaceConfig(req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return

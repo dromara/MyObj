@@ -40,6 +40,30 @@ func (s *EnterpriseService) CreateEnterprise(req *request.CreateEnterpriseReques
 		return models.NewJsonResponse(500, "生成邀请码失败", nil), err
 	}
 
+	// 获取创建者信息，判断是否为超级管理员
+	creator, err := s.factory.User().GetByID(ctx, userID)
+	if err != nil {
+		return models.NewJsonResponse(500, "获取用户信息失败", nil), err
+	}
+
+	// 根据创建者身份设置企业空间
+	// 超级管理员(GroupID=1)创建的企业：使用全局默认企业空间配置
+	// 非超级管理员创建的企业：空间为0（需要超管手动分配）
+	var enterpriseSpace int64
+	var spaceUnlimited bool
+	if creator.GroupID == 1 {
+		// 超级管理员创建，读取全局配置
+		cfg, _ := s.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
+		if cfg != nil {
+			fmt.Sscanf(cfg.Value, "%d", &enterpriseSpace)
+		}
+		// 如果配置为0，表示无限空间
+		if enterpriseSpace == 0 {
+			spaceUnlimited = true
+		}
+	}
+	// 非超管创建：enterpriseSpace = 0, spaceUnlimited = false（即无空间）
+
 	enterpriseID := uuid.New().String()
 	now := custom_type.Now()
 
@@ -48,16 +72,17 @@ func (s *EnterpriseService) CreateEnterprise(req *request.CreateEnterpriseReques
 		txFactory := s.factory.WithTx(tx)
 
 		enterprise := &models.Enterprise{
-			ID:          enterpriseID,
-			Name:        req.Name,
-			Logo:        req.Logo,
-			Description: req.Description,
-			CreatorID:   userID,
-			Space:       0,
-			FreeSpace:   0,
-			InviteCode:  inviteCode,
-			State:       0,
-			CreatedAt:   now,
+			ID:             enterpriseID,
+			Name:           req.Name,
+			Logo:           req.Logo,
+			Description:    req.Description,
+			CreatorID:      userID,
+			Space:          enterpriseSpace,
+			FreeSpace:      enterpriseSpace,
+			SpaceUnlimited: spaceUnlimited,
+			InviteCode:     inviteCode,
+			State:          0,
+			CreatedAt:      now,
 		}
 		if err := txFactory.Enterprise().Create(ctx, enterprise); err != nil {
 			return err
@@ -129,6 +154,29 @@ func (s *EnterpriseService) CreateEnterprise(req *request.CreateEnterpriseReques
 }
 
 // GetMyEnterprises 获取我加入的企业列表
+// getUserPowers 获取用户在企业中的权限列表
+func (s *EnterpriseService) getUserPowers(ctx context.Context, member *models.EnterpriseMember) []string {
+	if member == nil {
+		return nil
+	}
+	role, err := s.factory.EnterpriseRole().GetByID(ctx, member.RoleID)
+	if err != nil || role == nil {
+		return nil
+	}
+	rolePowers, err := s.factory.EnterpriseRolePower().GetByRoleID(ctx, role.ID)
+	if err != nil {
+		return nil
+	}
+	var powers []string
+	for _, rp := range rolePowers {
+		power, err := s.factory.Power().GetByID(ctx, rp.PowerID)
+		if err == nil && power != nil {
+			powers = append(powers, power.Characteristic)
+		}
+	}
+	return powers
+}
+
 func (s *EnterpriseService) GetMyEnterprises(userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
@@ -146,22 +194,28 @@ func (s *EnterpriseService) GetMyEnterprises(userID string) (*models.JsonRespons
 		memberCount, _ := s.factory.EnterpriseMember().CountByEnterpriseID(ctx, m.EnterpriseID)
 		role, _ := s.factory.EnterpriseRole().GetByID(ctx, m.RoleID)
 		roleName := ""
+		isAdmin := 0
 		if role != nil {
 			roleName = role.Name
+			isAdmin = role.IsAdmin
 		}
+		powers := s.getUserPowers(ctx, m)
 		list = append(list, &response.EnterpriseResponse{
-			ID:          enterprise.ID,
-			Name:        enterprise.Name,
-			Logo:        enterprise.Logo,
-			Description: enterprise.Description,
-			CreatorID:   enterprise.CreatorID,
-			Space:       enterprise.Space,
-			FreeSpace:   enterprise.FreeSpace,
-			InviteCode:  enterprise.InviteCode,
-			State:       enterprise.State,
-			CreatedAt:   enterprise.CreatedAt,
-			MemberCount: memberCount,
-			Role:        roleName,
+			ID:             enterprise.ID,
+			Name:           enterprise.Name,
+			Logo:           enterprise.Logo,
+			Description:    enterprise.Description,
+			CreatorID:      enterprise.CreatorID,
+			Space:          enterprise.Space,
+			FreeSpace:      enterprise.FreeSpace,
+			SpaceUnlimited: enterprise.SpaceUnlimited,
+			InviteCode:     enterprise.InviteCode,
+			State:          enterprise.State,
+			CreatedAt:      enterprise.CreatedAt,
+			MemberCount:    memberCount,
+			Role:           roleName,
+			IsAdmin:        isAdmin,
+			Powers:         powers,
 		})
 	}
 
@@ -180,26 +234,32 @@ func (s *EnterpriseService) GetEnterpriseInfo(enterpriseID, userID string) (*mod
 	memberCount, _ := s.factory.EnterpriseMember().CountByEnterpriseID(ctx, enterpriseID)
 	member, _ := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, enterpriseID, userID)
 	roleName := ""
+	isAdmin := 0
 	if member != nil {
 		role, _ := s.factory.EnterpriseRole().GetByID(ctx, member.RoleID)
 		if role != nil {
 			roleName = role.Name
+			isAdmin = role.IsAdmin
 		}
 	}
+	powers := s.getUserPowers(ctx, member)
 
 	return models.NewJsonResponse(200, "ok", &response.EnterpriseResponse{
-		ID:          enterprise.ID,
-		Name:        enterprise.Name,
-		Logo:        enterprise.Logo,
-		Description: enterprise.Description,
-		CreatorID:   enterprise.CreatorID,
-		Space:       enterprise.Space,
-		FreeSpace:   enterprise.FreeSpace,
-		InviteCode:  enterprise.InviteCode,
-		State:       enterprise.State,
-		CreatedAt:   enterprise.CreatedAt,
-		MemberCount: memberCount,
-		Role:        roleName,
+		ID:             enterprise.ID,
+		Name:           enterprise.Name,
+		Logo:           enterprise.Logo,
+		Description:    enterprise.Description,
+		CreatorID:      enterprise.CreatorID,
+		Space:          enterprise.Space,
+		FreeSpace:      enterprise.FreeSpace,
+		SpaceUnlimited: enterprise.SpaceUnlimited,
+		InviteCode:     enterprise.InviteCode,
+		State:          enterprise.State,
+		CreatedAt:      enterprise.CreatedAt,
+		MemberCount:    memberCount,
+		Role:           roleName,
+		IsAdmin:        isAdmin,
+		Powers:         powers,
 	}), nil
 }
 
@@ -507,7 +567,10 @@ func (s *EnterpriseService) GetMemberList(req *request.EnterpriseListRequest, us
 		userName := ""
 		userAvatar := ""
 		if user != nil {
-			userName = user.Name
+			userName = user.UserName
+			if user.Name != "" {
+				userName = user.Name
+			}
 		}
 		roleName := ""
 		isAdmin := 0
@@ -941,17 +1004,25 @@ func (s *EnterpriseService) SetEnterpriseQuota(req *request.SetEnterpriseQuotaRe
 		return models.NewJsonResponse(404, "企业不存在", nil), err
 	}
 
-	// 计算已用空间
-	usedSpace, _ := s.factory.EnterpriseSharedFile().SumSizeByEnterpriseID(ctx, req.EnterpriseID)
+	if req.SpaceUnlimited {
+		// 设置为无限空间
+		enterprise.SpaceUnlimited = true
+		enterprise.Space = 0
+		enterprise.FreeSpace = 0
+	} else {
+		// 计算已用空间
+		usedSpace, _ := s.factory.EnterpriseSharedFile().SumSizeByEnterpriseID(ctx, req.EnterpriseID)
 
-	enterprise.Space = req.Space
-	if req.Space > 0 {
-		enterprise.FreeSpace = req.Space - usedSpace
-		if enterprise.FreeSpace < 0 {
+		enterprise.SpaceUnlimited = false
+		enterprise.Space = req.Space
+		if req.Space > 0 {
+			enterprise.FreeSpace = req.Space - usedSpace
+			if enterprise.FreeSpace < 0 {
+				enterprise.FreeSpace = 0
+			}
+		} else {
 			enterprise.FreeSpace = 0
 		}
-	} else {
-		enterprise.FreeSpace = 0 // 无限空间
 	}
 
 	if err := s.factory.Enterprise().Update(ctx, enterprise); err != nil {
@@ -959,8 +1030,9 @@ func (s *EnterpriseService) SetEnterpriseQuota(req *request.SetEnterpriseQuotaRe
 	}
 
 	return models.NewJsonResponse(200, "设置成功", map[string]interface{}{
-		"space":      enterprise.Space,
-		"free_space": enterprise.FreeSpace,
+		"space":           enterprise.Space,
+		"free_space":      enterprise.FreeSpace,
+		"space_unlimited": enterprise.SpaceUnlimited,
 	}), nil
 }
 
@@ -1064,14 +1136,20 @@ func (s *EnterpriseService) GetEnterpriseMember(ctx context.Context, memberID st
 	return s.factory.EnterpriseMember().GetByID(ctx, memberID)
 }
 
-// GetAllPowers 获取所有可用权限列表
+// GetAllPowers 获取企业可用权限列表（仅返回 enterprise: 前缀的权限）
 func (s *EnterpriseService) GetAllPowers() (*models.JsonResponse, error) {
 	ctx := context.Background()
-	powers, err := s.factory.Power().List(ctx, 0, 1000)
+	allPowers, err := s.factory.Power().List(ctx, 0, 1000)
 	if err != nil {
 		return models.NewJsonResponse(500, "查询失败", nil), err
 	}
-	return models.NewJsonResponse(200, "ok", powers), nil
+	var enterprisePowers []*models.Power
+	for _, p := range allPowers {
+		if len(p.Characteristic) >= 11 && p.Characteristic[:11] == "enterprise:" {
+			enterprisePowers = append(enterprisePowers, p)
+		}
+	}
+	return models.NewJsonResponse(200, "ok", enterprisePowers), nil
 }
 
 // expireTime 生成过期时间

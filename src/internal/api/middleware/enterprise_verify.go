@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"myobj/src/core/domain/response"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/repository"
@@ -33,8 +36,8 @@ func NewEnterpriseMiddleware(
 }
 
 // Verify 企业上下文加载中间件
-// 如果用户已切换到企业（CurrentEnterpriseID非空），加载企业成员、角色、权限到gin.Context
-// 如果未切换到企业，跳过（不中断请求）
+// 优先从URL参数（query或path）获取enterprise_id，其次从用户CurrentEnterpriseID获取
+// 加载企业成员、角色、权限到gin.Context
 func (m *EnterpriseMiddleware) Verify() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userLoginVal, exists := c.Get("userLogin")
@@ -43,13 +46,49 @@ func (m *EnterpriseMiddleware) Verify() gin.HandlerFunc {
 			return
 		}
 		userLogin := userLoginVal.(response.UserLoginResponse)
-		if userLogin.User == nil || userLogin.User.CurrentEnterpriseID == "" {
+		if userLogin.User == nil {
+			c.Next()
+			return
+		}
+
+		// 优先从URL参数获取enterprise_id
+		enterpriseID := c.Query("enterprise_id")
+		if enterpriseID == "" {
+			enterpriseID = c.Param("enterprise_id")
+		}
+		// 从请求体获取enterprise_id（POST/PUT/PATCH请求）
+		if enterpriseID == "" && c.Request.Body != nil && (c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH") {
+			contentType := c.ContentType()
+			if contentType == "multipart/form-data" || contentType == "application/x-www-form-urlencoded" {
+				// 表单请求：从 form data 获取
+				if err := c.Request.ParseMultipartForm(32 << 20); err == nil {
+					enterpriseID = c.Request.FormValue("enterprise_id")
+				}
+			} else {
+				// JSON 请求：从 body 解析
+				bodyBytes, err := io.ReadAll(c.Request.Body)
+				if err == nil && len(bodyBytes) > 0 {
+					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+					var bodyMap map[string]interface{}
+					if json.Unmarshal(bodyBytes, &bodyMap) == nil {
+						if eid, ok := bodyMap["enterprise_id"]; ok {
+							if eidStr, ok := eid.(string); ok {
+								enterpriseID = eidStr
+							}
+						}
+					}
+				}
+			}
+		}
+		if enterpriseID == "" {
+			enterpriseID = userLogin.User.CurrentEnterpriseID
+		}
+		if enterpriseID == "" {
 			c.Next()
 			return
 		}
 
 		ctx := context.Background()
-		enterpriseID := userLogin.User.CurrentEnterpriseID
 
 		// 加载企业成员记录，验证 status=0（活跃）
 		member, err := m.enterpriseMemberRepo.GetByEnterpriseAndUser(ctx, enterpriseID, userLogin.User.ID)

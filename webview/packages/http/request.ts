@@ -37,6 +37,11 @@ service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const data = response.data
 
+    // 响应体为空（如 204 No Content 或空响应）
+    if (data == null) {
+      return { code: response.status, message: '', data: null } as any
+    }
+
     // 业务状态码判断：401/403 拦截，其余放行由业务层处理
     if (data.code === 401) {
       cache.local.remove('token')

@@ -347,7 +347,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		if err != nil {
 			return fmt.Errorf("查询用户信息失败: %w", err)
 		}
-		if user.Space > 0 { // 如果不是无限空间
+		if !user.SpaceUnlimited { // 如果不是无限空间
 			user.FreeSpace -= actualFileSize // 使用实际文件大小
 			if err := txFactory.User().Update(ctx, user); err != nil {
 				return fmt.Errorf("更新用户剩余空间失败: %w", err)

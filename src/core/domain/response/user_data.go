@@ -28,6 +28,8 @@ type UserInfoResponse struct {
 	Space int64 `json:"space"`
 	//用户剩余存储空间
 	FreeSpace int64 `json:"free_space"`
+	//是否无限空间
+	SpaceUnlimited bool `json:"space_unlimited"`
 	//用户状态 0正常 1禁用
 	State int `json:"state"`
 }

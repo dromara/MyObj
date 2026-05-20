@@ -55,9 +55,14 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		logger.LOG.Error("获取用户信息失败", "error", err, "userID", req.UserID)
 		return nil, err
 	}
-	// 检查用户可用空间 如果不是无限空间，且可用空间不足
-	if user.Space > 0 && user.FreeSpace < req.FileSize {
-		return models.NewJsonResponse(400, "用户可用空间不足", nil), nil
+	// 检查用户可用空间
+	if !user.SpaceUnlimited {
+		if user.Space == 0 {
+			return models.NewJsonResponse(400, "未分配存储空间，无法上传", nil), nil
+		}
+		if user.FreeSpace < req.FileSize {
+			return models.NewJsonResponse(400, "用户可用空间不足", nil), nil
+		}
 	}
 
 	// 检查磁盘空间（选择最大可用空间的磁盘）
@@ -107,7 +112,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 					return nil, err
 				}
 				// 秒传成功后扣除用户空间（只对非无限空间用户）
-				if user.Space > 0 {
+				if !user.SpaceUnlimited {
 					user.FreeSpace -= req.FileSize
 					if err := f.factory.User().Update(ctx, user); err != nil {
 						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
@@ -141,7 +146,7 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 					return nil, err
 				}
 				// 秒传成功后扣除用户空间（只对非无限空间用户）
-				if user.Space > 0 {
+				if !user.SpaceUnlimited {
 					user.FreeSpace -= req.FileSize
 					if err := f.factory.User().Update(ctx, user); err != nil {
 						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)

@@ -58,14 +58,16 @@ type CreateEnterpriseRoleRequest struct {
 
 // UpdateEnterpriseRoleRequest 更新企业角色请求
 type UpdateEnterpriseRoleRequest struct {
-	RoleID   string `json:"role_id" binding:"required"`
-	Name     string `json:"name"`
-	PowerIDs []int  `json:"power_ids"`
+	EnterpriseID string `json:"enterprise_id" binding:"required"`
+	RoleID       string `json:"role_id" binding:"required"`
+	Name         string `json:"name"`
+	PowerIDs     []int  `json:"power_ids"`
 }
 
 // DeleteEnterpriseRoleRequest 删除企业角色请求
 type DeleteEnterpriseRoleRequest struct {
-	RoleID string `json:"role_id" binding:"required"`
+	EnterpriseID string `json:"enterprise_id" binding:"required"`
+	RoleID       string `json:"role_id" binding:"required"`
 }
 
 // EnterpriseListRequest 企业列表请求（分页查询成员等）
@@ -95,8 +97,9 @@ type ToggleEnterpriseStateRequest struct {
 
 // SetEnterpriseQuotaRequest 设置企业存储配额请求
 type SetEnterpriseQuotaRequest struct {
-	EnterpriseID string `json:"enterprise_id" binding:"required"`
-	Space        int64  `json:"space" binding:"min=0"` // 总配额（字节），0=无限
+	EnterpriseID   string `json:"enterprise_id" binding:"required"`
+	Space          int64  `json:"space" binding:"min=0"` // 总配额（字节）
+	SpaceUnlimited bool   `json:"space_unlimited"`        // true=不限制空间
 }
 
 // EnterpriseAuditListRequest 企业审计日志查询请求

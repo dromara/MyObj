@@ -192,3 +192,12 @@ export interface UpdateSystemConfigRequest {
   webdav_enabled?: boolean
   [key: string]: any
 }
+
+// 空间配置相关类型
+export interface SpaceConfig {
+  default_enterprise_space: number // 默认企业空间（字节），0表示无限
+}
+
+export interface UpdateSpaceConfigRequest {
+  default_enterprise_space: number
+}

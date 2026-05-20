@@ -151,12 +151,13 @@ export const sharedUploadPrecheck = (data: SharedUploadPrecheckRequest) => {
   return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.UPLOAD_PRECHECK, data)
 }
 
-export const deleteSharedFile = (data: DeleteSharedFileRequest) => {
-  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.DELETE, data)
+export const deleteSharedFile = (data: DeleteSharedFileRequest, enterprise_id?: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.DELETE, data, enterprise_id ? { params: { enterprise_id } } : {})
 }
 
-export const downloadSharedFile = (id: string) => {
-  const url = API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.DOWNLOAD + '?id=' + id
+export const downloadSharedFile = (id: string, enterprise_id?: string) => {
+  let url = API_ENDPOINTS.ENTERPRISE.SPACE.DOWNLOAD + '?id=' + id
+  if (enterprise_id) url += '&enterprise_id=' + enterprise_id
   return download(url, id)
 }
 
@@ -164,16 +165,76 @@ export const getSpaceUsage = (enterprise_id: string) => {
   return get<ApiResponse<SpaceUsage>>(API_ENDPOINTS.ENTERPRISE.SPACE.USAGE, { enterprise_id })
 }
 
-export const deleteSharedDir = (id: number) => {
-  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.DELETE_DIR, { id })
+export const deleteSharedDir = (id: number, enterprise_id?: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.DELETE_DIR, { id }, enterprise_id ? { params: { enterprise_id } } : {})
 }
 
-export const renameSharedFile = (id: string, name: string) => {
-  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.RENAME, { id, name })
+export const renameSharedFile = (id: string, name: string, enterprise_id?: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.RENAME, { id, name }, enterprise_id ? { params: { enterprise_id } } : {})
 }
 
-export const renameSharedDir = (id: number, name: string) => {
-  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.RENAME_DIR, { id, name })
+export const renameSharedDir = (id: number, name: string, enterprise_id?: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.RENAME_DIR, { id, name }, enterprise_id ? { params: { enterprise_id } } : {})
+}
+
+// 预览（返回 URL）
+export const previewSharedFile = (id: string) => {
+  return API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.PREVIEW + '?id=' + id
+}
+
+// 缩略图（返回 URL）
+export const getSharedFileThumbnail = (fileId: string) => {
+  return API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.THUMBNAIL + '/' + fileId
+}
+
+// 搜索文件
+export const searchSharedFiles = (params: { enterprise_id: string; keyword: string; page: number; pageSize: number }) => {
+  return get<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.SEARCH, filterParams(params))
+}
+
+// 获取目录树
+export const getSharedPathTree = (enterprise_id: string) => {
+  return get<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.PATH_TREE, { enterprise_id })
+}
+
+// 移动文件
+export const moveSharedFile = (data: { enterprise_id: string; file_id: string; target_path_id: number }) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.MOVE, data)
+}
+
+// 创建打包下载任务
+export const createPackage = (data: { enterprise_id: string; file_ids: string[]; package_name?: string }) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.PACKAGE, data)
+}
+
+// 查询打包进度
+export const getPackageProgress = (package_id: string) => {
+  return get<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.PACKAGE_PROGRESS, { package_id })
+}
+
+// 下载打包文件（返回 URL）
+export const downloadPackage = (package_id: string) => {
+  return API_ENDPOINTS.ENTERPRISE.SPACE.PACKAGE_DOWNLOAD + '?package_id=' + package_id
+}
+
+// 解压冲突检测
+export const extractCheck = (data: { enterprise_id: string; file_id: string; target_path_id?: number; file_password?: string }) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.EXTRACT_CHECK, data)
+}
+
+// 开始解压
+export const extractStart = (data: { enterprise_id: string; file_id: string; target_path_id?: number; file_password?: string; conflict_strategy?: string }) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.EXTRACT, data)
+}
+
+// 查询解压进度
+export const getExtractProgress = (task_id: string) => {
+  return get<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.EXTRACT_PROGRESS, { task_id })
+}
+
+// 创建文件分享
+export const createShare = (data: { enterprise_id: string; file_id: string; expire?: number; password?: string }) => {
+  return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.SHARE, data)
 }
 
 // ========== 审计日志 API ==========
@@ -190,7 +251,7 @@ export const exportEnterpriseAuditLogs = (params: Omit<EnterpriseAuditListReques
   if (params.start_time) query.set('start_time', params.start_time)
   if (params.end_time) query.set('end_time', params.end_time)
   const qs = query.toString()
-  const url = API_BASE_URL + API_ENDPOINTS.ENTERPRISE.AUDIT.EXPORT + (qs ? '?' + qs : '')
+  const url = API_ENDPOINTS.ENTERPRISE.AUDIT.EXPORT + (qs ? '?' + qs : '')
   const filename = `enterprise_audit_${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.csv`
   return download(url, filename)
 }

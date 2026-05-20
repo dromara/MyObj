@@ -384,7 +384,7 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 		}
 
 		// 5.7 归还用户空间（只对非无限空间用户）
-		if user.Space > 0 {
+		if !user.SpaceUnlimited {
 			user.FreeSpace += int64(fileInfo.Size)
 			if err := txFactory.User().Update(ctx, user); err != nil {
 				return fmt.Errorf("更新用户空间失败: %w", err)

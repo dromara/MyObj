@@ -76,23 +76,44 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/enterprise',
         name: 'Enterprise',
-        component: () => import('@/views/Enterprise/index.vue'),
+        component: () => import('@/views/Enterprise/Layout.vue'),
+        redirect: '/enterprise/list',
         meta: { title: '企业空间', i18nKey: 'route.enterprise' },
-        redirect: '/enterprise/manage',
         children: [
           {
-            path: 'manage',
-            name: 'EnterpriseManage',
-            meta: { title: '企业管理', i18nKey: 'route.enterpriseManage' }
+            path: 'list',
+            name: 'EnterpriseList',
+            component: () => import('@/views/Enterprise/List.vue'),
+            meta: { title: '企业列表', i18nKey: 'route.enterpriseList' }
           },
           {
-            path: 'space',
+            path: ':id/members',
+            name: 'EnterpriseMembers',
+            component: () => import('@/views/Enterprise/Manage/Members.vue'),
+            meta: { title: '成员管理', i18nKey: 'route.enterpriseMembers' }
+          },
+          {
+            path: ':id/roles',
+            name: 'EnterpriseRoles',
+            component: () => import('@/views/Enterprise/Manage/Roles.vue'),
+            meta: { title: '角色管理', i18nKey: 'route.enterpriseRoles' }
+          },
+          {
+            path: ':id/space',
             name: 'EnterpriseSpace',
+            component: () => import('@/views/Enterprise/Space/index.vue'),
             meta: { title: '共享空间', i18nKey: 'route.enterpriseSpace' }
           },
           {
-            path: 'settings',
+            path: ':id/audit',
+            name: 'EnterpriseAudit',
+            component: () => import('@/views/Enterprise/Manage/Audit.vue'),
+            meta: { title: '审计日志', i18nKey: 'route.enterpriseAudit' }
+          },
+          {
+            path: ':id/settings',
             name: 'EnterpriseSettings',
+            component: () => import('@/views/Enterprise/Settings/index.vue'),
             meta: { title: '企业设置', i18nKey: 'route.enterpriseSettings' }
           }
         ]
@@ -133,6 +154,12 @@ const routes: RouteRecordRaw[] = [
             name: 'AdminSystem',
             component: () => import('@/views/Admin/System/index.vue'),
             meta: { title: '系统配置', i18nKey: 'route.adminSystem' }
+          },
+          {
+            path: 'space-config',
+            name: 'AdminSpaceConfig',
+            component: () => import('@/views/Admin/SpaceConfig/index.vue'),
+            meta: { title: '空间配置', i18nKey: 'route.adminSpaceConfig' }
           },
           {
             path: 'audit',

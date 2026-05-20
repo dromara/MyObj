@@ -95,7 +95,7 @@
     <!-- 邀请码加入对话框 -->
     <el-dialog v-model="showJoinDialog" :title="t('enterprise.member.joinByCode') || '邀请码加入企业'" width="450px">
       <el-form :model="joinForm" ref="joinFormRef" label-width="80px">
-        <el-form-item :label="t('enterprise.member.inviteCode') || '邀请码'" :rules="[{ required: true, message: '请输入邀请码' }]" prop="invite_code">
+        <el-form-item :label="t('enterprise.info.inviteCode') || '邀请码'" :rules="[{ required: true, message: '请输入邀请码' }]" prop="invite_code">
           <el-input v-model="joinForm.invite_code" :placeholder="t('enterprise.member.inviteCodePlaceholder') || '请输入企业邀请码'" />
         </el-form-item>
       </el-form>

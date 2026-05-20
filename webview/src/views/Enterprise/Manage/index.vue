@@ -305,7 +305,7 @@
     try {
       const res = await getRoleList(props.enterpriseId)
       if (res.code === 200 && res.data) {
-        roleList.value = res.data.list || []
+        roleList.value = Array.isArray(res.data) ? res.data : (res.data.list || [])
       }
     } catch (error: any) {
       proxy?.$log?.error(error)
@@ -461,7 +461,7 @@
       savingRole.value = true
       try {
         if (editingRole.value) {
-          const res = await updateRole({ role_id: editingRole.value.id, name: roleForm.name, power_ids: roleForm.power_ids })
+          const res = await updateRole({ enterprise_id: props.enterpriseId, role_id: editingRole.value.id, name: roleForm.name, power_ids: roleForm.power_ids })
           if (res.code === 200) {
             proxy?.$modal.msgSuccess(t('enterprise.role.updateSuccess'))
             showRoleDialog.value = false
@@ -490,7 +490,7 @@
   const handleDeleteRole = async (role: EnterpriseRole) => {
     try {
       await proxy?.$modal.confirm(t('enterprise.role.deleteConfirm'))
-      const res = await deleteRole({ role_id: role.id })
+      const res = await deleteRole({ enterprise_id: props.enterpriseId, role_id: role.id })
       if (res.code === 200) {
         proxy?.$modal.msgSuccess(t('enterprise.role.deleteSuccess'))
         loadRoles()

@@ -26,6 +26,9 @@
         <el-tab-pane :label="t('route.adminSystem')" name="system">
           <AdminSystem />
         </el-tab-pane>
+        <el-tab-pane :label="t('route.adminSpaceConfig')" name="spaceConfig">
+          <AdminSpaceConfig />
+        </el-tab-pane>
         <el-tab-pane :label="t('route.adminAuditLog')" name="audit">
           <AdminAuditLog />
         </el-tab-pane>
@@ -40,6 +43,7 @@
   import AdminPermissions from './Permissions/index.vue'
   import AdminDisks from './Disks/index.vue'
   import AdminSystem from './System/index.vue'
+  import AdminSpaceConfig from './SpaceConfig/index.vue'
   import AdminAuditLog from './AuditLog/index.vue'
   import { useI18n } from '@/composables'
 
@@ -58,6 +62,7 @@
       else if (name === 'AdminPermissions') activeTab.value = 'permissions'
       else if (name === 'AdminDisks') activeTab.value = 'disks'
       else if (name === 'AdminSystem') activeTab.value = 'system'
+      else if (name === 'AdminSpaceConfig') activeTab.value = 'spaceConfig'
       else if (name === 'AdminAuditLog') activeTab.value = 'audit'
     },
     { immediate: true }
@@ -71,6 +76,7 @@
       permissions: '/admin/permissions',
       disks: '/admin/disks',
       system: '/admin/system',
+      spaceConfig: '/admin/space-config',
       audit: '/admin/audit'
     }
     if (routeMap[tab] && route.path !== routeMap[tab]) {

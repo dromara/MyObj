@@ -151,6 +151,10 @@ export const API_ENDPOINTS = {
       CONFIG: '/admin/system/config',
       UPDATE_CONFIG: '/admin/system/update-config'
     },
+    SPACE_CONFIG: {
+      GET: '/admin/space/config',
+      UPDATE: '/admin/space/update-config'
+    },
     AUDIT: {
       LIST: '/admin/audit/list',
       EXPORT: '/admin/audit/export'
@@ -197,6 +201,18 @@ export const API_ENDPOINTS = {
       RENAME_DIR: '/enterprise/space/rename-dir',
       DOWNLOAD: '/enterprise/space/download',
       USAGE: '/enterprise/space/usage',
+      PREVIEW: '/enterprise/space/preview',
+      THUMBNAIL: '/enterprise/space/thumbnail',
+      SEARCH: '/enterprise/space/search',
+      PATH_TREE: '/enterprise/space/path-tree',
+      MOVE: '/enterprise/space/move',
+      PACKAGE: '/enterprise/space/package',
+      PACKAGE_PROGRESS: '/enterprise/space/package/progress',
+      PACKAGE_DOWNLOAD: '/enterprise/space/package/download',
+      EXTRACT_CHECK: '/enterprise/space/extract/check',
+      EXTRACT: '/enterprise/space/extract',
+      EXTRACT_PROGRESS: '/enterprise/space/extract/progress',
+      SHARE: '/enterprise/space/share',
     },
     AUDIT: {
       LIST: '/enterprise/audit/list',

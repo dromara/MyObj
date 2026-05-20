@@ -208,7 +208,7 @@
 <script setup lang="ts">
   import axios from 'axios'
   import type { FileItem, PreviewType, PreviewOptions } from '@myobj/shared'
-  import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage } from '@/utils/ui/preview'
+  import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage, getThumbnailUrl } from '@/utils/ui/preview'
   import { useFileDownload } from '@/composables'
   import { API_BASE_URL, API_ENDPOINTS } from '@myobj/shared'
   import { videoApi } from '@myobj/api'
@@ -505,7 +505,7 @@
             // 缩略图也需要通过axios获取（带认证），然后创建blob URL
             try {
               const token = proxy?.$cache.local.get('token')
-              const thumbnailUrl = `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
+              const thumbnailUrl = getThumbnailUrl(fileId, file.thumbnail_url)
               const response = await axios.get(thumbnailUrl, {
                 responseType: 'blob',
                 headers: {
@@ -516,10 +516,10 @@
               imageUrl.value = window.URL.createObjectURL(blob)
             } catch (err) {
               // 缩略图获取失败，使用预览URL
-              imageUrl.value = await getFilePreviewUrl(fileId)
+              imageUrl.value = await getFilePreviewUrl(fileId, undefined, file.preview_url)
             }
           } else {
-            imageUrl.value = await getFilePreviewUrl(fileId)
+            imageUrl.value = await getFilePreviewUrl(fileId, undefined, file.preview_url)
           }
           break
         case 'video':
@@ -531,14 +531,14 @@
           }
           break
         case 'audio':
-          audioUrl.value = await getFilePreviewUrl(fileId)
+          audioUrl.value = await getFilePreviewUrl(fileId, undefined, file.preview_url)
           break
         case 'pdf':
-          pdfUrl.value = await getFilePreviewUrl(fileId)
+          pdfUrl.value = await getFilePreviewUrl(fileId, undefined, file.preview_url)
           break
         case 'text':
         case 'code':
-          textContent.value = await getFileTextContent(fileId)
+          textContent.value = await getFileTextContent(fileId, file.preview_url)
           if (previewType.value === 'code') {
             codeLanguage.value = getCodeLanguage(file.file_name)
             // 等待 DOM 更新后应用语法高亮
@@ -689,7 +689,7 @@
       if (isOfficeDocument(mimeType)) {
         // Office文档：获取文件URL并尝试打印
         try {
-          const fileUrl = await getFilePreviewUrl(file.file_id)
+          const fileUrl = await getFilePreviewUrl(file.file_id, undefined, file.preview_url)
           await printOfficeDocument(fileUrl, file.file_name, {
             title: file.file_name
           })
@@ -711,7 +711,7 @@
         case 'image':
           // 打印时始终使用原图，不使用缩略图
           try {
-            const originalImageUrl = await getFilePreviewUrl(file.file_id)
+            const originalImageUrl = await getFilePreviewUrl(file.file_id, undefined, file.preview_url)
             await printImage(originalImageUrl, {
               title: file.file_name
             })
@@ -745,7 +745,7 @@
         default:
           // 对于其他不支持预览的文件，尝试直接打印文件URL
           try {
-            const fileUrl = await getFilePreviewUrl(file.file_id)
+            const fileUrl = await getFilePreviewUrl(file.file_id, undefined, file.preview_url)
             await printOfficeDocument(fileUrl, file.file_name, {
               title: file.file_name
             })

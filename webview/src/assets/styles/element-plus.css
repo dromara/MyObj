@@ -45,12 +45,13 @@ html.dark body .el-tree-select__dropdown {
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.08);
   transform: translate(-50%, -50%);
   transition:
     width 0.4s,
     height 0.4s;
   pointer-events: none;
+  z-index: 1;
 }
 
 .el-button:not(.is-disabled):active::before {
@@ -59,6 +60,16 @@ html.dark body .el-tree-select__dropdown {
   transition:
     width 0.3s,
     height 0.3s;
+}
+
+/* 确保按钮文字始终在波纹之上 */
+.el-button:not(.is-disabled) {
+  z-index: 0;
+}
+
+.el-button:not(.is-disabled) > * {
+  position: relative;
+  z-index: 2;
 }
 
 /* 主要按钮的点击反馈 */
@@ -1013,6 +1024,112 @@ html.dark .el-tree-node__label {
 
 html.dark .el-tree-node__label:hover {
   color: var(--primary-color) !important;
+}
+
+/* ============================================
+   企业页面共享样式
+   ============================================ */
+
+/* 页面卡片容器 */
+.page-card {
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .page-card {
+  background: var(--card-bg);
+  border-color: var(--el-border-color);
+}
+
+/* 区域标题 */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header h3 .el-icon {
+  color: var(--primary-color);
+}
+
+/* 操作按钮组 */
+.section-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 渐变按钮 */
+.action-btn {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  transition: all 0.3s;
+}
+
+.action-btn:hover {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+/* 次要操作按钮 */
+.action-btn-secondary {
+  border: 1px solid transparent !important;
+  transition: all 0.3s;
+}
+
+.action-btn-secondary:hover {
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+
+/* 表格行 hover 效果 */
+.styled-table :deep(.el-table__row) {
+  transition: all 0.2s;
+}
+
+.styled-table :deep(.el-table__row:hover > td) {
+  background: rgba(37, 99, 235, 0.03) !important;
+}
+
+html.dark .styled-table :deep(.el-table__row:hover > td) {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* 分页分隔线 */
+.pagination {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* 树节点复选框 */

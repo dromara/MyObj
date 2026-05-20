@@ -17,6 +17,7 @@ export interface UserInfo {
   space: number
   file_password: string
   free_space: number
+  space_unlimited: boolean
   state: number
 }
 
@@ -103,6 +104,8 @@ export interface FileItem {
   has_thumbnail: boolean
   public: boolean
   created_at: string
+  preview_url?: string   // 自定义预览 URL（企业空间等场景）
+  thumbnail_url?: string // 自定义缩略图 URL
 }
 
 // 文件列表请求

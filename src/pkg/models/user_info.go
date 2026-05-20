@@ -28,6 +28,8 @@ type UserInfo struct {
 	FilePassword string `gorm:"type:text" json:"file_password"`
 	//用户剩余存储空间
 	FreeSpace int64 `gorm:"type:free_space" json:"free_space"`
+	//是否无限空间 true=不限制空间 false=使用Space/FreeSpace限制
+	SpaceUnlimited bool `gorm:"type:BOOLEAN;not null;default:false" json:"space_unlimited"`
 	//用户状态 0正常 1禁用
 	State int `gorm:"type:INTEGER;not null" json:"state"`
 	//当前活跃企业ID（空=个人空间）

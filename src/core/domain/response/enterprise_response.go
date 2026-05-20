@@ -4,18 +4,21 @@ import "myobj/src/pkg/custom_type"
 
 // EnterpriseResponse 企业信息响应
 type EnterpriseResponse struct {
-	ID          string               `json:"id"`
-	Name        string               `json:"name"`
-	Logo        string               `json:"logo"`
-	Description string               `json:"description"`
-	CreatorID   string               `json:"creator_id"`
-	Space       int64                `json:"space"`
-	FreeSpace   int64                `json:"free_space"`
-	InviteCode  string               `json:"invite_code"`
-	State       int                  `json:"state"`
-	CreatedAt   custom_type.JsonTime `json:"created_at"`
-	MemberCount int64                `json:"member_count"`
-	Role        string               `json:"role"` // 当前用户在该企业的角色名
+	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	Logo           string               `json:"logo"`
+	Description    string               `json:"description"`
+	CreatorID      string               `json:"creator_id"`
+	Space          int64                `json:"space"`
+	FreeSpace      int64                `json:"free_space"`
+	SpaceUnlimited bool                 `json:"space_unlimited"`
+	InviteCode     string               `json:"invite_code"`
+	State          int                  `json:"state"`
+	CreatedAt      custom_type.JsonTime `json:"created_at"`
+	MemberCount    int64                `json:"member_count"`
+	Role           string               `json:"role"`      // 当前用户在该企业的角色名
+	IsAdmin        int                  `json:"is_admin"`  // 当前用户是否为企业管理员
+	Powers         []string             `json:"powers"`    // 当前用户在该企业的权限列表
 }
 
 // EnterpriseMemberResponse 企业成员响应

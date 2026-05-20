@@ -150,10 +150,15 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 		CreatedAt: custom_type.Now(),
 		State:     0,
 	}
-	// 如果用户Space为0且组有限制，使用组的Space
-	if req.Space == 0 && group.Space > 0 {
-		user.Space = group.Space
-		user.FreeSpace = group.Space
+	// 如果管理员未指定空间，继承用户组的空间配置
+	if req.Space == 0 {
+		if group.Space > 0 {
+			user.Space = group.Space
+			user.FreeSpace = group.Space
+		} else {
+			// 组的空间为0表示不限制
+			user.SpaceUnlimited = true
+		}
 	}
 
 	if err = a.factory.User().Create(ctx, user); err != nil {
@@ -202,10 +207,18 @@ func (a *AdminService) AdminUpdateUser(req *request.AdminUpdateUserRequest) (*mo
 			return nil, fmt.Errorf("用户组不存在")
 		}
 		user.GroupID = req.GroupID
-		// 如果更新了组，可能需要更新存储空间
-		if req.Space == 0 && group.Space > 0 {
-			user.Space = group.Space
-			user.FreeSpace = group.Space
+		// 如果更新了组且未指定空间，继承新组的空间配置
+		if req.Space == 0 {
+			if group.Space > 0 {
+				user.Space = group.Space
+				user.FreeSpace = group.Space
+				user.SpaceUnlimited = false
+			} else {
+				// 组的空间为0表示不限制
+				user.Space = 0
+				user.FreeSpace = 0
+				user.SpaceUnlimited = true
+			}
 		}
 		// 检查用户存储空间是否超过组存储空间限制
 		// 如果组有存储空间限制（group.Space > 0），且用户设置了存储空间（req.Space > 0），则不能超过组限制
@@ -841,4 +854,57 @@ func (a *AdminService) AdminUpdateSystemConfig(req *request.AdminUpdateSystemCon
 	}
 
 	return a.AdminGetSystemConfig()
+}
+
+// ========== 空间配置 ==========
+
+// AdminGetSpaceConfig 获取空间配置
+func (a *AdminService) AdminGetSpaceConfig() (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	defaultEnterpriseSpace, _ := a.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
+
+	var enterpriseSpace int64
+
+	if defaultEnterpriseSpace != nil {
+		fmt.Sscanf(defaultEnterpriseSpace.Value, "%d", &enterpriseSpace)
+	}
+
+	return models.NewJsonResponse(200, "查询成功", response.AdminSpaceConfigResponse{
+		DefaultEnterpriseSpace: enterpriseSpace,
+	}), nil
+}
+
+// AdminUpdateSpaceConfig 更新空间配置
+func (a *AdminService) AdminUpdateSpaceConfig(req *request.AdminUpdateSpaceConfigRequest) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 更新默认企业空间
+	enterpriseSpaceCfg, _ := a.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
+	if enterpriseSpaceCfg == nil {
+		enterpriseSpaceCfg = &models.SysConfig{Key: "default_enterprise_space", Value: fmt.Sprintf("%d", req.DefaultEnterpriseSpace)}
+		if err := a.factory.SysConfig().Create(ctx, enterpriseSpaceCfg); err != nil {
+			logger.LOG.Error("创建企业空间配置失败", "error", err)
+			return nil, err
+		}
+	} else {
+		enterpriseSpaceCfg.Value = fmt.Sprintf("%d", req.DefaultEnterpriseSpace)
+		if err := a.factory.SysConfig().Update(ctx, enterpriseSpaceCfg); err != nil {
+			logger.LOG.Error("更新企业空间配置失败", "error", err)
+			return nil, err
+		}
+	}
+
+	return a.AdminGetSpaceConfig()
+}
+
+// GetDefaultEnterpriseSpace 获取默认企业空间配置值
+func (a *AdminService) GetDefaultEnterpriseSpace(ctx context.Context) int64 {
+	cfg, _ := a.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
+	if cfg == nil {
+		return 0
+	}
+	var space int64
+	fmt.Sscanf(cfg.Value, "%d", &space)
+	return space
 }

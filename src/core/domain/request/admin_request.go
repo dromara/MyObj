@@ -139,6 +139,11 @@ type AdminUpdateSystemConfigRequest struct {
 	WebdavEnabled bool `json:"webdav_enabled"`
 }
 
+// AdminUpdateSpaceConfigRequest 更新空间配置请求
+type AdminUpdateSpaceConfigRequest struct {
+	DefaultEnterpriseSpace int64 `json:"default_enterprise_space"` // 默认企业空间（字节），0表示无限
+}
+
 // PackageCreateRequest 创建打包下载请求
 type PackageCreateRequest struct {
 	FileIDs     []string `json:"file_ids" binding:"required,min=1"`

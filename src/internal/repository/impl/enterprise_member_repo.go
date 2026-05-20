@@ -23,13 +23,19 @@ func (r *enterpriseMemberRepository) Create(ctx context.Context, member *models.
 func (r *enterpriseMemberRepository) GetByID(ctx context.Context, id string) (*models.EnterpriseMember, error) {
 	var member models.EnterpriseMember
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&member).Error
-	return &member, err
+	if err != nil {
+		return nil, err
+	}
+	return &member, nil
 }
 
 func (r *enterpriseMemberRepository) GetByEnterpriseAndUser(ctx context.Context, enterpriseID, userID string) (*models.EnterpriseMember, error) {
 	var member models.EnterpriseMember
 	err := r.db.WithContext(ctx).Where("enterprise_id = ? AND user_id = ? AND status = 0", enterpriseID, userID).First(&member).Error
-	return &member, err
+	if err != nil {
+		return nil, err
+	}
+	return &member, nil
 }
 
 func (r *enterpriseMemberRepository) ListByEnterpriseID(ctx context.Context, enterpriseID string, offset, limit int) ([]*models.EnterpriseMember, error) {

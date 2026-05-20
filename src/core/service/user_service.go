@@ -118,8 +118,6 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 			logger.LOG.Error("查询注册配置失败", "error", err)
 			return nil, fmt.Errorf("系统错误")
 		}
-		// 如果配置不存在，默认为不允许注册（安全起见）
-		// 如果配置存在但值为 "false"，也不允许注册
 		if allowRegister == nil || allowRegister.Value != "true" {
 			return nil, fmt.Errorf("系统已关闭用户注册功能，请联系管理员")
 		}
@@ -140,7 +138,6 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		return nil, err
 	}
 	psw := string(decrypt)
-	// 验证用户名和密码
 	if req.Username == "" || psw == "" {
 		return nil, fmt.Errorf("用户名或密码不能为空")
 	}
@@ -162,40 +159,33 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		logger.LOG.Error("生成密码失败", "error", err)
 		return nil, err
 	}
-	// 检查是否是首次使用（第一个用户注册）
-	// userCount 已在上面查询过，直接使用
 	isFirstUse := userCount == 0
 
 	var groupID int
 	if isFirstUse {
-		// 首次使用，强制设置为管理员组（ID=1）
 		groupID = 1
 	} else {
-		// 非首次使用，获取默认组
 		group, err := u.factory.Group().GetDefaultGroup(ctx)
 		if err != nil {
 			logger.LOG.Error("查询默认分组失败", "error", err)
 			return nil, err
 		}
 		groupID = group.ID
-		// 安全检查：如果默认组是管理员组（ID=1），不允许注册（防止所有注册用户都成为管理员）
 		if groupID == 1 {
 			logger.LOG.Error("默认组不能是管理员组", "group_id", groupID)
 			return nil, fmt.Errorf("系统配置错误：默认组不能是管理员组，请联系管理员")
 		}
 	}
 
-	// 获取组信息（用于设置存储空间）
 	group, err := u.factory.Group().GetByID(ctx, groupID)
 	if err != nil {
-		// 如果是首次使用且管理员组不存在，自动创建管理员组
 		if isFirstUse && errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.LOG.Info("首次使用，自动创建管理员组", "group_id", groupID)
 			adminGroup := &models.Group{
 				ID:           1,
 				Name:         "管理员",
-				GroupDefault: 0, // 管理员组不是默认组
-				Space:        0, // 0 表示无限制
+				GroupDefault: 0,
+				Space:        0,
 				CreatedAt:    custom_type.Now(),
 			}
 			if err = u.factory.Group().Create(ctx, adminGroup); err != nil {
@@ -203,13 +193,10 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 				return nil, fmt.Errorf("创建管理员组失败: %w", err)
 			}
 			group = adminGroup
-			
-			// 首次使用，自动创建默认权限并分配给管理员组
+
 			if err = u.initDefaultPowersForAdminGroup(ctx); err != nil {
 				logger.LOG.Warn("初始化默认权限失败", "error", err)
-				// 不阻止用户注册，只记录警告
 			}
-			// 初始化企业权限
 			if err = u.InitEnterprisePowers(ctx); err != nil {
 				logger.LOG.Warn("初始化企业权限失败", "error", err)
 			}
@@ -219,19 +206,32 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		}
 	}
 
+	var userSpace int64
+	var userSpaceUnlimited bool
+	if isFirstUse {
+		userSpaceUnlimited = true
+		userSpace = 0
+	} else {
+		userSpace = group.Space
+		if userSpace == 0 {
+			userSpaceUnlimited = true
+		}
+	}
+
 	user = &models.UserInfo{
-		ID:           v7.String(),
-		Name:         req.Nickname,
-		UserName:     req.Username,
-		Password:     password,
-		Email:        req.Email,
-		Phone:        req.Phone,
-		GroupID:      groupID,
-		CreatedAt:    custom_type.Now(),
-		Space:        group.Space,
-		FilePassword: "",
-		FreeSpace:    group.Space,
-		State:        0,
+		ID:             v7.String(),
+		Name:           req.Nickname,
+		UserName:       req.Username,
+		Password:       password,
+		Email:          req.Email,
+		Phone:          req.Phone,
+		GroupID:        groupID,
+		CreatedAt:      custom_type.Now(),
+		Space:          userSpace,
+		SpaceUnlimited: userSpaceUnlimited,
+		FilePassword:   "",
+		FreeSpace:      userSpace,
+		State:          0,
 	}
 	err = u.factory.User().Create(ctx, user)
 	if err != nil {
@@ -250,26 +250,20 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		logger.LOG.Error("创建目录失败", "error", err)
 		return nil, err
 	}
-	// 删除已使用的挑战
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "注册成功", user), nil
 }
 
 // initDefaultPowersForAdminGroup 初始化默认权限并分配给管理员组
-// 此方法在首次注册时调用，为第一个用户（管理员）创建并分配所有权限
-// 管理员需要拥有所有权限才能正常管理系统
 func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error {
 	logger.LOG.Info("首次注册：开始初始化所有权限并分配给管理员组")
-	
-	// 定义所有权限列表（根据数据库中的权限定义）
-	// 管理员应该拥有所有权限，包括用户管理、文件操作、磁盘管理等
+
 	allPowers := []struct {
 		Name           string
 		Description    string
 		Characteristic string
 	}{
-		// 用户管理权限
 		{"用户查看", "查看系统所有用户", "user:get"},
 		{"用户修改", "修改系统用户信息", "user:update"},
 		{"用户删除", "删除系统用户", "user:delete"},
@@ -277,13 +271,9 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 		{"用户空间分配", "分配用户可用空间大小", "user:space"},
 		{"修改其他用户信息", "修改其他用户信息，包括密码", "user:update:else"},
 		{"用户密码修改", "修改用户自身密码", "user:update:password"},
-		
-		// 磁盘管理权限
 		{"挂载磁盘", "挂载系统可用磁盘", "disk:mount"},
 		{"删除挂载磁盘", "删除已经挂载的磁盘", "disk:delete"},
 		{"查看挂载磁盘", "查看已经挂载磁盘的信息", "disk:get"},
-		
-		// 文件操作权限
 		{"文件上传", "上传文件到磁盘", "file:upload"},
 		{"重命名文件", "重命名磁盘文件", "file:rechristen"},
 		{"分享文件", "创建文件分享链接", "file:share"},
@@ -294,51 +284,39 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 		{"用户文件密码", "设置，修改文件密码", "file:update:filePassword"},
 		{"移动文件", "移动文件至其他虚拟目录", "file:move"},
 		{"删除文件", "删除文件（移动到回收站）", "file:delete"},
-		
-		// 目录操作权限
 		{"创建目录", "创建文件目录", "dir:create"},
 		{"删除目录", "删除已经存在的目录", "dir:delete"},
-		
-		// API Key管理权限
 		{"创建apikey", "创建当前用户权限的apikey", "apikey:create"},
 		{"删除apikey", "删除当前用户已存在的apikey", "apikey:delete"},
-		
-		// WebDAV访问权限
 		{"WebDAV访问", "允许通过WebDAV协议访问文件系统", "webdav:access"},
 	}
-	
-	// 获取所有现有权限
+
 	existingPowers, err := u.factory.Power().List(ctx, 0, 1000)
 	if err != nil {
 		logger.LOG.Error("查询现有权限失败", "error", err)
 		return fmt.Errorf("查询现有权限失败: %w", err)
 	}
-	
-	// 创建 characteristic 到 power 的映射
+
 	powerMap := make(map[string]*models.Power)
 	for _, p := range existingPowers {
 		powerMap[p.Characteristic] = p
 	}
-	
-	// 创建或获取权限，收集权限ID
+
 	powerIDs := make([]int, 0, len(allPowers))
 	maxID := 0
-	// 先计算最大ID
 	for _, p := range existingPowers {
 		if p.ID > maxID {
 			maxID = p.ID
 		}
 	}
-	
+
 	for _, dp := range allPowers {
 		var power *models.Power
-		
-		// 检查权限是否已存在
+
 		if existingPower, ok := powerMap[dp.Characteristic]; ok {
 			power = existingPower
 			logger.LOG.Debug("权限已存在，跳过创建", "characteristic", dp.Characteristic)
 		} else {
-			// 创建新权限
 			maxID++
 			power = &models.Power{
 				ID:             maxID,
@@ -347,21 +325,19 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 				Characteristic: dp.Characteristic,
 				CreatedAt:      custom_type.Now(),
 			}
-			
+
 			if err = u.factory.Power().Create(ctx, power); err != nil {
 				logger.LOG.Error("创建权限失败", "error", err, "characteristic", dp.Characteristic)
 				return fmt.Errorf("创建权限失败: %w", err)
 			}
-			
+
 			logger.LOG.Info("创建默认权限", "name", dp.Name, "characteristic", dp.Characteristic, "id", maxID)
-			// 更新 powerMap 以便后续检查
 			powerMap[dp.Characteristic] = power
 		}
-		
+
 		powerIDs = append(powerIDs, power.ID)
 	}
-	
-	// 将权限分配给管理员组（group_id=1）
+
 	groupPowers := make([]*models.GroupPower, 0, len(powerIDs))
 	for _, powerID := range powerIDs {
 		groupPowers = append(groupPowers, &models.GroupPower{
@@ -369,7 +345,7 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 			PowerID: powerID,
 		})
 	}
-	
+
 	if len(groupPowers) > 0 {
 		if err = u.factory.GroupPower().BatchCreate(ctx, groupPowers); err != nil {
 			logger.LOG.Error("分配权限给管理员组失败", "error", err)
@@ -377,12 +353,13 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 		}
 		logger.LOG.Info("成功将默认权限分配给管理员组", "count", len(groupPowers))
 	}
-	
+
 	return nil
 }
 
 // InitEnterprisePowers 初始化企业相关权限
 // 创建 enterprise:* 命名空间的权限记录（幂等，已存在则跳过）
+// 同时确保所有管理员角色拥有所有企业权限（补齐缺失的权限）
 func (u *UserService) InitEnterprisePowers(ctx context.Context) error {
 	logger.LOG.Info("开始初始化企业权限")
 
@@ -399,6 +376,7 @@ func (u *UserService) InitEnterprisePowers(ctx context.Context) error {
 		{"从共享空间下载", "下载企业共享空间中的文件", "enterprise:space:download"},
 		{"删除共享空间文件", "删除企业共享空间中的文件", "enterprise:space:delete"},
 		{"查看审计日志", "查看企业审计日志", "enterprise:audit:view"},
+		{"查看成员列表", "查看企业成员列表", "enterprise:member:view"},
 	}
 
 	existingPowers, err := u.factory.Power().List(ctx, 0, 1000)
@@ -435,6 +413,42 @@ func (u *UserService) InitEnterprisePowers(ctx context.Context) error {
 		powerMap[dp.Characteristic] = power
 		created++
 		logger.LOG.Info("创建企业权限", "name", dp.Name, "characteristic", dp.Characteristic, "id", maxID)
+	}
+
+	// 确保所有管理员角色拥有所有企业权限（补齐缺失的权限）
+	var adminRoles []*models.EnterpriseRole
+	if err := u.factory.DB().Where("is_admin = 1").Find(&adminRoles).Error; err != nil {
+		logger.LOG.Error("查询管理员角色失败", "error", err)
+	} else {
+		for _, role := range adminRoles {
+			rolePowers, err := u.factory.EnterpriseRolePower().GetByRoleID(ctx, role.ID)
+			if err != nil {
+				logger.LOG.Error("查询角色权限失败", "error", err, "roleID", role.ID)
+				continue
+			}
+			hasPower := make(map[int]bool)
+			for _, rp := range rolePowers {
+				hasPower[rp.PowerID] = true
+			}
+			var missing []*models.EnterpriseRolePower
+			for _, dp := range allPowers {
+				if p, ok := powerMap[dp.Characteristic]; ok {
+					if !hasPower[p.ID] {
+						missing = append(missing, &models.EnterpriseRolePower{
+							RoleID:  role.ID,
+							PowerID: p.ID,
+						})
+					}
+				}
+			}
+			if len(missing) > 0 {
+				if err := u.factory.EnterpriseRolePower().BatchCreate(ctx, missing); err != nil {
+					logger.LOG.Error("补齐角色权限失败", "error", err, "roleID", role.ID)
+				} else {
+					logger.LOG.Info("已为管理员角色补齐权限", "roleID", role.ID, "count", len(missing))
+				}
+			}
+		}
 	}
 
 	if created == 0 {
@@ -475,18 +489,14 @@ func (u *UserService) SysInit() (*models.JsonResponse, error) {
 	}
 	isFirstUse := count == 0
 
-	// 获取注册配置（如果不是首次使用）
-	allowRegister := true // 首次使用时默认允许注册
+	allowRegister := true
 	if !isFirstUse {
 		allowRegisterConfig, err := u.factory.SysConfig().GetByKey(ctx, "allow_register")
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.LOG.Error("查询注册配置失败", "error", err)
-			// 如果查询失败，默认不允许注册（安全起见）
 			allowRegister = false
 		} else if allowRegisterConfig != nil {
 			allowRegister = allowRegisterConfig.Value == "true"
 		} else {
-			// 配置不存在，默认不允许注册（安全起见）
 			allowRegister = false
 		}
 	}
@@ -525,7 +535,6 @@ func (u *UserService) UpdateUser(req *request.UserUpdateRequest) (*models.JsonRe
 
 // UpdatePassword 修改用户密码
 func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*models.JsonResponse, error) {
-	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
@@ -536,7 +545,6 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 		return nil, fmt.Errorf("验证已过期")
 	}
 
-	// 解密旧密码
 	decryptOld, err := util.Decrypt(challengeId, req.OldPasswd)
 	if err != nil {
 		logger.LOG.Error("旧密码解密失败", "error", err)
@@ -544,7 +552,6 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 	}
 	oldPsw := string(decryptOld)
 
-	// 解密新密码
 	decryptNew, err := util.Decrypt(challengeId, req.NewPasswd)
 	if err != nil {
 		logger.LOG.Error("新密码解密失败", "error", err)
@@ -569,7 +576,6 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 		return nil, err
 	}
 
-	// 删除已使用的挑战
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "ok", nil), nil
@@ -577,7 +583,6 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 
 // SetFilePassword 设置文件密码
 func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (*models.JsonResponse, error) {
-	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
@@ -588,7 +593,6 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (
 		return nil, fmt.Errorf("验证已过期")
 	}
 
-	// 解密密码
 	decrypt, err := util.Decrypt(challengeId, req.Passwd)
 	if err != nil {
 		logger.LOG.Error("密码解密失败", "error", err)
@@ -612,7 +616,6 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (
 		return nil, err
 	}
 
-	// 删除已使用的挑战
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "ok", nil), nil
@@ -620,7 +623,6 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (
 
 // UpdateFilePassword 修改文件密码
 func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest) (*models.JsonResponse, error) {
-	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
@@ -631,7 +633,6 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 		return nil, fmt.Errorf("验证已过期")
 	}
 
-	// 解密旧密码
 	decryptOld, err := util.Decrypt(challengeId, req.OldPasswd)
 	if err != nil {
 		logger.LOG.Error("旧密码解密失败", "error", err)
@@ -639,7 +640,6 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 	}
 	oldPsw := string(decryptOld)
 
-	// 解密新密码
 	decryptNew, err := util.Decrypt(challengeId, req.NewPasswd)
 	if err != nil {
 		logger.LOG.Error("新密码解密失败", "error", err)
@@ -664,7 +664,6 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 		return nil, err
 	}
 
-	// 删除已使用的挑战
 	_ = u.cacheLocal.Delete(req.Challenge)
 
 	return models.NewJsonResponse(200, "ok", nil), nil
@@ -674,31 +673,24 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 生成唯一的 API Key（使用 UUID）
 	apiKeyStr := uuid.Must(uuid.NewV7()).String()
 
-	// 生成 RSA 密钥对（用于加密/解密）
 	keyPair, err := util.GenerateKeyPair()
 	if err != nil {
 		logger.LOG.Error("生成密钥对失败", "error", err)
 		return nil, fmt.Errorf("生成密钥对失败: %w", err)
 	}
 
-	// 生成 S3 Secret Key（随机字符串，用于 HMAC-SHA256 签名）
-	s3SecretKey := uuid.Must(uuid.NewV7()).String() + uuid.Must(uuid.NewV7()).String() // 64字符的随机字符串
+	s3SecretKey := uuid.Must(uuid.NewV7()).String() + uuid.Must(uuid.NewV7()).String()
 
-	// 计算过期时间
 	var expiresAt custom_type.JsonTime
 	if req.ExpiresDays > 0 {
-		// JsonTime 没有 AddDate 方法，需要转换为 time.Time 后调用
 		now := custom_type.Now().ToTime()
 		expiresAt = custom_type.JsonTime(now.AddDate(0, 0, req.ExpiresDays))
 	} else {
-		// 永不过期，设置为零值
 		expiresAt = custom_type.JsonTime{}
 	}
 
-	// 创建 API Key 记录
 	apiKey := &models.ApiKey{
 		UserID:      userID,
 		Key:         apiKeyStr,
@@ -708,7 +700,6 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 		CreatedAt:   custom_type.Now(),
 	}
 
-	// 保存到数据库
 	if err := u.factory.ApiKey().Create(ctx, apiKey); err != nil {
 		logger.LOG.Error("保存API Key失败", "error", err)
 		return nil, fmt.Errorf("保存API Key失败: %w", err)
@@ -716,20 +707,18 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 
 	logger.LOG.Info("API Key已生成", "userID", userID, "apiKeyID", apiKey.ID)
 
-	// 处理过期时间：如果为零值，返回 null
 	var expiresAtResp interface{} = nil
 	if !expiresAt.IsZero() {
 		expiresAtResp = expiresAt
 	}
 
-	// 返回 API Key（注意：只返回一次，后续无法再获取）
 	return models.NewJsonResponse(200, "API Key生成成功", map[string]interface{}{
-		"id":           apiKey.ID,
-		"key":          apiKeyStr,
-		"public_key":   keyPair.PublicKey, // 返回公钥，用于客户端加密
-		"s3_secret_key": s3SecretKey,      // 返回 S3 Secret Key，用于 S3 服务签名
-		"expires_at":   expiresAtResp,
-		"created_at":   apiKey.CreatedAt,
+		"id":            apiKey.ID,
+		"key":           apiKeyStr,
+		"public_key":    keyPair.PublicKey,
+		"s3_secret_key": s3SecretKey,
+		"expires_at":    expiresAtResp,
+		"created_at":    apiKey.CreatedAt,
 	}), nil
 }
 
@@ -737,20 +726,16 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 查询用户的API Key列表
 	apiKeys, err := u.factory.ApiKey().List(ctx, userID, 0, 100)
 	if err != nil {
 		logger.LOG.Error("查询API Key列表失败", "error", err, "userID", userID)
 		return nil, fmt.Errorf("查询API Key列表失败: %w", err)
 	}
 
-	// 构造响应数据（不返回完整的 Key 和 PrivateKey，只返回部分信息）
 	items := make([]map[string]interface{}, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		// 只显示 Key 的前8位和后4位，中间用*代替
 		maskedKey := maskApiKey(key.Key)
 
-		// 处理过期时间：如果为零值，返回 null
 		var expiresAt interface{} = nil
 		if !key.ExpiresAt.IsZero() {
 			expiresAt = key.ExpiresAt
@@ -764,16 +749,12 @@ func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 			"is_expired": false,
 		}
 
-		// 检查是否过期
-		// 如果 ExpiresAt 为零值（NULL），表示永不过期，不标记为过期
 		if !key.ExpiresAt.IsZero() {
 			expiresTime := time.Time(key.ExpiresAt)
-			// 如果过期时间在当前时间之前，则已过期
 			if expiresTime.Before(time.Now()) {
 				item["is_expired"] = true
 			}
 		}
-		// 如果 ExpiresAt 为零值，is_expired 保持为 false（永不过期）
 
 		items = append(items, item)
 	}
@@ -785,7 +766,6 @@ func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 验证API Key是否存在且属于该用户
 	apiKey, err := u.factory.ApiKey().GetByID(ctx, req.ApiKeyID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -795,13 +775,11 @@ func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID stri
 		return nil, fmt.Errorf("获取API Key失败: %w", err)
 	}
 
-	// 验证权限
 	if apiKey.UserID != userID {
 		logger.LOG.Warn("用户尝试删除他人的API Key", "userID", userID, "apiKeyID", req.ApiKeyID)
 		return models.NewJsonResponse(403, "无权操作此API Key", nil), nil
 	}
 
-	// 删除API Key
 	if err := u.factory.ApiKey().Delete(ctx, req.ApiKeyID); err != nil {
 		logger.LOG.Error("删除API Key失败", "error", err, "apiKeyID", req.ApiKeyID)
 		return nil, fmt.Errorf("删除API Key失败: %w", err)
@@ -811,7 +789,6 @@ func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID stri
 	return models.NewJsonResponse(200, "API Key已删除", nil), nil
 }
 
-// maskApiKey 掩码API Key（只显示前8位和后4位）
 func maskApiKey(key string) string {
 	if len(key) <= 12 {
 		return "****"
@@ -825,14 +802,15 @@ func (u *UserService) GetUserInfo(userID string) (*models.JsonResponse, error) {
 		return nil, err
 	}
 	return models.NewJsonResponse(200, "ok", response.UserInfoResponse{
-		ID:        id.ID,
-		Name:      id.Name,
-		Email:     id.Email,
-		Phone:     id.Phone,
-		GroupID:   id.GroupID,
-		State:     id.State,
-		Space:     id.Space,
-		FreeSpace: id.FreeSpace,
-		UserName:  id.UserName,
+		ID:             id.ID,
+		Name:           id.Name,
+		Email:          id.Email,
+		Phone:          id.Phone,
+		GroupID:        id.GroupID,
+		State:          id.State,
+		Space:          id.Space,
+		FreeSpace:      id.FreeSpace,
+		SpaceUnlimited: id.SpaceUnlimited,
+		UserName:       id.UserName,
 	}), nil
 }

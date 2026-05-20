@@ -5,11 +5,14 @@ import (
 	"myobj/src/core/domain/request"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
+	"myobj/src/pkg/audit"
 	"myobj/src/pkg/cache"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type EnterpriseHandler struct {
@@ -51,20 +54,22 @@ func (h *EnterpriseHandler) Router(c *gin.RouterGroup) {
 		enterprise.POST("/member/join", h.JoinEnterprise)
 		enterprise.POST("/member/leave", h.LeaveEnterprise)
 		enterprise.POST("/member/accept", h.AcceptInvite)
+		enterprise.GET("/member/pending", h.GetPendingInvites)
+		enterprise.GET("/powers", h.GetAllPowers)
 		enterprise.POST("/dissolve", h.DissolveEnterprise)
 
 		// 需要企业上下文的操作（成员级别）
 		withEnterprise := enterprise.Group("")
 		withEnterprise.Use(enterpriseVerify.Verify())
 		{
-			withEnterprise.GET("/member/list", h.GetMemberList)
+			withEnterprise.GET("/member/list", enterpriseVerify.PowerVerify("enterprise:member:view"), h.GetMemberList)
 			withEnterprise.GET("/role/list", h.GetRoleList)
-			withEnterprise.GET("/member/pending", h.GetPendingInvites)
 
 			// 共享空间操作（需要企业上下文 + 具体权限）
 			if h.spaceHandler != nil {
 				space := withEnterprise.Group("/space")
 				{
+					// 基础 CRUD
 					space.POST("/mkdir", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.CreateDir)
 					space.GET("/list", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.ListFiles)
 					space.POST("/upload/precheck", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.UploadPrecheck)
@@ -75,6 +80,30 @@ func (h *EnterpriseHandler) Router(c *gin.RouterGroup) {
 					space.POST("/rename-dir", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.RenameDir)
 					space.GET("/download", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.DownloadFile)
 					space.GET("/usage", h.spaceHandler.GetSpaceUsage)
+
+					// 预览 & 缩略图
+					space.GET("/preview", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.PreviewFile)
+					space.GET("/thumbnail/:fileId", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.GetThumbnail)
+
+					// 搜索
+					space.GET("/search", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.SearchFiles)
+
+					// 移动 & 目录树
+					space.GET("/path-tree", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.GetPathTree)
+					space.POST("/move", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.MoveFile)
+
+					// 批量下载（打包 ZIP）
+					space.POST("/package", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.PackageCreate)
+					space.GET("/package/progress", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.PackageProgress)
+					space.GET("/package/download", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.PackageDownload)
+
+					// 解压缩
+					space.POST("/extract/check", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.ExtractCheck)
+					space.POST("/extract", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.ExtractStart)
+					space.GET("/extract/progress", enterpriseVerify.PowerVerify("enterprise:space:download"), h.spaceHandler.ExtractProgress)
+
+					// 文件分享
+					space.POST("/share", enterpriseVerify.PowerVerify("enterprise:space:upload"), h.spaceHandler.CreateShare)
 				}
 			}
 
@@ -99,7 +128,6 @@ func (h *EnterpriseHandler) Router(c *gin.RouterGroup) {
 				admin.POST("/role/create", enterpriseVerify.PowerVerify("enterprise:role:manage"), h.CreateRole)
 				admin.PUT("/role/update", enterpriseVerify.PowerVerify("enterprise:role:manage"), h.UpdateRole)
 				admin.DELETE("/role/delete", enterpriseVerify.PowerVerify("enterprise:role:manage"), h.DeleteRole)
-				admin.GET("/powers", h.GetAllPowers)
 				admin.POST("/transfer", h.TransferOwnership)
 				admin.POST("/toggle-state", h.ToggleEnterpriseState)
 				admin.POST("/space/set-quota", h.SetEnterpriseQuota)
@@ -335,6 +363,20 @@ func (h *EnterpriseHandler) CreateRole(c *gin.Context) {
 		c.JSON(200, result)
 		return
 	}
+	if result.Code == 200 {
+		audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+			ID:           uuid.New().String(),
+			UserID:       c.GetString("userID"),
+			UserName:     getEnterpriseUserName(c),
+			EnterpriseID: req.EnterpriseID,
+			Action:       "enterprise_role_create",
+			TargetType:   "enterprise_role",
+			TargetName:   req.Name,
+			Detail:       fmt.Sprintf("创建企业角色「%s」", req.Name),
+			IP:           c.ClientIP(),
+			CreatedAt:    custom_type.Now(),
+		})
+	}
 	c.JSON(200, result)
 }
 
@@ -349,6 +391,20 @@ func (h *EnterpriseHandler) UpdateRole(c *gin.Context) {
 		c.JSON(200, result)
 		return
 	}
+	if result.Code == 200 {
+		audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+			ID:           uuid.New().String(),
+			UserID:       c.GetString("userID"),
+			UserName:     getEnterpriseUserName(c),
+			EnterpriseID: c.GetString("enterpriseID"),
+			Action:       "enterprise_role_update",
+			TargetType:   "enterprise_role",
+			TargetName:   req.Name,
+			Detail:       fmt.Sprintf("更新企业角色「%s」", req.Name),
+			IP:           c.ClientIP(),
+			CreatedAt:    custom_type.Now(),
+		})
+	}
 	c.JSON(200, result)
 }
 
@@ -362,6 +418,20 @@ func (h *EnterpriseHandler) DeleteRole(c *gin.Context) {
 	if err != nil {
 		c.JSON(200, result)
 		return
+	}
+	if result.Code == 200 {
+		audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+			ID:           uuid.New().String(),
+			UserID:       c.GetString("userID"),
+			UserName:     getEnterpriseUserName(c),
+			EnterpriseID: c.GetString("enterpriseID"),
+			Action:       "enterprise_role_delete",
+			TargetType:   "enterprise_role",
+			TargetName:   req.RoleID,
+			Detail:       fmt.Sprintf("删除企业角色 %s", req.RoleID),
+			IP:           c.ClientIP(),
+			CreatedAt:    custom_type.Now(),
+		})
 	}
 	c.JSON(200, result)
 }

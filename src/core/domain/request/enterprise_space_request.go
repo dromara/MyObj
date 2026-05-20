@@ -13,6 +13,8 @@ type SharedFileListRequest struct {
 	PathID       int    `form:"path_id"`
 	Page         int    `form:"page" binding:"required,min=1"`
 	PageSize     int    `form:"pageSize" binding:"required,min=1,max=100"`
+	SortBy       string `form:"sort_by"`
+	SortOrder    string `form:"sort_order"`
 }
 
 // DeleteSharedFileRequest 删除共享文件请求
@@ -56,4 +58,51 @@ type RenameSharedFileRequest struct {
 type RenameSharedDirRequest struct {
 	ID   int    `json:"id" binding:"required"`
 	Name string `json:"name" binding:"required"`
+}
+
+// SearchEnterpriseFilesRequest 企业空间文件搜索请求
+type SearchEnterpriseFilesRequest struct {
+	EnterpriseID string `form:"enterprise_id" binding:"required"`
+	Keyword      string `form:"keyword" binding:"required"`
+	Page         int    `form:"page" binding:"required,min=1"`
+	PageSize     int    `form:"pageSize" binding:"required,min=1,max=100"`
+}
+
+// MoveEnterpriseFileRequest 移动企业文件请求
+type MoveEnterpriseFileRequest struct {
+	EnterpriseID string `json:"enterprise_id" binding:"required"`
+	FileID       string `json:"file_id" binding:"required"`
+	TargetPath   int    `json:"target_path_id"`
+}
+
+// EnterprisePackageCreateRequest 企业空间打包下载请求
+type EnterprisePackageCreateRequest struct {
+	EnterpriseID string   `json:"enterprise_id" binding:"required"`
+	FileIDs      []string `json:"file_ids" binding:"required,min=1"`
+	PackageName  string   `json:"package_name"`
+}
+
+// EnterpriseExtractCheckRequest 企业空间解压冲突检测请求
+type EnterpriseExtractCheckRequest struct {
+	EnterpriseID string `json:"enterprise_id" binding:"required"`
+	FileID       string `json:"file_id" binding:"required"`
+	TargetPathID int    `json:"target_path_id"`
+	FilePassword string `json:"file_password"`
+}
+
+// ExtractStartRequest 开始解压请求
+type ExtractStartRequest struct {
+	EnterpriseID     string `json:"enterprise_id" binding:"required"`
+	FileID           string `json:"file_id" binding:"required"`
+	TargetPathID     int    `json:"target_path_id"`
+	FilePassword     string `json:"file_password"`
+	ConflictStrategy string `json:"conflict_strategy"` // overwrite, keep_both, skip
+}
+
+// CreateEnterpriseShareRequest 创建企业文件分享请求
+type CreateEnterpriseShareRequest struct {
+	EnterpriseID string `json:"enterprise_id" binding:"required"`
+	FileID       string `json:"file_id" binding:"required"`
+	Expire       int    `json:"expire"`
+	Password     string `json:"password"`
 }

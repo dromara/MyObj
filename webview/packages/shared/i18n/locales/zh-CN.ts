@@ -14,11 +14,16 @@ export default {
     adminPermissions: '权限管理',
     adminDisks: '磁盘管理',
     adminSystem: '系统配置',
+    adminSpaceConfig: '空间配置',
     adminAuditLog: '审计日志',
     enterprise: '企业空间',
     enterpriseManage: '企业管理',
     enterpriseSpace: '共享空间',
-    enterpriseSettings: '企业设置'
+    enterpriseSettings: '企业设置',
+    enterpriseList: '企业列表',
+    enterpriseMembers: '成员管理',
+    enterpriseRoles: '角色管理',
+    enterpriseAudit: '审计日志'
   },
   error: {
     title: '出现错误',
@@ -75,7 +80,11 @@ export default {
     export: '导出',
     columnSetting: '列设置',
     selectedCount: '已选择 {count} 项',
-    clearSelection: '清空选择'
+    clearSelection: '清空选择',
+    rename: '重命名',
+    renameSuccess: '重命名成功',
+    move: '移动',
+    download: '下载'
   },
   menu: {
     files: '我的文件',
@@ -950,6 +959,13 @@ export default {
       loadConfigFailed: '加载配置失败',
       featureDeveloping: '系统配置功能开发中'
     },
+    spaceConfig: {
+      title: '空间配置',
+      defaultEnterpriseSpace: '默认企业空间',
+      defaultEnterpriseSpaceTip: '超级管理员创建企业时的默认空间大小，0 表示无限空间。个人空间由用户组统一管理。',
+      unlimited: '无限',
+      noSpace: '无空间'
+    },
     audit: {
       title: '审计日志',
       export: '导出CSV',
@@ -1349,10 +1365,13 @@ export default {
   },
   enterprise: {
     title: '企业空间',
+    list: {
+      allEnterprises: '所有企业'
+    },
     switch: '切换企业',
     switchTo: '切换到该企业',
     currentEnterprise: '当前企业',
-    noEnterprise: '暂未加入企业',
+    noEnterprise: '选择企业',
     create: '创建企业',
     createSuccess: '企业创建成功',
     dissolve: '解散企业',
@@ -1361,6 +1380,9 @@ export default {
     transfer: '转让所有权',
     transferConfirm: '确定要将企业所有权转让给该用户吗？',
     transferSuccess: '所有权已转让',
+    transferTarget: '转让给',
+    transferSelectPlaceholder: '请选择转让目标',
+    transferNoTarget: '没有可转让的成员',
     enable: '启用企业',
     disable: '禁用企业',
     enableSuccess: '企业已启用',
@@ -1382,7 +1404,8 @@ export default {
       memberCount: '成员数量',
       storage: '存储空间',
       inviteCode: '邀请码',
-      inviteLink: '邀请链接'
+      inviteLink: '邀请链接',
+      nameLength: '企业名称长度在 2 到 50 个字符'
     },
     member: {
       title: '成员管理',
@@ -1412,7 +1435,12 @@ export default {
       noPendingInvites: '暂无待处理邀请',
       refreshCode: '刷新邀请码',
       refreshCodeConfirm: '刷新后旧邀请码将失效，确定继续？',
-      refreshCodeSuccess: '邀请码已刷新'
+      refreshCodeSuccess: '邀请码已刷新',
+      inviter: '邀请人',
+      inviteTime: '邀请时间',
+      inviteCodePlaceholder: '请输入企业邀请码',
+      cannotModifyAdmin: '无法变更管理员角色',
+      cannotRemoveAdmin: '无法移除管理员'
     },
     role: {
       title: '角色管理',

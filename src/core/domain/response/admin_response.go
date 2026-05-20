@@ -49,6 +49,11 @@ type AdminSystemConfigResponse struct {
 	Uptime        string `json:"uptime,omitempty"`
 }
 
+// AdminSpaceConfigResponse 空间配置响应
+type AdminSpaceConfigResponse struct {
+	DefaultEnterpriseSpace int64 `json:"default_enterprise_space"` // 默认企业空间（字节），0表示无限
+}
+
 // PackageCreateResponse 创建打包下载响应
 type PackageCreateResponse struct {
 	PackageID   string `json:"package_id"`

@@ -9,6 +9,7 @@ import (
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
+	"myobj/src/pkg/models"
 	"myobj/src/pkg/webdav"
 	"os"
 	"os/signal"
@@ -141,6 +142,26 @@ func initDatabase() error {
 
 	database.InitDataBase()
 	logger.LOG.Info("[成功] 数据库连接已建立")
+
+	// 迁移核心数据表
+	if err := database.GetDB().AutoMigrate(
+		&models.UserInfo{},
+		&models.Group{},
+		&models.Power{},
+		&models.GroupPower{},
+		&models.FileInfo{},
+		&models.UserFiles{},
+		&models.VirtualPath{},
+		&models.Share{},
+		&models.Disk{},
+		&models.ApiKey{},
+		&models.FileChunk{},
+		&models.SysConfig{},
+		&models.Recycled{},
+		&models.DownloadTask{},
+	); err != nil {
+		logger.LOG.Error("核心数据表迁移失败", "error", err)
+	}
 
 	// 迁移S3数据表（如果启用S3服务）
 	if config.CONFIG.S3.Enable {

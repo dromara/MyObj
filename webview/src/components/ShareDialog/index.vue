@@ -133,6 +133,8 @@
       file_name: string
       file_size?: number
     }
+    // 自定义分享函数（企业空间等场景使用不同的 API）
+    customShareFn?: (data: any) => Promise<any>
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -141,7 +143,8 @@
       file_id: '',
       file_name: '',
       file_size: 0
-    })
+    }),
+    customShareFn: undefined
   })
 
   const emit = defineEmits<{
@@ -204,7 +207,8 @@
       }
       const expireStr = expireDate.toISOString().slice(0, 19).replace('T', ' ')
 
-      const res = await createShare({
+      const shareFn = props.customShareFn || createShare
+      const res = await shareFn({
         file_id: props.fileInfo.file_id,
         expire: expireStr,
         password: shareForm.password

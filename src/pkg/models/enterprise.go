@@ -15,7 +15,9 @@ type Enterprise struct {
 	FreeSpace   int64                `gorm:"type:BIGINT;not null;default:0" json:"free_space"`
 	InviteCode  string               `gorm:"type:VARCHAR;unique" json:"invite_code"`
 	InviteLink  string               `gorm:"type:TEXT" json:"invite_link"`
-	State       int                  `gorm:"type:INTEGER;not null;default:0" json:"state"`
+	State          int                  `gorm:"type:INTEGER;not null;default:0" json:"state"`
+	//是否无限空间 true=不限制空间 false=使用Space/FreeSpace限制
+	SpaceUnlimited bool                 `gorm:"type:BOOLEAN;not null;default:false" json:"space_unlimited"`
 	CreatedAt   custom_type.JsonTime `gorm:"type:DATETIME;not null" json:"created_at"`
 }
 

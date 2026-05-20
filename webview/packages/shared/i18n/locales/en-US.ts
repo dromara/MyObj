@@ -14,11 +14,16 @@ export default {
     adminPermissions: 'Permission Management',
     adminDisks: 'Disk Management',
     adminSystem: 'System Configuration',
+    adminSpaceConfig: 'Space Configuration',
     adminAuditLog: 'Audit Log',
     enterprise: 'Enterprise',
     enterpriseManage: 'Management',
     enterpriseSpace: 'Shared Space',
-    enterpriseSettings: 'Settings'
+    enterpriseSettings: 'Settings',
+    enterpriseList: 'Enterprise List',
+    enterpriseMembers: 'Members',
+    enterpriseRoles: 'Roles',
+    enterpriseAudit: 'Audit Log'
   },
   error: {
     title: 'Error Occurred',
@@ -74,7 +79,11 @@ export default {
     export: 'Export',
     columnSetting: 'Column Settings',
     selectedCount: '{count} selected',
-    clearSelection: 'Clear Selection'
+    clearSelection: 'Clear Selection',
+    rename: 'Rename',
+    renameSuccess: 'Rename success',
+    move: 'Move',
+    download: 'Download'
   },
   menu: {
     files: 'Files',
@@ -961,6 +970,13 @@ export default {
       loadConfigFailed: 'Failed to load configuration',
       featureDeveloping: 'System configuration feature is under development'
     },
+    spaceConfig: {
+      title: 'Space Configuration',
+      defaultEnterpriseSpace: 'Default Enterprise Space',
+      defaultEnterpriseSpaceTip: 'Default space for enterprises created by super admin, 0 means unlimited. Personal space is managed by user groups.',
+      unlimited: 'Unlimited',
+      noSpace: 'No Space'
+    },
     audit: {
       title: 'Audit Log',
       export: 'Export CSV',
@@ -1361,6 +1377,9 @@ export default {
   },
   enterprise: {
     title: 'Enterprise',
+    list: {
+      allEnterprises: 'All Enterprises'
+    },
     switch: 'Switch Enterprise',
     switchTo: 'Switch to this enterprise',
     currentEnterprise: 'Current Enterprise',
@@ -1373,6 +1392,9 @@ export default {
     transfer: 'Transfer Ownership',
     transferConfirm: 'Are you sure you want to transfer ownership to this user?',
     transferSuccess: 'Ownership transferred',
+    transferTarget: 'Transfer to',
+    transferSelectPlaceholder: 'Select transfer target',
+    transferNoTarget: 'No available members to transfer',
     enable: 'Enable Enterprise',
     disable: 'Disable Enterprise',
     enableSuccess: 'Enterprise enabled',
@@ -1394,7 +1416,8 @@ export default {
       memberCount: 'Members',
       storage: 'Storage',
       inviteCode: 'Invite Code',
-      inviteLink: 'Invite Link'
+      inviteLink: 'Invite Link',
+      nameLength: 'Enterprise name length must be between 2 and 50 characters'
     },
     member: {
       title: 'Member Management',
@@ -1424,7 +1447,12 @@ export default {
       noPendingInvites: 'No pending invitations',
       refreshCode: 'Refresh Invite Code',
       refreshCodeConfirm: 'The old invite code will be invalidated. Continue?',
-      refreshCodeSuccess: 'Invite code refreshed'
+      refreshCodeSuccess: 'Invite code refreshed',
+      inviter: 'Inviter',
+      inviteTime: 'Invite Time',
+      inviteCodePlaceholder: 'Please enter enterprise invite code',
+      cannotModifyAdmin: 'Cannot modify admin role',
+      cannotRemoveAdmin: 'Cannot remove admin'
     },
     role: {
       title: 'Role Management',

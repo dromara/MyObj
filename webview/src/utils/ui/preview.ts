@@ -93,7 +93,7 @@ export const detectFileType = (file: FileItem): PreviewType => {
  * @param fileType 文件类型（可选，用于判断是否为视频）
  * @returns Promise<string> blob URL 或视频流 URL
  */
-export const getFilePreviewUrl = async (fileId: string, fileType?: string): Promise<string> => {
+export const getFilePreviewUrl = async (fileId: string, fileType?: string, customPreviewUrl?: string): Promise<string> => {
   try {
     // 如果是视频类型，使用视频流接口（支持 Range 请求）
     if (fileType === 'video') {
@@ -108,7 +108,7 @@ export const getFilePreviewUrl = async (fileId: string, fileType?: string): Prom
 
     // 其他类型文件使用预览接口
     const token = cache.local.get('token')
-    const url = `${API_BASE_URL}/download/preview?file_id=${fileId}`
+    const url = customPreviewUrl || `${API_BASE_URL}/download/preview?file_id=${fileId}`
 
     const response = await axios.get(url, {
       responseType: 'blob',
@@ -139,18 +139,19 @@ export const getFileDownloadUrl = (fileId: string): string => {
  * @param fileId 文件ID
  * @returns 缩略图URL
  */
-export const getThumbnailUrl = (fileId: string): string => {
-  return `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
+export const getThumbnailUrl = (fileId: string, customThumbnailUrl?: string): string => {
+  return customThumbnailUrl || `${API_BASE_URL}${API_ENDPOINTS.FILE.THUMBNAIL}/${fileId}`
 }
 
 /**
  * 获取文件文本内容
  * @param fileId 文件ID
+ * @param customPreviewUrl 自定义预览URL（企业空间等场景）
  * @returns 文本内容
  */
-export const getFileTextContent = async (fileId: string): Promise<string> => {
+export const getFileTextContent = async (fileId: string, customPreviewUrl?: string): Promise<string> => {
   try {
-    const url = getFileDownloadUrl(fileId)
+    const url = customPreviewUrl || getFileDownloadUrl(fileId)
     const token = cache.local.get('token')
 
     const response = await axios.get(url, {

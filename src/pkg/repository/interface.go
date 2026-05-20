@@ -356,7 +356,9 @@ type EnterpriseInviteRepository interface {
 type EnterpriseSharedPathRepository interface {
 	Create(ctx context.Context, path *models.EnterpriseSharedPath) error
 	GetByID(ctx context.Context, id int) (*models.EnterpriseSharedPath, error)
+	GetByParentIDAndName(ctx context.Context, enterpriseID string, parentID int, name string) (*models.EnterpriseSharedPath, error)
 	ListByParentID(ctx context.Context, enterpriseID string, parentID int) ([]*models.EnterpriseSharedPath, error)
+	GetPathTree(ctx context.Context, enterpriseID string) ([]*models.EnterpriseSharedPath, error)
 	Update(ctx context.Context, path *models.EnterpriseSharedPath) error
 	Delete(ctx context.Context, id int) error
 	DeleteByEnterpriseID(ctx context.Context, enterpriseID string) error
@@ -366,9 +368,14 @@ type EnterpriseSharedPathRepository interface {
 type EnterpriseSharedFileRepository interface {
 	Create(ctx context.Context, file *models.EnterpriseSharedFile) error
 	GetByID(ctx context.Context, id string) (*models.EnterpriseSharedFile, error)
+	GetByPathIDAndName(ctx context.Context, enterpriseID string, pathID int, fileName string) (*models.EnterpriseSharedFile, error)
 	ListByPathID(ctx context.Context, enterpriseID string, pathID int, offset, limit int) ([]*models.EnterpriseSharedFile, error)
+	ListByPathIDWithSort(ctx context.Context, enterpriseID string, pathID int, sortField, sortOrder string, offset, limit int) ([]*models.EnterpriseSharedFile, error)
+	ListByEnterpriseID(ctx context.Context, enterpriseID string, keyword string, offset, limit int) ([]*models.EnterpriseSharedFile, error)
+	ListByFileID(ctx context.Context, fileID string) ([]*models.EnterpriseSharedFile, error)
 	CountByPathID(ctx context.Context, enterpriseID string, pathID int) (int64, error)
 	CountByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
+	CountByEnterpriseIDAndKeyword(ctx context.Context, enterpriseID string, keyword string) (int64, error)
 	SumSizeByEnterpriseID(ctx context.Context, enterpriseID string) (int64, error)
 	Update(ctx context.Context, file *models.EnterpriseSharedFile) error
 	Delete(ctx context.Context, id string) error
