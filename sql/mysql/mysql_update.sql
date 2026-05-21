@@ -27,8 +27,18 @@ ALTER TABLE `api_key`
     ADD COLUMN IF NOT EXISTS `s3_secret_key` TEXT DEFAULT NULL COMMENT 'S3密钥（用于HMAC-SHA256签名）';
 
 -- ================================
--- 3. 更新 audit_log 表（新增字段和索引）
+-- 3. 修复 disk 表（size 列 INT → BIGINT）
 -- ================================
+
+ALTER TABLE `disk`
+    MODIFY COLUMN `size` BIGINT NOT NULL COMMENT '磁盘总大小（字节）';
+
+-- ================================
+-- 4. 更新 audit_log 表（新增字段和索引）
+-- ================================
+
+ALTER TABLE `audit_log`
+    MODIFY COLUMN `target_type` VARCHAR(64) NOT NULL COMMENT '目标类型';
 
 ALTER TABLE `audit_log`
     ADD COLUMN IF NOT EXISTS `enterprise_id` VARCHAR(255) DEFAULT NULL COMMENT '企业ID（企业空间操作时记录）';
@@ -37,7 +47,7 @@ ALTER TABLE `audit_log`
     ADD INDEX IF NOT EXISTS `idx_audit_enterprise_id` (`enterprise_id`);
 
 -- ================================
--- 4. 创建企业空间相关表
+-- 5. 创建企业空间相关表
 -- ================================
 
 -- 企业信息表

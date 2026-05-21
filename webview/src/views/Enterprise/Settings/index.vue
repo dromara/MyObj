@@ -26,14 +26,21 @@
       <el-form :model="quotaForm" label-width="120px" style="max-width: 600px">
         <el-form-item :label="t('enterprise.info.storage')">
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
-            <el-switch v-model="quotaForm.spaceUnlimited" :active-text="t('admin.spaceConfig.unlimited')" />
+            <el-switch
+              v-model="quotaForm.spaceUnlimited"
+              :active-text="t('admin.spaceConfig.unlimited')"
+              :disabled="globalMaxGB > 0"
+            />
             <template v-if="!quotaForm.spaceUnlimited">
-              <el-input-number v-model="quotaForm.spaceGB" :min="0" :max="999999" style="width: 180px" />
+              <el-input-number v-model="quotaForm.spaceGB" :min="0" :max="globalMaxGB > 0 ? globalMaxGB : 999999" style="width: 180px" />
               <span style="color: var(--el-text-color-secondary)">GB</span>
             </template>
           </div>
           <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px">
             {{ t('enterprise.space.used') }}: {{ spaceUsage ? formatSize(spaceUsage.used_space) : '-' }}
+          </div>
+          <div v-if="globalMaxGB > 0" style="font-size: 12px; color: var(--el-color-warning); margin-top: 2px">
+            {{ '系统设置的企业空间上限：' + globalMaxGB + ' GB' }}
           </div>
         </el-form-item>
         <el-form-item>
@@ -142,6 +149,7 @@
 
   const enterpriseInfo = ref<Enterprise | null>(null)
   const spaceUsage = ref<SpaceUsage | null>(null)
+  const globalMaxGB = ref(0)
 
   const infoForm = reactive({ name: '', description: '' })
   const quotaForm = reactive({ spaceGB: 0, spaceUnlimited: false })
@@ -179,6 +187,7 @@
         infoForm.name = res.data.name
         infoForm.description = res.data.description || ''
         quotaForm.spaceUnlimited = res.data.space_unlimited || false
+        globalMaxGB.value = res.data.global_max_space ? bytesToGB(res.data.global_max_space) : 0
       }
     } catch (error: any) {
       proxy?.$log?.error(error)

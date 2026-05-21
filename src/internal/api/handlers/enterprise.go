@@ -41,7 +41,8 @@ func (h *EnterpriseHandler) Router(c *gin.RouterGroup) {
 		factory.EnterpriseMember(),
 		factory.EnterpriseRole(),
 		factory.EnterpriseRolePower(),
-		factory.Power())
+		factory.Power(),
+		factory.Enterprise())
 
 	enterprise := c.Group("/enterprise")
 	enterprise.Use(verify.Verify())

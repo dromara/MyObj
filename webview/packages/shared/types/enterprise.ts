@@ -16,6 +16,7 @@ export interface Enterprise {
   role?: string
   is_admin?: number
   powers?: string[]
+  global_max_space?: number
 }
 
 // 企业成员

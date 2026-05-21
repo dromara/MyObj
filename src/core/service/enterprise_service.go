@@ -53,11 +53,7 @@ func (s *EnterpriseService) CreateEnterprise(req *request.CreateEnterpriseReques
 	var spaceUnlimited bool
 	if creator.GroupID == 1 {
 		// 超级管理员创建，读取全局配置
-		cfg, _ := s.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
-		if cfg != nil {
-			fmt.Sscanf(cfg.Value, "%d", &enterpriseSpace)
-		}
-		// 如果配置为0，表示无限空间
+		enterpriseSpace = s.getGlobalEnterpriseSpace(ctx)
 		if enterpriseSpace == 0 {
 			spaceUnlimited = true
 		}
@@ -260,6 +256,7 @@ func (s *EnterpriseService) GetEnterpriseInfo(enterpriseID, userID string) (*mod
 		Role:           roleName,
 		IsAdmin:        isAdmin,
 		Powers:         powers,
+		GlobalMaxSpace: s.getGlobalEnterpriseSpace(ctx),
 	}), nil
 }
 
@@ -999,6 +996,14 @@ func (s *EnterpriseService) SetEnterpriseQuota(req *request.SetEnterpriseQuotaRe
 		return models.NewJsonResponse(403, "需要管理员权限", nil), err
 	}
 
+	globalMax := s.getGlobalEnterpriseSpace(ctx)
+	if !req.SpaceUnlimited && globalMax > 0 && req.Space > globalMax {
+		return models.NewJsonResponse(400, fmt.Sprintf("企业存储配额不能超过全局上限 %d GB", globalMax/1024/1024/1024), nil), nil
+	}
+	if req.SpaceUnlimited && globalMax > 0 {
+		return models.NewJsonResponse(400, fmt.Sprintf("系统已设置企业空间上限为 %d GB，不允许设置为无限空间", globalMax/1024/1024/1024), nil), nil
+	}
+
 	enterprise, err := s.factory.Enterprise().GetByID(ctx, req.EnterpriseID)
 	if err != nil {
 		return models.NewJsonResponse(404, "企业不存在", nil), err
@@ -1030,9 +1035,10 @@ func (s *EnterpriseService) SetEnterpriseQuota(req *request.SetEnterpriseQuotaRe
 	}
 
 	return models.NewJsonResponse(200, "设置成功", map[string]interface{}{
-		"space":           enterprise.Space,
-		"free_space":      enterprise.FreeSpace,
-		"space_unlimited": enterprise.SpaceUnlimited,
+		"space":            enterprise.Space,
+		"free_space":       enterprise.FreeSpace,
+		"space_unlimited":  enterprise.SpaceUnlimited,
+		"global_max_space": globalMax,
 	}), nil
 }
 
@@ -1156,6 +1162,18 @@ func (s *EnterpriseService) GetAllPowers() (*models.JsonResponse, error) {
 func expireTime(days int) custom_type.JsonTime {
 	now := custom_type.Now()
 	return now.Add(time.Duration(days) * 24 * time.Hour)
+}
+
+// getGlobalEnterpriseSpace 读取全局企业空间上限配置
+// 返回值: 0表示不限制，>0表示全局上限（字节）
+func (s *EnterpriseService) getGlobalEnterpriseSpace(ctx context.Context) int64 {
+	cfg, _ := s.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
+	if cfg == nil {
+		return 0
+	}
+	var space int64
+	fmt.Sscanf(cfg.Value, "%d", &space)
+	return space
 }
 
 // generateInviteCode 生成6位随机邀请码

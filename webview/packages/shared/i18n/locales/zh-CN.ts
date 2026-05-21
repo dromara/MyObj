@@ -1001,7 +1001,22 @@ export default {
         share: '分享',
         restore: '还原',
         permanent_delete: '永久删除',
-        empty_recycle: '清空回收站'
+        empty_recycle: '清空回收站',
+        enterprise_space_upload: '上传文件',
+        enterprise_space_download: '下载文件',
+        enterprise_space_delete: '删除文件',
+        enterprise_space_delete_dir: '删除目录',
+        enterprise_space_rename: '重命名文件',
+        enterprise_space_rename_dir: '重命名目录',
+        enterprise_space_mkdir: '创建目录',
+        enterprise_space_move: '移动文件',
+        enterprise_space_preview: '预览文件',
+        enterprise_space_package: '打包下载',
+        enterprise_space_extract: '解压文件',
+        enterprise_space_share: '分享文件',
+        enterprise_role_create: '创建角色',
+        enterprise_role_update: '更新角色',
+        enterprise_role_delete: '删除角色'
       },
       targets: {
         file: '文件',
@@ -1491,7 +1506,24 @@ export default {
       filterByAction: '按操作类型筛选',
       searchByKeyword: '按关键词搜索',
       startTime: '开始时间',
-      endTime: '结束时间'
+      endTime: '结束时间',
+      actions: {
+        enterprise_space_upload: '上传文件',
+        enterprise_space_download: '下载文件',
+        enterprise_space_delete: '删除文件',
+        enterprise_space_delete_dir: '删除目录',
+        enterprise_space_rename: '重命名文件',
+        enterprise_space_rename_dir: '重命名目录',
+        enterprise_space_mkdir: '创建目录',
+        enterprise_space_move: '移动文件',
+        enterprise_space_preview: '预览文件',
+        enterprise_space_package: '打包下载',
+        enterprise_space_extract: '解压文件',
+        enterprise_space_share: '分享文件',
+        enterprise_role_create: '创建角色',
+        enterprise_role_update: '更新角色',
+        enterprise_role_delete: '删除角色'
+      }
     },
     powers: {
       'member:invite': '邀请成员',

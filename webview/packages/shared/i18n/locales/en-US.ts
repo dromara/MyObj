@@ -1012,7 +1012,22 @@ export default {
         share: 'Share',
         restore: 'Restore',
         permanent_delete: 'Permanent Delete',
-        empty_recycle: 'Empty Recycle Bin'
+        empty_recycle: 'Empty Recycle Bin',
+        enterprise_space_upload: 'Upload File',
+        enterprise_space_download: 'Download File',
+        enterprise_space_delete: 'Delete File',
+        enterprise_space_delete_dir: 'Delete Folder',
+        enterprise_space_rename: 'Rename File',
+        enterprise_space_rename_dir: 'Rename Folder',
+        enterprise_space_mkdir: 'Create Folder',
+        enterprise_space_move: 'Move File',
+        enterprise_space_preview: 'Preview File',
+        enterprise_space_package: 'Package Download',
+        enterprise_space_extract: 'Extract File',
+        enterprise_space_share: 'Share File',
+        enterprise_role_create: 'Create Role',
+        enterprise_role_update: 'Update Role',
+        enterprise_role_delete: 'Delete Role'
       },
       targets: {
         file: 'File',
@@ -1503,7 +1518,24 @@ export default {
       filterByAction: 'Filter by action',
       searchByKeyword: 'Search by keyword',
       startTime: 'Start Time',
-      endTime: 'End Time'
+      endTime: 'End Time',
+      actions: {
+        enterprise_space_upload: 'Upload File',
+        enterprise_space_download: 'Download File',
+        enterprise_space_delete: 'Delete File',
+        enterprise_space_delete_dir: 'Delete Folder',
+        enterprise_space_rename: 'Rename File',
+        enterprise_space_rename_dir: 'Rename Folder',
+        enterprise_space_mkdir: 'Create Folder',
+        enterprise_space_move: 'Move File',
+        enterprise_space_preview: 'Preview File',
+        enterprise_space_package: 'Package Download',
+        enterprise_space_extract: 'Extract File',
+        enterprise_space_share: 'Share File',
+        enterprise_role_create: 'Create Role',
+        enterprise_role_update: 'Update Role',
+        enterprise_role_delete: 'Delete Role'
+      }
     },
     powers: {
       'member:invite': 'Invite Members',

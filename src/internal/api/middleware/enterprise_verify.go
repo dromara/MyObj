@@ -18,6 +18,7 @@ type EnterpriseMiddleware struct {
 	enterpriseRoleRepo      repository.EnterpriseRoleRepository
 	enterpriseRolePowerRepo repository.EnterpriseRolePowerRepository
 	powerRepo               repository.PowerRepository
+	enterpriseRepo          repository.EnterpriseRepository
 }
 
 // NewEnterpriseMiddleware 创建企业中间件
@@ -26,12 +27,14 @@ func NewEnterpriseMiddleware(
 	enterpriseRoleRepo repository.EnterpriseRoleRepository,
 	enterpriseRolePowerRepo repository.EnterpriseRolePowerRepository,
 	powerRepo repository.PowerRepository,
+	enterpriseRepo repository.EnterpriseRepository,
 ) *EnterpriseMiddleware {
 	return &EnterpriseMiddleware{
 		enterpriseMemberRepo:    enterpriseMemberRepo,
 		enterpriseRoleRepo:      enterpriseRoleRepo,
 		enterpriseRolePowerRepo: enterpriseRolePowerRepo,
 		powerRepo:               powerRepo,
+		enterpriseRepo:          enterpriseRepo,
 	}
 }
 
@@ -90,6 +93,15 @@ func (m *EnterpriseMiddleware) Verify() gin.HandlerFunc {
 
 		ctx := context.Background()
 
+		// 加载企业信息
+		enterprise, err := m.enterpriseRepo.GetByID(ctx, enterpriseID)
+		if err != nil || enterprise == nil {
+			c.JSON(404, models.NewJsonResponse(404, "企业不存在", nil))
+			c.Abort()
+			return
+		}
+		c.Set("enterprise", enterprise)
+
 		// 加载企业成员记录，验证 status=0（活跃）
 		member, err := m.enterpriseMemberRepo.GetByEnterpriseAndUser(ctx, enterpriseID, userLogin.User.ID)
 		if err != nil || member == nil || member.Status != 0 {
@@ -102,6 +114,13 @@ func (m *EnterpriseMiddleware) Verify() gin.HandlerFunc {
 		role, err := m.enterpriseRoleRepo.GetByID(ctx, member.RoleID)
 		if err != nil || role == nil {
 			c.JSON(403, models.NewJsonResponse(403, "企业角色验证失败", nil))
+			c.Abort()
+			return
+		}
+
+		// 企业禁用时，只允许 GET 请求和管理员操作（以便重新启用）
+		if enterprise.State != 0 && c.Request.Method != "GET" && c.Request.Method != "HEAD" && role.IsAdmin != 1 {
+			c.JSON(403, models.NewJsonResponse(403, "企业已被禁用，无法执行此操作", nil))
 			c.Abort()
 			return
 		}

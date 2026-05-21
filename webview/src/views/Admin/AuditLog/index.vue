@@ -136,7 +136,22 @@
       share: t('admin.audit.actions.share'),
       restore: t('admin.audit.actions.restore'),
       permanent_delete: t('admin.audit.actions.permanent_delete'),
-      empty_recycle: t('admin.audit.actions.empty_recycle')
+      empty_recycle: t('admin.audit.actions.empty_recycle'),
+      enterprise_space_upload: t('admin.audit.actions.enterprise_space_upload'),
+      enterprise_space_download: t('admin.audit.actions.enterprise_space_download'),
+      enterprise_space_delete: t('admin.audit.actions.enterprise_space_delete'),
+      enterprise_space_delete_dir: t('admin.audit.actions.enterprise_space_delete_dir'),
+      enterprise_space_rename: t('admin.audit.actions.enterprise_space_rename'),
+      enterprise_space_rename_dir: t('admin.audit.actions.enterprise_space_rename_dir'),
+      enterprise_space_mkdir: t('admin.audit.actions.enterprise_space_mkdir'),
+      enterprise_space_move: t('admin.audit.actions.enterprise_space_move'),
+      enterprise_space_preview: t('admin.audit.actions.enterprise_space_preview'),
+      enterprise_space_package: t('admin.audit.actions.enterprise_space_package'),
+      enterprise_space_extract: t('admin.audit.actions.enterprise_space_extract'),
+      enterprise_space_share: t('admin.audit.actions.enterprise_space_share'),
+      enterprise_role_create: t('admin.audit.actions.enterprise_role_create'),
+      enterprise_role_update: t('admin.audit.actions.enterprise_role_update'),
+      enterprise_role_delete: t('admin.audit.actions.enterprise_role_delete')
     }
     return map[action] || action
   }

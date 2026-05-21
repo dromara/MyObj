@@ -52,6 +52,7 @@ func (h *EnterpriseSpaceHandler) CreateDir(c *gin.Context) {
 			Action:       "enterprise_space_mkdir",
 			TargetType:   "enterprise_shared_path",
 			TargetName:   req.Name,
+			TargetPath:   fmt.Sprintf("%d", req.ParentID),
 			Detail:       fmt.Sprintf("创建目录「%s」", req.Name),
 			IP:           c.ClientIP(),
 			CreatedAt:    custom_type.Now(),
@@ -127,6 +128,7 @@ func (h *EnterpriseSpaceHandler) UploadFile(c *gin.Context) {
 			Action:       "enterprise_space_upload",
 			TargetType:   "enterprise_shared_file",
 			TargetName:   header.Filename,
+			TargetPath:   fmt.Sprintf("%d", req.PathID),
 			Detail:       fmt.Sprintf("上传文件「%s」到企业共享空间", header.Filename),
 			IP:           c.ClientIP(),
 			CreatedAt:    custom_type.Now(),
@@ -203,6 +205,7 @@ func (h *EnterpriseSpaceHandler) DownloadFile(c *gin.Context) {
 					Action:       "enterprise_space_download",
 					TargetType:   "enterprise_shared_file",
 					TargetName:   fileName,
+					TargetPath:   filePath,
 					Detail:       fmt.Sprintf("下载企业共享空间文件 %s", fileName),
 					IP:           c.ClientIP(),
 					CreatedAt:    custom_type.Now(),
@@ -261,6 +264,7 @@ func (h *EnterpriseSpaceHandler) DeleteDir(c *gin.Context) {
 			Action:       "enterprise_space_delete_dir",
 			TargetType:   "enterprise_shared_path",
 			TargetName:   fmt.Sprintf("%d", req.ID),
+			TargetPath:   fmt.Sprintf("%d", req.ID),
 			Detail:       fmt.Sprintf("删除企业共享空间目录 %d", req.ID),
 			IP:           c.ClientIP(),
 			CreatedAt:    custom_type.Now(),
@@ -371,6 +375,7 @@ func (h *EnterpriseSpaceHandler) PreviewFile(c *gin.Context) {
 					Action:       "enterprise_space_preview",
 					TargetType:   "enterprise_shared_file",
 					TargetName:   fileName,
+					TargetPath:   filePath,
 					Detail:       fmt.Sprintf("预览企业共享空间文件 %s", fileName),
 					IP:           c.ClientIP(),
 					CreatedAt:    custom_type.Now(),
@@ -464,6 +469,7 @@ func (h *EnterpriseSpaceHandler) MoveFile(c *gin.Context) {
 			Action:       "enterprise_space_move",
 			TargetType:   "enterprise_shared_file",
 			TargetName:   req.FileID,
+			TargetPath:   fmt.Sprintf("%d", req.TargetPath),
 			Detail:       fmt.Sprintf("移动文件 %s 到目录 %d", req.FileID, req.TargetPath),
 			IP:           c.ClientIP(),
 			CreatedAt:    custom_type.Now(),
@@ -640,7 +646,10 @@ func (h *EnterpriseSpaceHandler) CreateShare(c *gin.Context) {
 func getEnterpriseUserName(c *gin.Context) string {
 	if userLogin, exists := c.Get("userLogin"); exists {
 		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
-			return info.User.Name
+			if info.User.Name != "" {
+				return info.User.Name
+			}
+			return info.User.UserName
 		}
 	}
 	return ""

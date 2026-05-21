@@ -19,6 +19,8 @@ type EnterpriseResponse struct {
 	Role           string               `json:"role"`      // 当前用户在该企业的角色名
 	IsAdmin        int                  `json:"is_admin"`  // 当前用户是否为企业管理员
 	Powers         []string             `json:"powers"`    // 当前用户在该企业的权限列表
+	GlobalMaxSpace int64                `json:"global_max_space"` // 全局企业空间上限（字节），0表示不限制
+
 }
 
 // EnterpriseMemberResponse 企业成员响应

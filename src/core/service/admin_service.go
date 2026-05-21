@@ -897,14 +897,3 @@ func (a *AdminService) AdminUpdateSpaceConfig(req *request.AdminUpdateSpaceConfi
 
 	return a.AdminGetSpaceConfig()
 }
-
-// GetDefaultEnterpriseSpace 获取默认企业空间配置值
-func (a *AdminService) GetDefaultEnterpriseSpace(ctx context.Context) int64 {
-	cfg, _ := a.factory.SysConfig().GetByKey(ctx, "default_enterprise_space")
-	if cfg == nil {
-		return 0
-	}
-	var space int64
-	fmt.Sscanf(cfg.Value, "%d", &space)
-	return space
-}

@@ -304,7 +304,7 @@ CREATE TABLE `recycled` (
 -- 磁盘表
 CREATE TABLE `disk` (
     `id` VARCHAR(64) NOT NULL COMMENT '磁盘ID',
-    `size` INT NOT NULL COMMENT '磁盘总大小',
+    `size` BIGINT NOT NULL COMMENT '磁盘总大小（字节）',
     `disk_path` TEXT NOT NULL COMMENT '磁盘路径',
     `data_path` TEXT NOT NULL COMMENT '数据存储路径',
     PRIMARY KEY (`id`),
@@ -332,7 +332,7 @@ CREATE TABLE `audit_log` (
     `user_id` VARCHAR(64) NOT NULL COMMENT '操作用户ID',
     `user_name` VARCHAR(255) NOT NULL COMMENT '操作用户名',
     `action` VARCHAR(32) NOT NULL COMMENT '操作类型',
-    `target_type` VARCHAR(16) NOT NULL COMMENT '目标类型(file/dir)',
+    `target_type` VARCHAR(64) NOT NULL COMMENT '目标类型',
     `target_path` VARCHAR(1024) DEFAULT NULL COMMENT '目标路径',
     `target_name` VARCHAR(255) DEFAULT NULL COMMENT '目标名称',
     `enterprise_id` VARCHAR(255) DEFAULT NULL COMMENT '企业ID（企业空间操作时记录）',

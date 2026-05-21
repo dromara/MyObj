@@ -108,7 +108,10 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 func getUserName(c *gin.Context) string {
 	if userLogin, exists := c.Get("userLogin"); exists {
 		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
-			return info.User.Name
+			if info.User.Name != "" {
+				return info.User.Name
+			}
+			return info.User.UserName
 		}
 	}
 	return ""

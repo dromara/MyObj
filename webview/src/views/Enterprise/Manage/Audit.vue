@@ -22,7 +22,7 @@
       <el-table-column prop="user_name" :label="t('enterprise.audit.operator')" width="120" />
       <el-table-column prop="action" :label="t('enterprise.audit.action')" width="150">
         <template #default="{ row }">
-          <el-tag :type="getActionTagType(row.action) as any" size="small">{{ row.action }}</el-tag>
+          <el-tag :type="getActionTagType(row.action) as any" size="small">{{ getActionLabel(row.action) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="target_name" :label="t('enterprise.audit.target')" min-width="150" />
@@ -56,6 +56,10 @@
   const { getEnterpriseAuditLogs, exportEnterpriseAuditLogs } = enterpriseApi
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
+
+  const getActionLabel = (action: string) => {
+    return t(`enterprise.audit.actions.${action}` as any, action)
+  }
 
   const loading = ref(false)
   const auditList = ref<EnterpriseAuditLog[]>([])
