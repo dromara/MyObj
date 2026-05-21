@@ -356,7 +356,7 @@ defineExpose({ open })
 </script>
 
 <style scoped>
-.extract-dialog :deep(.el-dialog__body) {
+.extract-dialog ::deep(.el-dialog__body) {
   padding-top: 16px;
 }
 

@@ -57,7 +57,7 @@
 }
 
 /* Tooltip 样式优化 */
-:global(.file-name-tooltip) {
+.file-name-tooltip {
   max-width: 400px;
   word-break: break-word;
   white-space: normal;

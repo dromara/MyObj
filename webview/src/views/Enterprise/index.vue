@@ -398,12 +398,12 @@
     height: 100%;
   }
 
-  .enterprise-tabs :deep(.el-tabs__content) {
+  .enterprise-tabs ::deep(.el-tabs__content) {
     height: calc(100% - 55px);
     overflow: auto;
   }
 
-  .enterprise-tabs :deep(.el-tab-pane) {
+  .enterprise-tabs ::deep(.el-tab-pane) {
     height: 100%;
   }
 
@@ -417,20 +417,20 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .enterprise-tabs :deep(.el-tabs__header) {
+  html.dark .enterprise-tabs ::deep(.el-tabs__header) {
     background: transparent;
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .enterprise-tabs :deep(.el-tabs__item) {
+  html.dark .enterprise-tabs ::deep(.el-tabs__item) {
     color: var(--el-text-color-regular);
   }
 
-  html.dark .enterprise-tabs :deep(.el-tabs__item.is-active) {
+  html.dark .enterprise-tabs ::deep(.el-tabs__item.is-active) {
     color: var(--primary-color);
   }
 
-  html.dark .enterprise-tabs :deep(.el-tabs__item:hover) {
+  html.dark .enterprise-tabs ::deep(.el-tabs__item:hover) {
     color: var(--primary-color);
   }
 

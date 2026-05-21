@@ -484,7 +484,7 @@
     min-width: auto;
   }
 
-  .action-btn :deep(.el-icon) {
+  .action-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -512,13 +512,13 @@
       overflow-y: auto;
     }
 
-    .expired-tasks-dialog :deep(.el-dialog) {
+    .expired-tasks-dialog ::deep(.el-dialog) {
       width: 95% !important;
       margin: 5vh auto;
       max-height: 90vh;
     }
 
-    .expired-tasks-dialog :deep(.el-dialog__body) {
+    .expired-tasks-dialog ::deep(.el-dialog__body) {
       padding: 16px;
       max-height: calc(90vh - 120px);
       overflow-y: auto;
@@ -544,7 +544,7 @@
   }
 
   @media (max-width: 480px) {
-    .expired-tasks-dialog :deep(.el-dialog) {
+    .expired-tasks-dialog ::deep(.el-dialog) {
       width: 100% !important;
       margin: 0 !important;
       height: 100vh !important;
@@ -552,18 +552,18 @@
       border-radius: 0 !important;
     }
 
-    .expired-tasks-dialog :deep(.el-dialog__header) {
+    .expired-tasks-dialog ::deep(.el-dialog__header) {
       padding: 12px 16px;
       flex-shrink: 0;
     }
 
-    .expired-tasks-dialog :deep(.el-dialog__body) {
+    .expired-tasks-dialog ::deep(.el-dialog__body) {
       padding: 12px;
       max-height: calc(100vh - 140px);
       overflow-y: auto;
     }
 
-    .expired-tasks-dialog :deep(.el-dialog__footer) {
+    .expired-tasks-dialog ::deep(.el-dialog__footer) {
       padding: 12px 16px;
       flex-shrink: 0;
     }
@@ -586,21 +586,21 @@
   }
 
   /* 深色模式样式 */
-  html.dark .expired-tasks-dialog :deep(.el-dialog) {
+  html.dark .expired-tasks-dialog ::deep(.el-dialog) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark .expired-tasks-dialog :deep(.el-dialog__header) {
+  html.dark .expired-tasks-dialog ::deep(.el-dialog__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .expired-tasks-dialog :deep(.el-dialog__title) {
+  html.dark .expired-tasks-dialog ::deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .expired-tasks-dialog :deep(.el-dialog__body) {
+  html.dark .expired-tasks-dialog ::deep(.el-dialog__body) {
     background: var(--card-bg);
     color: var(--el-text-color-primary);
   }
@@ -613,21 +613,21 @@
     background: var(--card-bg);
   }
 
-  html.dark .expired-tasks-table :deep(.el-table__header-wrapper) {
+  html.dark .expired-tasks-table ::deep(.el-table__header-wrapper) {
     background: var(--el-bg-color-page);
   }
 
-  html.dark .expired-tasks-table :deep(.el-table__header th) {
+  html.dark .expired-tasks-table ::deep(.el-table__header th) {
     background: var(--el-bg-color-page);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .expired-tasks-table :deep(.el-table__body tr) {
+  html.dark .expired-tasks-table ::deep(.el-table__body tr) {
     background: var(--card-bg);
   }
 
-  html.dark .expired-tasks-table :deep(.el-table__body tr:hover > td) {
+  html.dark .expired-tasks-table ::deep(.el-table__body tr:hover > td) {
     background: var(--el-fill-color-light);
   }
 

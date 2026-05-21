@@ -164,12 +164,12 @@
   }
 
   /* 分隔线样式 */
-  :deep(.el-divider) {
+  ::deep(.el-divider) {
     margin: 20px 0;
     border-color: var(--border-light, #f3f4f6);
   }
 
-  html.dark :deep(.el-divider) {
+  html.dark ::deep(.el-divider) {
     border-color: var(--el-border-color);
   }
 
@@ -212,15 +212,15 @@
   }
 
   /* 确保按钮文字是白色 - 蓝色按钮配白色文字 */
-  :deep(.onboarding-button.el-button--primary) {
+  ::deep(.onboarding-button.el-button--primary) {
     color: #ffffff !important;
   }
 
-  :deep(.onboarding-button.el-button--primary .el-icon) {
+  ::deep(.onboarding-button.el-button--primary .el-icon) {
     color: #ffffff !important;
   }
 
-  :deep(.onboarding-button.el-button--primary span) {
+  ::deep(.onboarding-button.el-button--primary span) {
     color: #ffffff !important;
   }
 </style>

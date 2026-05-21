@@ -164,22 +164,22 @@
   }
 
   /* Switch 样式优化 */
-  .config-card :deep(.el-form-item) {
+  .config-card ::deep(.el-form-item) {
     margin-bottom: 24px;
   }
 
-  .config-card :deep(.el-form-item__content) {
+  .config-card ::deep(.el-form-item__content) {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .config-card :deep(.button-form-item .el-form-item__content) {
+  .config-card ::deep(.button-form-item .el-form-item__content) {
     flex-direction: row;
     gap: 12px;
   }
 
-  .config-card :deep(.el-switch) {
+  .config-card ::deep(.el-switch) {
     margin-bottom: 4px;
   }
 
@@ -190,42 +190,42 @@
       margin-bottom: 16px;
     }
 
-    .config-card :deep(.el-form),
-    .info-card :deep(.el-descriptions) {
+    .config-card ::deep(.el-form),
+    .info-card ::deep(.el-descriptions) {
       font-size: 14px;
     }
 
-    .config-card :deep(.el-form-item__label) {
+    .config-card ::deep(.el-form-item__label) {
       width: 120px !important;
       font-size: 13px;
     }
 
-    .info-card :deep(.el-descriptions) {
+    .info-card ::deep(.el-descriptions) {
       font-size: 12px;
     }
 
-    .info-card :deep(.el-descriptions__label) {
+    .info-card ::deep(.el-descriptions__label) {
       width: 100px !important;
       font-size: 12px;
     }
   }
 
   @media (max-width: 480px) {
-    .config-card :deep(.el-form-item__label) {
+    .config-card ::deep(.el-form-item__label) {
       width: 100px !important;
       font-size: 12px;
     }
 
-    .info-card :deep(.el-descriptions) {
+    .info-card ::deep(.el-descriptions) {
       font-size: 11px;
     }
 
-    .info-card :deep(.el-descriptions__label) {
+    .info-card ::deep(.el-descriptions__label) {
       width: 80px !important;
       font-size: 11px;
     }
 
-    .info-card :deep(.el-descriptions__content) {
+    .info-card ::deep(.el-descriptions__content) {
       font-size: 11px;
     }
   }
@@ -241,8 +241,8 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .config-card :deep(.el-card__header),
-  html.dark .info-card :deep(.el-card__header) {
+  html.dark .config-card ::deep(.el-card__header),
+  html.dark .info-card ::deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
@@ -255,30 +255,30 @@
     color: var(--el-text-color-secondary);
   }
 
-  html.dark .config-card :deep(.el-form-item__label) {
+  html.dark .config-card ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .info-card :deep(.el-descriptions) {
+  html.dark .info-card ::deep(.el-descriptions) {
     background: transparent;
   }
 
-  html.dark .info-card :deep(.el-descriptions__label) {
+  html.dark .info-card ::deep(.el-descriptions__label) {
     color: var(--el-text-color-regular);
     background: var(--el-bg-color-page);
   }
 
-  html.dark .info-card :deep(.el-descriptions__content) {
+  html.dark .info-card ::deep(.el-descriptions__content) {
     color: var(--el-text-color-primary);
     background: var(--el-bg-color);
   }
 
-  html.dark .info-card :deep(.el-descriptions__table) {
+  html.dark .info-card ::deep(.el-descriptions__table) {
     border-color: var(--el-border-color);
   }
 
-  html.dark .info-card :deep(.el-descriptions__table th),
-  html.dark .info-card :deep(.el-descriptions__table td) {
+  html.dark .info-card ::deep(.el-descriptions__table th),
+  html.dark .info-card ::deep(.el-descriptions__table td) {
     border-color: var(--el-border-color);
   }
 </style>

@@ -113,7 +113,8 @@ export default defineConfig(({ mode, command }) => {
       // 启用 CSS 代码分割
       cssCodeSplit: true,
       // 压缩配置
-      minify: 'esbuild', // 使用 esbuild 压缩，速度更快
+      minify: 'esbuild', // 使用 esbuild 压缩 JS
+      cssMinify: 'esbuild', // 使用 esbuild 压缩 CSS（lightningcss 不支持 Vue 的 ::deep() 伪元素）
       // 清理输出目录
       emptyOutDir: true,
       rollupOptions: {

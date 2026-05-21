@@ -157,31 +157,31 @@
     margin-left: 0;
   }
 
-  .config-card :deep(.el-form-item) {
+  .config-card ::deep(.el-form-item) {
     margin-bottom: 24px;
   }
 
-  .config-card :deep(.el-form-item__content) {
+  .config-card ::deep(.el-form-item__content) {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .config-card :deep(.button-form-item .el-form-item__content) {
+  .config-card ::deep(.button-form-item .el-form-item__content) {
     flex-direction: row;
     gap: 12px;
   }
 
   /* 移动端适配 */
   @media (max-width: 768px) {
-    .config-card :deep(.el-form-item__label) {
+    .config-card ::deep(.el-form-item__label) {
       width: 140px !important;
       font-size: 13px;
     }
   }
 
   @media (max-width: 480px) {
-    .config-card :deep(.el-form-item__label) {
+    .config-card ::deep(.el-form-item__label) {
       width: 110px !important;
       font-size: 12px;
     }
@@ -193,7 +193,7 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .config-card :deep(.el-card__header) {
+  html.dark .config-card ::deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
@@ -206,7 +206,7 @@
     color: var(--el-text-color-secondary);
   }
 
-  html.dark .config-card :deep(.el-form-item__label) {
+  html.dark .config-card ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 </style>

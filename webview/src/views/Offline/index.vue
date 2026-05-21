@@ -1395,24 +1395,24 @@
   }
 
   /* 隐藏表格自带的空状态显示，使用手动的 el-empty */
-  .offline-table :deep(.el-table__empty-block) {
+  .offline-table ::deep(.el-table__empty-block) {
     display: none;
   }
 
   /* 表格移动端隐藏列 */
-  .offline-table :deep(.mobile-hide) {
+  .offline-table ::deep(.mobile-hide) {
     display: table-cell;
   }
 
-  .offline-table :deep(.mobile-name-column) {
+  .offline-table ::deep(.mobile-name-column) {
     min-width: 200px;
   }
 
-  .offline-table :deep(.mobile-progress-column) {
+  .offline-table ::deep(.mobile-progress-column) {
     min-width: 180px;
   }
 
-  .offline-table :deep(.mobile-actions-column) {
+  .offline-table ::deep(.mobile-actions-column) {
     width: auto;
     min-width: 120px;
   }
@@ -1517,7 +1517,7 @@
     min-width: auto;
   }
 
-  .action-btn :deep(.el-icon) {
+  .action-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -1581,12 +1581,12 @@
       font-size: 11px;
     }
 
-    .download-dialog :deep(.el-dialog) {
+    .download-dialog ::deep(.el-dialog) {
       width: 95% !important;
       margin: 0 auto;
     }
 
-    .download-dialog :deep(.el-form-item__label) {
+    .download-dialog ::deep(.el-form-item__label) {
       font-size: 14px;
     }
   }
@@ -1608,19 +1608,19 @@
       font-size: 10px;
     }
 
-    .download-dialog :deep(.el-dialog) {
+    .download-dialog ::deep(.el-dialog) {
       width: 100% !important;
       margin: 0;
       border-radius: 0;
     }
 
-    .download-dialog :deep(.el-form-item__label) {
+    .download-dialog ::deep(.el-form-item__label) {
       font-size: 13px;
     }
   }
 
   /* 统一下载对话框样式 */
-  .download-dialog :deep(.el-dialog) {
+  .download-dialog ::deep(.el-dialog) {
     border-radius: 8px;
   }
 
@@ -1671,11 +1671,11 @@
     width: 100%;
   }
 
-  .torrent-upload :deep(.el-upload) {
+  .torrent-upload ::deep(.el-upload) {
     width: 100%;
   }
 
-  .torrent-upload :deep(.el-upload-dragger) {
+  .torrent-upload ::deep(.el-upload-dragger) {
     width: 100%;
     padding: 40px 20px;
   }
@@ -1799,12 +1799,12 @@
 
   /* 移动端响应式 */
   @media (max-width: 1024px) {
-    .download-dialog :deep(.el-dialog) {
+    .download-dialog ::deep(.el-dialog) {
       width: 95% !important;
       margin: 0 auto;
     }
 
-    .download-dialog :deep(.el-form-item__label) {
+    .download-dialog ::deep(.el-form-item__label) {
       font-size: 14px;
     }
 
@@ -1814,13 +1814,13 @@
   }
 
   @media (max-width: 480px) {
-    .download-dialog :deep(.el-dialog) {
+    .download-dialog ::deep(.el-dialog) {
       width: 100% !important;
       margin: 0;
       border-radius: 0;
     }
 
-    .download-dialog :deep(.el-form-item__label) {
+    .download-dialog ::deep(.el-form-item__label) {
       font-size: 13px;
     }
 
@@ -1843,7 +1843,7 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .header-card :deep(.el-card__body) {
+  html.dark .header-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
@@ -1852,7 +1852,7 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .task-list-card :deep(.el-card__body) {
+  html.dark .task-list-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
@@ -1865,35 +1865,35 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .download-dialog :deep(.el-dialog) {
+  html.dark .download-dialog ::deep(.el-dialog) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark .download-dialog :deep(.el-dialog__header) {
+  html.dark .download-dialog ::deep(.el-dialog__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .download-dialog :deep(.el-dialog__title) {
+  html.dark .download-dialog ::deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .download-dialog :deep(.el-dialog__body) {
+  html.dark .download-dialog ::deep(.el-dialog__body) {
     background: var(--card-bg);
     color: var(--el-text-color-primary);
   }
 
-  html.dark .download-dialog :deep(.el-form-item__label) {
+  html.dark .download-dialog ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .download-dialog :deep(.el-input__wrapper) {
+  html.dark .download-dialog ::deep(.el-input__wrapper) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .download-dialog :deep(.el-input__inner) {
+  html.dark .download-dialog ::deep(.el-input__inner) {
     color: var(--el-text-color-primary);
   }
 </style>

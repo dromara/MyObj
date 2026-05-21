@@ -502,30 +502,30 @@
     display: table;
   }
 
-  :deep(.el-table) {
+  ::deep(.el-table) {
     background: transparent !important;
     --el-table-tr-bg-color: transparent;
     --el-table-header-bg-color: transparent;
   }
 
-  :deep(.el-table th.el-table__cell) {
+  ::deep(.el-table th.el-table__cell) {
     background: transparent !important;
     color: var(--text-secondary);
     font-weight: 600;
     font-size: 13px;
   }
 
-  :deep(.el-table tr) {
+  ::deep(.el-table tr) {
     background: transparent !important;
     transition: all 0.2s;
   }
 
-  :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  ::deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
     background: var(--el-fill-color-lighter) !important;
   }
 
   /* 隐藏表格自带的空状态显示，使用手动的 el-empty */
-  :deep(.el-table__empty-block) {
+  ::deep(.el-table__empty-block) {
     display: none;
   }
 
@@ -551,7 +551,7 @@
     width: 100%;
   }
 
-  .share-link-input :deep(.el-input__inner) {
+  .share-link-input ::deep(.el-input__inner) {
     font-size: 13px;
     font-family: 'Courier New', monospace;
   }
@@ -562,7 +562,7 @@
     justify-content: center;
   }
 
-  :deep(.el-tag) {
+  ::deep(.el-tag) {
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
@@ -811,7 +811,7 @@
     min-width: auto;
   }
 
-  .action-btn :deep(.el-icon) {
+  .action-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -823,7 +823,7 @@
     width: 100%;
   }
 
-  .mobile-share-link-input :deep(.el-input__inner) {
+  .mobile-share-link-input ::deep(.el-input__inner) {
     font-size: 12px;
     font-family: 'Courier New', monospace;
   }
@@ -892,12 +892,12 @@
       margin-top: 8px;
     }
 
-    .password-dialog :deep(.el-dialog) {
+    .password-dialog ::deep(.el-dialog) {
       width: 95% !important;
       margin: 0 auto;
     }
 
-    .password-dialog :deep(.el-form-item__label) {
+    .password-dialog ::deep(.el-form-item__label) {
       font-size: 14px;
     }
   }
@@ -949,35 +949,35 @@
       font-size: 11px;
     }
 
-    .mobile-share-link-input :deep(.el-input__inner) {
+    .mobile-share-link-input ::deep(.el-input__inner) {
       font-size: 11px;
     }
 
-    .password-dialog :deep(.el-dialog) {
+    .password-dialog ::deep(.el-dialog) {
       width: 100% !important;
       margin: 0;
       border-radius: 0;
     }
 
-    .password-dialog :deep(.el-form-item__label) {
+    .password-dialog ::deep(.el-form-item__label) {
       font-size: 13px;
     }
   }
 
   /* 表格移动端隐藏列 */
-  .shares-table :deep(.mobile-hide) {
+  .shares-table ::deep(.mobile-hide) {
     display: table-cell;
   }
 
-  .shares-table :deep(.mobile-name-column) {
+  .shares-table ::deep(.mobile-name-column) {
     min-width: 200px;
   }
 
-  .shares-table :deep(.mobile-link-column) {
+  .shares-table ::deep(.mobile-link-column) {
     min-width: 300px;
   }
 
-  .shares-table :deep(.mobile-actions-column) {
+  .shares-table ::deep(.mobile-actions-column) {
     width: auto;
     min-width: 120px;
   }

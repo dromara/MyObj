@@ -245,7 +245,7 @@
     height: 100%;
   }
 
-  .task-card :deep(.el-card__body) {
+  .task-card ::deep(.el-card__body) {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -281,7 +281,7 @@
     width: 100%;
   }
 
-  .task-table :deep(.el-table__body-wrapper) {
+  .task-table ::deep(.el-table__body-wrapper) {
     max-height: calc(100vh - 300px);
     overflow-y: auto;
   }
@@ -291,22 +291,22 @@
     display: table;
   }
 
-  .task-table :deep(.el-table) {
+  .task-table ::deep(.el-table) {
     background: transparent;
     width: 100%;
     table-layout: auto;
   }
 
-  .task-table :deep(.el-table__header-wrapper) {
+  .task-table ::deep(.el-table__header-wrapper) {
     overflow-x: hidden;
   }
 
-  .task-table :deep(.el-table__body-wrapper) {
+  .task-table ::deep(.el-table__body-wrapper) {
     overflow-x: hidden;
   }
 
   /* 当数据为空时，隐藏表格的空状态显示（因为我们已经用 el-empty 显示了） */
-  .task-table :deep(.el-table__empty-block) {
+  .task-table ::deep(.el-table__empty-block) {
     display: none;
   }
 
@@ -315,13 +315,13 @@
     overflow: hidden;
   }
 
-  .task-table :deep(.el-table) {
+  .task-table ::deep(.el-table) {
     background: transparent !important;
     --el-table-tr-bg-color: transparent;
     --el-table-header-bg-color: transparent;
   }
 
-  .task-table :deep(.el-table th.el-table__cell) {
+  .task-table ::deep(.el-table th.el-table__cell) {
     background: transparent !important;
     color: var(--el-text-color-primary);
     font-weight: 600;
@@ -329,34 +329,34 @@
     border-bottom-color: var(--el-border-color-lighter);
   }
 
-  .task-table :deep(.el-table td.el-table__cell) {
+  .task-table ::deep(.el-table td.el-table__cell) {
     background: transparent !important;
     color: var(--el-text-color-primary);
     border-bottom-color: var(--el-border-color-lighter);
   }
 
-  .task-table :deep(.el-table tr) {
+  .task-table ::deep(.el-table tr) {
     background: transparent !important;
     transition: all 0.2s;
   }
 
-  .task-table :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  .task-table ::deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
     background: var(--el-fill-color-lighter) !important;
   }
 
-  .task-table :deep(.mobile-hide) {
+  .task-table ::deep(.mobile-hide) {
     display: table-cell;
   }
 
-  .task-table :deep(.mobile-name-column) {
+  .task-table ::deep(.mobile-name-column) {
     min-width: 200px;
   }
 
-  .task-table :deep(.mobile-progress-column) {
+  .task-table ::deep(.mobile-progress-column) {
     min-width: 200px;
   }
 
-  .task-table :deep(.mobile-actions-column) {
+  .task-table ::deep(.mobile-actions-column) {
     width: auto;
     min-width: 120px;
   }
@@ -441,7 +441,7 @@
     min-width: auto;
   }
 
-  .action-btn :deep(.el-icon) {
+  .action-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -506,7 +506,7 @@
     width: 100%;
   }
 
-  .task-table :deep(.el-table__body-wrapper) {
+  .task-table ::deep(.el-table__body-wrapper) {
     max-height: calc(100vh - 300px);
     overflow-y: auto;
   }
@@ -532,7 +532,7 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .task-card :deep(.el-card__body) {
+  html.dark .task-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 

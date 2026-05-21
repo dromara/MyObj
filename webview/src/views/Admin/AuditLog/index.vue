@@ -284,7 +284,7 @@
       font-size: 12px;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 8px 4px;
     }
 
@@ -292,8 +292,8 @@
       justify-content: center;
     }
 
-    .pagination :deep(.el-pagination__sizes),
-    .pagination :deep(.el-pagination__jump) {
+    .pagination ::deep(.el-pagination__sizes),
+    .pagination ::deep(.el-pagination__jump) {
       display: none;
     }
   }
@@ -304,7 +304,7 @@
       min-width: 0;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 6px 2px;
       font-size: 11px;
     }

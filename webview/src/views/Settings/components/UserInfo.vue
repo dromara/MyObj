@@ -157,22 +157,22 @@
   }
 
   @media (max-width: 768px) {
-    .user-info-form :deep(.el-form-item__label) {
+    .user-info-form ::deep(.el-form-item__label) {
       width: 100px !important;
     }
   }
 
   /* 深色模式样式 */
-  html.dark .user-info-form :deep(.el-form-item__label) {
+  html.dark .user-info-form ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .user-info-form :deep(.el-input__wrapper) {
+  html.dark .user-info-form ::deep(.el-input__wrapper) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .user-info-form :deep(.el-input__inner) {
+  html.dark .user-info-form ::deep(.el-input__inner) {
     color: var(--el-text-color-primary);
   }
 </style>

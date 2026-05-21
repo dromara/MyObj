@@ -518,7 +518,7 @@
     flex-direction: column;
   }
 
-  .file-card :deep(.el-card__body) {
+  .file-card ::deep(.el-card__body) {
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -678,11 +678,11 @@
       min-width: max-content;
     }
 
-    .filter-bar :deep(.el-radio-button) {
+    .filter-bar ::deep(.el-radio-button) {
       flex-shrink: 0;
     }
 
-    .filter-bar :deep(.el-radio-button__inner) {
+    .filter-bar ::deep(.el-radio-button__inner) {
       padding: 8px 12px;
       font-size: 12px;
       white-space: nowrap;
@@ -702,7 +702,7 @@
       gap: 12px;
     }
 
-    .file-card :deep(.el-card__body) {
+    .file-card ::deep(.el-card__body) {
       padding: 12px;
       gap: 8px;
     }
@@ -737,7 +737,7 @@
       padding: 8px;
     }
 
-    .file-card :deep(.el-card__body) {
+    .file-card ::deep(.el-card__body) {
       padding: 8px;
       gap: 6px;
     }
@@ -752,7 +752,7 @@
       max-height: 2.31em;
     }
 
-    .filter-bar :deep(.el-radio-button__inner) {
+    .filter-bar ::deep(.el-radio-button__inner) {
       padding: 6px 10px;
       font-size: 11px;
     }
@@ -939,29 +939,29 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 
-  html.dark .file-card :deep(.el-card__body) {
+  html.dark .file-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
-  html.dark .type-radio-group :deep(.el-radio-button__inner) {
+  html.dark .type-radio-group ::deep(.el-radio-button__inner) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .type-radio-group :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  html.dark .type-radio-group ::deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
     color: var(--el-text-color-primary);
   }
 
-  html.dark .toolbar-actions :deep(.el-button-group .el-button) {
+  html.dark .toolbar-actions ::deep(.el-button-group .el-button) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .toolbar-actions :deep(.el-button-group .el-button.is-active) {
+  html.dark .toolbar-actions ::deep(.el-button-group .el-button.is-active) {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
     color: var(--el-text-color-primary);

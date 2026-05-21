@@ -103,11 +103,11 @@
     width: 100%;
   }
 
-  .scroll-container :deep(.el-scrollbar__bar) {
+  .scroll-container ::deep(.el-scrollbar__bar) {
     bottom: 0px;
   }
 
-  .scroll-container :deep(.el-scrollbar__wrap) {
+  .scroll-container ::deep(.el-scrollbar__wrap) {
     height: 49px;
   }
 </style>

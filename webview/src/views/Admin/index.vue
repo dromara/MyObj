@@ -135,12 +135,12 @@
     height: 100%;
   }
 
-  .admin-tabs :deep(.el-tabs__content) {
+  .admin-tabs ::deep(.el-tabs__content) {
     height: calc(100% - 55px);
     overflow: auto;
   }
 
-  .admin-tabs :deep(.el-tab-pane) {
+  .admin-tabs ::deep(.el-tab-pane) {
     height: 100%;
   }
 
@@ -155,20 +155,20 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .admin-tabs :deep(.el-tabs__header) {
+  html.dark .admin-tabs ::deep(.el-tabs__header) {
     background: transparent;
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .admin-tabs :deep(.el-tabs__item) {
+  html.dark .admin-tabs ::deep(.el-tabs__item) {
     color: var(--el-text-color-regular);
   }
 
-  html.dark .admin-tabs :deep(.el-tabs__item.is-active) {
+  html.dark .admin-tabs ::deep(.el-tabs__item.is-active) {
     color: var(--primary-color);
   }
 
-  html.dark .admin-tabs :deep(.el-tabs__item:hover) {
+  html.dark .admin-tabs ::deep(.el-tabs__item:hover) {
     color: var(--primary-color);
   }
 </style>

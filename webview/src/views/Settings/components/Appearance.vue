@@ -663,11 +663,11 @@
     font-weight: 500;
   }
 
-  .color-item :deep(.el-color-picker) {
+  .color-item ::deep(.el-color-picker) {
     margin-right: auto;
   }
 
-  .color-item :deep(.el-button) {
+  .color-item ::deep(.el-button) {
     margin-left: auto;
   }
 
@@ -934,17 +934,17 @@
     color: var(--text-regular);
   }
 
-  html.dark .appearance-settings :deep(.el-form-item__label) {
+  html.dark .appearance-settings ::deep(.el-form-item__label) {
     color: var(--text-primary);
   }
 
-  html.dark .appearance-settings :deep(.el-radio-button__inner) {
+  html.dark .appearance-settings ::deep(.el-radio-button__inner) {
     background-color: var(--card-bg);
     border-color: var(--border-color);
     color: var(--text-primary);
   }
 
-  html.dark .appearance-settings :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  html.dark .appearance-settings ::deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
     color: var(--el-text-color-primary);

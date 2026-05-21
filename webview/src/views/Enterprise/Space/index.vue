@@ -1076,11 +1076,11 @@
     border: 1px solid var(--glass-border);
   }
 
-  .breadcrumb-bar :deep(.el-breadcrumb-item) {
+  .breadcrumb-bar ::deep(.el-breadcrumb-item) {
     cursor: pointer;
   }
 
-  .breadcrumb-bar :deep(.el-breadcrumb-item:hover .el-breadcrumb__inner) {
+  .breadcrumb-bar ::deep(.el-breadcrumb-item:hover .el-breadcrumb__inner) {
     color: var(--primary-color);
   }
 
@@ -1338,8 +1338,8 @@
       grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     }
 
-    .pagination-wrapper :deep(.el-pagination__sizes),
-    .pagination-wrapper :deep(.el-pagination__jump) {
+    .pagination-wrapper ::deep(.el-pagination__sizes),
+    .pagination-wrapper ::deep(.el-pagination__jump) {
       display: none;
     }
   }

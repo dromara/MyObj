@@ -293,13 +293,13 @@
 </script>
 
 <style scoped>
-  .share-dialog :deep(.el-dialog) {
+  .share-dialog ::deep(.el-dialog) {
     box-sizing: border-box;
     /* 确保弹窗不会超出屏幕 */
     max-width: 100vw;
   }
 
-  .share-dialog :deep(.el-dialog__body) {
+  .share-dialog ::deep(.el-dialog__body) {
     padding: 24px;
     box-sizing: border-box;
     width: 100%;
@@ -309,11 +309,11 @@
   }
 
   /* 确保所有内部元素使用 border-box */
-  .share-dialog :deep(*) {
+  .share-dialog ::deep(*) {
     box-sizing: border-box;
   }
 
-  .share-dialog :deep(.el-dialog__body > *) {
+  .share-dialog ::deep(.el-dialog__body > *) {
     max-width: 100%;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -382,19 +382,19 @@
     gap: 8px;
   }
 
-  .expire-options :deep(.el-radio-button) {
+  .expire-options ::deep(.el-radio-button) {
     flex: 1;
     min-width: 0;
   }
 
-  .expire-options :deep(.el-radio-button__inner) {
+  .expire-options ::deep(.el-radio-button__inner) {
     width: 100%;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .expire-options :deep(.el-radio-button__original-radio) {
+  .expire-options ::deep(.el-radio-button__original-radio) {
     position: absolute;
     opacity: 0;
     width: 100%;
@@ -499,7 +499,7 @@
       right: 0 !important;
     }
 
-    .share-dialog :deep(.el-dialog) {
+    .share-dialog ::deep(.el-dialog) {
       width: 100% !important;
       max-width: 100vw !important;
       margin: 0 !important;
@@ -516,13 +516,13 @@
     }
 
     /* 覆盖 Element Plus 的默认宽度 */
-    .share-dialog :deep(.el-dialog__wrapper) {
+    .share-dialog ::deep(.el-dialog__wrapper) {
       width: 100vw !important;
       max-width: 100vw !important;
       overflow-x: hidden !important;
     }
 
-    .share-dialog :deep(.el-dialog__body) {
+    .share-dialog ::deep(.el-dialog__body) {
       padding: 16px;
       max-height: calc(100vh - 120px);
       overflow-y: auto;
@@ -532,7 +532,7 @@
       max-width: 100% !important;
     }
 
-    .share-dialog :deep(.el-dialog__header) {
+    .share-dialog ::deep(.el-dialog__header) {
       padding: 16px;
       box-sizing: border-box;
       width: 100% !important;
@@ -540,7 +540,7 @@
       overflow-x: hidden;
     }
 
-    .share-dialog :deep(.el-dialog__footer) {
+    .share-dialog ::deep(.el-dialog__footer) {
       padding: 12px 16px;
       box-sizing: border-box;
       width: 100% !important;
@@ -549,7 +549,7 @@
     }
 
     /* 确保所有内部元素不超出 */
-    .share-dialog :deep(.el-dialog__body > *) {
+    .share-dialog ::deep(.el-dialog__body > *) {
       max-width: 100% !important;
       box-sizing: border-box !important;
       overflow-x: hidden !important;
@@ -591,7 +591,7 @@
       margin-bottom: 20px;
     }
 
-    .share-form :deep(.el-form-item) {
+    .share-form ::deep(.el-form-item) {
       margin-bottom: 24px;
       display: flex !important;
       flex-direction: column !important; /* 移动端垂直布局 */
@@ -601,13 +601,13 @@
     }
 
     /* 确保标签容器也使用垂直布局 */
-    .share-form :deep(.el-form-item__label-wrap) {
+    .share-form ::deep(.el-form-item__label-wrap) {
       width: 100% !important;
       margin-right: 0 !important;
       padding-right: 0 !important;
     }
 
-    .share-form :deep(.el-form-item__label) {
+    .share-form ::deep(.el-form-item__label) {
       width: 100% !important;
       text-align: left !important;
       margin-bottom: 10px;
@@ -622,7 +622,7 @@
       display: block;
     }
 
-    .share-form :deep(.el-form-item__content) {
+    .share-form ::deep(.el-form-item__content) {
       margin-left: 0 !important;
       width: 100%;
       box-sizing: border-box;
@@ -639,13 +639,13 @@
     }
 
     /* 输入框在移动端优化 */
-    .share-form :deep(.el-input) {
+    .share-form ::deep(.el-input) {
       width: 100%;
       max-width: 100%;
       box-sizing: border-box;
     }
 
-    .share-form :deep(.el-input__wrapper) {
+    .share-form ::deep(.el-input__wrapper) {
       width: 100%;
       max-width: 100%;
       box-sizing: border-box;
@@ -653,20 +653,20 @@
     }
 
     /* 下拉选择框样式优化 */
-    .share-form :deep(.el-select) {
+    .share-form ::deep(.el-select) {
       width: 100%;
     }
 
-    .share-form :deep(.el-select .el-input__wrapper) {
+    .share-form ::deep(.el-select .el-input__wrapper) {
       border-radius: 8px;
     }
 
-    .share-form :deep(.el-input__append) {
+    .share-form ::deep(.el-input__append) {
       padding: 0;
       flex-shrink: 0;
     }
 
-    .share-form :deep(.el-input__append .el-button) {
+    .share-form ::deep(.el-input__append .el-button) {
       padding: 0 12px;
       font-size: 12px;
       white-space: nowrap;
@@ -712,21 +712,21 @@
       width: 100%;
     }
 
-    .link-input :deep(.el-input__wrapper) {
+    .link-input ::deep(.el-input__wrapper) {
       width: 100%;
     }
 
-    .link-input :deep(.el-input__append) {
+    .link-input ::deep(.el-input__append) {
       padding: 0;
     }
 
-    .link-input :deep(.el-input__append .el-button) {
+    .link-input ::deep(.el-input__append .el-button) {
       padding: 0 12px;
       font-size: 12px;
       white-space: nowrap;
     }
 
-    .link-input :deep(.el-input__append .el-button span) {
+    .link-input ::deep(.el-input__append .el-button span) {
       display: inline; /* 平板端显示文字 */
     }
 
@@ -754,7 +754,7 @@
   }
 
   @media (max-width: 480px) {
-    .share-dialog :deep(.el-dialog) {
+    .share-dialog ::deep(.el-dialog) {
       width: 100% !important;
       max-width: 100vw !important;
       margin: 0 !important;
@@ -767,7 +767,7 @@
       padding: 0;
     }
 
-    .share-dialog :deep(.el-dialog__header) {
+    .share-dialog ::deep(.el-dialog__header) {
       flex-shrink: 0;
       padding: 12px 16px;
       border-bottom: 1px solid var(--el-border-color-lighter);
@@ -776,7 +776,7 @@
       max-width: 100%;
     }
 
-    .share-dialog :deep(.el-dialog__body) {
+    .share-dialog ::deep(.el-dialog__body) {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
@@ -787,7 +787,7 @@
       max-width: 100%;
     }
 
-    .share-dialog :deep(.el-dialog__footer) {
+    .share-dialog ::deep(.el-dialog__footer) {
       flex-shrink: 0;
       padding: 12px 16px;
       border-top: 1px solid var(--el-border-color-lighter);
@@ -832,13 +832,13 @@
       margin-bottom: 20px;
     }
 
-    .share-form :deep(.el-form-item) {
+    .share-form ::deep(.el-form-item) {
       margin-bottom: 20px;
       display: flex;
       flex-direction: column;
     }
 
-    .share-form :deep(.el-form-item__label) {
+    .share-form ::deep(.el-form-item__label) {
       width: 100% !important;
       text-align: left;
       margin-bottom: 8px;
@@ -848,7 +848,7 @@
       font-weight: 600;
     }
 
-    .share-form :deep(.el-form-item__content) {
+    .share-form ::deep(.el-form-item__content) {
       margin-left: 0 !important;
       width: 100%;
     }
@@ -864,32 +864,32 @@
     }
 
     /* 输入框在超小屏幕优化 */
-    .share-form :deep(.el-input) {
+    .share-form ::deep(.el-input) {
       width: 100%;
     }
 
-    .share-form :deep(.el-input__wrapper) {
+    .share-form ::deep(.el-input__wrapper) {
       width: 100%;
     }
 
-    .share-form :deep(.el-input__append) {
+    .share-form ::deep(.el-input__append) {
       padding: 0;
       flex-shrink: 0;
       min-width: auto;
     }
 
-    .share-form :deep(.el-input__append .el-button) {
+    .share-form ::deep(.el-input__append .el-button) {
       padding: 0 8px;
       font-size: 12px;
       min-width: auto;
     }
 
-    .share-form :deep(.el-input__append .el-button span) {
+    .share-form ::deep(.el-input__append .el-button span) {
       display: none; /* 超小屏幕隐藏按钮文字 */
     }
 
     /* 确保输入框内部不会超出 */
-    .share-form :deep(.el-input__inner) {
+    .share-form ::deep(.el-input__inner) {
       max-width: 100%;
       box-sizing: border-box;
     }
@@ -930,24 +930,24 @@
       width: 100%;
     }
 
-    .link-input :deep(.el-input__wrapper) {
+    .link-input ::deep(.el-input__wrapper) {
       width: 100%;
     }
 
-    .link-input :deep(.el-input__inner) {
+    .link-input ::deep(.el-input__inner) {
       font-size: 12px;
     }
 
-    .link-input :deep(.el-input__append) {
+    .link-input ::deep(.el-input__append) {
       padding: 0;
     }
 
-    .link-input :deep(.el-input__append .el-button) {
+    .link-input ::deep(.el-input__append .el-button) {
       padding: 0 10px;
       font-size: 12px;
     }
 
-    .link-input :deep(.el-input__append .el-button span) {
+    .link-input ::deep(.el-input__append .el-button span) {
       display: none; /* 超小屏幕隐藏按钮文字 */
     }
 

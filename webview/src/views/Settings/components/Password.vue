@@ -145,22 +145,22 @@
   }
 
   @media (max-width: 768px) {
-    .password-form :deep(.el-form-item__label) {
+    .password-form ::deep(.el-form-item__label) {
       width: 100px !important;
     }
   }
 
   /* 深色模式样式 */
-  html.dark .password-form :deep(.el-form-item__label) {
+  html.dark .password-form ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .password-form :deep(.el-input__wrapper) {
+  html.dark .password-form ::deep(.el-input__wrapper) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .password-form :deep(.el-input__inner) {
+  html.dark .password-form ::deep(.el-input__inner) {
     color: var(--el-text-color-primary);
   }
 

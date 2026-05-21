@@ -104,11 +104,11 @@
     background-color: var(--el-fill-color-light);
   }
 
-  .column-item :deep(.el-checkbox) {
+  .column-item ::deep(.el-checkbox) {
     width: 100%;
   }
 
-  .column-item :deep(.el-checkbox__label) {
+  .column-item ::deep(.el-checkbox__label) {
     flex: 1;
   }
 </style>

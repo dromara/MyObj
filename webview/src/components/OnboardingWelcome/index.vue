@@ -101,7 +101,7 @@
 </script>
 
 <style scoped>
-  .onboarding-welcome-dialog :deep(.el-dialog__body) {
+  .onboarding-welcome-dialog ::deep(.el-dialog__body) {
     padding: 24px;
   }
 

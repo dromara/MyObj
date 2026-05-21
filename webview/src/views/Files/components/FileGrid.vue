@@ -466,7 +466,7 @@
     border-color: rgba(16, 185, 129, 0.4);
   }
 
-  .public-tag :deep(.el-tag__content) {
+  .public-tag ::deep(.el-tag__content) {
     display: inline-flex;
     align-items: center;
     gap: 3px;

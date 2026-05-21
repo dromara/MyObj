@@ -45,7 +45,7 @@
     align-items: center;
   }
 
-  .horizontal-menu-list :deep(.el-menu) {
+  .horizontal-menu-list ::deep(.el-menu) {
     display: flex;
     align-items: center;
     height: 100%;
@@ -53,7 +53,7 @@
     background: transparent;
   }
 
-  .horizontal-menu-list :deep(.el-menu-item) {
+  .horizontal-menu-list ::deep(.el-menu-item) {
     height: 100%;
     line-height: 64px;
     padding: 0 16px;
@@ -65,72 +65,72 @@
     align-items: center;
   }
 
-  .horizontal-menu-list :deep(.el-menu-item:hover) {
+  .horizontal-menu-list ::deep(.el-menu-item:hover) {
     background: var(--el-fill-color-light);
     color: var(--primary-color);
   }
 
-  .horizontal-menu-list :deep(.el-menu-item.is-active) {
+  .horizontal-menu-list ::deep(.el-menu-item.is-active) {
     background: var(--primary-color) !important;
     color: white !important;
     border-bottom: 2px solid var(--primary-color);
   }
 
-  .horizontal-menu-list :deep(.el-menu-item.is-active .el-icon) {
+  .horizontal-menu-list ::deep(.el-menu-item.is-active .el-icon) {
     color: white !important;
   }
 
-  .horizontal-menu-list :deep(.el-menu-item.is-active span) {
+  .horizontal-menu-list ::deep(.el-menu-item.is-active span) {
     color: white !important;
   }
 
-  .horizontal-menu-list :deep(.el-icon) {
+  .horizontal-menu-list ::deep(.el-icon) {
     margin-right: 6px;
     font-size: 16px;
     flex-shrink: 0;
     color: inherit;
   }
 
-  .horizontal-menu-list :deep(.el-menu-item span) {
+  .horizontal-menu-list ::deep(.el-menu-item span) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     color: inherit;
   }
 
-  html.dark .horizontal-menu-list :deep(.el-menu-item:hover) {
+  html.dark .horizontal-menu-list ::deep(.el-menu-item:hover) {
     background: rgba(255, 255, 255, 0.1);
   }
 
-  html.dark .horizontal-menu-list :deep(.el-menu-item.is-active) {
+  html.dark .horizontal-menu-list ::deep(.el-menu-item.is-active) {
     background: var(--primary-color) !important;
     color: white !important;
   }
 
-  html.dark .horizontal-menu-list :deep(.el-menu-item.is-active .el-icon) {
+  html.dark .horizontal-menu-list ::deep(.el-menu-item.is-active .el-icon) {
     color: white !important;
   }
 
-  html.dark .horizontal-menu-list :deep(.el-menu-item.is-active span) {
+  html.dark .horizontal-menu-list ::deep(.el-menu-item.is-active span) {
     color: white !important;
   }
 
   /* 响应式：小屏幕时隐藏图标文字，只显示图标 */
   @media (max-width: 1200px) {
-    .horizontal-menu-list :deep(.el-menu-item span) {
+    .horizontal-menu-list ::deep(.el-menu-item span) {
       display: none;
     }
-    .horizontal-menu-list :deep(.el-menu-item) {
+    .horizontal-menu-list ::deep(.el-menu-item) {
       padding: 0 12px;
     }
-    .horizontal-menu-list :deep(.el-icon) {
+    .horizontal-menu-list ::deep(.el-icon) {
       margin-right: 0;
     }
   }
 
   /* 超小屏幕时进一步缩小 */
   @media (max-width: 768px) {
-    .horizontal-menu-list :deep(.el-menu-item) {
+    .horizontal-menu-list ::deep(.el-menu-item) {
       padding: 0 8px;
       margin: 0 1px;
     }

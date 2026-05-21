@@ -472,7 +472,7 @@
     transition: transform 0.2s ease;
   }
 
-  .logo-image :deep(.el-image__inner) {
+  .logo-image ::deep(.el-image__inner) {
     width: 65px;
     height: 65px;
     object-fit: contain;
@@ -480,7 +480,7 @@
     transition: transform 0.2s ease;
   }
 
-  .logo-image:hover :deep(.el-image__inner) {
+  .logo-image:hover ::deep(.el-image__inner) {
     transform: scale(1.05);
   }
 
@@ -490,7 +490,7 @@
     display: block;
   }
 
-  .logo-image-mobile :deep(.el-image__inner) {
+  .logo-image-mobile ::deep(.el-image__inner) {
     width: 36px;
     height: 36px;
     object-fit: contain;
@@ -573,7 +573,7 @@
     max-width: 600px;
   }
 
-  .search-input :deep(.el-input__wrapper) {
+  .search-input ::deep(.el-input__wrapper) {
     background: var(--bg-color-glass, rgba(255, 255, 255, 0.5));
     backdrop-filter: blur(8px);
     border-radius: 12px;
@@ -583,14 +583,14 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .search-input :deep(.el-input__wrapper):hover {
+  .search-input ::deep(.el-input__wrapper):hover {
     background: var(--card-bg, rgba(255, 255, 255, 0.7));
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border-color: rgba(37, 99, 235, 0.3);
     transform: translateY(-1px);
   }
 
-  .search-input :deep(.el-input__wrapper.is-focus) {
+  .search-input ::deep(.el-input__wrapper.is-focus) {
     background: var(--card-bg, var(--el-bg-color));
     box-shadow:
       0 6px 20px rgba(37, 99, 235, 0.15),
@@ -599,19 +599,19 @@
     transform: translateY(-1px);
   }
 
-  html.dark .search-input :deep(.el-input__wrapper) {
+  html.dark .search-input ::deep(.el-input__wrapper) {
     background: rgba(30, 41, 59, 0.6);
     border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
-  html.dark .search-input :deep(.el-input__wrapper):hover {
+  html.dark .search-input ::deep(.el-input__wrapper):hover {
     background: rgba(30, 41, 59, 0.8);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     border-color: rgba(59, 130, 246, 0.3);
   }
 
-  html.dark .search-input :deep(.el-input__wrapper.is-focus) {
+  html.dark .search-input ::deep(.el-input__wrapper.is-focus) {
     background: var(--el-bg-color);
     box-shadow:
       0 6px 20px rgba(59, 130, 246, 0.25),
@@ -678,7 +678,7 @@
       height: 40px;
     }
 
-    .logo-image :deep(.el-image__inner) {
+    .logo-image ::deep(.el-image__inner) {
       width: 40px;
       height: 40px;
     }
@@ -805,8 +805,8 @@
       z-index: 1 !important;
     }
 
-    .mobile-search-btn :deep(button),
-    .mobile-search-btn :deep(.el-button) {
+    .mobile-search-btn ::deep(button),
+    .mobile-search-btn ::deep(.el-button) {
       display: inline-flex !important;
       visibility: visible !important;
       opacity: 1 !important;
@@ -816,7 +816,7 @@
       min-height: 36px !important;
     }
 
-    .mobile-search-btn :deep(.el-icon) {
+    .mobile-search-btn ::deep(.el-icon) {
       display: inline-block !important;
       visibility: visible !important;
       opacity: 1 !important;
@@ -852,7 +852,7 @@
       height: 36px !important;
     }
 
-    .mobile-logo .logo-image-mobile :deep(.el-image__inner) {
+    .mobile-logo .logo-image-mobile ::deep(.el-image__inner) {
       width: 36px !important;
       height: 36px !important;
     }
@@ -885,7 +885,7 @@
   }
 
   /* 搜索对话框样式 */
-  .search-dialog :deep(.el-dialog) {
+  .search-dialog ::deep(.el-dialog) {
     border-radius: 24px;
     overflow: hidden;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 1) 100%);
@@ -901,24 +901,24 @@
     position: fixed !important;
   }
 
-  .search-dialog :deep(.el-dialog__wrapper) {
+  .search-dialog ::deep(.el-dialog__wrapper) {
     display: flex !important;
     align-items: flex-start !important;
     justify-content: center !important;
     padding-top: 0 !important;
   }
 
-  .search-dialog :deep(.el-dialog__header) {
+  .search-dialog ::deep(.el-dialog__header) {
     padding: 28px 28px 20px;
     border-bottom: none;
     background: transparent;
   }
 
-  .search-dialog :deep(.el-dialog__body) {
+  .search-dialog ::deep(.el-dialog__body) {
     padding: 0 28px 24px;
   }
 
-  .search-dialog :deep(.el-dialog__footer) {
+  .search-dialog ::deep(.el-dialog__footer) {
     padding: 20px 28px 28px;
     border-top: 1px solid rgba(0, 0, 0, 0.05);
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.8));
@@ -969,7 +969,7 @@
     width: 100%;
   }
 
-  .search-dialog-input :deep(.el-input__wrapper) {
+  .search-dialog-input ::deep(.el-input__wrapper) {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 1) 100%);
     backdrop-filter: blur(12px);
     border-radius: 18px;
@@ -983,13 +983,13 @@
     height: 60px;
   }
 
-  .search-dialog-input :deep(.el-input__inner) {
+  .search-dialog-input ::deep(.el-input__inner) {
     font-size: 17px;
     color: var(--text-primary);
     font-weight: 500;
   }
 
-  .search-dialog-input :deep(.el-input__wrapper):hover {
+  .search-dialog-input ::deep(.el-input__wrapper):hover {
     background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 1) 100%);
     border-color: rgba(99, 102, 241, 0.25);
     box-shadow:
@@ -999,7 +999,7 @@
     transform: translateY(-1px);
   }
 
-  .search-dialog-input :deep(.el-input__wrapper.is-focus) {
+  .search-dialog-input ::deep(.el-input__wrapper.is-focus) {
     background: var(--card-bg, var(--el-bg-color));
     border-color: var(--primary-color);
     box-shadow:
@@ -1010,7 +1010,7 @@
     transform: translateY(-2px);
   }
 
-  html.dark .search-dialog-input :deep(.el-input__wrapper.is-focus) {
+  html.dark .search-dialog-input ::deep(.el-input__wrapper.is-focus) {
     box-shadow:
       0 12px 32px rgba(99, 102, 241, 0.3),
       0 0 0 5px rgba(99, 102, 241, 0.15),
@@ -1018,13 +1018,13 @@
       inset 0 -1px 2px rgba(0, 0, 0, 0.1);
   }
 
-  .search-dialog-input :deep(.el-input__prefix) {
+  .search-dialog-input ::deep(.el-input__prefix) {
     color: var(--primary-color);
     font-size: 22px;
     margin-right: 12px;
   }
 
-  .search-dialog-input :deep(.el-input__suffix) {
+  .search-dialog-input ::deep(.el-input__suffix) {
     color: var(--text-secondary);
   }
 
@@ -1085,7 +1085,7 @@
       0 2px 6px rgba(99, 102, 241, 0.2);
   }
 
-  .search-btn :deep(.el-icon) {
+  .search-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -1095,17 +1095,17 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .premium-dropdown :deep(.el-dropdown-menu__item) {
+  html.dark .premium-dropdown ::deep(.el-dropdown-menu__item) {
     color: var(--el-text-color-primary);
     background-color: transparent;
   }
 
-  html.dark .premium-dropdown :deep(.el-dropdown-menu__item:hover) {
+  html.dark .premium-dropdown ::deep(.el-dropdown-menu__item:hover) {
     background-color: var(--el-fill-color-light);
     color: var(--primary-color);
   }
 
-  html.dark .premium-dropdown :deep(.el-dropdown-menu__item.is-divided) {
+  html.dark .premium-dropdown ::deep(.el-dropdown-menu__item.is-divided) {
     border-top-color: var(--el-border-color);
   }
 </style>

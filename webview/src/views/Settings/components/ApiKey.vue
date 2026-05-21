@@ -341,12 +341,12 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .generate-card :deep(.el-card__header) {
+  html.dark .generate-card ::deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .generate-card :deep(.el-card__body) {
+  html.dark .generate-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
@@ -355,12 +355,12 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .list-card :deep(.el-card__header) {
+  html.dark .list-card ::deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .list-card :deep(.el-card__body) {
+  html.dark .list-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
@@ -376,16 +376,16 @@
     color: var(--el-text-color-primary);
   }
 
-  html.dark .key-input :deep(.el-input__wrapper) {
+  html.dark .key-input ::deep(.el-input__wrapper) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .key-input :deep(.el-input__inner) {
+  html.dark .key-input ::deep(.el-input__inner) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .key-input :deep(.el-textarea__inner) {
+  html.dark .key-input ::deep(.el-textarea__inner) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
     color: var(--el-text-color-primary);
@@ -400,21 +400,21 @@
     background: var(--card-bg);
   }
 
-  html.dark .api-key-table :deep(.el-table__header-wrapper) {
+  html.dark .api-key-table ::deep(.el-table__header-wrapper) {
     background: var(--el-bg-color-page);
   }
 
-  html.dark .api-key-table :deep(.el-table__header th) {
+  html.dark .api-key-table ::deep(.el-table__header th) {
     background: var(--el-bg-color-page);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .api-key-table :deep(.el-table__body tr) {
+  html.dark .api-key-table ::deep(.el-table__body tr) {
     background: var(--card-bg);
   }
 
-  html.dark .api-key-table :deep(.el-table__body tr:hover > td) {
+  html.dark .api-key-table ::deep(.el-table__body tr:hover > td) {
     background: var(--el-fill-color-light);
   }
 

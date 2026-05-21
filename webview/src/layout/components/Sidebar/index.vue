@@ -198,7 +198,7 @@
     flex-shrink: 0;
   }
 
-  .sidebar-drawer :deep(.el-drawer__body) {
+  .sidebar-drawer ::deep(.el-drawer__body) {
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -236,14 +236,14 @@
   }
 
   /* 菜单项文字和图标过渡动画 */
-  .premium-menu :deep(.el-menu-item span) {
+  .premium-menu ::deep(.el-menu-item span) {
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-block;
   }
 
   /* 折叠时隐藏文字 */
-  .layout-aside.is-collapsed .premium-menu :deep(.el-menu-item span),
-  .premium-menu.el-menu--collapse :deep(.el-menu-item span) {
+  .layout-aside.is-collapsed .premium-menu ::deep(.el-menu-item span),
+  .premium-menu.el-menu--collapse ::deep(.el-menu-item span) {
     opacity: 0;
     transform: translateX(-10px);
     width: 0;
@@ -251,7 +251,7 @@
   }
 
   /* 展开时显示文字 */
-  .premium-menu:not(.el-menu--collapse) :deep(.el-menu-item span) {
+  .premium-menu:not(.el-menu--collapse) ::deep(.el-menu-item span) {
     opacity: 1;
     transform: translateX(0);
   }
@@ -271,7 +271,7 @@
     overflow: hidden;
   }
 
-  .premium-menu :deep(.el-menu-item) {
+  .premium-menu ::deep(.el-menu-item) {
     height: 48px;
     margin-bottom: 4px;
     border-radius: 10px;
@@ -283,7 +283,7 @@
     overflow: hidden;
   }
 
-  .premium-menu :deep(.el-menu-item::before) {
+  .premium-menu ::deep(.el-menu-item::before) {
     content: '';
     position: absolute;
     left: 0;
@@ -296,39 +296,39 @@
     border-radius: 0 3px 3px 0;
   }
 
-  .premium-menu :deep(.el-menu-item:hover) {
+  .premium-menu ::deep(.el-menu-item:hover) {
     background: var(--el-fill-color-light);
     color: var(--primary-color);
     transform: translateX(2px);
   }
 
-  .premium-menu :deep(.el-menu-item:hover::before) {
+  .premium-menu ::deep(.el-menu-item:hover::before) {
     transform: scaleY(1);
   }
 
-  html.dark .premium-menu :deep(.el-menu-item:hover) {
+  html.dark .premium-menu ::deep(.el-menu-item:hover) {
     background: rgba(99, 102, 241, 0.15);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
   }
 
-  .premium-menu :deep(.el-menu-item.is-active) {
+  .premium-menu ::deep(.el-menu-item.is-active) {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
     transform: translateX(0);
   }
 
-  .premium-menu :deep(.el-menu-item.is-active::before) {
+  .premium-menu ::deep(.el-menu-item.is-active::before) {
     transform: scaleY(1);
     background: rgba(255, 255, 255, 0.3);
     width: 4px;
   }
 
-  html.dark .premium-menu :deep(.el-menu-item.is-active) {
+  html.dark .premium-menu ::deep(.el-menu-item.is-active) {
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
   }
 
-  .premium-menu :deep(.el-icon) {
+  .premium-menu ::deep(.el-icon) {
     font-size: 18px;
     margin-right: 12px;
     transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -336,8 +336,8 @@
   }
 
   /* 折叠时图标居中，移除右边距 */
-  .layout-aside.is-collapsed .premium-menu :deep(.el-icon),
-  .premium-menu.el-menu--collapse :deep(.el-icon) {
+  .layout-aside.is-collapsed .premium-menu ::deep(.el-icon),
+  .premium-menu.el-menu--collapse ::deep(.el-icon) {
     margin-right: 0;
   }
 
@@ -365,13 +365,13 @@
   }
 
   /* 移动端抽屉遮罩层样式（参考 plus-ui） */
-  :deep(.sidebar-drawer-modal) {
+  ::deep(.sidebar-drawer-modal) {
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(2px);
     transition: opacity 0.3s ease;
   }
 
-  html.dark :deep(.sidebar-drawer-modal) {
+  html.dark ::deep(.sidebar-drawer-modal) {
     background: rgba(0, 0, 0, 0.5);
   }
 
@@ -394,28 +394,28 @@
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .layout-aside.is-collapsed .premium-menu :deep(.el-menu-item) {
+  .layout-aside.is-collapsed .premium-menu ::deep(.el-menu-item) {
     padding: 0 20px !important;
     justify-content: center;
   }
 
   /* 菜单项内容过渡 */
-  .premium-menu :deep(.el-menu-item) {
+  .premium-menu ::deep(.el-menu-item) {
     display: flex;
     align-items: center;
   }
 
   /* 展开时菜单项内容 */
-  .premium-menu:not(.el-menu--collapse) :deep(.el-menu-item) {
+  .premium-menu:not(.el-menu--collapse) ::deep(.el-menu-item) {
     padding: 0 16px;
   }
 
-  .sider-mode-icon .premium-menu :deep(.el-menu-item) {
+  .sider-mode-icon .premium-menu ::deep(.el-menu-item) {
     padding: 0 20px !important;
     justify-content: center;
   }
 
-  .sider-mode-icon .premium-menu :deep(.el-icon) {
+  .sider-mode-icon .premium-menu ::deep(.el-icon) {
     margin-right: 0;
   }
 </style>

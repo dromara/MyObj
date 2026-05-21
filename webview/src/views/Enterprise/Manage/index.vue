@@ -614,8 +614,8 @@
       flex-wrap: wrap;
     }
 
-    .pagination :deep(.el-pagination__sizes),
-    .pagination :deep(.el-pagination__jump) {
+    .pagination ::deep(.el-pagination__sizes),
+    .pagination ::deep(.el-pagination__jump) {
       display: none;
     }
   }

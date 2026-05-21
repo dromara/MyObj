@@ -254,7 +254,7 @@
     overflow-y: auto;
   }
 
-  .sidebar-menu :deep(.el-menu-item) {
+  .sidebar-menu ::deep(.el-menu-item) {
     height: 44px;
     line-height: 44px;
     margin: 2px 8px;
@@ -262,7 +262,7 @@
     transition: all 0.2s;
   }
 
-  .sidebar-menu :deep(.el-menu-item.is-active) {
+  .sidebar-menu ::deep(.el-menu-item.is-active) {
     background: var(--el-color-primary-light-9);
     border-left: 3px solid var(--primary-color);
     padding-left: 13px;
@@ -275,12 +275,12 @@
     flex-shrink: 0;
   }
 
-  .sidebar-footer :deep(.el-button) {
+  .sidebar-footer ::deep(.el-button) {
     border-radius: 8px;
     transition: all 0.2s;
   }
 
-  .sidebar-footer :deep(.el-button:hover) {
+  .sidebar-footer ::deep(.el-button:hover) {
     background: var(--el-fill-color-light);
   }
 
@@ -304,7 +304,7 @@
     background: var(--el-fill-color-darker);
   }
 
-  html.dark .sidebar-menu :deep(.el-menu-item.is-active) {
+  html.dark .sidebar-menu ::deep(.el-menu-item.is-active) {
     background: rgba(var(--el-color-primary-rgb), 0.15);
   }
 </style>

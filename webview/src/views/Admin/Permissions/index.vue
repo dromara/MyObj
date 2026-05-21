@@ -332,7 +332,7 @@
   }
 
   /* 分页组件样式 */
-  .admin-permissions :deep(.pagination-container) {
+  .admin-permissions ::deep(.pagination-container) {
     flex-shrink: 0;
     margin-top: 16px;
   }
@@ -351,12 +351,12 @@
       font-size: 13px;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 10px 6px;
     }
 
     /* 对话框适配 */
-    .admin-permissions :deep(.el-dialog) {
+    .admin-permissions ::deep(.el-dialog) {
       margin: 5vh auto;
     }
   }
@@ -388,27 +388,27 @@
       font-size: 12px;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 8px 4px;
     }
 
     /* 表格列优化 */
-    .admin-table :deep(.el-table-column--selection) {
+    .admin-table ::deep(.el-table-column--selection) {
       width: 45px !important;
     }
 
     /* 分页组件优化 */
-    .admin-permissions :deep(.pagination-container) {
+    .admin-permissions ::deep(.pagination-container) {
       margin-top: 12px;
     }
 
     /* 对话框适配 */
-    .admin-permissions :deep(.el-dialog) {
+    .admin-permissions ::deep(.el-dialog) {
       margin: 5vh auto;
       max-height: 90vh;
     }
 
-    .admin-permissions :deep(.el-dialog__body) {
+    .admin-permissions ::deep(.el-dialog__body) {
       max-height: calc(90vh - 120px);
       overflow-y: auto;
     }
@@ -438,42 +438,42 @@
       font-size: 11px;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 6px 2px;
     }
 
-    .admin-table :deep(.el-table-column--selection) {
+    .admin-table ::deep(.el-table-column--selection) {
       width: 40px !important;
     }
 
     /* 隐藏部分表格列在极小屏幕上 */
-    .admin-table :deep(.el-table__header-wrapper),
-    .admin-table :deep(.el-table__body-wrapper) {
+    .admin-table ::deep(.el-table__header-wrapper),
+    .admin-table ::deep(.el-table__body-wrapper) {
       overflow-x: auto;
     }
 
     /* 对话框进一步优化 */
-    .admin-permissions :deep(.el-dialog) {
+    .admin-permissions ::deep(.el-dialog) {
       width: 90% !important;
       margin: 3vh auto;
     }
 
-    .admin-permissions :deep(.el-dialog__header) {
+    .admin-permissions ::deep(.el-dialog__header) {
       padding: 15px;
     }
 
-    .admin-permissions :deep(.el-dialog__body) {
+    .admin-permissions ::deep(.el-dialog__body) {
       padding: 15px;
       max-height: calc(90vh - 100px);
     }
 
-    .admin-permissions :deep(.el-form-item__label) {
+    .admin-permissions ::deep(.el-form-item__label) {
       font-size: 13px;
       width: 80px !important;
     }
 
-    .admin-permissions :deep(.el-input),
-    .admin-permissions :deep(.el-textarea) {
+    .admin-permissions ::deep(.el-input),
+    .admin-permissions ::deep(.el-textarea) {
       font-size: 14px;
     }
   }
@@ -487,26 +487,26 @@
     border-top-color: var(--el-border-color);
   }
 
-  html.dark :deep(.el-dialog) {
+  html.dark ::deep(.el-dialog) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark :deep(.el-dialog__header) {
+  html.dark ::deep(.el-dialog__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark :deep(.el-dialog__title) {
+  html.dark ::deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-dialog__body) {
+  html.dark ::deep(.el-dialog__body) {
     background: var(--card-bg);
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-form-item__label) {
+  html.dark ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 </style>

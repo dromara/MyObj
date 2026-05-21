@@ -177,14 +177,14 @@
     flex-direction: column;
   }
 
-  .task-tabs :deep(.el-tabs__content) {
+  .task-tabs ::deep(.el-tabs__content) {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .task-tabs :deep(.el-tab-pane) {
+  .task-tabs ::deep(.el-tab-pane) {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -194,33 +194,33 @@
   /* 移动端响应式 - 组件特定样式 */
   @media (max-width: 1024px) {
     /* 任务标签页特定样式 */
-    .task-tabs :deep(.el-tabs__header) {
+    .task-tabs ::deep(.el-tabs__header) {
       margin-bottom: 12px;
     }
 
-    .task-tabs :deep(.el-tabs__item) {
+    .task-tabs ::deep(.el-tabs__item) {
       padding: 0 12px;
       font-size: 14px;
     }
   }
 
   /* 深色模式样式 */
-  html.dark .task-tabs :deep(.el-tabs__header) {
+  html.dark .task-tabs ::deep(.el-tabs__header) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark .task-tabs :deep(.el-tabs__item) {
+  html.dark .task-tabs ::deep(.el-tabs__item) {
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .task-tabs :deep(.el-tabs__item.is-active) {
+  html.dark .task-tabs ::deep(.el-tabs__item.is-active) {
     color: var(--primary-color);
     border-bottom-color: var(--primary-color);
   }
 
-  html.dark .task-tabs :deep(.el-tabs__nav-wrap::after) {
+  html.dark .task-tabs ::deep(.el-tabs__nav-wrap::after) {
     background-color: var(--el-border-color);
   }
 </style>

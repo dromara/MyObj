@@ -367,13 +367,13 @@
       font-size: 12px;
     }
 
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 8px 4px;
     }
   }
 
   @media (max-width: 480px) {
-    .admin-table :deep(.el-table__cell) {
+    .admin-table ::deep(.el-table__cell) {
       padding: 6px 2px;
       font-size: 11px;
     }
@@ -384,40 +384,40 @@
     background: transparent;
   }
 
-  html.dark :deep(.el-dialog) {
+  html.dark ::deep(.el-dialog) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark :deep(.el-dialog__header) {
+  html.dark ::deep(.el-dialog__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark :deep(.el-dialog__title) {
+  html.dark ::deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-dialog__body) {
+  html.dark ::deep(.el-dialog__body) {
     background: var(--card-bg);
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-form-item__label) {
+  html.dark ::deep(.el-form-item__label) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-radio-group) {
+  html.dark ::deep(.el-radio-group) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-radio-button__inner) {
+  html.dark ::deep(.el-radio-button__inner) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
     color: var(--el-text-color-primary);
   }
 
-  html.dark :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  html.dark ::deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
     color: var(--el-text-color-primary);

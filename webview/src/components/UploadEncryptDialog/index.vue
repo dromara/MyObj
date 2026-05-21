@@ -101,7 +101,7 @@
 </script>
 
 <style scoped>
-  .upload-encrypt-dialog :deep(.el-dialog__body) {
+  .upload-encrypt-dialog ::deep(.el-dialog__body) {
     padding: 24px;
   }
 </style>

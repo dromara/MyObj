@@ -275,7 +275,7 @@
     border: none;
   }
 
-  .power-collapse :deep(.el-collapse-item__header) {
+  .power-collapse ::deep(.el-collapse-item__header) {
     font-size: 14px;
     font-weight: 600;
     color: var(--el-text-color-primary);
@@ -285,7 +285,7 @@
     margin-bottom: 4px;
   }
 
-  .power-collapse :deep(.el-collapse-item__content) {
+  .power-collapse ::deep(.el-collapse-item__content) {
     padding: 8px 0;
   }
 

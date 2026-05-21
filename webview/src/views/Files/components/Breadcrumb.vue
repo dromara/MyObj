@@ -146,7 +146,7 @@
     min-width: 0;
   }
 
-  .breadcrumb-nav :deep(.el-breadcrumb__item) {
+  .breadcrumb-nav ::deep(.el-breadcrumb__item) {
     display: flex;
     align-items: center;
   }
@@ -177,13 +177,13 @@
     background: rgba(64, 158, 255, 0.15);
   }
 
-  .breadcrumb-nav :deep(.el-breadcrumb__item.is-current .breadcrumb-link) {
+  .breadcrumb-nav ::deep(.el-breadcrumb__item.is-current .breadcrumb-link) {
     color: var(--primary-color);
     font-weight: 600;
     cursor: default;
   }
 
-  .breadcrumb-nav :deep(.el-breadcrumb__item.is-current .breadcrumb-link:hover) {
+  .breadcrumb-nav ::deep(.el-breadcrumb__item.is-current .breadcrumb-link:hover) {
     background: transparent;
   }
 

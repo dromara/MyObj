@@ -121,48 +121,48 @@
   }
 
   /* 优化分页按钮的交互效果 */
-  .pagination-container :deep(.el-pagination .btn-prev),
-  .pagination-container :deep(.el-pagination .btn-next),
-  .pagination-container :deep(.el-pagination .number) {
+  .pagination-container ::deep(.el-pagination .btn-prev),
+  .pagination-container ::deep(.el-pagination .btn-next),
+  .pagination-container ::deep(.el-pagination .number) {
     transition: all 0.2s ease;
   }
 
-  .pagination-container :deep(.el-pagination .btn-prev:hover),
-  .pagination-container :deep(.el-pagination .btn-next:hover),
-  .pagination-container :deep(.el-pagination .number:hover) {
+  .pagination-container ::deep(.el-pagination .btn-prev:hover),
+  .pagination-container ::deep(.el-pagination .btn-next:hover),
+  .pagination-container ::deep(.el-pagination .number:hover) {
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  .pagination-container :deep(.el-pagination .number.is-active) {
+  .pagination-container ::deep(.el-pagination .number.is-active) {
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .btn-prev:hover),
-  html.dark .pagination-container :deep(.el-pagination .btn-next:hover),
-  html.dark .pagination-container :deep(.el-pagination .number:hover) {
+  html.dark .pagination-container ::deep(.el-pagination .btn-prev:hover),
+  html.dark .pagination-container ::deep(.el-pagination .btn-next:hover),
+  html.dark .pagination-container ::deep(.el-pagination .number:hover) {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   /* 移动端优化 */
   @media (max-width: 1024px) {
     .pagination-container {
-      :deep(.el-pagination) {
+      ::deep(.el-pagination) {
         justify-content: center;
         flex-wrap: wrap;
       }
 
       /* 移动端隐藏部分元素，简化显示 */
-      :deep(.el-pagination__total) {
+      ::deep(.el-pagination__total) {
         display: none;
       }
 
-      :deep(.el-pagination__sizes) {
+      ::deep(.el-pagination__sizes) {
         margin-right: 0;
       }
 
-      :deep(.el-pagination__jump) {
+      ::deep(.el-pagination__jump) {
         display: none;
       }
     }
@@ -170,110 +170,110 @@
 
   @media (max-width: 768px) {
     .pagination-container {
-      :deep(.el-pagination) {
+      ::deep(.el-pagination) {
         padding: 8px 0;
       }
 
       /* 进一步简化移动端显示 */
-      :deep(.el-pagination__sizes) {
+      ::deep(.el-pagination__sizes) {
         display: none;
       }
     }
   }
 
   /* 深色模式样式 */
-  html.dark .pagination-container :deep(.el-pagination) {
+  html.dark .pagination-container ::deep(.el-pagination) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .pagination-container :deep(.el-pagination__total) {
+  html.dark .pagination-container ::deep(.el-pagination__total) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .pagination-container :deep(.el-pagination button) {
+  html.dark .pagination-container ::deep(.el-pagination button) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination button:hover) {
+  html.dark .pagination-container ::deep(.el-pagination button:hover) {
     color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination button.is-active) {
+  html.dark .pagination-container ::deep(.el-pagination button.is-active) {
     background-color: var(--primary-color);
     color: var(--el-text-color-primary);
     border-color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-pager li) {
+  html.dark .pagination-container ::deep(.el-pagination .el-pager li) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-pager li:hover) {
+  html.dark .pagination-container ::deep(.el-pagination .el-pager li:hover) {
     color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-pager li.is-active) {
+  html.dark .pagination-container ::deep(.el-pagination .el-pager li.is-active) {
     background-color: var(--primary-color);
     color: var(--el-text-color-primary);
     border-color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-select) {
+  html.dark .pagination-container ::deep(.el-pagination .el-select) {
     background-color: var(--el-bg-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-select .el-input__wrapper) {
+  html.dark .pagination-container ::deep(.el-pagination .el-select .el-input__wrapper) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-select .el-input__inner) {
+  html.dark .pagination-container ::deep(.el-pagination .el-select .el-input__inner) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-select:hover .el-input__wrapper) {
+  html.dark .pagination-container ::deep(.el-pagination .el-select:hover .el-input__wrapper) {
     border-color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-select.is-focus .el-input__wrapper) {
+  html.dark .pagination-container ::deep(.el-pagination .el-select.is-focus .el-input__wrapper) {
     border-color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-pagination .el-input__inner) {
+  html.dark .pagination-container ::deep(.el-pagination .el-input__inner) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
   /* 选择框下拉菜单深色模式样式 */
-  html.dark .pagination-container :deep(.el-select-dropdown) {
+  html.dark .pagination-container ::deep(.el-select-dropdown) {
     background-color: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .pagination-container :deep(.el-select-dropdown__item) {
+  html.dark .pagination-container ::deep(.el-select-dropdown__item) {
     background-color: var(--el-bg-color);
     color: var(--el-text-color-primary);
   }
 
-  html.dark .pagination-container :deep(.el-select-dropdown__item:hover) {
+  html.dark .pagination-container ::deep(.el-select-dropdown__item:hover) {
     background-color: var(--el-fill-color-light);
     color: var(--primary-color);
   }
 
-  html.dark .pagination-container :deep(.el-select-dropdown__item.selected) {
+  html.dark .pagination-container ::deep(.el-select-dropdown__item.selected) {
     background-color: var(--el-fill-color-light);
     color: var(--primary-color);
     font-weight: 600;
   }
 
-  html.dark .pagination-container :deep(.el-select-dropdown__item.selected::after) {
+  html.dark .pagination-container ::deep(.el-select-dropdown__item.selected::after) {
     color: var(--primary-color);
   }
 </style>

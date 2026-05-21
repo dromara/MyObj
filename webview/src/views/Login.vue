@@ -382,7 +382,7 @@
     margin-bottom: 8px;
   }
 
-  :deep(.custom-input .el-input__wrapper) {
+  ::deep(.custom-input .el-input__wrapper) {
     background: var(--el-fill-color-lighter, #f9fafb) !important;
     box-shadow: none !important;
     border: 1px solid var(--border-color, #e5e7eb);
@@ -392,22 +392,22 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  :deep(.custom-input .el-input__wrapper:hover) {
+  ::deep(.custom-input .el-input__wrapper:hover) {
     background: var(--el-fill-color-light, #f3f4f6) !important;
     border-color: var(--border-color, #d1d5db);
   }
 
-  :deep(.custom-input .el-input__wrapper.is-focus) {
+  ::deep(.custom-input .el-input__wrapper.is-focus) {
     background: var(--card-bg, #fff) !important;
     border-color: var(--primary-color) !important;
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
   }
 
-  html.dark :deep(.custom-input .el-input__wrapper.is-focus) {
+  html.dark ::deep(.custom-input .el-input__wrapper.is-focus) {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
   }
 
-  :deep(.custom-input .el-input__inner) {
+  ::deep(.custom-input .el-input__inner) {
     color: var(--text-primary, #111827);
     font-weight: 500;
   }
@@ -530,7 +530,7 @@
       margin-bottom: 6px;
     }
 
-    :deep(.custom-input .el-input__wrapper) {
+    ::deep(.custom-input .el-input__wrapper) {
       height: 46px;
       padding: 6px 14px;
     }
@@ -582,7 +582,7 @@
       font-size: 11px;
     }
 
-    :deep(.custom-input .el-input__wrapper) {
+    ::deep(.custom-input .el-input__wrapper) {
       height: 44px;
       padding: 6px 12px;
     }

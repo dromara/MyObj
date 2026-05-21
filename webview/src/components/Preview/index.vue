@@ -901,7 +901,7 @@
 </script>
 
 <style scoped>
-  .file-preview-dialog :deep(.el-dialog__body) {
+  .file-preview-dialog ::deep(.el-dialog__body) {
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -912,20 +912,20 @@
   }
 
   /* 视频预览时，完全禁用滚动条 - 基础覆盖 */
-  .file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+  .file-preview-dialog.preview-video-active ::deep(.el-dialog__body) {
     overflow: hidden !important;
     overflow-y: hidden !important;
     overflow-x: hidden !important;
   }
 
   /* 视频预览时，限制 dialog 整体高度 */
-  .file-preview-dialog.preview-video-active :deep(.el-dialog) {
+  .file-preview-dialog.preview-video-active ::deep(.el-dialog) {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
   }
 
-  .file-preview-dialog.preview-video-active :deep(.el-dialog__wrapper) {
+  .file-preview-dialog.preview-video-active ::deep(.el-dialog__wrapper) {
     overflow: hidden;
   }
 
@@ -1050,20 +1050,20 @@
     min-height: 400px;
   }
 
-  .preview-video-plyr :deep(.plyr) {
+  .preview-video-plyr ::deep(.plyr) {
     width: 100%;
     height: 100%;
     max-width: 100%;
     max-height: 100%;
   }
 
-  .preview-video-plyr :deep(.plyr__video-wrapper) {
+  .preview-video-plyr ::deep(.plyr__video-wrapper) {
     width: 100%;
     height: 100%;
     position: relative;
   }
 
-  .preview-video-plyr :deep(video) {
+  .preview-video-plyr ::deep(video) {
     width: 100%;
     height: 100%;
     object-fit: contain; /* 视频适应容器，保持原始比例 */
@@ -1085,7 +1085,7 @@
   }
 
   /* 视频预览时，el-dialog__body 不显示滚动条 - 使用更高优先级覆盖全局样式 */
-  .file-preview-dialog.preview-video-active :deep(.el-dialog__body),
+  .file-preview-dialog.preview-video-active ::deep(.el-dialog__body),
   .file-preview-dialog.preview-video-active.el-dialog .el-dialog__body {
     overflow: hidden !important;
     overflow-y: hidden !important;
@@ -1168,8 +1168,8 @@
 
   /* Highlight.js 样式已通过 highlight-themes.css 根据主题动态应用 */
   /* 这里只需要确保过渡动画正常工作 */
-  .preview-text-content :deep(.hljs),
-  .preview-text-content :deep(.hljs *) {
+  .preview-text-content ::deep(.hljs),
+  .preview-text-content ::deep(.hljs *) {
     transition: color 0.3s ease, background-color 0.3s ease;
   }
 
@@ -1215,12 +1215,12 @@
 
   /* 移动端响应式 */
   @media (max-width: 1024px) {
-    .file-preview-dialog :deep(.el-dialog) {
+    .file-preview-dialog ::deep(.el-dialog) {
       width: 95% !important;
       margin: 5vh auto;
     }
 
-    .file-preview-dialog :deep(.el-dialog__body) {
+    .file-preview-dialog ::deep(.el-dialog__body) {
       padding: 12px;
       max-height: 85vh;
     }
@@ -1246,7 +1246,7 @@
     }
 
     /* 移动端视频预览时，el-dialog__body 不显示滚动条 */
-    .file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+    .file-preview-dialog.preview-video-active ::deep(.el-dialog__body) {
       overflow: hidden !important;
       overflow-y: hidden !important;
       overflow-x: hidden !important;
@@ -1268,19 +1268,19 @@
       padding-top: 12px;
     }
 
-    .preview-toolbar :deep(.el-button-group) {
+    .preview-toolbar ::deep(.el-button-group) {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
 
-    .preview-toolbar :deep(.el-button) {
+    .preview-toolbar ::deep(.el-button) {
       flex: 1;
       min-width: 0;
       padding: 8px 12px;
     }
 
-    .preview-toolbar :deep(.el-button span) {
+    .preview-toolbar ::deep(.el-button span) {
       display: none;
     }
 
@@ -1299,18 +1299,18 @@
   }
 
   @media (max-width: 480px) {
-    .file-preview-dialog :deep(.el-dialog) {
+    .file-preview-dialog ::deep(.el-dialog) {
       width: 100% !important;
       margin: 0;
       height: 100vh;
       border-radius: 0;
     }
 
-    .file-preview-dialog :deep(.el-dialog__header) {
+    .file-preview-dialog ::deep(.el-dialog__header) {
       padding: 12px;
     }
 
-    .file-preview-dialog :deep(.el-dialog__body) {
+    .file-preview-dialog ::deep(.el-dialog__body) {
       padding: 8px;
       max-height: calc(100vh - 120px);
     }
@@ -1324,7 +1324,7 @@
     }
 
     /* 小屏幕视频预览时，el-dialog__body 不显示滚动条 */
-    .file-preview-dialog.preview-video-active :deep(.el-dialog__body) {
+    .file-preview-dialog.preview-video-active ::deep(.el-dialog__body) {
       overflow: hidden !important;
       overflow-y: hidden !important;
       overflow-x: hidden !important;

@@ -67,7 +67,7 @@
     flex-direction: column;
   }
 
-  .settings-card :deep(.el-card__body) {
+  .settings-card ::deep(.el-card__body) {
     flex: 1;
     overflow: hidden;
     display: flex;
@@ -96,12 +96,12 @@
     padding: 16px;
   }
 
-  .settings-tabs :deep(.el-tabs__content) {
+  .settings-tabs ::deep(.el-tabs__content) {
     flex: 1;
     overflow: auto;
   }
 
-  .settings-tabs :deep(.el-tab-pane) {
+  .settings-tabs ::deep(.el-tab-pane) {
     height: 100%;
   }
 
@@ -117,12 +117,12 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .settings-card :deep(.el-card__header) {
+  html.dark .settings-card ::deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }
 
-  html.dark .settings-card :deep(.el-card__body) {
+  html.dark .settings-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 
@@ -130,22 +130,22 @@
     color: var(--el-text-color-primary);
   }
 
-  html.dark .settings-tabs :deep(.el-tabs__header) {
+  html.dark .settings-tabs ::deep(.el-tabs__header) {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
-  html.dark .settings-tabs :deep(.el-tabs__item) {
+  html.dark .settings-tabs ::deep(.el-tabs__item) {
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .settings-tabs :deep(.el-tabs__item.is-active) {
+  html.dark .settings-tabs ::deep(.el-tabs__item.is-active) {
     color: var(--primary-color);
     border-bottom-color: var(--primary-color);
   }
 
-  html.dark .settings-tabs :deep(.el-tabs__nav-wrap::after) {
+  html.dark .settings-tabs ::deep(.el-tabs__nav-wrap::after) {
     background-color: var(--el-border-color);
   }
 </style>

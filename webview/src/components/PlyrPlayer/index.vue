@@ -240,17 +240,17 @@
     height: 100%;
   }
 
-  :deep(.plyr) {
+  ::deep(.plyr) {
     width: 100%;
     height: 100%;
   }
 
-  :deep(.plyr__video-wrapper) {
+  ::deep(.plyr__video-wrapper) {
     width: 100%;
     height: 100%;
   }
 
-  :deep(video) {
+  ::deep(video) {
     width: 100%;
     height: 100%;
     object-fit: contain;

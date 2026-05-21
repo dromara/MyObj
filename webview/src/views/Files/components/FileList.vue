@@ -362,15 +362,15 @@
   }
 
   /* 表格行 hover 效果 */
-  .file-table :deep(.el-table__body tr:hover) {
+  .file-table ::deep(.el-table__body tr:hover) {
     background-color: var(--el-table-row-hover-bg-color) !important;
   }
 
-  .file-table :deep(.el-table__body tr.folder-row:hover) {
+  .file-table ::deep(.el-table__body tr.folder-row:hover) {
     background-color: rgba(64, 158, 255, 0.06) !important;
   }
 
-  .file-table :deep(.el-table__body tr.folder-row:hover .file-name-cell) {
+  .file-table ::deep(.el-table__body tr.folder-row:hover .file-name-cell) {
     background: transparent !important;
   }
 
@@ -483,7 +483,7 @@
     line-height: 1;
   }
 
-  .public-tag-inline :deep(.el-tag__content) {
+  .public-tag-inline ::deep(.el-tag__content) {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -491,7 +491,7 @@
     line-height: 1;
   }
 
-  .public-tag-inline :deep(.el-icon) {
+  .public-tag-inline ::deep(.el-icon) {
     flex-shrink: 0;
   }
 
@@ -510,33 +510,33 @@
     flex-shrink: 0;
   }
 
-  .file-table :deep(.mobile-name-column) {
+  .file-table ::deep(.mobile-name-column) {
     min-width: auto;
     width: 100%;
   }
 
-  .file-table :deep(.mobile-name-column .cell) {
+  .file-table ::deep(.mobile-name-column .cell) {
     padding: 0 !important;
   }
 
-  .file-table :deep(.mobile-actions-column) {
+  .file-table ::deep(.mobile-actions-column) {
     width: auto;
     min-width: 80px;
   }
 
   /* 表格移动端隐藏列 - 只在移动端生效 */
   @media (max-width: 1024px) {
-    .file-table :deep(.mobile-hide) {
+    .file-table ::deep(.mobile-hide) {
       display: none;
     }
 
-    .file-table :deep(.mobile-name-column) {
+    .file-table ::deep(.mobile-name-column) {
       min-width: auto;
       width: 100%;
     }
   }
 
-  .file-table :deep(.mobile-actions-column .cell) {
+  .file-table ::deep(.mobile-actions-column .cell) {
     padding: 8px 4px !important;
     text-align: center;
   }
@@ -553,24 +553,24 @@
   }
 
   @media (max-width: 1024px) {
-    .file-table :deep(.mobile-actions-column) {
+    .file-table ::deep(.mobile-actions-column) {
       width: auto;
       min-width: 80px;
     }
 
-    .file-table :deep(.mobile-actions-column .el-button) {
+    .file-table ::deep(.mobile-actions-column .el-button) {
       padding: 4px 8px;
       font-size: 12px;
     }
   }
 
   @media (max-width: 480px) {
-    .file-table :deep(.mobile-actions-column) {
+    .file-table ::deep(.mobile-actions-column) {
       width: auto;
       min-width: 60px;
     }
 
-    .file-table :deep(.mobile-actions-column .el-button) {
+    .file-table ::deep(.mobile-actions-column .el-button) {
       padding: 2px 4px;
       font-size: 11px;
     }
@@ -751,34 +751,34 @@
     background: var(--card-bg);
   }
 
-  html.dark .file-table :deep(.el-table__header-wrapper) {
+  html.dark .file-table ::deep(.el-table__header-wrapper) {
     background: var(--el-bg-color-page);
   }
 
-  html.dark .file-table :deep(.el-table__header th) {
+  html.dark .file-table ::deep(.el-table__header th) {
     background: var(--el-bg-color-page);
     color: var(--el-text-color-primary);
     border-color: var(--el-border-color);
   }
 
-  html.dark .file-table :deep(.el-table__body tr) {
+  html.dark .file-table ::deep(.el-table__body tr) {
     background: var(--card-bg);
   }
 
-  html.dark .file-table :deep(.el-table__body tr:hover > td) {
+  html.dark .file-table ::deep(.el-table__body tr:hover > td) {
     background: var(--el-fill-color-light);
   }
 
-  html.dark .file-table :deep(.el-dropdown-menu) {
+  html.dark .file-table ::deep(.el-dropdown-menu) {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
   }
 
-  html.dark .file-table :deep(.el-dropdown-menu__item) {
+  html.dark .file-table ::deep(.el-dropdown-menu__item) {
     color: var(--el-text-color-primary);
   }
 
-  html.dark .file-table :deep(.el-dropdown-menu__item:hover) {
+  html.dark .file-table ::deep(.el-dropdown-menu__item:hover) {
     background: var(--el-fill-color-light);
     color: var(--primary-color);
   }

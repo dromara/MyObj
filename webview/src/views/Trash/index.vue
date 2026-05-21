@@ -691,17 +691,17 @@
   }
 
   /* 隐藏表格自带的空状态显示，使用手动的 el-empty */
-  .trash-table :deep(.el-table__empty-block) {
+  .trash-table ::deep(.el-table__empty-block) {
     display: none;
   }
 
-  .trash-table :deep(.el-table) {
+  .trash-table ::deep(.el-table) {
     background: transparent !important;
     --el-table-tr-bg-color: transparent;
     --el-table-header-bg-color: transparent;
   }
 
-  .trash-table :deep(.el-table th.el-table__cell) {
+  .trash-table ::deep(.el-table th.el-table__cell) {
     background: transparent !important;
     color: var(--el-text-color-primary);
     font-weight: 600;
@@ -709,31 +709,31 @@
     border-bottom-color: var(--el-border-color-lighter);
   }
 
-  .trash-table :deep(.el-table td.el-table__cell) {
+  .trash-table ::deep(.el-table td.el-table__cell) {
     background: transparent !important;
     color: var(--el-text-color-primary);
     border-bottom-color: var(--el-border-color-lighter);
   }
 
-  .trash-table :deep(.el-table tr) {
+  .trash-table ::deep(.el-table tr) {
     background: transparent !important;
     transition: all 0.2s;
   }
 
-  .trash-table :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  .trash-table ::deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
     background: var(--el-fill-color-lighter) !important;
   }
 
   /* 表格移动端隐藏列 */
-  .trash-table :deep(.mobile-hide) {
+  .trash-table ::deep(.mobile-hide) {
     display: table-cell;
   }
 
-  .trash-table :deep(.mobile-name-column) {
+  .trash-table ::deep(.mobile-name-column) {
     min-width: 200px;
   }
 
-  .trash-table :deep(.mobile-actions-column) {
+  .trash-table ::deep(.mobile-actions-column) {
     width: auto;
     min-width: 120px;
   }
@@ -874,7 +874,7 @@
     min-width: auto;
   }
 
-  .action-btn :deep(.el-icon) {
+  .action-btn ::deep(.el-icon) {
     font-size: 18px;
   }
 
@@ -964,7 +964,7 @@
     border-color: var(--el-border-color);
   }
 
-  html.dark .toolbar-card :deep(.el-card__body) {
+  html.dark .toolbar-card ::deep(.el-card__body) {
     background: var(--card-bg);
   }
 

@@ -213,7 +213,7 @@
     margin-bottom: 10px;
   }
 
-  .storage-progress :deep(.el-progress-bar__outer) {
+  .storage-progress ::deep(.el-progress-bar__outer) {
     border-radius: 4px;
   }
 

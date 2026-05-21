@@ -244,7 +244,7 @@
     height: 100%;
   }
 
-  .collaboration-tabs :deep(.el-tabs__content) {
+  .collaboration-tabs ::deep(.el-tabs__content) {
     height: calc(100% - 55px);
     overflow: auto;
   }
