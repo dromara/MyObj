@@ -124,6 +124,18 @@ func (s *EnterpriseService) CreateEnterprise(req *request.CreateEnterpriseReques
 			return err
 		}
 
+		// 默认角色：浏览共享空间
+		allPowersForDefault, _ := txFactory.Power().List(ctx, 0, 1000)
+		for _, p := range allPowersForDefault {
+			if p.Characteristic == "enterprise:space:view" {
+				_ = txFactory.EnterpriseRolePower().BatchCreate(ctx, []*models.EnterpriseRolePower{{
+					RoleID:  defaultRole.ID,
+					PowerID: p.ID,
+				}})
+				break
+			}
+		}
+
 		member := &models.EnterpriseMember{
 			ID:           uuid.New().String(),
 			EnterpriseID: enterpriseID,
@@ -933,8 +945,40 @@ func (s *EnterpriseService) DissolveEnterprise(req *request.DissolveEnterpriseRe
 	err = s.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := s.factory.WithTx(tx)
 
+		// 解散前收集物理文件 ID，删除关联后尝试回收无引用文件
+		var physicalFileIDs []string
+		offset := 0
+		const batch = 500
+		for {
+			files, listErr := txFactory.EnterpriseSharedFile().ListByEnterpriseID(ctx, req.EnterpriseID, "", offset, batch)
+			if listErr != nil {
+				return listErr
+			}
+			if len(files) == 0 {
+				break
+			}
+			for _, f := range files {
+				physicalFileIDs = append(physicalFileIDs, f.FileID)
+			}
+			if len(files) < batch {
+				break
+			}
+			offset += batch
+		}
+
 		if err := txFactory.EnterpriseSharedFile().DeleteByEnterpriseID(ctx, req.EnterpriseID); err != nil {
 			return err
+		}
+		spaceSvc := NewEnterpriseSpaceService(s.factory, nil)
+		seen := make(map[string]struct{})
+		for _, fid := range physicalFileIDs {
+			if _, ok := seen[fid]; ok {
+				continue
+			}
+			seen[fid] = struct{}{}
+			if err := spaceSvc.cleanupPhysicalFileIfUnreferenced(ctx, txFactory, fid); err != nil {
+				return err
+			}
 		}
 		if err := txFactory.EnterpriseSharedPath().DeleteByEnterpriseID(ctx, req.EnterpriseID); err != nil {
 			return err

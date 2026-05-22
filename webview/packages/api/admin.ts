@@ -1,5 +1,5 @@
 import { get, post, download } from '@myobj/http'
-import { filterParams, API_BASE_URL } from '@myobj/shared'
+import { filterParams } from '@myobj/shared'
 import { API_ENDPOINTS } from '@myobj/shared'
 import type { ApiResponse, AdminUser, CreateUserRequest, UpdateUserRequest, UserListRequest, UserListResponse, AdminGroup, CreateGroupRequest, UpdateGroupRequest, GroupListResponse, AdminPower, PowerListResponse, CreatePowerRequest, UpdatePowerRequest, BatchDeletePowerRequest, AssignPowerRequest, AdminDisk, CreateDiskRequest, UpdateDiskRequest, DiskListResponse, ScannedDiskInfo, SystemConfig, UpdateSystemConfigRequest, AuditLogListRequest, AuditLogListResponse, SpaceConfig, UpdateSpaceConfigRequest } from '@myobj/shared'
 // ========== 用户管理 API ==========

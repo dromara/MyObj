@@ -9,10 +9,11 @@
     <!-- 工具栏 -->
     <div class="toolbar-container">
       <div class="toolbar-left">
-        <el-button class="action-btn" icon="Plus" @click="showMkdirDialog = true">
+        <el-button v-if="canUpload" class="action-btn" icon="Plus" @click="showMkdirDialog = true">
           {{ t('enterprise.space.mkdir') }}
         </el-button>
         <el-upload
+          v-if="canUpload"
           :show-file-list="false"
           :before-upload="handleUpload"
           :disabled="uploading"
@@ -21,6 +22,7 @@
           <el-button class="action-btn-secondary" icon="Upload" :loading="uploading">{{ t('enterprise.space.upload') }}</el-button>
         </el-upload>
         <el-button
+          v-if="canDelete"
           type="danger"
           plain
           icon="Delete"
@@ -30,6 +32,7 @@
           {{ t('common.delete') }}
         </el-button>
         <el-button
+          v-if="canDownload"
           icon="Download"
           :disabled="selectedFiles.length === 0 || selectedFiles.some(f => f._isDir)"
           @click="handleBatchDownload"
@@ -37,6 +40,7 @@
           {{ t('common.download') }}
         </el-button>
         <el-button
+          v-if="canUpload"
           icon="Rank"
           :disabled="selectedFiles.length !== 1 || selectedFiles[0]._isDir"
           @click="handleMoveClick(selectedFiles[0])"
@@ -325,8 +329,8 @@
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
   import { enterpriseApi } from '@myobj/api'
-  import { upload, download } from '@myobj/http'
-  import { API_ENDPOINTS } from '@myobj/shared'
+  import { download } from '@myobj/http'
+  import { uploadEnterpriseFile } from '@/utils/file/enterpriseUpload'
   import type { SharedFileEntry, SpaceUsage, FileItem } from '@myobj/shared'
   import { formatSize } from '@/utils'
   import { useI18n } from '@/composables'
@@ -335,10 +339,16 @@
   import ShareDialog from '@/components/ShareDialog/index.vue'
 
   const enterpriseId = inject<Ref<string>>('enterpriseId', ref(''))
+  const isAdmin = inject<Ref<boolean>>('isAdmin', ref(false))
+  const hasPower = inject<(p: string) => boolean>('hasPower', () => false)
+
+  const canUpload = computed(() => isAdmin.value || hasPower('enterprise:space:upload'))
+  const canDownload = computed(() => isAdmin.value || hasPower('enterprise:space:download'))
+  const canDelete = computed(() => isAdmin.value || hasPower('enterprise:space:delete'))
 
   const {
     getSharedFileList, createSharedDir, deleteSharedFile,
-    downloadSharedFile, sharedUploadPrecheck, getSpaceUsage,
+    downloadSharedFile, getSpaceUsage,
     deleteSharedDir, renameSharedFile, renameSharedDir,
     searchSharedFiles, getSharedPathTree, moveSharedFile,
     createPackage, getPackageProgress, downloadPackage,
@@ -633,40 +643,19 @@
   }
 
   const handleUpload = async (file: File) => {
+    if (!canUpload.value) {
+      proxy?.$modal.msgError(t('common.noPermission') || '无上传权限')
+      return false
+    }
     try {
       uploading.value = true
       uploadProgress.value = 0
-
-      // Precheck
-      const precheckRes = await sharedUploadPrecheck({
-        enterprise_id: enterpriseId.value,
-        file_name: file.name,
-        file_size: file.size,
-        path_id: currentPathId.value || undefined
-      })
-      if (!precheckRes || precheckRes.code !== 200) {
-        proxy?.$modal.msgError(precheckRes?.message || t('common.operationFailed'))
-        return false
-      }
-
-      const precheckId = precheckRes.data?.precheck_id
-      if (!precheckId) {
-        proxy?.$modal.msgError('预检失败：未获取到precheck_id')
-        return false
-      }
-
-      const formData = new FormData()
-      formData.append('enterprise_id', enterpriseId.value)
-      formData.append('precheck_id', precheckId)
-      if (currentPathId.value) formData.append('path_id', String(currentPathId.value))
-
-      const result = await upload(
-        API_ENDPOINTS.ENTERPRISE.SPACE.UPLOAD,
+      const result = await uploadEnterpriseFile({
         file,
-        formData,
-        (percent) => { uploadProgress.value = Math.round(percent) }
-      )
-
+        enterpriseId: enterpriseId.value,
+        pathId: currentPathId.value,
+        onProgress: (p) => { uploadProgress.value = p }
+      })
       if (result.code === 200) {
         proxy?.$modal.msgSuccess(t('enterprise.space.uploadSuccess'))
         loadFiles()
@@ -789,8 +778,8 @@
       has_thumbnail: !!file.thumbnail,
       public: false,
       created_at: file.created_at || '',
-      preview_url: previewSharedFile(fileId),
-      thumbnail_url: file.thumbnail ? getSharedFileThumbnail(fileId) : undefined
+      preview_url: previewSharedFile(fileId, enterpriseId.value),
+      thumbnail_url: file.thumbnail ? getSharedFileThumbnail(fileId, enterpriseId.value) : undefined
     } as FileItem
     showPreview.value = true
   }
@@ -883,8 +872,13 @@
     showShareDialog.value = true
   }
 
-  const handleShareCreate = (data: any) => {
-    return createShare({ enterprise_id: enterpriseId.value, ...data })
+  const handleShareCreate = (data: { file_id: string; expire_days?: number; password?: string }) => {
+    return createShare({
+      enterprise_id: enterpriseId.value,
+      file_id: data.file_id,
+      expire_days: data.expire_days,
+      password: data.password
+    })
   }
 
   // 右键菜单命令处理

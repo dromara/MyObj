@@ -178,13 +178,17 @@ export const renameSharedDir = (id: number, name: string, enterprise_id?: string
 }
 
 // 预览（返回 URL）
-export const previewSharedFile = (id: string) => {
-  return API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.PREVIEW + '?id=' + id
+export const previewSharedFile = (id: string, enterpriseId?: string) => {
+  let url = API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.PREVIEW + '?id=' + encodeURIComponent(id)
+  if (enterpriseId) url += '&enterprise_id=' + encodeURIComponent(enterpriseId)
+  return url
 }
 
 // 缩略图（返回 URL）
-export const getSharedFileThumbnail = (fileId: string) => {
-  return API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.THUMBNAIL + '/' + fileId
+export const getSharedFileThumbnail = (fileId: string, enterpriseId?: string) => {
+  let url = API_BASE_URL + API_ENDPOINTS.ENTERPRISE.SPACE.THUMBNAIL + '/' + encodeURIComponent(fileId)
+  if (enterpriseId) url += '?enterprise_id=' + encodeURIComponent(enterpriseId)
+  return url
 }
 
 // 搜索文件
@@ -233,7 +237,7 @@ export const getExtractProgress = (task_id: string) => {
 }
 
 // 创建文件分享
-export const createShare = (data: { enterprise_id: string; file_id: string; expire?: number; password?: string }) => {
+export const createShare = (data: { enterprise_id: string; file_id: string; expire_days?: number; password?: string }) => {
   return post<ApiResponse>(API_ENDPOINTS.ENTERPRISE.SPACE.SHARE, data)
 }
 

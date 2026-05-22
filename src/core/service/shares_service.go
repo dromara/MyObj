@@ -104,23 +104,21 @@ func (s *SharesService) GetShareInfo(token string, password string) (*response.S
 		}
 	}
 
-	// 密码验证通过或没有密码，获取文件信息
-	userFile, err := s.factory.UserFiles().GetByUserIDAndFileID(ctx, byToken.UserID, byToken.FileID)
-	if err != nil {
-		logger.LOG.Error("获取文件失败", "error", err)
-		return nil, fmt.Errorf("获取文件失败")
-	}
-
-	// 获取文件详细信息
 	fileInfo, err := s.factory.FileInfo().GetByID(ctx, byToken.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件信息失败", "error", err)
 		return nil, fmt.Errorf("获取文件信息失败")
 	}
 
+	displayName := fileInfo.Name
+	userFile, err := s.factory.UserFiles().GetByUserIDAndFileID(ctx, byToken.UserID, byToken.FileID)
+	if err == nil && userFile != nil {
+		displayName = userFile.FileName
+	}
+
 	return &response.ShareInfoResponse{
 		FileID:        byToken.FileID,
-		FileName:      userFile.FileName,
+		FileName:      displayName,
 		FileSize:      int64(fileInfo.Size),
 		MimeType:      fileInfo.Mime,
 		HasPassword:   byToken.PasswordHash != "",
@@ -165,14 +163,14 @@ func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloa
 	// 使用时间戳生成临时目录，避免Windows文件名非法字符
 	tmpDir := path.Join(disk.DiskPath, config.CONFIG.File.TempDir, fmt.Sprintf("share_%d", util.TimeUtil{}.GetTimestamp()))
 
-	// 准备文件下载（解密+合并）
+	// 准备文件下载（解密+合并）；分享令牌已校验
 	result, err := download.PrepareLocalFileDownload(
 		ctx,
 		byToken.FileID,
-		byToken.UserID, // 使用分享者的UserID
+		byToken.UserID,
 		tmpDir,
 		s.factory,
-		nil, // 分享文件不需要密码（已经验证过分享密码）
+		&download.LocalFileDownloadOptions{SkipPermission: true},
 	)
 	if err != nil {
 		logger.LOG.Error("准备文件下载失败", "error", err)

@@ -25,20 +25,20 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
 
-    /* Path alias */
-    "baseUrl": ".",
+    /* Path alias (TS 6+: baseUrl removed, use explicit paths) */
     "paths": {
-      "@/*": ["src/*"],
-      "@myobj/shared": ["packages/shared/index.ts"],
-      "@myobj/shared/*": ["packages/shared/*"],
-      "@myobj/http": ["packages/http/index.ts"],
-      "@myobj/http/*": ["packages/http/*"],
-      "@myobj/api": ["packages/api/index.ts"],
-      "@myobj/api/*": ["packages/api/*"],
-      "@myobj/hooks": ["packages/hooks/index.ts"],
-      "@myobj/hooks/*": ["packages/hooks/*"],
-      "@myobj/ui": ["packages/ui/index.ts"],
-      "@myobj/ui/*": ["packages/ui/*"]
+      "*": ["./*"],
+      "@/*": ["./src/*"],
+      "@myobj/shared": ["./packages/shared/index.ts"],
+      "@myobj/shared/*": ["./packages/shared/*"],
+      "@myobj/http": ["./packages/http/index.ts"],
+      "@myobj/http/*": ["./packages/http/*"],
+      "@myobj/api": ["./packages/api/index.ts"],
+      "@myobj/api/*": ["./packages/api/*"],
+      "@myobj/hooks": ["./packages/hooks/index.ts"],
+      "@myobj/hooks/*": ["./packages/hooks/*"],
+      "@myobj/ui": ["./packages/ui/index.ts"],
+      "@myobj/ui/*": ["./packages/ui/*"]
     },
     "types": ["vite/client"]
   },

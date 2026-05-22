@@ -8,8 +8,11 @@ import { i18n, type LanguageEnum } from '@myobj/shared'
 export function useI18n() {
   const locale = inject<Ref<LanguageEnum>>('app-locale', ref(i18n.global.locale.value as LanguageEnum))
 
-  const t = (key: string, ...args: any[]): string => {
-    return i18n.global.t(key, ...args)
+  const t = (key: string, params?: Record<string, unknown>): string => {
+    if (params != null) {
+      return i18n.global.t(key, params) as string
+    }
+    return i18n.global.t(key) as string
   }
 
   return { locale, t }

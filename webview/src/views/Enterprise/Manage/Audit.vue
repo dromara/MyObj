@@ -88,11 +88,12 @@
 
   const getActionTagType = (action: string): string => {
     const lower = action.toLowerCase()
-    if (lower.includes('create') || lower.includes('add') || lower.includes('invite')) return 'success'
+    if (lower.includes('invite') || lower.includes('create') || lower.includes('add') || lower.includes('mkdir')) return 'success'
     if (lower.includes('delete') || lower.includes('remove')) return 'danger'
-    if (lower.includes('update') || lower.includes('edit') || lower.includes('rename')) return 'warning'
+    if (lower.includes('update') || lower.includes('edit') || lower.includes('rename') || lower.includes('quota')) return 'warning'
     if (lower.includes('upload')) return 'primary'
-    if (lower.includes('download')) return 'info'
+    if (lower.includes('download') || lower.includes('preview') || lower.includes('package')) return 'info'
+    if (lower.includes('share') || lower.includes('extract') || lower.includes('move')) return ''
     return ''
   }
 

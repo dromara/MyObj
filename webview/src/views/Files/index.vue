@@ -544,6 +544,13 @@ import FileList from './components/FileList.vue'
     }
   }
 
+  defineExpose({
+    extractDialogRef,
+    folderFormRef,
+    renameFileFormRef,
+    renameDirFormRef
+  })
+
   // 监听 Header 的搜索事件
   onMounted(() => {
     // 监听全局搜索事件

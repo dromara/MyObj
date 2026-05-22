@@ -102,7 +102,7 @@ type ExtractStartRequest struct {
 // CreateEnterpriseShareRequest 创建企业文件分享请求
 type CreateEnterpriseShareRequest struct {
 	EnterpriseID string `json:"enterprise_id" binding:"required"`
-	FileID       string `json:"file_id" binding:"required"`
-	Expire       int    `json:"expire"`
+	FileID       string `json:"file_id" binding:"required"` // enterprise_shared_file.id
+	ExpireDays   int    `json:"expire_days"`                // 0=默认30天
 	Password     string `json:"password"`
 }

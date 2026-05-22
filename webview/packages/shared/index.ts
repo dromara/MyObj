@@ -22,6 +22,7 @@ export * from './utils/storage'
 export * from './utils/validation'
 export * from './utils/config'
 export * from './utils/file'
+export { scrollTo } from './utils/scroll-to'
 
 // theme
 export { default as themePresets } from './theme'

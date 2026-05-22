@@ -119,6 +119,7 @@
   import { shareApi } from '@myobj/api'
   import type { ShareInfoResponse } from '@myobj/api/share'
   const { getShareInfo, getShareDownloadUrl } = shareApi
+  import { Download } from '@element-plus/icons-vue'
   import { formatSize } from '@/utils'
   import { useI18n } from '@/composables'
 

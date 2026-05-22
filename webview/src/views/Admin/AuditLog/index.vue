@@ -151,7 +151,11 @@
       enterprise_space_share: t('admin.audit.actions.enterprise_space_share'),
       enterprise_role_create: t('admin.audit.actions.enterprise_role_create'),
       enterprise_role_update: t('admin.audit.actions.enterprise_role_update'),
-      enterprise_role_delete: t('admin.audit.actions.enterprise_role_delete')
+      enterprise_role_delete: t('admin.audit.actions.enterprise_role_delete'),
+      enterprise_member_invite: t('admin.audit.actions.enterprise_member_invite'),
+      enterprise_member_remove: t('admin.audit.actions.enterprise_member_remove'),
+      enterprise_member_role_update: t('admin.audit.actions.enterprise_member_role_update'),
+      enterprise_quota_update: t('admin.audit.actions.enterprise_quota_update')
     }
     return map[action] || action
   }
@@ -174,7 +178,13 @@
   const getTargetLabel = (target: string) => {
     const map: Record<string, string> = {
       file: t('admin.audit.targets.file'),
-      dir: t('admin.audit.targets.dir')
+      dir: t('admin.audit.targets.dir'),
+      user: t('admin.audit.targets.user'),
+      enterprise: t('admin.audit.targets.enterprise'),
+      enterprise_member: t('admin.audit.targets.enterprise_member'),
+      enterprise_role: t('admin.audit.targets.enterprise_role'),
+      enterprise_shared_file: t('admin.audit.targets.enterprise_shared_file'),
+      enterprise_shared_path: t('admin.audit.targets.enterprise_shared_path')
     }
     return map[target] || target
   }

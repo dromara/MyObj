@@ -50,8 +50,6 @@
     Document,
     Delete,
     Share,
-    Upload,
-    Refresh,
     QuestionFilled
   } from '@element-plus/icons-vue'
 

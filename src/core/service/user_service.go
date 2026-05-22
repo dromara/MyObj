@@ -372,6 +372,7 @@ func (u *UserService) InitEnterprisePowers(ctx context.Context) error {
 		{"邀请成员", "邀请新成员加入企业", "enterprise:member:invite"},
 		{"移除成员", "从企业中移除成员", "enterprise:member:remove"},
 		{"角色管理", "创建、编辑、删除企业角色", "enterprise:role:manage"},
+		{"浏览共享空间", "浏览企业共享空间目录与文件", "enterprise:space:view"},
 		{"上传到共享空间", "上传文件到企业共享空间", "enterprise:space:upload"},
 		{"从共享空间下载", "下载企业共享空间中的文件", "enterprise:space:download"},
 		{"删除共享空间文件", "删除企业共享空间中的文件", "enterprise:space:delete"},

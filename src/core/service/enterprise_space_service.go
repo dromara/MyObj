@@ -47,8 +47,12 @@ func (s *EnterpriseSpaceService) GetRepository() *impl.RepositoryFactory {
 }
 
 // CreateDir 创建共享目录
-func (s *EnterpriseSpaceService) CreateDir(req *request.CreateSharedDirRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) CreateDir(req *request.CreateSharedDirRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	// 验证企业存在
 	enterprise, err := s.factory.Enterprise().GetByID(ctx, req.EnterpriseID)
@@ -87,8 +91,12 @@ func (s *EnterpriseSpaceService) CreateDir(req *request.CreateSharedDirRequest, 
 }
 
 // ListFiles 列出共享空间指定目录下的文件和子目录
-func (s *EnterpriseSpaceService) ListFiles(req *request.SharedFileListRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) ListFiles(req *request.SharedFileListRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	// 验证用户是企业活跃成员
 	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, req.EnterpriseID, userID)
@@ -208,8 +216,12 @@ func (s *EnterpriseSpaceService) ListFiles(req *request.SharedFileListRequest, u
 }
 
 // UploadPrecheck 共享空间上传预检
-func (s *EnterpriseSpaceService) UploadPrecheck(req *request.SharedUploadPrecheckRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) UploadPrecheck(req *request.SharedUploadPrecheckRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	// 验证企业存在
 	enterprise, err := s.factory.Enterprise().GetByID(ctx, req.EnterpriseID)
@@ -325,8 +337,12 @@ func (s *EnterpriseSpaceService) UploadPrecheck(req *request.SharedUploadPrechec
 }
 
 // UploadFile 处理共享空间文件上传
-func (s *EnterpriseSpaceService) UploadFile(req *request.SharedFileUploadRequest, file multipart.File, header *multipart.FileHeader, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) UploadFile(req *request.SharedFileUploadRequest, file multipart.File, header *multipart.FileHeader, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return nil, err
+	}
 
 	// 1. 从缓存获取预检信息
 	reqCacheKey := fmt.Sprintf("sharedUploadReq:%s", req.PrecheckID)
@@ -604,20 +620,21 @@ func (s *EnterpriseSpaceService) UploadFile(req *request.SharedFileUploadRequest
 }
 
 // DeleteFile 删除共享文件
-func (s *EnterpriseSpaceService) DeleteFile(fileID string, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) DeleteFile(fileID, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
 	if err != nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	// 验证用户是企业活跃成员
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
+	physicalFileID := sharedFile.FileID
 	err = s.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := s.factory.WithTx(tx)
 
@@ -625,14 +642,13 @@ func (s *EnterpriseSpaceService) DeleteFile(fileID string, userID string) (*mode
 			return fmt.Errorf("删除共享文件记录失败: %w", err)
 		}
 
-		// 原子恢复企业空间
 		if err := tx.Model(&models.Enterprise{}).
 			Where("id = ? AND space_unlimited = ?", sharedFile.EnterpriseID, false).
 			Update("free_space", gorm.Expr("free_space + ?", sharedFile.Size)).Error; err != nil {
 			return fmt.Errorf("更新企业空间失败: %w", err)
 		}
 
-		return nil
+		return s.cleanupPhysicalFileIfUnreferenced(ctx, txFactory, physicalFileID)
 	})
 
 	if err != nil {
@@ -643,18 +659,18 @@ func (s *EnterpriseSpaceService) DeleteFile(fileID string, userID string) (*mode
 }
 
 // DownloadFile 获取共享文件下载信息
-func (s *EnterpriseSpaceService) DownloadFile(fileID string, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) DownloadFile(fileID, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
 	if err != nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	// 验证用户是企业活跃成员
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	// 获取物理文件信息
@@ -677,8 +693,12 @@ func (s *EnterpriseSpaceService) DownloadFile(fileID string, userID string) (*mo
 }
 
 // GetSpaceUsage 获取企业空间使用情况
-func (s *EnterpriseSpaceService) GetSpaceUsage(enterpriseID string, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) GetSpaceUsage(enterpriseID, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, enterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	// 验证用户是企业活跃成员
 	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, enterpriseID, userID)
@@ -712,24 +732,25 @@ func (s *EnterpriseSpaceService) GetSpaceUsage(enterpriseID string, userID strin
 }
 
 // DeleteDir 删除共享目录（递归删除子目录和文件）
-func (s *EnterpriseSpaceService) DeleteDir(dirID int, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) DeleteDir(dirID int, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
 	dir, err := s.factory.EnterpriseSharedPath().GetByID(ctx, dirID)
 	if err != nil || dir == nil {
 		return models.NewJsonResponse(404, "目录不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, dir.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, dir.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, dir.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	var totalSize int64
+	var deletedFileIDs []string
 	err = s.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := s.factory.WithTx(tx)
-		// 在事务内收集并删除文件，避免竞态
-		if err := s.collectAndDeleteInTx(ctx, txFactory, dir.EnterpriseID, dirID, &totalSize); err != nil {
+		if err := s.collectAndDeleteInTx(ctx, txFactory, dir.EnterpriseID, dirID, &totalSize, &deletedFileIDs); err != nil {
 			return err
 		}
 		if err := s.deletePathsRecursive(ctx, txFactory, dir.EnterpriseID, dirID); err != nil {
@@ -748,6 +769,11 @@ func (s *EnterpriseSpaceService) DeleteDir(dirID int, userID string) (*models.Js
 				}
 			}
 		}
+		for _, fid := range deletedFileIDs {
+			if err := s.cleanupPhysicalFileIfUnreferenced(ctx, txFactory, fid); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 
@@ -759,7 +785,7 @@ func (s *EnterpriseSpaceService) DeleteDir(dirID int, userID string) (*models.Js
 }
 
 // collectAndDeleteInTx 在事务内递归收集并删除目录下的所有文件
-func (s *EnterpriseSpaceService) collectAndDeleteInTx(ctx context.Context, txFactory *impl.RepositoryFactory, enterpriseID string, pathID int, totalSize *int64) error {
+func (s *EnterpriseSpaceService) collectAndDeleteInTx(ctx context.Context, txFactory *impl.RepositoryFactory, enterpriseID string, pathID int, totalSize *int64, deletedFileIDs *[]string) error {
 	offset := 0
 	batchSize := 1000
 	for {
@@ -772,6 +798,7 @@ func (s *EnterpriseSpaceService) collectAndDeleteInTx(ctx context.Context, txFac
 		}
 		for _, f := range files {
 			*totalSize += f.Size
+			*deletedFileIDs = append(*deletedFileIDs, f.FileID)
 			if err := txFactory.EnterpriseSharedFile().Delete(ctx, f.ID); err != nil {
 				return err
 			}
@@ -786,7 +813,7 @@ func (s *EnterpriseSpaceService) collectAndDeleteInTx(ctx context.Context, txFac
 		return err
 	}
 	for _, d := range subDirs {
-		if err := s.collectAndDeleteInTx(ctx, txFactory, enterpriseID, d.ID, totalSize); err != nil {
+		if err := s.collectAndDeleteInTx(ctx, txFactory, enterpriseID, d.ID, totalSize, deletedFileIDs); err != nil {
 			return err
 		}
 	}
@@ -807,17 +834,18 @@ func (s *EnterpriseSpaceService) deletePathsRecursive(ctx context.Context, txFac
 }
 
 // RenameFile 重命名共享文件
-func (s *EnterpriseSpaceService) RenameFile(fileID, newName string, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) RenameFile(fileID, newName, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
 	if err != nil || sharedFile == nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	sharedFile.FileName = newName
@@ -831,17 +859,18 @@ func (s *EnterpriseSpaceService) RenameFile(fileID, newName string, userID strin
 }
 
 // RenameDir 重命名共享目录
-func (s *EnterpriseSpaceService) RenameDir(dirID int, newName string, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) RenameDir(dirID int, newName, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
 	dir, err := s.factory.EnterpriseSharedPath().GetByID(ctx, dirID)
 	if err != nil || dir == nil {
 		return models.NewJsonResponse(404, "目录不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, dir.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, dir.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, dir.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	dir.Name = newName
@@ -855,17 +884,18 @@ func (s *EnterpriseSpaceService) RenameDir(dirID int, newName string, userID str
 }
 
 // GetThumbnailPath 获取文件缩略图路径
-func (s *EnterpriseSpaceService) GetThumbnailPath(fileID, userID string) (string, error) {
+func (s *EnterpriseSpaceService) GetThumbnailPath(fileID, contextEnterpriseID, userID string) (string, error) {
 	ctx := context.Background()
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
 	if err != nil || sharedFile == nil {
 		return "", fmt.Errorf("文件不存在")
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return "", fmt.Errorf("无权访问")
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return "", err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return "", err
 	}
 
 	fileInfo, err := s.factory.FileInfo().GetByID(ctx, sharedFile.FileID)
@@ -881,8 +911,12 @@ func (s *EnterpriseSpaceService) GetThumbnailPath(fileID, userID string) (string
 }
 
 // SearchFiles 搜索企业空间文件
-func (s *EnterpriseSpaceService) SearchFiles(req *request.SearchEnterpriseFilesRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) SearchFiles(req *request.SearchEnterpriseFilesRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, req.EnterpriseID, userID)
 	if err != nil || member == nil || member.Status != 0 {
@@ -941,8 +975,12 @@ func (s *EnterpriseSpaceService) SearchFiles(req *request.SearchEnterpriseFilesR
 }
 
 // GetPathTree 获取企业空间目录树
-func (s *EnterpriseSpaceService) GetPathTree(enterpriseID, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) GetPathTree(enterpriseID, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, enterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, enterpriseID, userID)
 	if err != nil || member == nil || member.Status != 0 {
@@ -983,18 +1021,25 @@ func (s *EnterpriseSpaceService) GetPathTree(enterpriseID, userID string) (*mode
 }
 
 // MoveFile 移动企业空间文件到目标目录
-func (s *EnterpriseSpaceService) MoveFile(fileID string, targetPathID int, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) MoveFile(req *request.MoveEnterpriseFileRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+
+	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, req.FileID)
 	if err != nil || sharedFile == nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "您不是该企业的活跃成员", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+
+	targetPathID := req.TargetPath
 
 	// 验证目标目录存在（0=根目录）
 	if targetPathID != 0 {
@@ -1006,7 +1051,7 @@ func (s *EnterpriseSpaceService) MoveFile(fileID string, targetPathID int, userI
 
 	// 检查目标目录是否有同名文件
 	existing, _ := s.factory.EnterpriseSharedFile().GetByPathIDAndName(ctx, sharedFile.EnterpriseID, targetPathID, sharedFile.FileName)
-	if existing != nil && existing.ID != fileID {
+	if existing != nil && existing.ID != req.FileID {
 		return models.NewJsonResponse(409, "目标目录已存在同名文件", nil), nil
 	}
 
@@ -1021,22 +1066,23 @@ func (s *EnterpriseSpaceService) MoveFile(fileID string, targetPathID int, userI
 }
 
 // PackageCreate 创建打包下载任务
-func (s *EnterpriseSpaceService) PackageCreate(req *request.EnterprisePackageCreateRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) PackageCreate(req *request.EnterprisePackageCreateRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
 
-	// 验证所有文件存在且用户有权限
-	var firstFile *models.EnterpriseSharedFile
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, req.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+
 	for _, fileID := range req.FileIDs {
 		sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, fileID)
 		if err != nil || sharedFile == nil {
 			return models.NewJsonResponse(404, fmt.Sprintf("文件 %s 不存在", fileID), nil), err
 		}
-		if firstFile == nil {
-			firstFile = sharedFile
-		}
-		member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-		if err != nil || member == nil || member.Status != 0 {
-			return models.NewJsonResponse(403, "无权访问文件", nil), err
+		if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+			return models.NewJsonResponse(403, err.Error(), nil), err
 		}
 	}
 
@@ -1174,17 +1220,22 @@ func (s *EnterpriseSpaceService) GetPackageFile(packageID string) (string, strin
 }
 
 // ExtractCheck 检测解压冲突
-func (s *EnterpriseSpaceService) ExtractCheck(req *request.EnterpriseExtractCheckRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) ExtractCheck(req *request.EnterpriseExtractCheckRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, req.FileID)
 	if err != nil || sharedFile == nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "无权访问", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	// 获取文件信息
@@ -1235,17 +1286,22 @@ func (s *EnterpriseSpaceService) ExtractCheck(req *request.EnterpriseExtractChec
 }
 
 // ExtractStart 开始解压
-func (s *EnterpriseSpaceService) ExtractStart(req *request.ExtractStartRequest, userID string) (*models.JsonResponse, error) {
+func (s *EnterpriseSpaceService) ExtractStart(req *request.ExtractStartRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, req.FileID)
 	if err != nil || sharedFile == nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "无权访问", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
 	fileInfo, err := s.factory.FileInfo().GetByID(ctx, sharedFile.FileID)
@@ -1325,24 +1381,12 @@ func (s *EnterpriseSpaceService) doExtract(taskID, filePath, enterpriseID string
 				completed++
 				continue
 			case "overwrite":
-				// 恢复旧文件占用的空间
 				if enterprise != nil && !enterprise.SpaceUnlimited {
 					s.updateEnterpriseSpace(enterpriseID, -existing.Size)
 				}
-				// 清理旧 FileInfo（仅当无其他引用时）
-				oldFileInfo, _ := s.factory.FileInfo().GetByID(context.Background(), existing.FileID)
-				// 删除旧企业文件关联
+				oldPhysicalID := existing.FileID
 				s.factory.EnterpriseSharedFile().Delete(context.Background(), existing.ID)
-				// 检查是否还有其他企业文件引用同一个 FileInfo
-				if oldFileInfo != nil {
-					otherRefs, _ := s.factory.EnterpriseSharedFile().ListByFileID(context.Background(), existing.FileID)
-					if len(otherRefs) == 0 {
-						if oldFileInfo.Path != "" {
-							os.Remove(oldFileInfo.Path)
-						}
-						s.factory.FileInfo().Delete(context.Background(), oldFileInfo.ID)
-					}
-				}
+				_ = s.cleanupPhysicalFileIfUnreferenced(context.Background(), s.factory, oldPhysicalID)
 			case "keep_both":
 				// 保持原名，会在后面处理
 			default:
@@ -1525,50 +1569,61 @@ func (s *EnterpriseSpaceService) ExtractProgress(taskID string) (*models.JsonRes
 	return models.NewJsonResponse(200, "ok", taskInfo), nil
 }
 
-// CreateShare 创建企业文件分享链接
-func (s *EnterpriseSpaceService) CreateShare(req *request.CreateEnterpriseShareRequest, userID string) (*models.JsonResponse, error) {
+// CreateShare 创建企业文件分享链接（写入 shares 表）
+func (s *EnterpriseSpaceService) CreateShare(req *request.CreateEnterpriseShareRequest, contextEnterpriseID, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := assertEnterpriseContext(contextEnterpriseID, req.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
 
 	sharedFile, err := s.factory.EnterpriseSharedFile().GetByID(ctx, req.FileID)
 	if err != nil || sharedFile == nil {
 		return models.NewJsonResponse(404, "文件不存在", nil), err
 	}
-
-	member, err := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, sharedFile.EnterpriseID, userID)
-	if err != nil || member == nil || member.Status != 0 {
-		return models.NewJsonResponse(403, "无权访问", nil), err
+	if err := assertEnterpriseContext(contextEnterpriseID, sharedFile.EnterpriseID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
+	}
+	if err := s.verifyActiveMember(ctx, sharedFile.EnterpriseID, userID); err != nil {
+		return models.NewJsonResponse(403, err.Error(), nil), err
 	}
 
-	shareID := uuid.New().String()
-	shareLink := fmt.Sprintf("/share/%s", shareID)
-
-	var expireAt *custom_type.JsonTime
-	if req.Expire > 0 {
-		now := custom_type.Now()
-		t := now.Add(time.Duration(req.Expire) * 24 * time.Hour)
-		expireAt = &t
+	fileInfo, err := s.factory.FileInfo().GetByID(ctx, sharedFile.FileID)
+	if err != nil || fileInfo == nil {
+		return models.NewJsonResponse(404, "物理文件不存在", nil), err
 	}
 
-	shareData := map[string]interface{}{
-		"share_id":      shareID,
-		"file_id":       req.FileID,
-		"enterprise_id": sharedFile.EnterpriseID,
-		"creator_id":    userID,
-		"link":          shareLink,
-		"password":      req.Password,
-		"expire_at":     expireAt,
-		"file_name":     sharedFile.FileName,
+	token := fmt.Sprintf("%s-%v", uuid.New().String(), util.TimeUtil{}.GetTimestamp())
+	var passwordHash string
+	if req.Password != "" {
+		passwordHash, err = util.GeneratePassword(req.Password)
+		if err != nil {
+			return models.NewJsonResponse(500, "生成分享密码失败", nil), err
+		}
 	}
 
-	// 缓存分享信息
-	shareJSON, _ := json.Marshal(shareData)
-	expireSeconds := 86400 * 30 // 默认30天
-	if req.Expire > 0 {
-		expireSeconds = req.Expire * 86400
+	now := custom_type.Now()
+	expireAt := now.Add(30 * 24 * time.Hour)
+	if req.ExpireDays > 0 {
+		expireAt = now.Add(time.Duration(req.ExpireDays) * 24 * time.Hour)
+	} else if req.ExpireDays == 0 {
+		expireAt = now.Add(100 * 365 * 24 * time.Hour)
 	}
-	s.cacheLocal.Set(fmt.Sprintf("share:%s", shareID), string(shareJSON), expireSeconds)
 
-	return models.NewJsonResponse(200, "ok", shareData), nil
+	share := &models.Share{
+		UserID:        userID,
+		FileID:        fileInfo.ID,
+		Token:         token,
+		ExpiresAt:     expireAt,
+		PasswordHash:  passwordHash,
+		DownloadCount: 0,
+		CreatedAt:     custom_type.Now(),
+	}
+	if err := s.factory.Share().Create(ctx, share); err != nil {
+		return models.NewJsonResponse(500, "创建分享失败", nil), err
+	}
+
+	return models.NewJsonResponse(200, "ok", fmt.Sprintf("/api/share/download/%s", token)), nil
 }
 
 // updateEnterpriseSpace 更新企业空间用量

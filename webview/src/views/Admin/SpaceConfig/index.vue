@@ -88,8 +88,8 @@
   }
 
   // 无限空间切换
-  const handleEnterpriseUnlimitedChange = (val: boolean) => {
-    if (val) {
+  const handleEnterpriseUnlimitedChange = (val: string | number | boolean) => {
+    if (val === true) {
       enterpriseSpaceGB.value = 0
     }
   }

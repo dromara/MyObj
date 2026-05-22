@@ -1016,11 +1016,21 @@ export default {
         enterprise_space_share: '分享文件',
         enterprise_role_create: '创建角色',
         enterprise_role_update: '更新角色',
-        enterprise_role_delete: '删除角色'
+        enterprise_role_delete: '删除角色',
+        enterprise_member_invite: '邀请成员',
+        enterprise_member_remove: '移除成员',
+        enterprise_member_role_update: '变更成员角色',
+        enterprise_quota_update: '更新存储配额'
       },
       targets: {
         file: '文件',
-        dir: '目录'
+        dir: '目录',
+        user: '用户',
+        enterprise: '企业',
+        enterprise_member: '企业成员',
+        enterprise_role: '企业角色',
+        enterprise_shared_file: '共享文件',
+        enterprise_shared_path: '共享目录'
       }
     }
   },
@@ -1522,17 +1532,33 @@ export default {
         enterprise_space_share: '分享文件',
         enterprise_role_create: '创建角色',
         enterprise_role_update: '更新角色',
-        enterprise_role_delete: '删除角色'
+        enterprise_role_delete: '删除角色',
+        enterprise_member_invite: '邀请成员',
+        enterprise_member_remove: '移除成员',
+        enterprise_member_role_update: '变更成员角色',
+        enterprise_quota_update: '更新存储配额'
+      },
+      targets: {
+        file: '文件',
+        dir: '目录',
+        user: '用户',
+        enterprise: '企业',
+        enterprise_member: '企业成员',
+        enterprise_role: '企业角色',
+        enterprise_shared_file: '共享文件',
+        enterprise_shared_path: '共享目录'
       }
     },
     powers: {
       'member:invite': '邀请成员',
       'member:remove': '移除成员',
       'role:manage': '角色管理',
+      'space:view': '浏览共享空间',
       'space:upload': '上传文件',
       'space:download': '下载文件',
       'space:delete': '删除文件',
-      'audit:view': '查看审计日志'
+      'audit:view': '查看审计日志',
+      manage: '企业管理'
     }
   },
 }

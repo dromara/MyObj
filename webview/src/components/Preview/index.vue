@@ -210,7 +210,6 @@
   import type { FileItem, PreviewType, PreviewOptions } from '@myobj/shared'
   import { detectFileType, getFilePreviewUrl, getFileTextContent, getCodeLanguage, getThumbnailUrl } from '@/utils/ui/preview'
   import { useFileDownload } from '@/composables'
-  import { API_BASE_URL, API_ENDPOINTS } from '@myobj/shared'
   import { videoApi } from '@myobj/api'
   const { createVideoPlayPrecheck, getVideoStreamUrl } = videoApi
   import {

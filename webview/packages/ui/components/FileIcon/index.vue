@@ -86,12 +86,6 @@
     return `linear-gradient(135deg, ${color}20 0%, ${color}10 50%, ${color}30 100%)`
   })
 
-  // 边框渐变
-  const borderGradient = computed(() => {
-    const color = iconConfig.value.color
-    return `linear-gradient(135deg, ${color}40, ${color}20)`
-  })
-
   const handleImageError = () => {
     imageError.value = true
   }

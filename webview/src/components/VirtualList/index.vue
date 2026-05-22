@@ -40,9 +40,8 @@
   const visibleItems = computed(() => virtualScroll.visibleItems.value)
   const totalHeight = computed(() => virtualScroll.totalHeight.value)
   const offsetY = computed(() => virtualScroll.offsetY.value)
-  // 容器引用，用于绑定到模板（在模板中使用）
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const containerRefElement = virtualScroll.containerRef
+  defineExpose({ containerRefElement })
 </script>
 
 <style scoped>

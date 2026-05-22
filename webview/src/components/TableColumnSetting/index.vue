@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { TableCheck } from '@/composables'
+  import type { TableCheck } from '@myobj/hooks'
   import { useI18n } from '@/composables'
 
   const { t } = useI18n()

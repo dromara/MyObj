@@ -118,8 +118,15 @@
 
   const groupLabels: Record<string, string> = {
     'enterprise:member': '成员管理',
+    'enterprise:member:view': '查看成员',
+    'enterprise:member:invite': '邀请成员',
+    'enterprise:member:remove': '移除成员',
     'enterprise:role': '角色管理',
     'enterprise:space': '共享空间',
+    'enterprise:space:view': '浏览共享空间',
+    'enterprise:space:upload': '上传文件',
+    'enterprise:space:download': '下载文件',
+    'enterprise:space:delete': '删除文件',
     'enterprise:audit': '审计日志',
     'enterprise:manage': '企业管理'
   }

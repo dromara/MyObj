@@ -114,11 +114,12 @@
   import { useI18n } from '@/composables'
   import { useUserStore } from '@/stores'
 
-  const { getMyEnterprises, createEnterprise, joinEnterprise, acceptInvite, getPendingInvites } = enterpriseApi
+  const { getMyEnterprises, createEnterprise, joinEnterprise, acceptInvite, getPendingInvites, switchEnterprise } = enterpriseApi
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
   const userStore = useUserStore()
   const router = useRouter()
+  const refreshLayoutEnterprises = inject<() => Promise<void>>('loadEnterprises')
 
   const userId = computed(() => userStore.userInfo?.id)
   const loading = ref(false)
@@ -128,7 +129,6 @@
   const createFormRef = ref()
   const showJoinDialog = ref(false)
   const joining = ref(false)
-  const joinFormRef = ref()
   const showPendingDialog = ref(false)
   const pendingInvites = ref<any[]>([])
 
@@ -178,6 +178,7 @@
       if (res.code === 200 && res.data) {
         enterpriseList.value = Array.isArray(res.data) ? res.data : (res.data.list || [])
       }
+      await refreshLayoutEnterprises?.()
     } catch (error: any) {
       console.error('[List.vue] getMyEnterprises error:', error)
       proxy?.$log?.error(error)
@@ -199,8 +200,14 @@
           createForm.name = ''
           createForm.description = ''
           await loadEnterprises()
-          if (res.data?.enterprise_id) {
-            router.push(`/enterprise/${res.data.enterprise_id}/members`)
+          const newId = res.data?.enterprise_id
+          if (newId) {
+            try {
+              await switchEnterprise({ enterprise_id: newId })
+            } catch {
+              /* 切换失败不阻断进入 */
+            }
+            router.push(`/enterprise/${newId}/space`)
           }
         } else {
           proxy?.$modal.msgError(res.message || t('common.createFailed'))

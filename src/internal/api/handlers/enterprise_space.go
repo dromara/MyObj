@@ -34,7 +34,7 @@ func (h *EnterpriseSpaceHandler) CreateDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.CreateDir(req, c.GetString("userID"))
+	result, err := h.service.CreateDir(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -67,7 +67,7 @@ func (h *EnterpriseSpaceHandler) ListFiles(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.ListFiles(req, c.GetString("userID"))
+	result, err := h.service.ListFiles(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -85,7 +85,7 @@ func (h *EnterpriseSpaceHandler) UploadPrecheck(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.UploadPrecheck(req, c.GetString("userID"))
+	result, err := h.service.UploadPrecheck(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -112,7 +112,7 @@ func (h *EnterpriseSpaceHandler) UploadFile(c *gin.Context) {
 	defer file.Close()
 
 	userID := c.GetString("userID")
-	result, err := h.service.UploadFile(req, file, header, userID)
+	result, err := h.service.UploadFile(req, file, header, c.GetString("enterpriseID"), userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "上传失败", err.Error()))
 		return
@@ -144,7 +144,7 @@ func (h *EnterpriseSpaceHandler) DeleteFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.DeleteFile(req.ID, c.GetString("userID"))
+	result, err := h.service.DeleteFile(req.ID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -179,7 +179,7 @@ func (h *EnterpriseSpaceHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.DownloadFile(fileID, c.GetString("userID"))
+	result, err := h.service.DownloadFile(fileID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -228,7 +228,7 @@ func (h *EnterpriseSpaceHandler) GetSpaceUsage(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	result, err := h.service.GetSpaceUsage(enterpriseID, c.GetString("userID"))
+	result, err := h.service.GetSpaceUsage(enterpriseID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -246,7 +246,7 @@ func (h *EnterpriseSpaceHandler) DeleteDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.DeleteDir(req.ID, c.GetString("userID"))
+	result, err := h.service.DeleteDir(req.ID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -279,7 +279,7 @@ func (h *EnterpriseSpaceHandler) RenameFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.RenameFile(req.ID, req.Name, c.GetString("userID"))
+	result, err := h.service.RenameFile(req.ID, req.Name, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -311,7 +311,7 @@ func (h *EnterpriseSpaceHandler) RenameDir(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.RenameDir(req.ID, req.Name, c.GetString("userID"))
+	result, err := h.service.RenameDir(req.ID, req.Name, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -346,7 +346,7 @@ func (h *EnterpriseSpaceHandler) PreviewFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	result, err := h.service.DownloadFile(fileID, c.GetString("userID"))
+	result, err := h.service.DownloadFile(fileID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -398,7 +398,7 @@ func (h *EnterpriseSpaceHandler) GetThumbnail(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	thumbnailPath, err := h.service.GetThumbnailPath(fileID, c.GetString("userID"))
+	thumbnailPath, err := h.service.GetThumbnailPath(fileID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(404, "缩略图不存在", nil))
 		return
@@ -413,7 +413,7 @@ func (h *EnterpriseSpaceHandler) SearchFiles(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.SearchFiles(req, c.GetString("userID"))
+	result, err := h.service.SearchFiles(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -432,7 +432,7 @@ func (h *EnterpriseSpaceHandler) GetPathTree(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	result, err := h.service.GetPathTree(enterpriseID, c.GetString("userID"))
+	result, err := h.service.GetPathTree(enterpriseID, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -451,7 +451,7 @@ func (h *EnterpriseSpaceHandler) MoveFile(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.MoveFile(req.FileID, req.TargetPath, c.GetString("userID"))
+	result, err := h.service.MoveFile(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -485,7 +485,7 @@ func (h *EnterpriseSpaceHandler) PackageCreate(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.PackageCreate(req, c.GetString("userID"))
+	result, err := h.service.PackageCreate(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -550,7 +550,7 @@ func (h *EnterpriseSpaceHandler) ExtractCheck(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.ExtractCheck(req, c.GetString("userID"))
+	result, err := h.service.ExtractCheck(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -569,7 +569,7 @@ func (h *EnterpriseSpaceHandler) ExtractStart(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.ExtractStart(req, c.GetString("userID"))
+	result, err := h.service.ExtractStart(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)
@@ -617,7 +617,7 @@ func (h *EnterpriseSpaceHandler) CreateShare(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
 		return
 	}
-	result, err := h.service.CreateShare(req, c.GetString("userID"))
+	result, err := h.service.CreateShare(req, c.GetString("enterpriseID"), c.GetString("userID"))
 	if err != nil {
 		if result != nil {
 			c.JSON(200, result)

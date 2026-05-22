@@ -1027,11 +1027,21 @@ export default {
         enterprise_space_share: 'Share File',
         enterprise_role_create: 'Create Role',
         enterprise_role_update: 'Update Role',
-        enterprise_role_delete: 'Delete Role'
+        enterprise_role_delete: 'Delete Role',
+        enterprise_member_invite: 'Invite Member',
+        enterprise_member_remove: 'Remove Member',
+        enterprise_member_role_update: 'Update Member Role',
+        enterprise_quota_update: 'Update Storage Quota'
       },
       targets: {
         file: 'File',
-        dir: 'Directory'
+        dir: 'Directory',
+        user: 'User',
+        enterprise: 'Enterprise',
+        enterprise_member: 'Enterprise Member',
+        enterprise_role: 'Enterprise Role',
+        enterprise_shared_file: 'Shared File',
+        enterprise_shared_path: 'Shared Folder'
       }
     }
   },
@@ -1534,17 +1544,33 @@ export default {
         enterprise_space_share: 'Share File',
         enterprise_role_create: 'Create Role',
         enterprise_role_update: 'Update Role',
-        enterprise_role_delete: 'Delete Role'
+        enterprise_role_delete: 'Delete Role',
+        enterprise_member_invite: 'Invite Member',
+        enterprise_member_remove: 'Remove Member',
+        enterprise_member_role_update: 'Update Member Role',
+        enterprise_quota_update: 'Update Storage Quota'
+      },
+      targets: {
+        file: 'File',
+        dir: 'Directory',
+        user: 'User',
+        enterprise: 'Enterprise',
+        enterprise_member: 'Enterprise Member',
+        enterprise_role: 'Enterprise Role',
+        enterprise_shared_file: 'Shared File',
+        enterprise_shared_path: 'Shared Folder'
       }
     },
     powers: {
       'member:invite': 'Invite Members',
       'member:remove': 'Remove Members',
       'role:manage': 'Manage Roles',
+      'space:view': 'Browse Shared Space',
       'space:upload': 'Upload Files',
       'space:download': 'Download Files',
       'space:delete': 'Delete Files',
-      'audit:view': 'View Audit Logs'
+      'audit:view': 'View Audit Logs',
+      manage: 'Manage Enterprise'
     }
   },
 }

@@ -65,7 +65,7 @@
   const rules = reactive<FormRules>({
     file_password: [
       {
-        validator: (rule, value, callback) => {
+        validator: (_rule, value, callback) => {
           if (encryptForm.is_enc && !value) {
             callback(new Error(t('uploadEncrypt.passwordRequired')))
           } else {

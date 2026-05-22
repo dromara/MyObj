@@ -19,7 +19,8 @@ import (
 
 // LocalFileDownloadOptions 本地文件下载配置
 type LocalFileDownloadOptions struct {
-	FilePassword string // 文件解密密码（加密文件必需）
+	FilePassword     string // 文件解密密码（加密文件必需）
+	SkipPermission   bool   // 已通过分享令牌等外部校验时跳过权限检查
 }
 
 // LocalFileDownloadResult 本地文件下载结果
@@ -58,8 +59,10 @@ func PrepareLocalFileDownload(
 	result.IsChunked = fileInfo.IsChunk
 
 	// 2. 验证文件权限（公开文件或用户自己的文件）
-	if err := validateFilePermission(ctx, fileID, userID, repoFactory); err != nil {
-		return nil, err
+	if opts == nil || !opts.SkipPermission {
+		if err := validateFilePermission(ctx, fileID, userID, repoFactory); err != nil {
+			return nil, err
+		}
 	}
 
 	// 3. 判断是否需要临时文件（加密或分片）

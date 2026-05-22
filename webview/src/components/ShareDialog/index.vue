@@ -211,6 +211,7 @@
       const res = await shareFn({
         file_id: props.fileInfo.file_id,
         expire: expireStr,
+        expire_days: shareForm.expire_days,
         password: shareForm.password
       } as CreateShareRequest)
 

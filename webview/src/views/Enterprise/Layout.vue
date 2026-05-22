@@ -56,7 +56,7 @@
           <el-icon><Key /></el-icon>
           <template #title>{{ t('enterprise.role.title') }}</template>
         </el-menu-item>
-        <el-menu-item :index="`/enterprise/${currentEnterpriseId}/space`">
+        <el-menu-item v-if="hasPower('enterprise:space:view')" :index="`/enterprise/${currentEnterpriseId}/space`">
           <el-icon><FolderOpened /></el-icon>
           <template #title>{{ t('enterprise.space.title') }}</template>
         </el-menu-item>
@@ -64,7 +64,7 @@
           <el-icon><Document /></el-icon>
           <template #title>{{ t('enterprise.audit.title') }}</template>
         </el-menu-item>
-        <el-menu-item v-if="hasPower('enterprise:manage')" :index="`/enterprise/${currentEnterpriseId}/settings`">
+        <el-menu-item v-if="isAdmin" :index="`/enterprise/${currentEnterpriseId}/settings`">
           <el-icon><Setting /></el-icon>
           <template #title>{{ t('route.enterpriseSettings') }}</template>
         </el-menu-item>
@@ -91,7 +91,7 @@
   import { useI18n } from '@/composables'
   import { useUserStore } from '@/stores'
 
-  const { getMyEnterprises } = enterpriseApi
+  const { getMyEnterprises, switchEnterprise } = enterpriseApi
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
   const userStore = useUserStore()
@@ -133,9 +133,19 @@
     }
   }
 
-  const handleSelectEnterprise = (command: string) => {
+  const handleSelectEnterprise = async (command: string) => {
     if (command === '__list__') {
       router.push('/enterprise/list')
+      return
+    }
+    try {
+      const res = await switchEnterprise({ enterprise_id: command })
+      if (res.code !== 200) {
+        proxy?.$modal.msgError(res.message || t('common.operationFailed'))
+        return
+      }
+    } catch (error: any) {
+      proxy?.$modal.msgError(error.message || t('common.operationFailed'))
       return
     }
     currentEnterpriseId.value = command
@@ -147,15 +157,21 @@
     router.push(`/enterprise/${command}/${subPath}`)
   }
 
-  watch(() => route.params.id, (id) => {
-    if (id && id !== currentEnterpriseId.value) {
-      currentEnterpriseId.value = id as string
-      currentEnterprise.value = enterpriseList.value.find(e => e.id === id) || null
+  watch(() => route.params.id, async (id) => {
+    if (!id) return
+    const idStr = id as string
+    currentEnterpriseId.value = idStr
+    const found = enterpriseList.value.find(e => e.id === idStr)
+    if (found) {
+      currentEnterprise.value = found
+    } else {
+      await loadEnterprises()
     }
   })
 
   provide('enterpriseId', currentEnterpriseId)
   provide('isAdmin', isAdmin)
+  provide('hasPower', hasPower)
   provide('loadEnterprises', loadEnterprises)
 
   onMounted(() => {

@@ -2,8 +2,7 @@
  * 打印工具函数
  * 支持图片、PDF、文本等文件的打印
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { logger, i18n } from '@myobj/shared'
+import { i18n } from '@myobj/shared'
 
 /**
  * 打印选项
