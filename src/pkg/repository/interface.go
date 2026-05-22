@@ -301,6 +301,7 @@ type AuditLogQuery struct {
 type AuditLogRepository interface {
 	Create(ctx context.Context, log *models.AuditLog) error
 	ListByCondition(ctx context.Context, query *AuditLogQuery) ([]*models.AuditLog, int64, error)
+	DeleteByEnterpriseID(ctx context.Context, enterpriseID string) error
 }
 
 // EnterpriseRepository 企业仓储接口

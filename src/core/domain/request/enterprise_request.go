@@ -92,7 +92,7 @@ type DissolveEnterpriseRequest struct {
 // ToggleEnterpriseStateRequest 启用/禁用企业请求
 type ToggleEnterpriseStateRequest struct {
 	EnterpriseID string `json:"enterprise_id" binding:"required"`
-	State        int    `json:"state" binding:"required,oneof=0 1"` // 0=正常, 1=禁用
+	State        *int   `json:"state" binding:"required,oneof=0 1"` // 0=正常, 1=禁用
 }
 
 // SetEnterpriseQuotaRequest 设置企业存储配额请求

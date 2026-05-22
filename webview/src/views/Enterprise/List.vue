@@ -143,7 +143,19 @@
   }
 
   const formatSpace = (item: Enterprise) => {
-    if (item.space_unlimited) return '∞'
+    if (item.space_unlimited) {
+      if (item.global_max_space && item.global_max_space > 0) {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB']
+        let idx = 0
+        let size = item.global_max_space
+        while (size >= 1024 && idx < units.length - 1) {
+          size /= 1024
+          idx++
+        }
+        return `${size.toFixed(1)} ${units[idx]}`
+      }
+      return '∞'
+    }
     if (!item.space || item.space === 0) return '0 B'
     const units = ['B', 'KB', 'MB', 'GB', 'TB']
     let idx = 0

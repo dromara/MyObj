@@ -36,11 +36,13 @@
               <span style="color: var(--el-text-color-secondary)">GB</span>
             </template>
           </div>
-          <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px">
-            {{ t('enterprise.space.used') }}: {{ spaceUsage ? formatSize(spaceUsage.used_space) : '-' }}
-          </div>
-          <div v-if="globalMaxGB > 0" style="font-size: 12px; color: var(--el-color-warning); margin-top: 2px">
-            {{ '系统设置的企业空间上限：' + globalMaxGB + ' GB' }}
+          <div style="display: flex; align-items: center; gap: 20px; font-size: 12px; margin-top: 4px; flex-wrap: wrap">
+            <span style="color: var(--el-text-color-secondary)">
+              {{ t('enterprise.space.used') }}: {{ spaceUsage ? formatSize(spaceUsage.used_space) : '-' }}
+            </span>
+            <span v-if="globalMaxGB > 0" style="color: var(--el-color-warning)">
+              {{ '系统设置的企业空间上限：' + globalMaxGB + ' GB' }}
+            </span>
           </div>
         </el-form-item>
         <el-form-item>
@@ -56,7 +58,7 @@
       </template>
 
       <div class="danger-section">
-        <div class="danger-item">
+        <div v-if="isCreator" class="danger-item">
           <div class="danger-info">
             <h4>{{ t('enterprise.transfer') }}</h4>
             <p>{{ t('enterprise.transferConfirm') }}</p>
@@ -72,7 +74,7 @@
           </el-tooltip>
         </div>
 
-        <el-divider />
+        <el-divider v-if="isCreator" />
 
         <div class="danger-item">
           <div class="danger-info">
@@ -89,7 +91,7 @@
 
         <el-divider />
 
-        <div class="danger-item">
+        <div v-if="isCreator" class="danger-item">
           <div class="danger-info">
             <h4 style="color: var(--el-color-danger)">{{ t('enterprise.dissolve') }}</h4>
             <p>{{ t('enterprise.dissolveConfirm') }}</p>
@@ -132,7 +134,6 @@
   import { useUserStore } from '@/stores'
 
   const enterpriseId = inject<Ref<string>>('enterpriseId', ref(''))
-  const isAdmin = inject<Ref<boolean>>('isAdmin', ref(false))
   const loadEnterprises = inject<() => Promise<void>>('loadEnterprises', async () => {})
 
   const {
@@ -165,6 +166,8 @@
     const currentUserId = userStore.userInfo?.id
     return memberList.value.filter(m => m.user_id !== currentUserId && m.status === 0)
   })
+
+  const isCreator = computed(() => enterpriseInfo.value?.creator_id === userStore.userInfo?.id)
 
   const loadMembers = async () => {
     try {
@@ -288,6 +291,8 @@
         proxy?.$modal.msgSuccess(t('enterprise.transferSuccess'))
         showTransferDialog.value = false
         transferForm.member_id = ''
+        loadInfo()
+        loadMembers()
         loadEnterprises()
       } else {
         proxy?.$modal.msgError(res.message || t('common.operationFailed'))
@@ -312,7 +317,11 @@
       } else {
         proxy?.$modal.msgError(res.message || t('common.operationFailed'))
       }
-    } catch {}
+    } catch (error: any) {
+      if (error !== 'cancel') {
+        proxy?.$modal.msgError(error.message || t('common.operationFailed'))
+      }
+    }
   }
 
   watch(enterpriseId, (id) => {

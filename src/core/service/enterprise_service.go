@@ -212,6 +212,7 @@ func (s *EnterpriseService) GetMyEnterprises(userID string) (*models.JsonRespons
 			Role:           roleName,
 			IsAdmin:        isAdmin,
 			Powers:         powers,
+			GlobalMaxSpace: s.getGlobalEnterpriseSpace(ctx),
 		})
 	}
 
@@ -875,30 +876,42 @@ func (s *EnterpriseService) TransferOwnership(req *request.TransferOwnershipRequ
 		return models.NewJsonResponse(400, "新所有者不是该企业的活跃成员", nil), nil
 	}
 
-	// 将新所有者设为管理员角色
-	adminRole, err := s.factory.EnterpriseRole().GetAdminByEnterpriseID(ctx, req.EnterpriseID)
-	if err != nil {
-		return models.NewJsonResponse(500, "获取管理员角色失败", nil), err
-	}
-	newOwnerMember.RoleID = adminRole.ID
-	if err := s.factory.EnterpriseMember().Update(ctx, newOwnerMember); err != nil {
-		return models.NewJsonResponse(500, "更新成员角色失败", nil), err
-	}
+	err = s.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := s.factory.WithTx(tx)
 
-	// 转让所有权
-	enterprise.CreatorID = newOwnerID
-	if err := s.factory.Enterprise().Update(ctx, enterprise); err != nil {
-		return models.NewJsonResponse(500, "转让失败", nil), err
-	}
-
-	// 旧创建者降级为普通成员
-	defaultRole, _ := s.factory.EnterpriseRole().GetDefaultByEnterpriseID(ctx, req.EnterpriseID)
-	if defaultRole != nil {
-		oldOwnerMember, _ := s.factory.EnterpriseMember().GetByEnterpriseAndUser(ctx, req.EnterpriseID, userID)
-		if oldOwnerMember != nil {
-			oldOwnerMember.RoleID = defaultRole.ID
-			s.factory.EnterpriseMember().Update(ctx, oldOwnerMember)
+		// 将新所有者设为管理员角色
+		adminRole, err := txFactory.EnterpriseRole().GetAdminByEnterpriseID(ctx, req.EnterpriseID)
+		if err != nil {
+			return err
 		}
+		newOwnerMember.RoleID = adminRole.ID
+		if err := txFactory.EnterpriseMember().Update(ctx, newOwnerMember); err != nil {
+			return err
+		}
+
+		// 转让所有权
+		enterprise.CreatorID = newOwnerID
+		if err := txFactory.Enterprise().Update(ctx, enterprise); err != nil {
+			return err
+		}
+
+		// 旧创建者降级为普通成员
+		defaultRole, _ := txFactory.EnterpriseRole().GetDefaultByEnterpriseID(ctx, req.EnterpriseID)
+		if defaultRole != nil {
+			oldOwnerMember, _ := txFactory.EnterpriseMember().GetByEnterpriseAndUser(ctx, req.EnterpriseID, userID)
+			if oldOwnerMember != nil {
+				oldOwnerMember.RoleID = defaultRole.ID
+				if err := txFactory.EnterpriseMember().Update(ctx, oldOwnerMember); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return models.NewJsonResponse(500, "转让失败", nil), err
 	}
 
 	return models.NewJsonResponse(200, "转让成功", nil), nil
@@ -952,6 +965,10 @@ func (s *EnterpriseService) DissolveEnterprise(req *request.DissolveEnterpriseRe
 			}
 		}
 
+		if err := txFactory.AuditLog().DeleteByEnterpriseID(ctx, req.EnterpriseID); err != nil {
+			return err
+		}
+
 		return txFactory.Enterprise().Delete(ctx, req.EnterpriseID)
 	})
 
@@ -975,13 +992,13 @@ func (s *EnterpriseService) ToggleEnterpriseState(req *request.ToggleEnterpriseS
 		return models.NewJsonResponse(404, "企业不存在", nil), err
 	}
 
-	enterprise.State = req.State
+	enterprise.State = *req.State
 	if err := s.factory.Enterprise().Update(ctx, enterprise); err != nil {
 		return models.NewJsonResponse(500, "操作失败", nil), err
 	}
 
 	stateText := "启用"
-	if req.State == 1 {
+	if *req.State == 1 {
 		stateText = "禁用"
 	}
 

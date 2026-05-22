@@ -57,3 +57,7 @@ func (r *auditLogRepository) ListByCondition(ctx context.Context, query *reposit
 
 	return logs, total, nil
 }
+
+func (r *auditLogRepository) DeleteByEnterpriseID(ctx context.Context, enterpriseID string) error {
+	return r.db.WithContext(ctx).Where("enterprise_id = ?", enterpriseID).Delete(&models.AuditLog{}).Error
+}
