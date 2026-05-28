@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
@@ -64,6 +65,11 @@ func (h *DownloadHandler) Router(c *gin.RouterGroup) {
 		downloadGroup.POST("/torrent/parse", middleware.PowerVerify("file:offLine"), h.ParseTorrent)
 		// 开始种子/磁力链下载
 		downloadGroup.POST("/torrent/start", middleware.PowerVerify("file:offLine"), h.StartTorrentDownload)
+
+		// 云盘同步相关
+		downloadGroup.POST("/cloud/validate", middleware.PowerVerify("file:offLine"), h.ValidateCloudCookie)
+		downloadGroup.POST("/cloud/files", middleware.PowerVerify("file:offLine"), h.ListCloudFiles)
+		downloadGroup.POST("/cloud/create", middleware.PowerVerify("file:offLine"), h.CreateCloudDownload)
 	}
 
 	// 文件预览接口（支持公开文件未登录访问，使用可选认证）
@@ -585,6 +591,71 @@ func (h *DownloadHandler) StartTorrentDownload(c *gin.Context) {
 		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
 		return
 	}
+
+	c.JSON(200, result)
+}
+
+// ValidateCloudCookie 验证云盘Cookie有效性
+func (h *DownloadHandler) ValidateCloudCookie(c *gin.Context) {
+	req := new(request.ValidateCloudCookieRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	result, err := h.service.ValidateCloudCookie(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "验证失败", err.Error()))
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+// ListCloudFiles 获取云盘文件列表
+func (h *DownloadHandler) ListCloudFiles(c *gin.Context) {
+	req := new(request.CloudFileListRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	result, err := h.service.ListCloudFiles(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "获取文件列表失败", err.Error()))
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+// CreateCloudDownload 创建云盘下载任务
+func (h *DownloadHandler) CreateCloudDownload(c *gin.Context) {
+	req := new(request.CreateCloudDownloadRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+
+	userID := c.GetString("userID")
+	result, err := h.service.CreateCloudDownload(req, userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
+		return
+	}
+
+	// 记录审计日志
+	userName := ""
+	if userLogin, exists := c.Get("userLogin"); exists {
+		if info, ok := userLogin.(response.UserLoginResponse); ok && info.User != nil {
+			userName = info.User.Name
+		}
+	}
+	audit.Record(h.service.GetRepository().DB(), &models.AuditLog{
+		ID: uuid.New().String(), UserID: userID, UserName: userName,
+		Action: "cloud_download", TargetType: "file", TargetName: req.FileID,
+		Detail: fmt.Sprintf("创建%s下载任务", req.Provider), IP: c.ClientIP(), CreatedAt: custom_type.Now(),
+	})
 
 	c.JSON(200, result)
 }

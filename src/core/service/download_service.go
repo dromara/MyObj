@@ -6,6 +6,7 @@ import (
 	"myobj/src/core/domain/request"
 	"myobj/src/core/domain/response"
 	"myobj/src/internal/repository/impl"
+	"myobj/src/pkg/cloudsync"
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/download"
 	"myobj/src/pkg/enum"
@@ -471,8 +472,40 @@ func (d *DownloadService) getTypeText(taskType int) string {
 		return "网盘下载"
 	case enum.DownloadTaskTypePackage.Value():
 		return "打包下载"
+	case enum.DownloadTaskTypeQuark.Value():
+		return "夸克网盘"
+	case enum.DownloadTaskTypeBaidu.Value():
+		return "百度网盘"
+	case enum.DownloadTaskTypeAliyun.Value():
+		return "阿里云盘"
+	case enum.DownloadTaskTypeUC.Value():
+		return "UC网盘"
+	case enum.DownloadTaskTypeXunlei.Value():
+		return "迅雷网盘"
+	case enum.DownloadTaskType139.Value():
+		return "移动云盘"
 	default:
 		return "未知"
+	}
+}
+
+// getCloudTaskType 根据云盘提供者名称获取任务类型
+func getCloudTaskType(provider string) int {
+	switch provider {
+	case "quark":
+		return enum.DownloadTaskTypeQuark.Value()
+	case "baidu":
+		return enum.DownloadTaskTypeBaidu.Value()
+	case "aliyun":
+		return enum.DownloadTaskTypeAliyun.Value()
+	case "uc":
+		return enum.DownloadTaskTypeUC.Value()
+	case "xunlei":
+		return enum.DownloadTaskTypeXunlei.Value()
+	case "139":
+		return enum.DownloadTaskType139.Value()
+	default:
+		return enum.DownloadTaskTypeQuark.Value()
 	}
 }
 
@@ -775,4 +808,117 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 	}
 
 	return models.NewJsonResponse(200, "任务创建成功", resp), nil
+}
+
+// ValidateCloudCookie 验证云盘Cookie有效性
+func (d *DownloadService) ValidateCloudCookie(req *request.ValidateCloudCookieRequest) (*models.JsonResponse, error) {
+	provider, err := cloudsync.GetProvider(req.Provider, req.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	userInfo, err := provider.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("验证失败: %w", err)
+	}
+
+	return models.NewJsonResponse(200, "验证成功", map[string]interface{}{
+		"provider":   provider.Name(),
+		"nickname":   userInfo.Nickname,
+		"total_size": userInfo.TotalSize,
+		"used_size":  userInfo.UsedSize,
+	}), nil
+}
+
+// ListCloudFiles 获取云盘文件列表
+func (d *DownloadService) ListCloudFiles(req *request.CloudFileListRequest) (*models.JsonResponse, error) {
+	provider, err := cloudsync.GetProvider(req.Provider, req.Cookie)
+	if err != nil {
+		return nil, err
+	}
+
+	files, total, err := provider.ListFiles(req.PdirFid, req.Page, req.PageSize)
+	if err != nil {
+		return nil, fmt.Errorf("获取文件列表失败: %w", err)
+	}
+
+	return models.NewJsonResponse(200, "获取成功", map[string]interface{}{
+		"files":      files,
+		"total":      total,
+		"page":       req.Page,
+		"page_size":  req.PageSize,
+	}), nil
+}
+
+// CreateCloudDownload 创建云盘下载任务
+func (d *DownloadService) CreateCloudDownload(req *request.CreateCloudDownloadRequest, userID string) (*models.JsonResponse, error) {
+	ctx := context.Background()
+
+	// 1. 验证用户
+	user, err := d.factory.User().GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("用户不存在")
+	}
+
+	// 2. 检查用户空间
+	if req.FileSize > 0 && user.Space > 0 && user.FreeSpace < req.FileSize {
+		return models.NewJsonResponse(400, "用户可用空间不足", map[string]interface{}{
+			"required_size": req.FileSize,
+			"free_space":    user.FreeSpace,
+		}), nil
+	}
+
+	// 3. 设置默认虚拟路径
+	virtualPath := req.VirtualPath
+	if virtualPath == "" {
+		virtualPath = "/云盘下载/"
+	}
+
+	// 4. 验证加密密码
+	if req.EnableEncryption && req.FilePassword == "" {
+		return nil, fmt.Errorf("加密存储密码不能为空")
+	}
+
+	// 5. 创建下载任务
+	taskID := uuid.Must(uuid.NewV7()).String()
+	task := &models.DownloadTask{
+		ID:               taskID,
+		UserID:           userID,
+		Type:             getCloudTaskType(req.Provider),
+		URL:              req.FileID,
+		FileName:         req.FileName,
+		FileSize:         req.FileSize,
+		VirtualPath:      virtualPath,
+		EnableEncryption: req.EnableEncryption,
+		State:            enum.DownloadTaskStateInit.Value(),
+		TargetDir:        d.tempDir,
+		CreateTime:       custom_type.Now(),
+		UpdateTime:       custom_type.Now(),
+	}
+
+	if err := d.factory.DownloadTask().Create(ctx, task); err != nil {
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	// 6. 异步启动下载
+	go func() {
+		opts := &download.CloudDownloadOptions{
+			Provider:         req.Provider,
+			Cookie:           req.Cookie,
+			FileID:           req.FileID,
+			EnableEncryption: req.EnableEncryption,
+			VirtualPath:      virtualPath,
+			FilePassword:     req.FilePassword,
+		}
+
+		_, err := download.DownloadCloud(taskID, userID, d.tempDir, d.factory, opts)
+		if err != nil {
+			logger.LOG.Error("云盘下载失败", "taskID", taskID, "error", err)
+		}
+	}()
+
+	logger.LOG.Info("云盘下载任务已创建", "taskID", taskID, "provider", req.Provider, "fileID", req.FileID)
+
+	taskResp := d.convertTaskToResponse(task)
+	return models.NewJsonResponse(200, "任务创建成功", taskResp), nil
 }

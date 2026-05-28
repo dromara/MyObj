@@ -40,6 +40,18 @@ const (
 	DownloadTaskTypeLocalFile
 	// DownloadTaskTypePackage 打包下载
 	DownloadTaskTypePackage
+	// DownloadTaskTypeQuark 夸克网盘下载
+	DownloadTaskTypeQuark
+	// DownloadTaskTypeBaidu 百度网盘下载
+	DownloadTaskTypeBaidu
+	// DownloadTaskTypeAliyun 阿里云盘下载
+	DownloadTaskTypeAliyun
+	// DownloadTaskTypeUC UC网盘下载
+	DownloadTaskTypeUC
+	// DownloadTaskTypeXunlei 迅雷网盘下载
+	DownloadTaskTypeXunlei
+	// DownloadTaskType139 移动云盘下载
+	DownloadTaskType139
 )
 
 func (t DownloadTaskType) Value() int {

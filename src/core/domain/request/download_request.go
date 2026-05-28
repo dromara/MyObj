@@ -75,3 +75,45 @@ type StartTorrentDownloadRequest struct {
 	// 文件密码（加密文件必需）
 	FilePassword string `json:"file_password"`
 }
+
+// ValidateCloudCookieRequest 验证云盘Cookie请求
+type ValidateCloudCookieRequest struct {
+	// 云盘类型（quark, baidu, aliyun等）
+	Provider string `json:"provider" binding:"required"`
+	// 云盘Cookie
+	Cookie string `json:"cookie" binding:"required"`
+}
+
+// CloudFileListRequest 获取云盘文件列表请求
+type CloudFileListRequest struct {
+	// 云盘类型
+	Provider string `json:"provider" binding:"required"`
+	// 云盘Cookie
+	Cookie string `json:"cookie" binding:"required"`
+	// 父目录ID（默认为 "0" 即根目录）
+	PdirFid string `json:"pdir_fid"`
+	// 页码
+	Page int `json:"page" binding:"required,min=1"`
+	// 每页数量
+	PageSize int `json:"page_size" binding:"required,min=1,max=100"`
+}
+
+// CreateCloudDownloadRequest 创建云盘下载任务请求
+type CreateCloudDownloadRequest struct {
+	// 云盘类型
+	Provider string `json:"provider" binding:"required"`
+	// 云盘Cookie
+	Cookie string `json:"cookie" binding:"required"`
+	// 云盘文件ID（fid）
+	FileID string `json:"file_id" binding:"required"`
+	// 文件名（可选，用于显示）
+	FileName string `json:"file_name"`
+	// 文件大小（可选，用于空间检查）
+	FileSize int64 `json:"file_size"`
+	// 保存的虚拟路径（可选，默认为 /云盘下载/）
+	VirtualPath string `json:"virtual_path"`
+	// 是否加密存储
+	EnableEncryption bool `json:"enable_encryption"`
+	// 文件密码（加密文件必需）
+	FilePassword string `json:"file_password"`
+}
