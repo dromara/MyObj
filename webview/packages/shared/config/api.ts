@@ -87,7 +87,20 @@ export const API_ENDPOINTS = {
     PAUSE: '/download/pause',
     RESUME: '/download/resume',
     LOCAL_CREATE: '/download/local/create',
-    LOCAL_FILE: '/download/local/file'
+    LOCAL_FILE: '/download/local/file',
+    CLOUD_PROVIDERS: '/download/cloud/providers',
+    CLOUD_VALIDATE: '/download/cloud/validate',
+    CLOUD_FILES: '/download/cloud/files',
+    CLOUD_CREATE: '/download/cloud/create',
+    CLOUD_BINDINGS: '/download/cloud/bindings',
+    CLOUD_BINDINGS_UNBIND: '/download/cloud/bindings/unbind',
+    CLOUD_SHARE_PARSE: '/download/cloud/share/parse',
+    CLOUD_SHARE_CREATE: '/download/cloud/share/create',
+    LANZOU_PARSE: '/download/lanzou/parse',
+    LANZOU_CREATE: '/download/lanzou/create',
+    CLOUD_OAUTH_AUTHORIZE: (provider: string) => `/download/cloud/oauth/authorize/${provider}`,
+    CLOUD_OAUTH_BINDINGS: '/download/cloud/oauth/bindings',
+    CLOUD_OAUTH_UNBIND: '/download/cloud/oauth/unbind'
   },
 
   // 上传/下载任务

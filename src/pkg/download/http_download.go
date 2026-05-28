@@ -34,6 +34,9 @@ type HTTPDownloadOptions struct {
 	MaxConcurrent    int    // 最大并发数，默认4
 	Timeout          int    // 超时时间（秒），默认300
 	FilePassword     string //加密文件密码（加密存储必备）
+	Headers          map[string]string
+	KnownFileName    string
+	KnownFileSize    int64
 }
 
 // HTTPDownloadResult HTTP下载结果
@@ -192,9 +195,21 @@ func DownloadHTTP(
 
 	// 1. 获取文件信息
 	logger.LOG.Info("开始获取文件信息", "url", url)
-	fileInfo, supportRange, err := GetFileInfo(url, opts.Timeout)
-	if err != nil {
-		return nil, fmt.Errorf("获取文件信息失败: %w", err)
+	var fileInfo *FileInfoResult
+	var supportRange bool
+	var err error
+	if opts.KnownFileName != "" {
+		fileInfo = &FileInfoResult{
+			FileName: opts.KnownFileName,
+			FileSize: opts.KnownFileSize,
+			Size:     opts.KnownFileSize,
+		}
+		supportRange = false
+	} else {
+		fileInfo, supportRange, err = GetFileInfoWithHeaders(url, opts.Timeout, opts.Headers)
+		if err != nil {
+			return nil, fmt.Errorf("获取文件信息失败: %w", err)
+		}
 	}
 
 	logger.LOG.Info("文件信息获取成功",
@@ -236,7 +251,7 @@ func DownloadHTTP(
 	} else {
 		// 不支持断点续传或文件较小，直接下载
 		logger.LOG.Info("使用单线程下载")
-		err = downloadDirect(ctx, url, filePath, opts.Timeout, progress, taskID, repoFactory)
+		err = downloadDirect(ctx, url, filePath, opts, progress, taskID, repoFactory)
 	}
 
 	if err != nil {
@@ -324,6 +339,11 @@ type FileInfoResult struct {
 
 // GetFileInfo 获取文件信息（文件名和大小）
 func GetFileInfo(url string, timeout int) (*FileInfoResult, bool, error) {
+	return GetFileInfoWithHeaders(url, timeout, nil)
+}
+
+// GetFileInfoWithHeaders 带自定义请求头获取文件信息
+func GetFileInfoWithHeaders(url string, timeout int, headers map[string]string) (*FileInfoResult, bool, error) {
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
@@ -331,6 +351,9 @@ func GetFileInfo(url string, timeout int) (*FileInfoResult, bool, error) {
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("创建请求失败: %w", err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := client.Do(req)
@@ -463,16 +486,27 @@ func downloadDirect(
 	ctx context.Context,
 	url string,
 	filePath string,
-	timeout int,
+	opts *HTTPDownloadOptions,
 	progress *downloadProgress,
 	taskID string,
 	repoFactory *impl.RepositoryFactory,
 ) error {
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 300
+	}
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
 
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("下载请求失败: %w", err)
+	}
+	for k, v := range opts.Headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("下载请求失败: %w", err)
 	}
@@ -633,7 +667,7 @@ func downloadWithRange(
 					time.Sleep(time.Duration(retry) * 2 * time.Second) // 指数退避
 				}
 
-				err := downloadChunk(ctx, url, file, chunk, &downloadedBytes, progress, opts.Timeout)
+				err := downloadChunk(ctx, url, file, chunk, &downloadedBytes, progress, opts)
 				if err == nil {
 					return // 下载成功
 				}
@@ -693,8 +727,12 @@ func downloadChunk(
 	chunk *chunkInfo,
 	downloadedBytes *int64,
 	progress *downloadProgress,
-	timeout int,
+	opts *HTTPDownloadOptions,
 ) error {
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 300
+	}
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
@@ -702,6 +740,9 @@ func downloadChunk(
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %w", err)
+	}
+	for k, v := range opts.Headers {
+		req.Header.Set(k, v)
 	}
 
 	// 设置Range头

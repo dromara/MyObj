@@ -20,13 +20,14 @@ import (
 
 // CloudDownloadOptions 云盘下载配置
 type CloudDownloadOptions struct {
-	Provider         string // 云盘类型（quark, baidu, aliyun等）
-	Cookie           string // 云盘Cookie
-	FileID           string // 云盘文件ID
-	EnableEncryption bool   // 是否加密存储
-	VirtualPath      string // 虚拟保存路径
-	FilePassword     string // 加密文件密码
-	Timeout          int    // 超时时间（秒），默认300
+	Provider           string // 云盘类型（quark, baidu, aliyun等）
+	Cookie             string // 云盘凭据
+	FileID             string // 云盘文件ID
+	EnableEncryption   bool   // 是否加密存储
+	VirtualPath        string // 虚拟保存路径
+	FilePassword       string // 加密文件密码
+	Timeout            int    // 超时时间（秒），默认300
+	OnCredentialUpdate func(string)
 }
 
 // DownloadCloud 从云盘下载文件到 MyObj
@@ -60,7 +61,9 @@ func DownloadCloud(
 	}
 
 	// 1. 获取云盘提供者
-	provider, err := cloudsync.GetProvider(opts.Provider, opts.Cookie)
+	provider, err := cloudsync.OpenProvider(opts.Provider, opts.Cookie, cloudsync.SessionOptions{
+		OnCredentialUpdate: opts.OnCredentialUpdate,
+	})
 	if err != nil {
 		updateTaskFailed(repoFactory, taskID, err.Error())
 		return nil, err
@@ -78,6 +81,12 @@ func DownloadCloud(
 		return nil, fmt.Errorf(errMsg)
 	}
 
+	if link.ExpiresAt != nil && time.Now().After(*link.ExpiresAt) {
+		errMsg := "下载链接已过期，请重新获取"
+		updateTaskFailed(repoFactory, taskID, errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+
 	// 3. 更新任务信息
 	task, err := repoFactory.DownloadTask().GetByID(ctx, taskID)
 	if err != nil {
@@ -87,9 +96,15 @@ func DownloadCloud(
 	// 优先使用已有的文件名和大小（来自请求），下载链接可能不包含这些信息
 	fileName := task.FileName
 	if fileName == "" {
+		fileName = link.FileName
+	}
+	if fileName == "" {
 		fileName = extractFileNameFromURL(link.DownloadURL)
 	}
 	fileSize := task.FileSize
+	if fileSize == 0 {
+		fileSize = link.Size
+	}
 
 	task.FileName = fileName
 	task.State = enum.DownloadTaskStateDownloading.Value()
@@ -105,11 +120,11 @@ func DownloadCloud(
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
 	}
 
-	// 5. 下载文件（使用 Provider 提供的请求头）
+	// 5. 下载文件（按 MustProxy / Headers 策略选择客户端）
 	filePath := filepath.Join(sessionDir, fileName)
 	progress := newDownloadProgress(taskID, fileSize, repoFactory)
 
-	downloadClient := &http.Client{Timeout: time.Duration(opts.Timeout) * time.Second}
+	downloadClient := buildCloudDownloadClient(opts.Timeout, link)
 	err = downloadWithHeaders(ctx, link.DownloadURL, filePath, progress, link.Headers, downloadClient)
 
 	if err != nil {
@@ -118,6 +133,13 @@ func DownloadCloud(
 			os.RemoveAll(sessionDir)
 		}
 		return nil, fmt.Errorf("文件下载失败: %w", err)
+	}
+
+	if stat, err := os.Stat(filePath); err == nil && stat.Size() > 0 {
+		fileSize = stat.Size()
+		task.FileSize = fileSize
+		task.UpdateTime = custom_type.Now()
+		_ = repoFactory.DownloadTask().Update(ctx, task)
 	}
 
 	logger.LOG.Info("云盘文件下载完成", "taskID", taskID, "fileName", fileName, "size", fileSize)
@@ -188,6 +210,23 @@ func extractFileNameFromURL(rawURL string) string {
 	return "未知文件"
 }
 
+// buildCloudDownloadClient 根据链接策略构建 HTTP 客户端
+func buildCloudDownloadClient(timeoutSec int, link *cloudsync.CloudDownloadLink) *http.Client {
+	if timeoutSec <= 0 {
+		timeoutSec = 300
+	}
+	client := &http.Client{Timeout: time.Duration(timeoutSec) * time.Second}
+	if link == nil {
+		return client
+	}
+	if link.MustProxy || len(link.Headers) > 0 {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+	return client
+}
+
 // downloadWithHeaders 带自定义请求头的下载（通用，适用于任何云盘 Provider）
 func downloadWithHeaders(
 	ctx context.Context,
@@ -210,6 +249,17 @@ func downloadWithHeaders(
 	if err != nil {
 		return fmt.Errorf("下载请求失败: %w", err)
 	}
+
+	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently || resp.StatusCode == http.StatusTemporaryRedirect || resp.StatusCode == http.StatusSeeOther {
+		location := resp.Header.Get("Location")
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if location != "" {
+			return downloadWithHeaders(ctx, location, filePath, progress, headers, client)
+		}
+		return fmt.Errorf("下载失败，重定向缺少 Location，状态码: %d", resp.StatusCode)
+	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -222,7 +272,7 @@ func downloadWithHeaders(
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 32*1024)
+	buffer := make([]byte, 256*1024)
 	var downloaded int64
 
 	for {

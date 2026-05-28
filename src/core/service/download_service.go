@@ -10,6 +10,8 @@ import (
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/download"
 	"myobj/src/pkg/enum"
+	"myobj/src/pkg/lanzou"
+	"myobj/src/pkg/sharelink"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"os"
@@ -484,6 +486,28 @@ func (d *DownloadService) getTypeText(taskType int) string {
 		return "迅雷网盘"
 	case enum.DownloadTaskType139.Value():
 		return "移动云盘"
+	case enum.DownloadTaskTypeTianyi.Value():
+		return "天翼云盘"
+	case enum.DownloadTaskTypeLanzou.Value():
+		return "蓝奏云"
+	case enum.DownloadTaskTypePan115.Value():
+		return "115网盘"
+	case enum.DownloadTaskTypeOneDrive.Value():
+		return "OneDrive"
+	case enum.DownloadTaskTypeGoogleDrive.Value():
+		return "Google Drive"
+	case enum.DownloadTaskTypeDropbox.Value():
+		return "Dropbox"
+	case enum.DownloadTaskTypePan123.Value():
+		return "123云盘"
+	case enum.DownloadTaskTypePikPak.Value():
+		return "PikPak"
+	case enum.DownloadTaskTypeBaiduShare.Value():
+		return "百度分享"
+	case enum.DownloadTaskTypeAliyunShare.Value():
+		return "阿里分享"
+	case enum.DownloadTaskTypePan115Share.Value():
+		return "115分享"
 	default:
 		return "未知"
 	}
@@ -491,22 +515,7 @@ func (d *DownloadService) getTypeText(taskType int) string {
 
 // getCloudTaskType 根据云盘提供者名称获取任务类型
 func getCloudTaskType(provider string) int {
-	switch provider {
-	case "quark":
-		return enum.DownloadTaskTypeQuark.Value()
-	case "baidu":
-		return enum.DownloadTaskTypeBaidu.Value()
-	case "aliyun":
-		return enum.DownloadTaskTypeAliyun.Value()
-	case "uc":
-		return enum.DownloadTaskTypeUC.Value()
-	case "xunlei":
-		return enum.DownloadTaskTypeXunlei.Value()
-	case "139":
-		return enum.DownloadTaskType139.Value()
-	default:
-		return enum.DownloadTaskTypeQuark.Value()
-	}
+	return cloudsync.GetTaskType(provider)
 }
 
 // CreateLocalFileDownload 创建网盘文件下载任务
@@ -811,33 +820,66 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 }
 
 // ValidateCloudCookie 验证云盘Cookie有效性
-func (d *DownloadService) ValidateCloudCookie(req *request.ValidateCloudCookieRequest) (*models.JsonResponse, error) {
-	provider, err := cloudsync.GetProvider(req.Provider, req.Cookie)
+func (d *DownloadService) ValidateCloudCookie(req *request.ValidateCloudCookieRequest, userID string) (*models.JsonResponse, error) {
+	if err := cloudsync.CheckCredentialOrBinding(req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID); err != nil {
+		return nil, err
+	}
+	provider, credCtx, err := d.openCloudProvider(userID, req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID)
 	if err != nil {
 		return nil, err
 	}
 
-	userInfo, err := provider.Validate()
+	userInfo, err := cloudsync.ValidateCached(provider, req.Provider, credCtx.credential)
 	if err != nil {
-		return nil, fmt.Errorf("验证失败: %w", err)
+		return nil, err
 	}
 
-	return models.NewJsonResponse(200, "验证成功", map[string]interface{}{
+	resp := map[string]interface{}{
 		"provider":   provider.Name(),
 		"nickname":   userInfo.Nickname,
 		"total_size": userInfo.TotalSize,
 		"used_size":  userInfo.UsedSize,
-	}), nil
+	}
+
+	if req.SaveBinding && req.BindingID == "" && req.OAuthBindingID == "" && userID != "" {
+		info, _ := cloudsync.GetProviderInfo(req.Provider)
+		if info.AuthType != cloudsync.AuthOAuth2 {
+			bindingID, err := d.saveCloudCredentialBinding(userID, req.Provider, credCtx.credential, userInfo.Nickname)
+			if err != nil {
+				return nil, err
+			}
+			resp["binding_id"] = bindingID
+		}
+	} else if req.BindingID != "" {
+		resp["binding_id"] = req.BindingID
+	} else if req.OAuthBindingID != "" {
+		resp["oauth_binding_id"] = req.OAuthBindingID
+	}
+
+	return models.NewJsonResponse(200, "验证成功", resp), nil
 }
 
 // ListCloudFiles 获取云盘文件列表
-func (d *DownloadService) ListCloudFiles(req *request.CloudFileListRequest) (*models.JsonResponse, error) {
-	provider, err := cloudsync.GetProvider(req.Provider, req.Cookie)
+func (d *DownloadService) ListCloudFiles(req *request.CloudFileListRequest, userID string) (*models.JsonResponse, error) {
+	if err := cloudsync.CheckCredentialOrBinding(req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID); err != nil {
+		return nil, err
+	}
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageSize < 1 || req.PageSize > 100 {
+		req.PageSize = 50
+	}
+	provider, credCtx, err := d.openCloudProvider(userID, req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID)
 	if err != nil {
 		return nil, err
 	}
 
-	files, total, err := provider.ListFiles(req.PdirFid, req.Page, req.PageSize)
+	if _, err := cloudsync.ValidateCached(provider, req.Provider, credCtx.credential); err != nil {
+		return nil, err
+	}
+
+	files, total, err := cloudsync.ListFilesCached(provider, req.Provider, credCtx.credential, req.PdirFid, req.Page, req.PageSize)
 	if err != nil {
 		return nil, fmt.Errorf("获取文件列表失败: %w", err)
 	}
@@ -853,6 +895,15 @@ func (d *DownloadService) ListCloudFiles(req *request.CloudFileListRequest) (*mo
 // CreateCloudDownload 创建云盘下载任务
 func (d *DownloadService) CreateCloudDownload(req *request.CreateCloudDownloadRequest, userID string) (*models.JsonResponse, error) {
 	ctx := context.Background()
+
+	if err := cloudsync.CheckCredentialOrBinding(req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID); err != nil {
+		return nil, err
+	}
+
+	credCtx, err := d.resolveCloudCredential(userID, req.Provider, req.Cookie, req.BindingID, req.OAuthBindingID)
+	if err != nil {
+		return nil, err
+	}
 
 	// 1. 验证用户
 	user, err := d.factory.User().GetByID(ctx, userID)
@@ -903,12 +954,13 @@ func (d *DownloadService) CreateCloudDownload(req *request.CreateCloudDownloadRe
 	// 6. 异步启动下载
 	go func() {
 		opts := &download.CloudDownloadOptions{
-			Provider:         req.Provider,
-			Cookie:           req.Cookie,
-			FileID:           req.FileID,
-			EnableEncryption: req.EnableEncryption,
-			VirtualPath:      virtualPath,
-			FilePassword:     req.FilePassword,
+			Provider:             req.Provider,
+			Cookie:               credCtx.credential,
+			FileID:               req.FileID,
+			EnableEncryption:     req.EnableEncryption,
+			VirtualPath:          virtualPath,
+			FilePassword:         req.FilePassword,
+			OnCredentialUpdate:   credCtx.updateFn,
 		}
 
 		_, err := download.DownloadCloud(taskID, userID, d.tempDir, d.factory, opts)
@@ -918,6 +970,151 @@ func (d *DownloadService) CreateCloudDownload(req *request.CreateCloudDownloadRe
 	}()
 
 	logger.LOG.Info("云盘下载任务已创建", "taskID", taskID, "provider", req.Provider, "fileID", req.FileID)
+
+	taskResp := d.convertTaskToResponse(task)
+	return models.NewJsonResponse(200, "任务创建成功", taskResp), nil
+}
+
+// ListCloudProviders 获取已注册的云盘 Provider 列表
+func (d *DownloadService) ListCloudProviders(baseURL string) (*models.JsonResponse, error) {
+	return models.NewJsonResponse(200, "获取成功", map[string]interface{}{
+		"providers":       cloudsync.ListProviders(),
+		"oauth_providers": cloudsync.ListOAuthProviders(baseURL),
+	}), nil
+}
+
+// ParseLanzouShare 解析蓝奏云分享链接
+func (d *DownloadService) ParseLanzouShare(req *request.ParseLanzouRequest) (*models.JsonResponse, error) {
+	result, err := lanzou.ParseShareLink(req.ShareURL, req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("解析失败: %w", err)
+	}
+	return models.NewJsonResponse(200, "解析成功", result), nil
+}
+
+// CreateLanzouDownload 解析蓝奏云链接并创建下载任务
+func (d *DownloadService) CreateLanzouDownload(req *request.CreateLanzouDownloadRequest, userID string) (*models.JsonResponse, error) {
+	parsed, err := lanzou.ParseShareLink(req.ShareURL, req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("解析失败: %w", err)
+	}
+
+	virtualPath := req.VirtualPath
+	if virtualPath == "" {
+		virtualPath = "/蓝奏云下载/"
+	}
+	if req.EnableEncryption && req.FilePassword == "" {
+		return nil, fmt.Errorf("加密存储密码不能为空")
+	}
+
+	ctx := context.Background()
+	taskID := uuid.Must(uuid.NewV7()).String()
+	task := &models.DownloadTask{
+		ID:               taskID,
+		UserID:           userID,
+		Type:             enum.DownloadTaskTypeLanzou.Value(),
+		URL:              parsed.DownloadURL,
+		FileName:         parsed.FileName,
+		VirtualPath:      virtualPath,
+		EnableEncryption: req.EnableEncryption,
+		State:            enum.DownloadTaskStateInit.Value(),
+		TargetDir:        d.tempDir,
+		CreateTime:       custom_type.Now(),
+		UpdateTime:       custom_type.Now(),
+	}
+	if err := d.factory.DownloadTask().Create(ctx, task); err != nil {
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	go func() {
+		opts := &download.HTTPDownloadOptions{
+			EnableEncryption: req.EnableEncryption,
+			VirtualPath:      virtualPath,
+			MaxRetries:       3,
+			ChunkSize:        10 * 1024 * 1024,
+			MaxConcurrent:    4,
+			Timeout:          300,
+			FilePassword:     req.FilePassword,
+		}
+		if _, err := download.DownloadHTTP(taskID, parsed.DownloadURL, userID, d.tempDir, d.factory, opts); err != nil {
+			logger.LOG.Error("蓝奏云下载失败", "taskID", taskID, "error", err)
+		}
+	}()
+
+	taskResp := d.convertTaskToResponse(task)
+	return models.NewJsonResponse(200, "任务创建成功", taskResp), nil
+}
+
+// ParseCloudShare 解析云盘分享链接
+func (d *DownloadService) ParseCloudShare(req *request.ParseCloudShareRequest) (*models.JsonResponse, error) {
+	result, err := sharelink.Parse(req.Provider, sharelink.ParseRequest{
+		ShareURL: req.ShareURL,
+		Password: req.Password,
+		Extra:    req.Extra,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return models.NewJsonResponse(200, "解析成功", result), nil
+}
+
+// CreateCloudShareDownload 创建分享链接下载任务
+func (d *DownloadService) CreateCloudShareDownload(req *request.CreateCloudShareDownloadRequest, userID string) (*models.JsonResponse, error) {
+	parsed, err := sharelink.Parse(req.Provider, sharelink.ParseRequest{
+		ShareURL: req.ShareURL,
+		Password: req.Password,
+		Extra:    req.Extra,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("解析失败: %w", err)
+	}
+
+	virtualPath := req.VirtualPath
+	if virtualPath == "" {
+		virtualPath = "/云盘分享下载/"
+	}
+	if req.EnableEncryption && req.FilePassword == "" {
+		return nil, fmt.Errorf("加密存储密码不能为空")
+	}
+
+	ctx := context.Background()
+	taskID := uuid.Must(uuid.NewV7()).String()
+	task := &models.DownloadTask{
+		ID:               taskID,
+		UserID:           userID,
+		Type:             cloudsync.GetTaskType(req.Provider),
+		URL:              parsed.DownloadURL,
+		FileName:         parsed.FileName,
+		FileSize:         parsed.FileSize,
+		VirtualPath:      virtualPath,
+		EnableEncryption: req.EnableEncryption,
+		State:            enum.DownloadTaskStateInit.Value(),
+		TargetDir:        d.tempDir,
+		CreateTime:       custom_type.Now(),
+		UpdateTime:       custom_type.Now(),
+	}
+	if err := d.factory.DownloadTask().Create(ctx, task); err != nil {
+		return nil, fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	headers := parsed.Headers
+	go func() {
+		opts := &download.HTTPDownloadOptions{
+			EnableEncryption: req.EnableEncryption,
+			VirtualPath:      virtualPath,
+			MaxRetries:       3,
+			ChunkSize:        10 * 1024 * 1024,
+			MaxConcurrent:    4,
+			Timeout:          300,
+			FilePassword:     req.FilePassword,
+			Headers:          headers,
+			KnownFileName:    parsed.FileName,
+			KnownFileSize:    parsed.FileSize,
+		}
+		if _, err := download.DownloadHTTP(taskID, parsed.DownloadURL, userID, d.tempDir, d.factory, opts); err != nil {
+			logger.LOG.Error("分享链接下载失败", "taskID", taskID, "provider", req.Provider, "error", err)
+		}
+	}()
 
 	taskResp := d.convertTaskToResponse(task)
 	return models.NewJsonResponse(200, "任务创建成功", taskResp), nil

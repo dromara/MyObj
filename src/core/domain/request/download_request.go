@@ -80,16 +80,26 @@ type StartTorrentDownloadRequest struct {
 type ValidateCloudCookieRequest struct {
 	// 云盘类型（quark, baidu, aliyun等）
 	Provider string `json:"provider" binding:"required"`
-	// 云盘Cookie
-	Cookie string `json:"cookie" binding:"required"`
+	// 云盘Cookie / refresh_token（使用 binding_id 时可省略）
+	Cookie string `json:"cookie"`
+	// 已保存的凭据绑定 ID
+	BindingID string `json:"binding_id"`
+	// OAuth 绑定 ID（onedrive/google/dropbox）
+	OAuthBindingID string `json:"oauth_binding_id"`
+	// 验证成功后是否保存凭据绑定
+	SaveBinding bool `json:"save_binding"`
 }
 
 // CloudFileListRequest 获取云盘文件列表请求
 type CloudFileListRequest struct {
 	// 云盘类型
 	Provider string `json:"provider" binding:"required"`
-	// 云盘Cookie
-	Cookie string `json:"cookie" binding:"required"`
+	// 云盘Cookie（使用 binding_id 时可省略）
+	Cookie string `json:"cookie"`
+	// 已保存的凭据绑定 ID
+	BindingID string `json:"binding_id"`
+	// OAuth 绑定 ID
+	OAuthBindingID string `json:"oauth_binding_id"`
 	// 父目录ID（默认为 "0" 即根目录）
 	PdirFid string `json:"pdir_fid"`
 	// 页码
@@ -102,8 +112,12 @@ type CloudFileListRequest struct {
 type CreateCloudDownloadRequest struct {
 	// 云盘类型
 	Provider string `json:"provider" binding:"required"`
-	// 云盘Cookie
-	Cookie string `json:"cookie" binding:"required"`
+	// 云盘Cookie（使用 binding_id 时可省略）
+	Cookie string `json:"cookie"`
+	// 已保存的凭据绑定 ID
+	BindingID string `json:"binding_id"`
+	// OAuth 绑定 ID
+	OAuthBindingID string `json:"oauth_binding_id"`
 	// 云盘文件ID（fid）
 	FileID string `json:"file_id" binding:"required"`
 	// 文件名（可选，用于显示）
@@ -116,4 +130,38 @@ type CreateCloudDownloadRequest struct {
 	EnableEncryption bool `json:"enable_encryption"`
 	// 文件密码（加密文件必需）
 	FilePassword string `json:"file_password"`
+}
+
+// ParseLanzouRequest 解析蓝奏云分享链接
+type ParseLanzouRequest struct {
+	ShareURL string `json:"share_url" binding:"required"`
+	Password string `json:"password"`
+}
+
+// CreateLanzouDownloadRequest 创建蓝奏云下载任务
+type CreateLanzouDownloadRequest struct {
+	ShareURL         string `json:"share_url" binding:"required"`
+	Password         string `json:"password"`
+	VirtualPath      string `json:"virtual_path"`
+	EnableEncryption bool   `json:"enable_encryption"`
+	FilePassword     string `json:"file_password"`
+}
+
+// ParseCloudShareRequest 解析云盘分享链接
+type ParseCloudShareRequest struct {
+	Provider string            `json:"provider" binding:"required"`
+	ShareURL string            `json:"share_url" binding:"required"`
+	Password string            `json:"password"`
+	Extra    map[string]string `json:"extra"`
+}
+
+// CreateCloudShareDownloadRequest 创建分享链接下载任务
+type CreateCloudShareDownloadRequest struct {
+	Provider         string            `json:"provider" binding:"required"`
+	ShareURL         string            `json:"share_url" binding:"required"`
+	Password         string            `json:"password"`
+	Extra            map[string]string `json:"extra"`
+	VirtualPath      string            `json:"virtual_path"`
+	EnableEncryption bool              `json:"enable_encryption"`
+	FilePassword     string            `json:"file_password"`
 }

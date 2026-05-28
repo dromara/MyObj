@@ -502,6 +502,54 @@ export default {
     enterMagnetOrTorrent: '请输入磁力链接或上传种子文件',
     selectFileFirst: '请至少选择一个文件'
   },
+  cloud: {
+    title: '云盘下载',
+    provider: '云盘',
+    selectProvider: '请选择云盘',
+    cookie: '浏览器 Cookie',
+    cookiePlaceholder: '从浏览器开发者工具复制 Cookie',
+    refreshToken: '刷新令牌 (refresh_token)',
+    refreshTokenPlaceholder: '粘贴 refresh_token',
+    credentialTip: '请在浏览器登录对应网盘后，从开发者工具 Network 中复制 Cookie 或 Token',
+    field: {
+      cookie: '浏览器 Cookie',
+      refresh_token: '刷新令牌 (refresh_token)',
+      client_id: '应用 ID (Client ID)',
+      client_secret: '应用密钥 (Client Secret)'
+    },
+    fieldHelp: {
+      cookie: '从浏览器开发者工具复制完整 Cookie',
+      refresh_token: '粘贴开放平台 refresh_token',
+      client_id: '留空则使用 config.toml [cloud] 配置',
+      client_secret: '留空则使用 config.toml [cloud] 配置'
+    },
+    validate: '验证并连接',
+    validateSuccess: '连接成功',
+    validateFailed: '验证失败，请检查凭据是否有效',
+    providerRequired: '请先选择云盘',
+    credentialRequired: '请填写{label}',
+    cookieRequired: '请填写浏览器 Cookie',
+    refreshTokenRequired: '请填写 refresh_token',
+    oauthProviderRequired: '请先选择 OAuth 网盘',
+    oauthBindingRequired: '请先选择已授权账号，或点击「授权登录」完成授权',
+    validatedAs: '已连接：{name}',
+    root: '根目录',
+    open: '打开',
+    download: '下载',
+    downloadFile: '下载 {name}',
+    loadProvidersFailed: '加载云盘列表失败',
+    loadFilesFailed: '加载文件列表失败'
+  },
+  lanzou: {
+    title: '蓝奏云',
+    shareUrl: '分享链接',
+    shareUrlPlaceholder: 'https://www.lanzoui.com/xxxxxx',
+    password: '访问密码',
+    passwordPlaceholder: '如有密码请填写',
+    parse: '解析链接',
+    shareUrlRequired: '请输入分享链接',
+    unknownFile: '未知文件'
+  },
   trash: {
     title: '回收站',
     restore: '还原',

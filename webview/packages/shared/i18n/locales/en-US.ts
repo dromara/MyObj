@@ -505,6 +505,54 @@ export default {
     enterMagnetOrTorrent: 'Please enter a magnet link or upload a torrent file',
     selectFileFirst: 'Please select at least one file'
   },
+  cloud: {
+    title: 'Cloud Drive',
+    provider: 'Provider',
+    selectProvider: 'Select a cloud drive',
+    cookie: 'Cookie',
+    cookiePlaceholder: 'Paste Cookie from browser DevTools',
+    refreshToken: 'Refresh Token',
+    refreshTokenPlaceholder: 'Paste refresh_token',
+    credentialTip: 'Log in to the cloud drive in your browser, then copy Cookie or Token from Network tab',
+    field: {
+      cookie: 'Browser Cookie',
+      refresh_token: 'Refresh Token (refresh_token)',
+      client_id: 'App ID (Client ID)',
+      client_secret: 'App Secret (Client Secret)'
+    },
+    fieldHelp: {
+      cookie: 'Copy the full Cookie from browser DevTools',
+      refresh_token: 'Paste refresh_token from the open platform',
+      client_id: 'Leave blank to use config.toml [cloud]',
+      client_secret: 'Leave blank to use config.toml [cloud]'
+    },
+    validate: 'Validate & Connect',
+    validateSuccess: 'Connected successfully',
+    validateFailed: 'Validation failed, please check your credentials',
+    providerRequired: 'Please select a cloud drive first',
+    credentialRequired: 'Please fill in {label}',
+    cookieRequired: 'Please fill in Cookie',
+    refreshTokenRequired: 'Please fill in Refresh Token',
+    oauthProviderRequired: 'Please select an OAuth cloud drive first',
+    oauthBindingRequired: 'Please select an authorized account or complete OAuth authorization first',
+    validatedAs: 'Connected: {name}',
+    root: 'Root',
+    open: 'Open',
+    download: 'Download',
+    downloadFile: 'Download {name}',
+    loadProvidersFailed: 'Failed to load cloud providers',
+    loadFilesFailed: 'Failed to load file list'
+  },
+  lanzou: {
+    title: 'Lanzou',
+    shareUrl: 'Share Link',
+    shareUrlPlaceholder: 'https://www.lanzoui.com/xxxxxx',
+    password: 'Password',
+    passwordPlaceholder: 'Enter password if required',
+    parse: 'Parse Link',
+    shareUrlRequired: 'Please enter a share link',
+    unknownFile: 'Unknown file'
+  },
   trash: {
     title: 'Trash',
     restore: 'Restore',

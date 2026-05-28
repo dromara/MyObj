@@ -212,6 +212,23 @@
       class="download-dialog"
     >
       <template v-if="showDownloadDialog">
+        <el-radio-group v-model="downloadMode" class="download-mode-switch">
+          <el-radio-button value="link">{{ t('offline.inputLink') }}</el-radio-button>
+          <el-radio-button value="cloud">{{ t('cloud.title') }}</el-radio-button>
+          <el-radio-button value="lanzou">{{ t('lanzou.title') }}</el-radio-button>
+        </el-radio-group>
+
+        <CloudDownloadPanel
+          v-if="downloadMode === 'cloud'"
+          :folder-tree="folderTreeData"
+          @success="handleAlternateDownloadSuccess"
+        />
+        <LanzouDownloadPanel
+          v-else-if="downloadMode === 'lanzou'"
+          :folder-tree="folderTreeData"
+          @success="handleAlternateDownloadSuccess"
+        />
+        <template v-else>
         <!-- 输入区域：支持文本输入和文件上传 -->
         <div class="input-section">
           <el-tabs v-model="inputType" class="input-tabs">
@@ -469,10 +486,12 @@
             </div>
           </el-form-item>
         </el-form>
+        </template>
       </template>
 
       <template #footer>
         <el-button @click="showDownloadDialog = false">{{ t('common.cancel') }}</el-button>
+        <template v-if="downloadMode === 'link'">
         <!-- URL 下载模式 -->
         <el-button
           v-if="detectedInputType === 'url' && !torrentParseResult"
@@ -502,6 +521,7 @@
         >
           {{ t('offline.startDownload', { count: selectedFileIndexes.length }) }}
         </el-button>
+        </template>
       </template>
     </el-dialog>
   </div>
@@ -527,6 +547,8 @@
   import { useResponsive, useI18n } from '@/composables'
   import { getFileTypeFromMimeType, getMimeTypeFromFileName, type FileTypeCategory } from '@/utils/file/mime'
   import { useRoute, useRouter } from 'vue-router'
+  import CloudDownloadPanel from './components/CloudDownloadPanel.vue'
+  import LanzouDownloadPanel from './components/LanzouDownloadPanel.vue'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
@@ -540,6 +562,7 @@
   const creating = ref(false)
   const taskList = ref<OfflineDownloadTask[]>([])
   const showDownloadDialog = ref(false) // 统一的下载对话框
+  const downloadMode = ref<'link' | 'cloud' | 'lanzou'>('link')
   let refreshTimer: number | null = null // 支持 setTimeout 和 setInterval
   const loadingTree = ref(false)
   const folderTreeData = ref<any[]>([])
@@ -928,13 +951,19 @@
   // 处理下载对话框打开
   const handleDownloadDialogOpen = () => {
     buildFolderTree()
-    // 重置状态
+    downloadMode.value = 'link'
     inputType.value = 'text'
     detectedInputType.value = null
   }
 
+  const handleAlternateDownloadSuccess = () => {
+    showDownloadDialog.value = false
+    refreshTaskList()
+  }
+
   // 处理下载对话框关闭
   const handleDownloadDialogClose = () => {
+    downloadMode.value = 'link'
     // 重置所有状态
     inputType.value = 'text'
     downloadForm.inputText = ''
@@ -1624,6 +1653,12 @@
     border-radius: 8px;
   }
 
+  .download-mode-switch {
+    margin-bottom: 16px;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+  }
 
   .input-section {
     margin-bottom: 20px;

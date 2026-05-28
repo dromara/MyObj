@@ -8,6 +8,8 @@ import (
 	"myobj/src/internal/repository/database"
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/cache"
+	"myobj/src/pkg/cloudsync"
+	_ "myobj/src/pkg/cloudsync/provider"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/webdav"
@@ -110,6 +112,7 @@ func initConfig() error {
 		return err
 	}
 	log.Println("[成功] 配置文件加载完成")
+	cloudsync.InitFromConfig(config.CONFIG)
 	return nil
 }
 
@@ -182,6 +185,16 @@ func initDatabase() error {
 	// 迁移企业数据表
 	if err := database.MigrateEnterpriseTables(database.GetDB()); err != nil {
 		logger.LOG.Error("企业数据表迁移失败", "error", err)
+	}
+
+	// 迁移云盘 OAuth 绑定表
+	if err := database.MigrateCloudOAuthTable(database.GetDB()); err != nil {
+		logger.LOG.Error("云盘 OAuth 绑定表迁移失败", "error", err)
+	}
+
+	// 迁移云盘凭据绑定表
+	if err := database.MigrateCloudCredentialTable(database.GetDB()); err != nil {
+		logger.LOG.Error("云盘凭据绑定表迁移失败", "error", err)
 	}
 
 	return nil

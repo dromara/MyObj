@@ -1,4 +1,4 @@
-package cloudsync
+package provider
 
 import (
 	"encoding/json"
@@ -7,24 +7,29 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
+
+	"myobj/src/pkg/cloudsync"
+	"myobj/src/pkg/cloudsync/internal"
+	"myobj/src/pkg/enum"
 )
 
 const (
-	baiduPanAPI      = "https://pan.baidu.com/rest/2.0"
-	baiduTokenAPI    = "https://openapi.baidu.com/oauth/2.0/token"
-	baiduDefaultCID  = "hq9yQ9w9kR4YHj1kyYafLygVocobh7Sf"
-	baiduDefaultCSEC = "YH2VpZcFJHYNnV6vLfHQXDBhcE7ZChyE"
-	baiduCrackUA     = "netdisk"
+	baiduPanAPI   = "https://pan.baidu.com/rest/2.0"
+	baiduTokenAPI = "https://openapi.baidu.com/oauth/2.0/token"
+	baiduCrackUA  = "netdisk"
 )
 
 func init() {
-	RegisterProvider("baidu", func(cookie string) CloudProvider {
+	cloudsync.Register(cloudsync.ProviderInfo{
+		ID:          "baidu",
+		Name:        "百度网盘",
+		AuthType:    cloudsync.AuthRefreshToken,
+		Description: "refresh_token 登录",
+	}, enum.DownloadTaskTypeBaidu.Value(), func(cookie string) cloudsync.CloudProvider {
 		return NewBaiduProvider(cookie)
 	})
 }
 
-// baiduTokenResp OAuth token 刷新响应
 type baiduTokenResp struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -33,26 +38,24 @@ type baiduTokenResp struct {
 	ErrorDesc    string `json:"error_description"`
 }
 
-// baiduFile 百度文件信息
+// baiduFile 百度网盘文件
 type baiduFile struct {
 	FsId           int64  `json:"fs_id"`
 	Path           string `json:"path"`
 	ServerFilename string `json:"server_filename"`
 	Size           int64  `json:"size"`
-	Isdir          int    `json:"isdir"` // 1=目录, 0=文件
+	Isdir          int    `json:"isdir"`
 	Md5            string `json:"md5"`
 	Category       int    `json:"category"`
 	ServerCtime    int64  `json:"server_ctime"`
 	ServerMtime    int64  `json:"server_mtime"`
 }
 
-// baiduListResp 文件列表响应
 type baiduListResp struct {
 	Errno int         `json:"errno"`
 	List  []baiduFile `json:"list"`
 }
 
-// baiduDownloadResp 下载链接响应（crack 方法）
 type baiduDownloadResp struct {
 	Errno int `json:"errno"`
 	Info  []struct {
@@ -60,13 +63,12 @@ type baiduDownloadResp struct {
 	} `json:"info"`
 }
 
-// baiduUserResp 用户信息响应
 type baiduUserResp struct {
-	Errno    int    `json:"errno"`
-	BaiduName string `json:"baidu_name"`
-	VipType  int    `json:"vip_type"` // 0=普通, 1=会员, 2=超级会员
-	TotalSpace int64 `json:"total_space"`
-	UsedSpace  int64 `json:"used_space"`
+	Errno      int    `json:"errno"`
+	BaiduName  string `json:"baidu_name"`
+	VipType    int    `json:"vip_type"`
+	TotalSpace int64  `json:"total_space"`
+	UsedSpace  int64  `json:"used_space"`
 }
 
 // BaiduProvider 百度网盘提供者
@@ -77,24 +79,35 @@ type BaiduProvider struct {
 	accessToken  string
 	mu           sync.RWMutex
 	client       *http.Client
+	credSync     credentialSyncHelper
 }
 
 // NewBaiduProvider 创建百度网盘提供者
-// cookie 参数格式: refresh_token（直接传入百度 OAuth refresh_token）
-func NewBaiduProvider(cookie string) *BaiduProvider {
+func NewBaiduProvider(credential string) *BaiduProvider {
+	cred := internal.ParseOAuthCredential(credential, cloudsync.BaiduClientID, cloudsync.BaiduClientSecret)
 	return &BaiduProvider{
-		refreshToken: cookie,
-		clientID:     baiduDefaultCID,
-		clientSecret: baiduDefaultCSEC,
-		client:       &http.Client{Timeout: 30 * time.Second},
+		refreshToken: cred.RefreshToken,
+		clientID:     cred.ClientID,
+		clientSecret: cred.ClientSecret,
+		client:       internal.DefaultHTTPClient(),
 	}
 }
 
 func (b *BaiduProvider) Name() string {
-		return "baidu"
+	return "baidu"
 }
 
-func (b *BaiduProvider) Validate() (*CloudUserInfo, error) {
+func (b *BaiduProvider) SetCredentialUpdateCallback(fn func(string)) {
+	b.credSync.SetCredentialUpdateCallback(fn)
+}
+
+func (b *BaiduProvider) ExportCredential() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return internal.FormatOAuthCredential(b.refreshToken, b.clientID, b.clientSecret, cloudsync.BaiduClientID, cloudsync.BaiduClientSecret)
+}
+
+func (b *BaiduProvider) Validate() (*cloudsync.CloudUserInfo, error) {
 	if err := b.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
@@ -108,14 +121,14 @@ func (b *BaiduProvider) Validate() (*CloudUserInfo, error) {
 		return nil, fmt.Errorf("获取用户信息失败, errno: %d", resp.Errno)
 	}
 
-	return &CloudUserInfo{
+	return &cloudsync.CloudUserInfo{
 		Nickname:  resp.BaiduName,
 		TotalSize: resp.TotalSpace,
 		UsedSize:  resp.UsedSpace,
 	}, nil
 }
 
-func (b *BaiduProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile, int, error) {
+func (b *BaiduProvider) ListFiles(pdirFid string, page, size int) ([]cloudsync.CloudFile, int, error) {
 	if err := b.ensureAccessToken(); err != nil {
 		return nil, 0, fmt.Errorf("刷新token失败: %w", err)
 	}
@@ -124,7 +137,6 @@ func (b *BaiduProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile, 
 		pdirFid = "/"
 	}
 
-	// 百度使用 start/limit 分页，需要从 page/size 转换
 	start := (page - 1) * size
 	params := map[string]string{
 		"method": "list",
@@ -143,32 +155,29 @@ func (b *BaiduProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile, 
 		return nil, 0, fmt.Errorf("获取文件列表失败, errno: %d", resp.Errno)
 	}
 
-	files := make([]CloudFile, 0, len(resp.List))
+	files := make([]cloudsync.CloudFile, 0, len(resp.List))
 	for _, f := range resp.List {
-		files = append(files, CloudFile{
-			Fid:      f.Path, // 百度使用路径作为文件标识
+		files = append(files, cloudsync.CloudFile{
+			Fid:      f.Path,
 			FileName: f.ServerFilename,
 			Size:     f.Size,
 			IsDir:    f.Isdir == 1,
 		})
 	}
 
-	// 百度 API 不直接返回总数，返回当前页数量作为近似值
-	// 如果返回的数量等于请求的 size，可能还有更多
 	total := start + len(resp.List)
 	if len(resp.List) == size {
-		total = start + size + 1 // 表示可能还有更多
+		total = start + size + 1
 	}
 
 	return files, total, nil
 }
 
-func (b *BaiduProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error) {
+func (b *BaiduProvider) GetDownloadLink(fid string) (*cloudsync.CloudDownloadLink, error) {
 	if err := b.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
 
-	// 使用 crack 方法获取下载链接（直接返回 dlink，无需跟随重定向）
 	params := map[string]string{
 		"target": fmt.Sprintf("[\"%s\"]", fid),
 		"dlink":  "1",
@@ -189,15 +198,15 @@ func (b *BaiduProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error) 
 		return nil, fmt.Errorf("未获取到下载链接")
 	}
 
-	return &CloudDownloadLink{
+	return &cloudsync.CloudDownloadLink{
 		DownloadURL: resp.Info[0].Dlink,
+		MustProxy:   true,
 		Headers: map[string]string{
 			"User-Agent": baiduCrackUA,
 		},
 	}, nil
 }
 
-// ensureAccessToken 确保 access_token 有效，过期时自动刷新
 func (b *BaiduProvider) ensureAccessToken() error {
 	b.mu.RLock()
 	if b.accessToken != "" {
@@ -205,16 +214,13 @@ func (b *BaiduProvider) ensureAccessToken() error {
 		return nil
 	}
 	b.mu.RUnlock()
-
 	return b.refreshAccessToken()
 }
 
-// refreshAccessToken 刷新 OAuth access_token
 func (b *BaiduProvider) refreshAccessToken() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// 双重检查
 	if b.accessToken != "" {
 		return nil
 	}
@@ -247,24 +253,21 @@ func (b *BaiduProvider) refreshAccessToken() error {
 	}
 
 	b.accessToken = tokenResp.AccessToken
-	b.refreshToken = tokenResp.RefreshToken // 更新 refresh_token（百度会轮换）
-
+	b.refreshToken = tokenResp.RefreshToken
+	b.credSync.notifyCredential(b.refreshToken, b.clientID, b.clientSecret, cloudsync.BaiduClientID, cloudsync.BaiduClientSecret)
 	return nil
 }
 
-// invalidateToken 使当前 access_token 失效（用于重试）
 func (b *BaiduProvider) invalidateToken() {
 	b.mu.Lock()
 	b.accessToken = ""
 	b.mu.Unlock()
 }
 
-// get 发送 GET 请求
 func (b *BaiduProvider) get(path string, params map[string]string, result interface{}) error {
 	return b.request(baiduPanAPI+path, "GET", params, nil, result)
 }
 
-// request 发送请求并处理响应（带重试和 token 刷新）
 func (b *BaiduProvider) request(url, method string, params map[string]string, body map[string]string, result interface{}) error {
 	maxRetries := 3
 
@@ -278,7 +281,6 @@ func (b *BaiduProvider) request(url, method string, params map[string]string, bo
 			return fmt.Errorf("创建请求失败: %w", err)
 		}
 
-		// 添加 access_token 作为查询参数
 		q := req.URL.Query()
 		q.Set("access_token", token)
 		for k, v := range params {
@@ -287,7 +289,6 @@ func (b *BaiduProvider) request(url, method string, params map[string]string, bo
 		req.URL.RawQuery = q.Encode()
 
 		if body != nil {
-			// POST form 数据（当前未使用，预留）
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 
@@ -302,10 +303,8 @@ func (b *BaiduProvider) request(url, method string, params map[string]string, bo
 			return fmt.Errorf("读取响应失败: %w", err)
 		}
 
-		// 检查 errno
 		errno := extractErrno(bodyBytes)
 		if errno == 0 {
-			// 成功
 			if result != nil {
 				if err := json.Unmarshal(bodyBytes, result); err != nil {
 					return fmt.Errorf("解析响应失败: %w", err)
@@ -314,7 +313,6 @@ func (b *BaiduProvider) request(url, method string, params map[string]string, bo
 			return nil
 		}
 
-		// errno 111 或 -6 表示 token 过期，刷新后重试
 		if errno == 111 || errno == -6 {
 			b.invalidateToken()
 			if err := b.refreshAccessToken(); err != nil {
@@ -323,20 +321,18 @@ func (b *BaiduProvider) request(url, method string, params map[string]string, bo
 			continue
 		}
 
-		// 其他错误，不重试
 		return fmt.Errorf("百度API错误, errno: %d, url: %s", errno, url)
 	}
 
 	return fmt.Errorf("请求重试%d次后仍失败", maxRetries)
 }
 
-// extractErrno 从 JSON 响应中提取 errno 字段
 func extractErrno(data []byte) int {
 	var resp struct {
 		Errno int `json:"errno"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return -1 // 解析失败视为错误
+		return -1
 	}
 	return resp.Errno
 }

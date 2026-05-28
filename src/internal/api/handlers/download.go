@@ -67,10 +67,25 @@ func (h *DownloadHandler) Router(c *gin.RouterGroup) {
 		downloadGroup.POST("/torrent/start", middleware.PowerVerify("file:offLine"), h.StartTorrentDownload)
 
 		// 云盘同步相关
+		downloadGroup.GET("/cloud/providers", middleware.PowerVerify("file:offLine"), h.ListCloudProviders)
 		downloadGroup.POST("/cloud/validate", middleware.PowerVerify("file:offLine"), h.ValidateCloudCookie)
 		downloadGroup.POST("/cloud/files", middleware.PowerVerify("file:offLine"), h.ListCloudFiles)
 		downloadGroup.POST("/cloud/create", middleware.PowerVerify("file:offLine"), h.CreateCloudDownload)
+		downloadGroup.GET("/cloud/bindings", middleware.PowerVerify("file:offLine"), h.ListCloudCredentialBindings)
+		downloadGroup.POST("/cloud/bindings/unbind", middleware.PowerVerify("file:offLine"), h.DeleteCloudCredentialBinding)
+		// 蓝奏云分享链接
+		downloadGroup.POST("/lanzou/parse", middleware.PowerVerify("file:offLine"), h.ParseLanzouShare)
+		downloadGroup.POST("/lanzou/create", middleware.PowerVerify("file:offLine"), h.CreateLanzouDownload)
+		downloadGroup.POST("/cloud/share/parse", middleware.PowerVerify("file:offLine"), h.ParseCloudShare)
+		downloadGroup.POST("/cloud/share/create", middleware.PowerVerify("file:offLine"), h.CreateCloudShareDownload)
+		// OAuth 授权（骨架）
+		downloadGroup.GET("/cloud/oauth/authorize/:provider", middleware.PowerVerify("file:offLine"), h.StartCloudOAuth)
+		downloadGroup.GET("/cloud/oauth/bindings", middleware.PowerVerify("file:offLine"), h.ListCloudOAuthBindings)
+		downloadGroup.POST("/cloud/oauth/unbind", middleware.PowerVerify("file:offLine"), h.DeleteCloudOAuthBinding)
 	}
+
+	// OAuth 回调（无需登录，由第三方重定向）
+	c.GET("/download/cloud/oauth/callback/:provider", h.HandleCloudOAuthCallback)
 
 	// 文件预览接口（支持公开文件未登录访问，使用可选认证）
 	// 使用可选认证中间件，允许未登录用户访问公开文件
@@ -603,7 +618,8 @@ func (h *DownloadHandler) ValidateCloudCookie(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ValidateCloudCookie(req)
+	userID := c.GetString("userID")
+	result, err := h.service.ValidateCloudCookie(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "验证失败", err.Error()))
 		return
@@ -620,7 +636,8 @@ func (h *DownloadHandler) ListCloudFiles(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ListCloudFiles(req)
+	userID := c.GetString("userID")
+	result, err := h.service.ListCloudFiles(req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "获取文件列表失败", err.Error()))
 		return
@@ -658,4 +675,177 @@ func (h *DownloadHandler) CreateCloudDownload(c *gin.Context) {
 	})
 
 	c.JSON(200, result)
+}
+
+// ListCloudProviders 获取云盘 Provider 列表
+func (h *DownloadHandler) ListCloudProviders(c *gin.Context) {
+	baseURL := buildRequestBaseURL(c)
+	result, err := h.service.ListCloudProviders(baseURL)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "获取失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ParseLanzouShare 解析蓝奏云分享链接
+func (h *DownloadHandler) ParseLanzouShare(c *gin.Context) {
+	req := new(request.ParseLanzouRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := h.service.ParseLanzouShare(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "解析失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// CreateLanzouDownload 创建蓝奏云下载任务
+func (h *DownloadHandler) CreateLanzouDownload(c *gin.Context) {
+	req := new(request.CreateLanzouDownloadRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	userID := c.GetString("userID")
+	result, err := h.service.CreateLanzouDownload(req, userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ParseCloudShare 解析云盘分享链接
+func (h *DownloadHandler) ParseCloudShare(c *gin.Context) {
+	req := new(request.ParseCloudShareRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	result, err := h.service.ParseCloudShare(req)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, err.Error(), nil))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// CreateCloudShareDownload 创建分享链接下载任务
+func (h *DownloadHandler) CreateCloudShareDownload(c *gin.Context) {
+	req := new(request.CreateCloudShareDownloadRequest)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	userID := c.GetString("userID")
+	result, err := h.service.CreateCloudShareDownload(req, userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// StartCloudOAuth 发起 OAuth 授权
+func (h *DownloadHandler) StartCloudOAuth(c *gin.Context) {
+	providerID := c.Param("provider")
+	userID := c.GetString("userID")
+	baseURL := buildRequestBaseURL(c)
+	result, err := h.service.StartCloudOAuth(providerID, userID, baseURL, h.cache)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "授权失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// HandleCloudOAuthCallback OAuth 回调
+func (h *DownloadHandler) HandleCloudOAuthCallback(c *gin.Context) {
+	providerID := c.Param("provider")
+	code := c.Query("code")
+	state := c.Query("state")
+	if code == "" || state == "" {
+		c.JSON(400, models.NewJsonResponse(400, "缺少 code 或 state", nil))
+		return
+	}
+	baseURL := buildRequestBaseURL(c)
+	result, err := h.service.HandleCloudOAuthCallback(providerID, code, state, baseURL, h.cache)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "授权失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ListCloudOAuthBindings 列出 OAuth 绑定
+func (h *DownloadHandler) ListCloudOAuthBindings(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := h.service.ListCloudOAuthBindings(userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "获取失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// DeleteCloudOAuthBinding 删除 OAuth 绑定
+func (h *DownloadHandler) DeleteCloudOAuthBinding(c *gin.Context) {
+	var req struct {
+		BindingID string `json:"binding_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	userID := c.GetString("userID")
+	result, err := h.service.DeleteCloudOAuthBinding(userID, req.BindingID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "删除失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// ListCloudCredentialBindings 列出凭据绑定
+func (h *DownloadHandler) ListCloudCredentialBindings(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := h.service.ListCloudCredentialBindings(userID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "获取失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+// DeleteCloudCredentialBinding 删除凭据绑定
+func (h *DownloadHandler) DeleteCloudCredentialBinding(c *gin.Context) {
+	var req struct {
+		BindingID string `json:"binding_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(200, models.NewJsonResponse(400, "参数错误", err.Error()))
+		return
+	}
+	userID := c.GetString("userID")
+	result, err := h.service.DeleteCloudCredentialBinding(userID, req.BindingID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "删除失败", err.Error()))
+		return
+	}
+	c.JSON(200, result)
+}
+
+func buildRequestBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	if forwarded := c.GetHeader("X-Forwarded-Proto"); forwarded != "" {
+		scheme = forwarded
+	}
+	return scheme + "://" + c.Request.Host
 }

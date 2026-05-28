@@ -62,7 +62,7 @@ expose_headers = "*"
 type = "redis"
 host = "127.0.0.1"
 port = 6379
-password = ""
+password = "bleachtred"
 db = 0
 pool_size = 10
 
@@ -98,3 +98,31 @@ path_prefix = ""
 encryption_master_key = ""
 # 操作超时时间（秒），默认30秒，用于控制数据库操作和文件操作的超时
 operation_timeout = 30
+
+# 云盘离线下载 OAuth 凭据（可选，覆盖代码内置默认值）
+[cloud]
+# 阿里云盘：必填 client_id/secret 才能使用 refresh_token 登录
+# 也可在凭据中使用 refresh_token|client_id|client_secret 格式
+aliyun_client_id = ""
+aliyun_client_secret = ""
+# 百度 / 迅雷 / 115 网盘（可选）
+baidu_client_id = ""
+baidu_client_secret = ""
+xunlei_client_id = ""
+xunlei_client_secret = ""
+# 115 开放平台 AppID，默认 100195125
+pan115_client_id = ""
+pan115_client_secret = ""
+pan123_client_id = ""
+pan123_client_secret = ""
+pikpak_client_id = ""
+pikpak_client_secret = ""
+
+# 国际网盘 OAuth（OneDrive / Google Drive / Dropbox）
+[cloud.oauth]
+onedrive_client_id = ""
+onedrive_client_secret = ""
+google_client_id = ""
+google_client_secret = ""
+dropbox_client_id = ""
+dropbox_client_secret = ""

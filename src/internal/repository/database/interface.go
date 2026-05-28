@@ -194,3 +194,31 @@ func MigrateEnterpriseTables(db *gorm.DB) error {
 	logger.LOG.Info("[数据库迁移] 企业数据表迁移完成 ✔️")
 	return nil
 }
+
+// MigrateCloudOAuthTable 迁移云盘 OAuth 绑定表
+func MigrateCloudOAuthTable(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	logger.LOG.Info("[数据库迁移] 开始迁移云盘 OAuth 绑定表...")
+	if err := db.AutoMigrate(&models.CloudOAuthBinding{}); err != nil {
+		logger.LOG.Error("[数据库迁移] 云盘 OAuth 绑定表迁移失败", "error", err)
+		return err
+	}
+	logger.LOG.Info("[数据库迁移] 云盘 OAuth 绑定表迁移完成 ✔️")
+	return nil
+}
+
+// MigrateCloudCredentialTable 迁移云盘凭据绑定表
+func MigrateCloudCredentialTable(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+	logger.LOG.Info("[数据库迁移] 开始迁移云盘凭据绑定表...")
+	if err := db.AutoMigrate(&models.CloudCredentialBinding{}); err != nil {
+		logger.LOG.Error("[数据库迁移] 云盘凭据绑定表迁移失败", "error", err)
+		return err
+	}
+	logger.LOG.Info("[数据库迁移] 云盘凭据绑定表迁移完成 ✔️")
+	return nil
+}

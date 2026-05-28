@@ -26,6 +26,34 @@ type MyObjConfig struct {
 	Cache    Cache    `toml:"cache"`    // 缓存配置
 	WebDAV   WebDAV   `toml:"webdav"`   // WebDAV配置
 	S3       S3       `toml:"s3"`       // S3服务配置
+	Cloud    Cloud    `toml:"cloud"`    // 云盘下载配置
+}
+
+// Cloud 云盘 OAuth 凭据配置
+type Cloud struct {
+	AliyunClientID     string     `toml:"aliyun_client_id"`
+	AliyunClientSecret string     `toml:"aliyun_client_secret"`
+	BaiduClientID      string     `toml:"baidu_client_id"`
+	BaiduClientSecret  string     `toml:"baidu_client_secret"`
+	XunleiClientID     string     `toml:"xunlei_client_id"`
+	XunleiClientSecret string     `toml:"xunlei_client_secret"`
+	Pan115ClientID     string     `toml:"pan115_client_id"`
+	Pan115ClientSecret string     `toml:"pan115_client_secret"`
+	Pan123ClientID     string     `toml:"pan123_client_id"`
+	Pan123ClientSecret string     `toml:"pan123_client_secret"`
+	PikPakClientID     string     `toml:"pikpak_client_id"`
+	PikPakClientSecret string     `toml:"pikpak_client_secret"`
+	OAuth              CloudOAuth `toml:"oauth"`
+}
+
+// CloudOAuth 国际网盘 OAuth 凭据
+type CloudOAuth struct {
+	OnedriveClientID     string `toml:"onedrive_client_id"`
+	OnedriveClientSecret string `toml:"onedrive_client_secret"`
+	GoogleClientID       string `toml:"google_client_id"`
+	GoogleClientSecret   string `toml:"google_client_secret"`
+	DropboxClientID      string `toml:"dropbox_client_id"`
+	DropboxClientSecret  string `toml:"dropbox_client_secret"`
 }
 
 // Server 服务器配置

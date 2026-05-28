@@ -1,4 +1,4 @@
-package cloudsync
+package provider
 
 import (
 	"bytes"
@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
+
+	"myobj/src/pkg/cloudsync"
+	"myobj/src/pkg/cloudsync/internal"
+	"myobj/src/pkg/enum"
 )
 
 const (
@@ -18,37 +20,36 @@ const (
 	xunleiUserAPI = "https://xluser-ssl.xunlei.com/v1"
 )
 
-// 迅雷浏览器版默认凭据
 const (
-	xunleiDefaultCID  = "ZUBzD9J_XPXfn7f7"
-	xunleiDefaultCSEC = "yESVmHecEe6F0aou69vl-g"
-	xunleiDefaultUA   = "AndroidDownloadManager/13 (Linux; U; Android 13; M2004J7AC Build/SP1A.210812.016)"
+	xunleiDefaultUA = "AndroidDownloadManager/13 (Linux; U; Android 13; M2004J7AC Build/SP1A.210812.016)"
 )
 
 func init() {
-	RegisterProvider("xunlei", func(cookie string) CloudProvider {
+	cloudsync.Register(cloudsync.ProviderInfo{
+		ID:          "xunlei",
+		Name:        "迅雷网盘",
+		AuthType:    cloudsync.AuthRefreshToken,
+		Description: "refresh_token 登录，与迅雷下载生态打通",
+	}, enum.DownloadTaskTypeXunlei.Value(), func(cookie string) cloudsync.CloudProvider {
 		return NewXunleiProvider(cookie)
 	})
 }
 
-// xunleiFile 迅雷文件
 type xunleiFile struct {
 	ID             string `json:"id"`
 	Name           string `json:"name"`
-	Size           string `json:"size"` // 字符串类型
+	Size           string `json:"size"`
 	WebContentLink string `json:"web_content_link"`
-	Kind           string `json:"kind"` // "drive#file" 表示文件
+	Kind           string `json:"kind"`
 	Trashed        bool   `json:"trashed"`
 	ParentID       string `json:"parent_id"`
 }
 
-// xunleiListResp 文件列表响应
 type xunleiListResp struct {
-	Files      []xunleiFile `json:"files"`
-	NextPageToken string    `json:"next_page_token"`
+	Files         []xunleiFile `json:"files"`
+	NextPageToken string       `json:"next_page_token"`
 }
 
-// xunleiTokenResp token 响应
 type xunleiTokenResp struct {
 	TokenType    string `json:"token_type"`
 	AccessToken  string `json:"access_token"`
@@ -57,11 +58,10 @@ type xunleiTokenResp struct {
 	UserID       string `json:"user_id"`
 }
 
-// xunleiUserInfo 用户信息
 type xunleiUserInfo struct {
-	Name   string `json:"name"`
-	Sub    string `json:"sub"`
-	Space  string `json:"space"` // 空间大小（可能不存在）
+	Name  string `json:"name"`
+	Sub   string `json:"sub"`
+	Space string `json:"space"`
 }
 
 // XunleiProvider 迅雷网盘提供者
@@ -74,25 +74,18 @@ type XunleiProvider struct {
 	deviceID     string
 	mu           sync.RWMutex
 	client       *http.Client
+	credSync     credentialSyncHelper
 }
 
 // NewXunleiProvider 创建迅雷网盘提供者
-// cookie 格式: refresh_token 或 refresh_token|client_id|client_secret
-func NewXunleiProvider(cookie string) *XunleiProvider {
-	parts := strings.SplitN(cookie, "|", 3)
-	refreshToken := parts[0]
-	clientID := xunleiDefaultCID
-	clientSecret := xunleiDefaultCSEC
-	if len(parts) >= 3 && parts[1] != "" {
-		clientID = parts[1]
-		clientSecret = parts[2]
-	}
+func NewXunleiProvider(credential string) *XunleiProvider {
+	cred := internal.ParseOAuthCredential(credential, cloudsync.XunleiClientID, cloudsync.XunleiClientSecret)
 	return &XunleiProvider{
-		refreshToken: refreshToken,
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		refreshToken: cred.RefreshToken,
+		clientID:     cred.ClientID,
+		clientSecret: cred.ClientSecret,
 		deviceID:     uuid.New().String(),
-		client:       &http.Client{Timeout: 30 * time.Second},
+		client:       internal.DefaultHTTPClient(),
 	}
 }
 
@@ -100,7 +93,17 @@ func (x *XunleiProvider) Name() string {
 	return "xunlei"
 }
 
-func (x *XunleiProvider) Validate() (*CloudUserInfo, error) {
+func (x *XunleiProvider) SetCredentialUpdateCallback(fn func(string)) {
+	x.credSync.SetCredentialUpdateCallback(fn)
+}
+
+func (x *XunleiProvider) ExportCredential() string {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	return internal.FormatOAuthCredential(x.refreshToken, x.clientID, x.clientSecret, cloudsync.XunleiClientID, cloudsync.XunleiClientSecret)
+}
+
+func (x *XunleiProvider) Validate() (*cloudsync.CloudUserInfo, error) {
 	if err := x.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
@@ -115,24 +118,17 @@ func (x *XunleiProvider) Validate() (*CloudUserInfo, error) {
 		nickname = "迅雷用户"
 	}
 
-	return &CloudUserInfo{
+	return &cloudsync.CloudUserInfo{
 		Nickname: nickname,
 	}, nil
 }
 
-func (x *XunleiProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile, int, error) {
+func (x *XunleiProvider) ListFiles(pdirFid string, page, size int) ([]cloudsync.CloudFile, int, error) {
 	if err := x.ensureAccessToken(); err != nil {
 		return nil, 0, fmt.Errorf("刷新token失败: %w", err)
 	}
 
-	if pdirFid == "" {
-		pdirFid = "" // 根目录
-	}
-
-	// 迅雷使用 page_token 分页
-	// 简单实现：循环获取直到目标页
 	var pageToken string
-
 	for i := 0; i < page; i++ {
 		params := map[string]string{
 			"parent_id": pdirFid,
@@ -149,12 +145,12 @@ func (x *XunleiProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 		}
 
 		if i == page-1 {
-			files := make([]CloudFile, 0, len(resp.Files))
+			files := make([]cloudsync.CloudFile, 0, len(resp.Files))
 			for _, f := range resp.Files {
 				if f.Trashed {
 					continue
 				}
-				files = append(files, CloudFile{
+				files = append(files, cloudsync.CloudFile{
 					Fid:      f.ID,
 					FileName: f.Name,
 					Size:     parseSize(f.Size),
@@ -177,12 +173,11 @@ func (x *XunleiProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 	return nil, 0, nil
 }
 
-func (x *XunleiProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error) {
+func (x *XunleiProvider) GetDownloadLink(fid string) (*cloudsync.CloudDownloadLink, error) {
 	if err := x.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
 
-	// 获取文件详情（包含下载链接）
 	var file xunleiFile
 	if err := x.get(xunleiAPI+"/files/"+fid, nil, &file); err != nil {
 		return nil, err
@@ -192,7 +187,7 @@ func (x *XunleiProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error)
 		return nil, fmt.Errorf("未获取到下载链接")
 	}
 
-	return &CloudDownloadLink{
+	return &cloudsync.CloudDownloadLink{
 		DownloadURL: file.WebContentLink,
 		Headers: map[string]string{
 			"User-Agent": xunleiDefaultUA,
@@ -200,7 +195,6 @@ func (x *XunleiProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error)
 	}, nil
 }
 
-// ensureAccessToken 确保 access_token 有效
 func (x *XunleiProvider) ensureAccessToken() error {
 	x.mu.RLock()
 	if x.accessToken != "" {
@@ -211,7 +205,6 @@ func (x *XunleiProvider) ensureAccessToken() error {
 	return x.refreshAccessToken()
 }
 
-// refreshAccessToken 刷新 access_token
 func (x *XunleiProvider) refreshAccessToken() error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -263,18 +256,16 @@ func (x *XunleiProvider) refreshAccessToken() error {
 	if tokenResp.RefreshToken != "" {
 		x.refreshToken = tokenResp.RefreshToken
 	}
-
+	x.credSync.notifyCredential(x.refreshToken, x.clientID, x.clientSecret, cloudsync.XunleiClientID, cloudsync.XunleiClientSecret)
 	return nil
 }
 
-// invalidateToken 使当前 access_token 失效
 func (x *XunleiProvider) invalidateToken() {
 	x.mu.Lock()
 	x.accessToken = ""
 	x.mu.Unlock()
 }
 
-// get 发送 GET 请求
 func (x *XunleiProvider) get(url string, params map[string]string, result interface{}) error {
 	maxRetries := 2
 
@@ -295,7 +286,6 @@ func (x *XunleiProvider) get(url string, params map[string]string, result interf
 		}
 		req.URL.RawQuery = q.Encode()
 
-		// 设置认证和设备头
 		req.Header.Set("Authorization", tokenType+" "+token)
 		req.Header.Set("User-Agent", xunleiDefaultUA)
 		req.Header.Set("Accept", "application/json;charset=UTF-8")
@@ -314,10 +304,8 @@ func (x *XunleiProvider) get(url string, params map[string]string, result interf
 			return fmt.Errorf("读取响应失败: %w", err)
 		}
 
-		// 检查错误码
-		errCode := extractJSONInt(respBytes, "error_code")
+		errCode := internal.JSONIntField(respBytes, "error_code")
 		if errCode != 0 {
-			// Token 相关错误，刷新后重试
 			if errCode == 4122 || errCode == 4121 || errCode == 10 || errCode == 16 {
 				x.invalidateToken()
 				if err := x.refreshAccessToken(); err != nil {
@@ -325,9 +313,9 @@ func (x *XunleiProvider) get(url string, params map[string]string, result interf
 				}
 				continue
 			}
-			errMsg := extractJSONString(respBytes, "error_description")
+			errMsg := internal.JSONStringField(respBytes, "error_description")
 			if errMsg == "" {
-				errMsg = extractJSONString(respBytes, "message")
+				errMsg = internal.JSONStringField(respBytes, "message")
 			}
 			return fmt.Errorf("迅雷API错误: error_code=%d, %s", errCode, errMsg)
 		}
@@ -343,35 +331,6 @@ func (x *XunleiProvider) get(url string, params map[string]string, result interf
 	return fmt.Errorf("请求重试%d次后仍失败", maxRetries)
 }
 
-// extractJSONInt 从 JSON 中提取整数字段
-func extractJSONInt(data []byte, key string) int {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(data, &m); err != nil {
-		return 0
-	}
-	if v, ok := m[key]; ok {
-		var n int
-		json.Unmarshal(v, &n)
-		return n
-	}
-	return 0
-}
-
-// extractJSONString 从 JSON 中提取字符串字段
-func extractJSONString(data []byte, key string) string {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(data, &m); err != nil {
-		return ""
-	}
-	if v, ok := m[key]; ok {
-		var s string
-		json.Unmarshal(v, &s)
-		return s
-	}
-	return ""
-}
-
-// parseSize 解析字符串类型的文件大小
 func parseSize(s string) int64 {
 	var size int64
 	fmt.Sscanf(s, "%d", &size)

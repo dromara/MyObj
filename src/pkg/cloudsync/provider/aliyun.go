@@ -1,4 +1,4 @@
-package cloudsync
+package provider
 
 import (
 	"bytes"
@@ -6,23 +6,25 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
+
+	"myobj/src/pkg/cloudsync"
+	"myobj/src/pkg/cloudsync/internal"
+	"myobj/src/pkg/enum"
 )
 
 const (
 	aliyunAPI = "https://openapi.alipan.com"
 )
 
-// 阿里云盘默认 OAuth 应用凭据（来自 alist）
-const (
-	aliyunDefaultCID   = ""
-	aliyunDefaultCSEC  = ""
-)
-
 func init() {
-	RegisterProvider("aliyun", func(cookie string) CloudProvider {
+	cloudsync.Register(cloudsync.ProviderInfo{
+		ID:          "aliyun",
+		Name:        "阿里云盘",
+		AuthType:    cloudsync.AuthRefreshToken,
+		Description: "refresh_token 登录；需在 config.toml [cloud] 配置 aliyun_client_id/secret，或凭据格式 refresh_token|client_id|client_secret",
+	}, enum.DownloadTaskTypeAliyun.Value(), func(cookie string) cloudsync.CloudProvider {
 		return NewAliyunProvider(cookie)
 	})
 }
@@ -35,11 +37,11 @@ type aliyunErrResp struct {
 
 // aliyunFile 阿里云盘文件
 type aliyunFile struct {
-	DriveId      string `json:"drive_id"`
-	FileId       string `json:"file_id"`
-	Name         string `json:"name"`
-	Size         int64  `json:"size"`
-	Type         string `json:"type"` // "file" or "folder"
+	DriveId       string `json:"drive_id"`
+	FileId        string `json:"file_id"`
+	Name          string `json:"name"`
+	Size          int64  `json:"size"`
+	Type          string `json:"type"`
 	FileExtension string `json:"file_extension"`
 }
 
@@ -69,24 +71,17 @@ type AliyunProvider struct {
 	driveID      string
 	mu           sync.RWMutex
 	client       *http.Client
+	credSync     credentialSyncHelper
 }
 
 // NewAliyunProvider 创建阿里云盘提供者
-// cookie 格式: refresh_token 或 refresh_token|client_id|client_secret
-func NewAliyunProvider(cookie string) *AliyunProvider {
-	parts := strings.SplitN(cookie, "|", 3)
-	refreshToken := parts[0]
-	clientID := aliyunDefaultCID
-	clientSecret := aliyunDefaultCSEC
-	if len(parts) >= 3 && parts[1] != "" {
-		clientID = parts[1]
-		clientSecret = parts[2]
-	}
+func NewAliyunProvider(credential string) *AliyunProvider {
+	cred := internal.ParseOAuthCredential(credential, cloudsync.AliyunClientID, cloudsync.AliyunClientSecret)
 	return &AliyunProvider{
-		refreshToken: refreshToken,
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		client:       &http.Client{Timeout: 30 * time.Second},
+		refreshToken: cred.RefreshToken,
+		clientID:     cred.ClientID,
+		clientSecret: cred.ClientSecret,
+		client:       internal.DefaultHTTPClient(),
 	}
 }
 
@@ -94,18 +89,26 @@ func (a *AliyunProvider) Name() string {
 	return "aliyun"
 }
 
-func (a *AliyunProvider) Validate() (*CloudUserInfo, error) {
+func (a *AliyunProvider) SetCredentialUpdateCallback(fn func(string)) {
+	a.credSync.SetCredentialUpdateCallback(fn)
+}
+
+func (a *AliyunProvider) ExportCredential() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return internal.FormatOAuthCredential(a.refreshToken, a.clientID, a.clientSecret, cloudsync.AliyunClientID, cloudsync.AliyunClientSecret)
+}
+
+func (a *AliyunProvider) Validate() (*cloudsync.CloudUserInfo, error) {
 	if err := a.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
 
-	// 获取云盘信息
 	var driveInfo aliyunDriveInfo
 	if err := a.post("/adrive/v1.0/user/getDriveInfo", nil, &driveInfo); err != nil {
 		return nil, err
 	}
 
-	// 获取用户信息
 	var userInfo struct {
 		NickName string `json:"nick_name"`
 	}
@@ -116,14 +119,14 @@ func (a *AliyunProvider) Validate() (*CloudUserInfo, error) {
 		nickname = "阿里云盘用户"
 	}
 
-	return &CloudUserInfo{
+	return &cloudsync.CloudUserInfo{
 		Nickname:  nickname,
 		TotalSize: driveInfo.TotalSize,
 		UsedSize:  driveInfo.UsedSize,
 	}, nil
 }
 
-func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile, int, error) {
+func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]cloudsync.CloudFile, int, error) {
 	if err := a.ensureAccessToken(); err != nil {
 		return nil, 0, fmt.Errorf("刷新token失败: %w", err)
 	}
@@ -132,10 +135,7 @@ func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 		pdirFid = "root"
 	}
 
-	// 阿里云盘使用 marker 分页，需要跳过前面的页
-	// 简单实现：每页请求 size 条，循环 page 次
 	var marker string
-
 	for i := 0; i < page; i++ {
 		body := map[string]interface{}{
 			"drive_id":        a.driveID,
@@ -155,10 +155,9 @@ func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 		}
 
 		if i == page-1 {
-			// 最后一页，返回结果
-			files := make([]CloudFile, 0, len(resp.Items))
+			files := make([]cloudsync.CloudFile, 0, len(resp.Items))
 			for _, f := range resp.Items {
-				files = append(files, CloudFile{
+				files = append(files, cloudsync.CloudFile{
 					Fid:      f.FileId,
 					FileName: f.Name,
 					Size:     f.Size,
@@ -167,14 +166,13 @@ func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 			}
 			total := (page-1)*size + len(resp.Items)
 			if resp.NextMarker != "" {
-				total = page*size + 1 // 可能还有更多
+				total = page*size + 1
 			}
 			return files, total, nil
 		}
 
 		marker = resp.NextMarker
 		if marker == "" {
-			// 没有更多数据了
 			return nil, 0, nil
 		}
 	}
@@ -182,14 +180,14 @@ func (a *AliyunProvider) ListFiles(pdirFid string, page, size int) ([]CloudFile,
 	return nil, 0, nil
 }
 
-func (a *AliyunProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error) {
+func (a *AliyunProvider) GetDownloadLink(fid string) (*cloudsync.CloudDownloadLink, error) {
 	if err := a.ensureAccessToken(); err != nil {
 		return nil, fmt.Errorf("刷新token失败: %w", err)
 	}
 
 	body := map[string]interface{}{
-		"drive_id":  a.driveID,
-		"file_id":   fid,
+		"drive_id":   a.driveID,
+		"file_id":    fid,
 		"expire_sec": 14400,
 	}
 
@@ -202,12 +200,13 @@ func (a *AliyunProvider) GetDownloadLink(fid string) (*CloudDownloadLink, error)
 		return nil, fmt.Errorf("未获取到下载链接")
 	}
 
-	return &CloudDownloadLink{
+	expires := time.Now().Add(4 * time.Hour)
+	return &cloudsync.CloudDownloadLink{
 		DownloadURL: resp.URL,
+		ExpiresAt:   &expires,
 	}, nil
 }
 
-// ensureAccessToken 确保 access_token 有效
 func (a *AliyunProvider) ensureAccessToken() error {
 	a.mu.RLock()
 	if a.accessToken != "" {
@@ -218,7 +217,6 @@ func (a *AliyunProvider) ensureAccessToken() error {
 	return a.refreshAccessToken()
 }
 
-// refreshAccessToken 刷新 OAuth access_token
 func (a *AliyunProvider) refreshAccessToken() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -228,7 +226,7 @@ func (a *AliyunProvider) refreshAccessToken() error {
 	}
 
 	if a.clientID == "" || a.clientSecret == "" {
-		return fmt.Errorf("阿里云盘需要 client_id 和 client_secret，请在 cookie 字段提供: refresh_token|client_id|client_secret")
+		return fmt.Errorf("阿里云盘需要 client_id 和 client_secret，请在 config.toml [cloud] 配置 aliyun_client_id/secret，或使用凭据格式 refresh_token|client_id|client_secret")
 	}
 
 	body := map[string]string{
@@ -277,14 +275,11 @@ func (a *AliyunProvider) refreshAccessToken() error {
 	if tokenResp.RefreshToken != "" {
 		a.refreshToken = tokenResp.RefreshToken
 	}
-
-	// 获取 drive_id
+	a.credSync.notifyCredential(a.refreshToken, a.clientID, a.clientSecret, cloudsync.AliyunClientID, cloudsync.AliyunClientSecret)
 	a.getDriveID()
-
 	return nil
 }
 
-// getDriveID 获取默认云盘 ID
 func (a *AliyunProvider) getDriveID() {
 	var resp struct {
 		DefaultDriveID string `json:"default_drive_id"`
@@ -294,14 +289,12 @@ func (a *AliyunProvider) getDriveID() {
 	}
 }
 
-// invalidateToken 使当前 access_token 失效
 func (a *AliyunProvider) invalidateToken() {
 	a.mu.Lock()
 	a.accessToken = ""
 	a.mu.Unlock()
 }
 
-// post 发送 POST 请求
 func (a *AliyunProvider) post(path string, body interface{}, result interface{}) error {
 	maxRetries := 2
 
@@ -340,10 +333,8 @@ func (a *AliyunProvider) post(path string, body interface{}, result interface{})
 			return fmt.Errorf("读取响应失败: %w", err)
 		}
 
-		// 检查错误
 		var errResp aliyunErrResp
 		if err := json.Unmarshal(respBytes, &errResp); err == nil && errResp.Code != "" {
-			// Token 过期，刷新后重试
 			if errResp.Code == "AccessTokenInvalid" || errResp.Code == "AccessTokenExpired" {
 				a.invalidateToken()
 				if err := a.refreshAccessToken(); err != nil {
@@ -364,4 +355,3 @@ func (a *AliyunProvider) post(path string, body interface{}, result interface{})
 
 	return fmt.Errorf("请求重试%d次后仍失败", maxRetries)
 }
-

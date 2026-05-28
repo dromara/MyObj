@@ -1,6 +1,10 @@
-package cloudsync
+package provider
 
 import (
+	"myobj/src/pkg/cloudsync"
+	"myobj/src/pkg/cloudsync/internal"
+	"myobj/src/pkg/enum"
+
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
@@ -24,7 +28,10 @@ const (
 )
 
 func init() {
-	RegisterProvider("139", func(cookie string) CloudProvider {
+	cloudsync.Register(cloudsync.ProviderInfo{
+		ID: "139", Name: "中国移动云盘", AuthType: cloudsync.AuthCookie,
+		Description: "authorization 登录（Base64 编码）",
+	}, enum.DownloadTaskType139.Value(), func(cookie string) cloudsync.CloudProvider {
 		return NewCloud139Provider(cookie)
 	})
 }
@@ -96,7 +103,7 @@ type Cloud139Provider struct {
 func NewCloud139Provider(cookie string) *Cloud139Provider {
 	p := &Cloud139Provider{
 		authorization: cookie,
-		client:        &http.Client{Timeout: 30 * time.Second},
+		client:        internal.DefaultHTTPClient(),
 	}
 	p.parseAuthorization()
 	return p
@@ -122,16 +129,16 @@ func (p *Cloud139Provider) Name() string {
 	return "139"
 }
 
-func (p *Cloud139Provider) Validate() (*CloudUserInfo, error) {
+func (p *Cloud139Provider) Validate() (*cloudsync.CloudUserInfo, error) {
 	if err := p.ensureReady(); err != nil {
 		return nil, err
 	}
-	return &CloudUserInfo{
+	return &cloudsync.CloudUserInfo{
 		Nickname: "移动云盘用户 (" + p.account + ")",
 	}, nil
 }
 
-func (p *Cloud139Provider) ListFiles(pdirFid string, page, size int) ([]CloudFile, int, error) {
+func (p *Cloud139Provider) ListFiles(pdirFid string, page, size int) ([]cloudsync.CloudFile, int, error) {
 	if err := p.ensureReady(); err != nil {
 		return nil, 0, err
 	}
@@ -165,9 +172,9 @@ func (p *Cloud139Provider) ListFiles(pdirFid string, page, size int) ([]CloudFil
 		}
 
 		if i == page-1 {
-			files := make([]CloudFile, 0, len(resp.Data.List))
+			files := make([]cloudsync.CloudFile, 0, len(resp.Data.List))
 			for _, f := range resp.Data.List {
-				files = append(files, CloudFile{
+				files = append(files, cloudsync.CloudFile{
 					Fid:      f.FileID,
 					FileName: f.Name,
 					Size:     f.Size,
@@ -190,7 +197,7 @@ func (p *Cloud139Provider) ListFiles(pdirFid string, page, size int) ([]CloudFil
 	return nil, 0, nil
 }
 
-func (p *Cloud139Provider) GetDownloadLink(fid string) (*CloudDownloadLink, error) {
+func (p *Cloud139Provider) GetDownloadLink(fid string) (*cloudsync.CloudDownloadLink, error) {
 	if err := p.ensureReady(); err != nil {
 		return nil, err
 	}
@@ -212,7 +219,7 @@ func (p *Cloud139Provider) GetDownloadLink(fid string) (*CloudDownloadLink, erro
 		return nil, fmt.Errorf("未获取到下载链接")
 	}
 
-	return &CloudDownloadLink{
+	return &cloudsync.CloudDownloadLink{
 		DownloadURL: downloadURL,
 	}, nil
 }
@@ -442,7 +449,7 @@ func (p *Cloud139Provider) calSign(body []byte) string {
 	// Base64 编码
 	b64 := base64.StdEncoding.EncodeToString([]byte(sorted))
 
-	// 计算签名
+	// 签名
 	part1 := md5Hex(b64)
 	part2 := md5Hex(ts + ":" + randStr)
 	sign := md5Hex(strings.ToUpper(part1 + ":" + part2))
@@ -450,13 +457,13 @@ func (p *Cloud139Provider) calSign(body []byte) string {
 	return ts + "," + randStr + "," + sign
 }
 
-// md5Hex 计算 MD5 并返回大写十六进制字符串
+// md5Hex 计算 MD5 十六进制字符串（小写）
 func md5Hex(s string) string {
 	h := md5.Sum([]byte(s))
 	return hex.EncodeToString(h[:])
 }
 
-// randomString 生成随机字符串
+// randomString 生成随机字母数字字符串
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)

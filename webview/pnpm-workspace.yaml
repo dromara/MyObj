@@ -1,4 +1,7 @@
 packages:
   - packages/*
+ignoredBuiltDependencies:
+  - core-js
+  - esbuild
 
 onlyBuiltDependencies: '["core-js","esbuild"]'
