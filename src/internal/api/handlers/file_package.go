@@ -6,6 +6,7 @@ import (
 	"myobj/src/pkg/download"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"myobj/src/pkg/util"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -137,7 +138,7 @@ func (f *FileHandler) DownloadPackage(c *gin.Context) {
 
 	// 设置响应头（避免浏览器拦截）
 	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", `attachment; filename="`+fileName+`"`)
+	c.Header("Content-Disposition", util.BuildContentDisposition(fileName, "attachment"))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("X-Content-Type-Options", "nosniff") // 防止浏览器MIME类型嗅探
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -149,14 +150,14 @@ func (f *FileHandler) DownloadPackage(c *gin.Context) {
 		contentLength := rangeInfo.End - rangeInfo.Start + 1
 		c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
 		c.Header("Content-Range", "bytes "+strconv.FormatInt(rangeInfo.Start, 10)+"-"+strconv.FormatInt(rangeInfo.End, 10)+"/"+strconv.FormatInt(fileSize, 10))
-		c.Status(206) // Partial Content
-
 		// 定位到起始位置
 		if _, err := file.Seek(rangeInfo.Start, io.SeekStart); err != nil {
 			logger.LOG.Error("文件定位失败", "error", err)
 			c.JSON(500, models.NewJsonResponse(500, "文件读取失败", nil))
 			return
 		}
+
+		c.Status(206) // Partial Content
 
 		// 传输指定范围的数据
 		_, err = io.CopyN(c.Writer, file, contentLength)

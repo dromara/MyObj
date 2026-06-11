@@ -8,7 +8,7 @@ type FileInfo struct {
 	ID              string               `gorm:"type:VARCHAR;not null;primaryKey;unique" json:"id"`                      // 文件ID，主键且唯一
 	Name            string               `gorm:"type:VARCHAR;not null;index:file_info_index_1" json:"name"`              // 文件原名
 	RandomName      string               `gorm:"type:VARCHAR;not null" json:"random_name"`                               // 文件存储名（随机生成）
-	Size            int                  `gorm:"type:INTEGER;not null" json:"size"`                                      // 文件大小
+	Size            int64                `gorm:"type:BIGINT;not null" json:"size"`                                       // 文件大小
 	Mime            string               `gorm:"type:VARCHAR;not null;index:file_info_index_0" json:"mime"`              // 文件MIME类型
 	ThumbnailImg    string               `gorm:"type:TEXT" json:"thumbnail_img"`                                         // 缩略图路径
 	Path            string               `gorm:"type:TEXT" json:"path"`                                                  // 文件实际存储路径
@@ -22,7 +22,7 @@ type FileInfo struct {
 	IsEnc           bool                 `gorm:"type:BOOLEAN" json:"is_enc"`                                             // 是否加密
 	IsChunk         bool                 `gorm:"type:BOOLEAN;not null" json:"is_chunk"`                                  // 是否分块存储
 	ChunkCount      int                  `gorm:"type:INTEGER" json:"chunk_count"`                                        // 分块数量
-	EncPath         string               `gorm:"type:TEXT;not null" json:"enc_path"`                                     // 加密文件路径
+	EncPath         string               `gorm:"type:TEXT;default:''" json:"enc_path"`                                   // 加密文件路径
 	CreatedAt       custom_type.JsonTime `gorm:"type:DATETIME" json:"created_at"`                                        // 创建时间
 	UpdatedAt       custom_type.JsonTime `gorm:"type:DATETIME" json:"updated_at"`                                        // 更新时间
 }

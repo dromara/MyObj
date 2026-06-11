@@ -20,6 +20,7 @@ type LocalCache struct {
 	stopChan        chan struct{} // 停止信号
 	ticker          *time.Ticker  // 定时清理器
 	cleanupInterval time.Duration // 定时清理间隔
+	maxSize         int           // 最大容量限制
 }
 
 // NewLocalCache 创建一个新的本地缓存实例
@@ -34,6 +35,7 @@ func NewLocalCache(cleanupInterval ...time.Duration) *LocalCache {
 		data:            make(map[string]LocalCacheData),
 		stopChan:        make(chan struct{}),
 		cleanupInterval: interval,
+		maxSize:         10000,
 	}
 
 	// 启动定时清理协程
@@ -86,6 +88,16 @@ func (c *LocalCache) Set(key string, value any, expire int) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	// 容量检查：如果已达上限且 key 不存在，先清理过期条目
+	if _, exists := c.data[key]; !exists && len(c.data) >= c.maxSize {
+		// 尝试清理过期条目腾出空间
+		c.cleanupExpiredLocked()
+		// 清理后仍满，拒绝写入
+		if len(c.data) >= c.maxSize {
+			return fmt.Errorf("local cache is full (max %d), rejecting write", c.maxSize)
+		}
+	}
+
 	c.data[key] = LocalCacheData{
 		data:   value,
 		expire: expireTime,
@@ -113,6 +125,11 @@ func (c *LocalCache) cleanupExpired() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	c.cleanupExpiredLocked()
+}
+
+// cleanupExpiredLocked 清理过期缓存（调用方需持有写锁）
+func (c *LocalCache) cleanupExpiredLocked() {
 	now := time.Now()
 	var nextExpire time.Time
 

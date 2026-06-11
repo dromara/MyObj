@@ -92,17 +92,33 @@ export function generateNonce(): string {
 }
 
 /**
+ * 递归清理对象中的 __proto__ 和 constructor 键
+ * 防止原型污染攻击
+ */
+function sanitizeObject(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeObject(item))
+  }
+  if (obj && typeof obj === 'object') {
+    const clean: any = {}
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === '__proto__' || key === 'constructor') continue
+      clean[key] = sanitizeObject(value)
+    }
+    return clean
+  }
+  return obj
+}
+
+/**
  * 安全的 JSON 解析
- * 防止原型污染
+ * 防止原型污染（递归检查嵌套对象）
  */
 export function safeJsonParse<T = any>(json: string, defaultValue: T): T {
   try {
     const parsed = JSON.parse(json)
-    // 检查是否包含 __proto__ 或 constructor
     if (typeof parsed === 'object' && parsed !== null) {
-      if ('__proto__' in parsed || 'constructor' in parsed) {
-        return defaultValue
-      }
+      return sanitizeObject(parsed)
     }
     return parsed
   } catch {

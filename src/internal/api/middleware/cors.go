@@ -2,12 +2,33 @@ package middleware
 
 import (
 	"myobj/src/config"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
+// parseOrigins 在初始化时预解析白名单，避免每次请求重复分割字符串
+func parseOrigins() ([]string, bool) {
+	origins := strings.Split(config.CONFIG.Cors.AllowOrigin, ",")
+	result := make([]string, 0, len(origins))
+	hasWildcard := false
+	for _, o := range origins {
+		trimmed := strings.TrimSpace(o)
+		if trimmed == "*" {
+			hasWildcard = true
+		}
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result, hasWildcard
+}
+
 // CORS 跨域资源共享中间件
 func CORS() gin.HandlerFunc {
+	// 在中间件初始化时预解析白名单，避免每次请求重复分割
+	allowedOrigins, hasWildcard := parseOrigins()
+
 	return func(c *gin.Context) {
 		if !config.CONFIG.Cors.Enable {
 			c.Next()
@@ -15,11 +36,24 @@ func CORS() gin.HandlerFunc {
 		} else {
 			method := c.Request.Method
 			origin := c.Request.Header.Get("Origin")
-			// 允许所有来源,生产环境应该配置具体域名
 			if origin != "" {
-				c.Header("Access-Control-Allow-Origin", origin)
+				// 检查 origin 是否在白名单中（使用预解析的列表）
+				allowed := false
+				if hasWildcard {
+					allowed = true
+				} else {
+					for _, o := range allowedOrigins {
+						if o == origin {
+							allowed = true
+							break
+						}
+					}
+				}
+				if allowed {
+					c.Header("Access-Control-Allow-Origin", origin)
+				}
 			} else {
-				c.Header("Access-Control-Allow-Origin", config.CONFIG.Cors.AllowOrigins)
+				c.Header("Access-Control-Allow-Origin", config.CONFIG.Cors.AllowOrigin)
 			}
 
 			// 允许的请求头

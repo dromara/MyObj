@@ -327,11 +327,20 @@ func extractZip(zipPath, destDir string, opts *ExtractOptions) (*ExtractResult, 
 			rc.Close()
 			return nil, fmt.Errorf("create file failed [%s]: %w", f.Name, err)
 		}
-		_, err = io.Copy(outFile, rc)
+		// 使用 LimitReader 限制实际读取字节数，防止 ZIP bomb
+		maxSize := int64(f.UncompressedSize64)
+		if maxSize <= 0 {
+			maxSize = 1 << 30 // 默认上限 1GB
+		}
+		limitedReader := io.LimitReader(rc, maxSize+1) // +1 用于检测是否超出
+		written, err := io.Copy(outFile, limitedReader)
 		rc.Close()
 		outFile.Close()
 		if err != nil {
 			return nil, fmt.Errorf("write file failed [%s]: %w", f.Name, err)
+		}
+		if written > maxSize {
+			return nil, fmt.Errorf("ZIP bomb detected: file [%s] exceeds declared uncompressed size %d", f.Name, maxSize)
 		}
 		currentIndex++
 		entry := ExtractedEntry{
@@ -439,11 +448,20 @@ func extract7z(sevenzPath, destDir string, opts *ExtractOptions) (*ExtractResult
 			rc.Close()
 			return nil, fmt.Errorf("create file failed [%s]: %w", f.Name, err)
 		}
-		_, err = io.Copy(outFile, rc)
+		// 使用 LimitReader 限制实际读取字节数，防止 ZIP bomb
+		maxSize := fileSize
+		if maxSize <= 0 {
+			maxSize = 1 << 30 // 默认上限 1GB
+		}
+		limitedReader := io.LimitReader(rc, maxSize+1)
+		written, err := io.Copy(outFile, limitedReader)
 		rc.Close()
 		outFile.Close()
 		if err != nil {
 			return nil, fmt.Errorf("write file failed [%s]: %w", f.Name, err)
+		}
+		if written > maxSize {
+			return nil, fmt.Errorf("ZIP bomb detected: file [%s] exceeds declared uncompressed size %d", f.Name, maxSize)
 		}
 		currentIndex++
 		entry := ExtractedEntry{
@@ -573,10 +591,21 @@ func extractRar(rarPath, destDir string, opts *ExtractOptions) (*ExtractResult, 
 		if err != nil {
 			return nil, fmt.Errorf("create file failed [%s]: %w", hdr.Name, err)
 		}
-		_, err = io.Copy(outFile, rc)
+		// 使用 LimitReader 限制实际读取字节数，防止解压炸弹
+		maxSize := fileSize
+		if maxSize <= 0 {
+			maxSize = 1 << 30 // 默认上限 1GB
+		}
+		limitedReader := io.LimitReader(rc, maxSize+1) // +1 用于检测是否超出
+		written, err := io.Copy(outFile, limitedReader)
 		outFile.Close()
 		if err != nil {
+			os.Remove(safePath)
 			return nil, fmt.Errorf("write file failed [%s]: %w", hdr.Name, err)
+		}
+		if written > maxSize {
+			os.Remove(safePath)
+			return nil, fmt.Errorf("RAR entry exceeds max file size (possible decompression bomb): %s", hdr.Name)
 		}
 		currentIndex++
 		entry := ExtractedEntry{
@@ -661,10 +690,21 @@ func extractTarSinglePass(tarPath, destDir string, opts *ExtractOptions, decompr
 			if err != nil {
 				return nil, fmt.Errorf("create file failed [%s]: %w", header.Name, err)
 			}
-			_, err = io.Copy(outFile, tarReader)
+			// 使用 LimitReader 限制实际读取字节数，防止解压炸弹
+			maxSize := header.Size
+			if maxSize <= 0 {
+				maxSize = 1 << 30 // 默认上限 1GB
+			}
+			limitedReader := io.LimitReader(tarReader, maxSize+1) // +1 用于检测是否超出
+			written, err := io.Copy(outFile, limitedReader)
 			outFile.Close()
 			if err != nil {
+				os.Remove(safePath)
 				return nil, fmt.Errorf("write file failed [%s]: %w", header.Name, err)
+			}
+			if written > maxSize {
+				os.Remove(safePath)
+				return nil, fmt.Errorf("TAR entry exceeds max file size (possible decompression bomb): %s", header.Name)
 			}
 			fileCount++
 			entry := ExtractedEntry{

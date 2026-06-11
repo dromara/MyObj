@@ -81,8 +81,13 @@ func (u *UserHandler) Login(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
-	data := login.Data.(response.UserLoginResponse)
-	c.SetCookie("Authorization", data.Token, 7*24*3600, "/", auth.GetCookieDomain(c.Request.Host), false, true)
+	data, ok := login.Data.(response.UserLoginResponse)
+	if !ok {
+		c.JSON(500, models.NewJsonResponse(500, "内部错误", nil))
+		return
+	}
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	c.SetCookie("Authorization", data.Token, 7*24*3600, "/", auth.GetCookieDomain(c.Request.Host), secure, true)
 	c.JSON(200, login)
 }
 
@@ -161,11 +166,25 @@ func (u *UserHandler) UpdateUser(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	req.ID = c.GetString("userID")
-	update, err := u.service.UpdateUser(req)
+
+	// 判断路由：updateUserElse 允许管理员修改他人信息，updateUser 仅允许修改自己
+	isElseRoute := c.FullPath() == "/api/user/updateUserElse"
+	if isElseRoute {
+		// updateUserElse 路由：管理员修改他人信息，使用请求中的 ID
+		if req.ID == "" {
+			c.JSON(400, models.NewJsonResponse(400, "参数错误：缺少目标用户ID", nil))
+			return
+		}
+	} else {
+		// updateUser 路由：普通用户修改自己的信息，强制使用当前用户 ID
+		req.ID = c.GetString("userID")
+	}
+	// 传递 req.ID 作为 currentUserID，对于 updateUserElse 路由跳过服务层的"只能修改自己"校验
+	update, err := u.service.UpdateUser(req, req.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
+			return
 		}
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -191,13 +210,14 @@ func (u *UserHandler) UpdatePassword(c *gin.Context) {
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.UpdatePassword(req)
+	update, err := u.service.UpdatePassword(req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
 			return
 		}
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
 	}
 	c.JSON(200, update)
 }
@@ -214,18 +234,20 @@ func (u *UserHandler) UpdatePassword(c *gin.Context) {
 // @Failure 400 {object} models.JsonResponse "参数错误或设置失败"
 // @Router /user/setFilePassword [post]
 func (u *UserHandler) SetFilePassword(c *gin.Context) {
-	req := new(request.UserUpdatePasswordRequest)
+	req := new(request.UserSetFilePasswordRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.UpdatePassword(req)
+	update, err := u.service.SetFilePassword(req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
+			return
 		}
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
 	}
 	c.JSON(200, update)
 }
@@ -248,12 +270,14 @@ func (u *UserHandler) UserUpdateFilePassword(c *gin.Context) {
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.UpdateFilePassword(req)
+	update, err := u.service.UpdateFilePassword(req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
+			return
 		}
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
+		return
 	}
 	c.JSON(200, update)
 }

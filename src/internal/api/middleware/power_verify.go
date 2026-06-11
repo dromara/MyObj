@@ -16,7 +16,12 @@ func PowerVerify(power string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		loginInfo := userLogin.(response.UserLoginResponse)
+		loginInfo, ok := userLogin.(response.UserLoginResponse)
+		if !ok {
+			c.JSON(500, models.NewJsonResponse(500, "内部错误", nil))
+			c.Abort()
+			return
+		}
 		for _, p := range loginInfo.Power {
 			if p.Characteristic == power {
 				c.Next()

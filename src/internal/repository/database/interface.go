@@ -110,7 +110,7 @@ func MigrateS3Tables(db *gorm.DB) error {
 	logger.LOG.Info("[数据库迁移] 开始迁移S3数据表...")
 
 	// 导入S3模型
-	models := []interface{}{
+	tables := []interface{}{
 		&models.S3Bucket{},
 		&models.S3ObjectMetadata{},
 		&models.S3MultipartUpload{},
@@ -125,7 +125,7 @@ func MigrateS3Tables(db *gorm.DB) error {
 	}
 
 	// 执行自动迁移
-	for _, model := range models {
+	for _, model := range tables {
 		if err := db.AutoMigrate(model); err != nil {
 			// 对于SQLite/MySQL等数据库，索引已存在的错误可以忽略（表结构已创建）
 			// 这种情况通常发生在重复运行迁移时
@@ -139,6 +139,6 @@ func MigrateS3Tables(db *gorm.DB) error {
 		}
 	}
 
-	logger.LOG.Info("[数据库迁移] S3数据表迁移完成", "tables_count", len(models))
+	logger.LOG.Info("[数据库迁移] S3数据表迁移完成", "tables_count", len(tables))
 	return nil
 }

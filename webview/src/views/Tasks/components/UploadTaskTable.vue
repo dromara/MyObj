@@ -36,7 +36,7 @@
         <el-table-column :label="t('tasks.status')" min-width="100" class-name="mobile-hide">
           <template #default="{ row }">
             <div class="status-cell">
-              <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
+              <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status, t) }}</el-tag>
               <!-- 秒传标识 -->
               <el-tag v-if="row.isInstantUpload && row.status === 'completed'" type="success" size="small" class="instant-tag">
                 {{ t('tasks.instantUpload') }}
@@ -141,7 +141,7 @@
               <div class="task-meta">
                 <div class="task-status-row">
                   <el-tag :type="getUploadStatusType(row.status)" size="small" effect="plain">
-                    {{ getUploadStatusText(row.status) }}
+                    {{ getUploadStatusText(row.status, t) }}
                   </el-tag>
                   <el-tag v-if="row.isInstantUpload && row.status === 'completed'" type="success" size="small" class="instant-tag-mobile">
                     {{ t('tasks.instantUpload') }}

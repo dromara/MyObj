@@ -112,17 +112,46 @@ export function useMoveFile(
 
     moving.value = true
     try {
-      for (const fileId of selectedFileIds.value) {
-        const res = await moveFile({
+      const movePromises = selectedFileIds.value.map(fileId =>
+        moveFile({
           file_id: fileId,
           source_path: currentPath.value,
           target_path: targetFolderId.value
         })
+      )
 
-        if (res.code !== 200) {
-          proxy?.$modal.msgError(t('files.moveFileFailed') + `: ${res.message}`)
-          return
+      const results = await Promise.allSettled(movePromises)
+
+      const failedCount = results.filter(
+        r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.code !== 200)
+      ).length
+
+      if (failedCount > 0) {
+        const successCount = selectedFileIds.value.length - failedCount
+        if (successCount > 0) {
+          proxy?.$modal.msgWarning(
+            t('files.moveFilesPartialSuccess', { success: successCount, failed: failedCount })
+          )
+        } else {
+          // 尝试获取第一个失败的原因
+          const firstFailed = results.find(
+            r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.code !== 200)
+          )
+          const errMsg =
+            firstFailed?.status === 'rejected'
+              ? firstFailed.reason?.message
+              : firstFailed?.status === 'fulfilled'
+                ? firstFailed.value.message
+                : undefined
+          proxy?.$modal.msgError(errMsg || t('files.moveFileFailed'))
         }
+        // 部分成功时也要刷新列表
+        if (successCount > 0) {
+          showMoveDialog.value = false
+          selectedFileIds.value = []
+          loadFileList()
+        }
+        return
       }
 
       proxy?.$modal.msgSuccess(t('files.moveFilesSuccess', { count: selectedFileIds.value.length }))

@@ -2,20 +2,22 @@ package middleware
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"math"
-	"myobj/src/config"
-	"myobj/src/core/domain/response"
-	"myobj/src/pkg/auth"
-	"myobj/src/pkg/cache"
-	"myobj/src/pkg/models"
-	"myobj/src/pkg/repository"
-	"myobj/src/pkg/util"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"fmt"
+	"myobj/src/config"
+	"myobj/src/core/domain/response"
+	"myobj/src/internal/repository/impl"
+	"myobj/src/pkg/auth"
+	"myobj/src/pkg/cache"
+	"myobj/src/pkg/models"
+	"myobj/src/pkg/repository"
+	"myobj/src/pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,6 +46,15 @@ func NewAuthMiddleware(
 		groupPowerRepo: groupPowerRepo,
 		powerRepo:      powerRepo,
 	}
+}
+
+// NewAuthMiddlewareFromFactory 从 RepositoryFactory 创建 AuthMiddleware
+func NewAuthMiddlewareFromFactory(cache cache.Cache, factory *impl.RepositoryFactory) *AuthMiddleware {
+	return NewAuthMiddleware(cache,
+		factory.ApiKey(),
+		factory.User(),
+		factory.GroupPower(),
+		factory.Power())
 }
 
 // Verify 认证验证中间件
@@ -108,14 +119,11 @@ func (m *AuthMiddleware) VerifyOptional() gin.HandlerFunc {
 		// 2. 尝试从Cookie中获取JWT
 		cookie, err := c.Request.Cookie("Authorization")
 		if err == nil && cookie.Value != "" {
-			// JWT认证流程
-			if err := m.handleJWTAuth(c, "Bearer "+cookie.Value); err != nil {
-				c.JSON(200, models.NewJsonResponse(401, err.Error(), nil))
-				c.Abort()
+			// JWT认证流程（如果失败，不阻止请求，只是不设置用户信息）
+			if err := m.handleJWTAuth(c, "Bearer "+cookie.Value); err == nil {
+				c.Next()
 				return
 			}
-			c.Next()
-			return
 		}
 
 		// 3. 如果没有JWT,检查是否启用了API Key
@@ -148,11 +156,15 @@ func (m *AuthMiddleware) handleJWTAuth(c *gin.Context, authorization string) err
 	if err != nil {
 		return err
 	}
-	jwtToken := get.(string)
+	jwtToken, ok := get.(string)
+	if !ok {
+		return fmt.Errorf("未授权:Token格式错误")
+	}
 	// 解析JWT
 	claims, err := auth.ParseToken(jwtToken)
 	if err != nil {
-		return fmt.Errorf("未授权:Token解析失败 - %v", err)
+		slog.ErrorContext(c.Request.Context(), "Token解析失败", "error", err)
+		return fmt.Errorf("未授权:Token无效")
 	}
 
 	// 检查JWT是否过期
@@ -168,8 +180,11 @@ func (m *AuthMiddleware) handleJWTAuth(c *gin.Context, authorization string) err
 			newToken, err := auth.GenerateJWT(claims.UserID, claims.SessionID, claims.UserLogin)
 			if err == nil {
 				// 更新缓存中的token
-				_ = m.cache.Set(token, newToken, 2*60*60)
-				c.SetCookie("Authorization", newToken, 2*60*60, "/", auth.GetCookieDomain(c.Request.Host), false, true)
+				if cacheErr := m.cache.Set(token, newToken, 2*60*60); cacheErr != nil {
+					slog.ErrorContext(c.Request.Context(), "刷新Token缓存写入失败", "error", cacheErr)
+				}
+				secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+				c.SetCookie("Authorization", newToken, 2*60*60, "/", auth.GetCookieDomain(c.Request.Host), secure, true)
 			}
 		}
 	}
@@ -263,19 +278,10 @@ func (m *AuthMiddleware) handleAPIKeyAuth(c *gin.Context) error {
 		return fmt.Errorf("未授权:用户不存在")
 	}
 
-	// 查询用户权限
-	groupPowers, err := m.groupPowerRepo.GetByGroupID(ctx, user.GroupID)
+	// 批量查询用户权限（避免 N+1 查询）
+	powers, err := m.powerRepo.GetByGroupID(ctx, user.GroupID)
 	if err != nil {
 		return fmt.Errorf("未授权:权限查询失败")
-	}
-
-	// 获取权限详情
-	var powers []*models.Power
-	for _, gp := range groupPowers {
-		power, err := m.powerRepo.GetByID(ctx, gp.PowerID)
-		if err == nil && power != nil {
-			powers = append(powers, power)
-		}
 	}
 
 	// 构造UserLoginResponse

@@ -88,7 +88,11 @@ fi
 if [ -d "templates" ]; then
     cp -r templates bin/
 fi
-cp config.toml bin/
+if [ -f "config.example.toml" ]; then
+    cp config.example.toml bin/config.toml
+else
+    echo "# 请复制 config.toml 到 bin/ 目录并根据实际环境修改配置" > bin/config.toml.example
+fi
 if [ -d "docs" ]; then
     cp -r docs bin/
 fi

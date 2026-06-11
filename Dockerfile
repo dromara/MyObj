@@ -2,7 +2,7 @@
 FROM node:24-alpine AS frontend-builder
 
 # 安装固定版本的 pnpm（确保构建一致性）
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@9.15.0
 
 RUN pnpm config set registry https://registry.npmmirror.com/
 
@@ -47,7 +47,7 @@ ARG TARGETARCH
 RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o myobj ./src/cmd/server/main.go
 
 # 运行阶段
-FROM alpine:latest
+FROM alpine:3.20
 
 # 设置工作目录
 WORKDIR /app
@@ -94,7 +94,7 @@ RUN chmod +x /app/docker-entrypoint.sh
 EXPOSE 8080 8081
 
 # 设置挂载点
-VOLUME ["/app/config.toml", "/app/logs", "/app/libs", "/app/obj_data", "/app/obj_temp"]
+VOLUME ["/app/logs", "/app/libs", "/app/obj_data", "/app/obj_temp"]
 
 # 设置入口点（运行初始化脚本后启动应用）
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

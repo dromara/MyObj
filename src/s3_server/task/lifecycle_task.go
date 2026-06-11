@@ -9,9 +9,11 @@ import (
 	"myobj/src/pkg/models"
 	"myobj/src/s3_server/service"
 	"myobj/src/s3_server/types"
-	"strings"
 	"time"
 )
+
+// lifecyclePageSize 生命周期任务分页大小
+const lifecyclePageSize = 1000
 
 // LifecycleTask 生命周期管理定时任务
 type LifecycleTask struct {
@@ -29,7 +31,8 @@ func NewLifecycleTask(factory *impl.RepositoryFactory, objectService *service.S3
 
 // ExecuteLifecycleRules 执行所有Bucket的生命周期规则
 func (t *LifecycleTask) ExecuteLifecycleRules() error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 	logger.LOG.Info("开始执行生命周期管理任务")
 
 	// 1. 获取所有Lifecycle配置
@@ -185,39 +188,51 @@ func (t *LifecycleTask) processExpiration(ctx context.Context, bucketName, userI
 		prefix = rule.Filter.Prefix
 	}
 
-	// 列出对象（只获取最新版本，用于过期删除）
-	objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, prefix, 1000, "")
-	if err != nil {
-		return 0, fmt.Errorf("列出对象失败: %w", err)
-	}
-
+	// 分页列出对象（只获取最新版本，用于过期删除）
 	deletedCount := 0
-	for _, obj := range objects {
-		// 检查对象是否过期
-		if time.Time(obj.CreatedAt).Before(expirationTime) {
-			// 检查标签过滤（如果规则有Filter且包含Tag）
-			if rule.Filter != nil && rule.Filter.Tag != nil {
-				if !t.matchTag(obj, rule.Filter.Tag) {
+	marker := ""
+
+	for {
+		objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, prefix, lifecyclePageSize, marker)
+		if err != nil {
+			return deletedCount, fmt.Errorf("列出对象失败: %w", err)
+		}
+
+		for _, obj := range objects {
+			// 检查对象是否过期
+			if time.Time(obj.CreatedAt).Before(expirationTime) {
+				// 检查标签过滤（如果规则有Filter且包含Tag）
+				if rule.Filter != nil && rule.Filter.Tag != nil {
+					if !t.matchTag(obj, rule.Filter.Tag) {
+						continue
+					}
+				}
+
+				// 删除对象
+				err := t.objectService.DeleteObject(ctx, bucketName, obj.ObjectKey, userID, "")
+				if err != nil {
+					logger.LOG.Error("删除过期对象失败",
+						"bucket", bucketName,
+						"key", obj.ObjectKey,
+						"error", err)
 					continue
 				}
-			}
 
-			// 删除对象
-			err := t.objectService.DeleteObject(ctx, bucketName, obj.ObjectKey, userID, "")
-			if err != nil {
-				logger.LOG.Error("删除过期对象失败",
+				deletedCount++
+				logger.LOG.Info("删除过期对象",
 					"bucket", bucketName,
 					"key", obj.ObjectKey,
-					"error", err)
-				continue
+					"created_at", obj.CreatedAt)
 			}
-
-			deletedCount++
-			logger.LOG.Info("删除过期对象",
-				"bucket", bucketName,
-				"key", obj.ObjectKey,
-				"created_at", obj.CreatedAt)
 		}
+
+		// 如果返回数量少于 lifecyclePageSize，说明已经没有更多对象了
+		if len(objects) < lifecyclePageSize {
+			break
+		}
+
+		// 使用最后一个对象的 ObjectKey 作为下一页的 marker
+		marker = objects[len(objects)-1].ObjectKey
 	}
 
 	return deletedCount, nil
@@ -228,34 +243,44 @@ func (t *LifecycleTask) processNoncurrentVersionExpiration(ctx context.Context, 
 	// 计算过期时间
 	expirationTime := time.Now().AddDate(0, 0, -rule.NoncurrentVersionExpiration.NoncurrentDays)
 
-	// 获取Bucket下的所有对象版本
-	// 注意：这里需要实现ListObjectVersions来获取所有版本
-	// 简化实现：只处理当前已知的版本
-	objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, rule.Prefix, 1000, "")
-	if err != nil {
-		return 0, fmt.Errorf("列出对象失败: %w", err)
-	}
-
+	// 分页列出所有对象（包括非当前版本），用于过期删除
 	deletedCount := 0
-	for _, obj := range objects {
-		// 只处理非当前版本
-		if !obj.IsLatest {
-			// 检查是否过期
-			if time.Time(obj.CreatedAt).Before(expirationTime) {
-				// 删除特定版本
-				err := t.objectService.DeleteObject(ctx, bucketName, obj.ObjectKey, userID, obj.VersionID)
-				if err != nil {
-					logger.LOG.Error("删除过期非当前版本失败",
-						"bucket", bucketName,
-						"key", obj.ObjectKey,
-						"version_id", obj.VersionID,
-						"error", err)
-					continue
-				}
+	marker := ""
 
-				deletedCount++
+	for {
+		objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, rule.Prefix, lifecyclePageSize, marker)
+		if err != nil {
+			return deletedCount, fmt.Errorf("列出对象失败: %w", err)
+		}
+
+		for _, obj := range objects {
+			// 只处理非当前版本
+			if !obj.IsLatest {
+				// 检查是否过期
+				if time.Time(obj.CreatedAt).Before(expirationTime) {
+					// 删除特定版本
+					err := t.objectService.DeleteObject(ctx, bucketName, obj.ObjectKey, userID, obj.VersionID)
+					if err != nil {
+						logger.LOG.Error("删除过期非当前版本失败",
+							"bucket", bucketName,
+							"key", obj.ObjectKey,
+							"version_id", obj.VersionID,
+							"error", err)
+						continue
+					}
+
+					deletedCount++
+				}
 			}
 		}
+
+		// 如果返回数量少于 lifecyclePageSize，说明已经没有更多对象了
+		if len(objects) < lifecyclePageSize {
+			break
+		}
+
+		// 使用最后一个对象的 ObjectKey 作为下一页的 marker
+		marker = objects[len(objects)-1].ObjectKey
 	}
 
 	return deletedCount, nil
@@ -283,45 +308,58 @@ func (t *LifecycleTask) processTransition(ctx context.Context, bucketName, userI
 		prefix = rule.Filter.Prefix
 	}
 
-	objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, prefix, 1000, "")
-	if err != nil {
-		return 0, fmt.Errorf("列出对象失败: %w", err)
-	}
-
+	// 分页列出对象（只获取最新版本，用于存储类别转换）
 	transitionedCount := 0
-	for _, obj := range objects {
-		// 检查对象是否满足转换条件
-		if time.Time(obj.CreatedAt).Before(transitionTime) {
-			// 检查当前存储类别是否已经是目标类别
-			if obj.StorageClass == transition.StorageClass {
-				continue
-			}
+	marker := ""
 
-			// 检查标签过滤
-			if rule.Filter != nil && rule.Filter.Tag != nil {
-				if !t.matchTag(obj, rule.Filter.Tag) {
+	for {
+		objects, err := t.factory.S3ObjectMetadata().ListByBucket(ctx, bucketName, userID, prefix, lifecyclePageSize, marker)
+		if err != nil {
+			return transitionedCount, fmt.Errorf("列出对象失败: %w", err)
+		}
+
+		for _, obj := range objects {
+			// 检查对象是否满足转换条件
+			if time.Time(obj.CreatedAt).Before(transitionTime) {
+				// 检查当前存储类别是否已经是目标类别
+				if obj.StorageClass == transition.StorageClass {
 					continue
 				}
-			}
 
-			// 更新存储类别
-			obj.StorageClass = transition.StorageClass
-			err := t.factory.S3ObjectMetadata().Update(ctx, obj)
-			if err != nil {
-				logger.LOG.Error("转换存储类别失败",
+				// 检查标签过滤
+				if rule.Filter != nil && rule.Filter.Tag != nil {
+					if !t.matchTag(obj, rule.Filter.Tag) {
+						continue
+					}
+				}
+
+				// 更新存储类别
+				obj.StorageClass = transition.StorageClass
+				err := t.factory.S3ObjectMetadata().Update(ctx, obj)
+				if err != nil {
+					logger.LOG.Error("转换存储类别失败",
+						"bucket", bucketName,
+						"key", obj.ObjectKey,
+						"storage_class", transition.StorageClass,
+						"error", err)
+					continue
+				}
+
+				transitionedCount++
+				logger.LOG.Info("转换存储类别",
 					"bucket", bucketName,
 					"key", obj.ObjectKey,
-					"storage_class", transition.StorageClass,
-					"error", err)
-				continue
+					"storage_class", transition.StorageClass)
 			}
-
-			transitionedCount++
-			logger.LOG.Info("转换存储类别",
-				"bucket", bucketName,
-				"key", obj.ObjectKey,
-				"storage_class", transition.StorageClass)
 		}
+
+		// 如果返回数量少于 lifecyclePageSize，说明已经没有更多对象了
+		if len(objects) < lifecyclePageSize {
+			break
+		}
+
+		// 使用最后一个对象的 ObjectKey 作为下一页的 marker
+		marker = objects[len(objects)-1].ObjectKey
 	}
 
 	return transitionedCount, nil
@@ -333,7 +371,7 @@ func (t *LifecycleTask) processNoncurrentVersionTransition(ctx context.Context, 
 	transitionTime := time.Now().AddDate(0, 0, -transition.NoncurrentDays)
 
 	// 获取Bucket下的所有对象版本（包括非当前版本）
-	objects, err := t.factory.S3ObjectMetadata().ListVersionsByBucket(ctx, bucketName, userID, rule.Prefix, "", "", 1000)
+	objects, err := t.factory.S3ObjectMetadata().ListVersionsByBucket(ctx, bucketName, userID, rule.Prefix, "", "", lifecyclePageSize)
 	if err != nil {
 		return 0, fmt.Errorf("列出对象失败: %w", err)
 	}
@@ -427,43 +465,44 @@ func (t *LifecycleTask) matchTag(obj *models.S3ObjectMetadata, tag *types.Lifecy
 	}
 
 	// 解析对象标签
-	tagsStr := strings.Trim(obj.Tags, "{}")
-	if tagsStr == "" {
+	var tags map[string]string
+	if err := json.Unmarshal([]byte(obj.Tags), &tags); err != nil {
 		return false
 	}
 
-	pairs := strings.Split(tagsStr, ",")
-	for _, pair := range pairs {
-		kv := strings.SplitN(pair, ":", 2)
-		if len(kv) == 2 {
-			key := strings.Trim(kv[0], `"`)
-			value := strings.Trim(kv[1], `"`)
-			if key == tag.Key && value == tag.Value {
-				return true
-			}
-		}
-	}
-
-	return false
+	value, ok := tags[tag.Key]
+	return ok && value == tag.Value
 }
 
 // StartScheduledExecution 启动定时执行任务
 // interval: 执行间隔（例如每小时1次）
-func (t *LifecycleTask) StartScheduledExecution(interval time.Duration) {
+// 返回一个 stop 函数，调用后可停止定时任务
+func (t *LifecycleTask) StartScheduledExecution(interval time.Duration) context.CancelFunc {
 	logger.LOG.Info("启动生命周期管理定时任务", "interval", interval)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	ticker := time.NewTicker(interval)
 	go func() {
+		defer ticker.Stop()
+
 		// 启动时立即执行一次
 		if err := t.ExecuteLifecycleRules(); err != nil {
 			logger.LOG.Error("生命周期管理任务执行失败", "error", err)
 		}
 
 		// 然后按间隔执行
-		for range ticker.C {
-			if err := t.ExecuteLifecycleRules(); err != nil {
-				logger.LOG.Error("生命周期管理任务执行失败", "error", err)
+		for {
+			select {
+			case <-ctx.Done():
+				logger.LOG.Info("生命周期管理定时任务已停止")
+				return
+			case <-ticker.C:
+				if err := t.ExecuteLifecycleRules(); err != nil {
+					logger.LOG.Error("生命周期管理任务执行失败", "error", err)
+				}
 			}
 		}
 	}()
+
+	return cancel
 }

@@ -51,7 +51,7 @@
 
       <el-table-column :label="t('tasks.status')" width="120">
         <template #default="{ row }">
-          <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status) }}</el-tag>
+          <el-tag :type="getUploadStatusType(row.status)">{{ getUploadStatusText(row.status, t) }}</el-tag>
         </template>
       </el-table-column>
 
@@ -114,7 +114,7 @@
               <file-name-tooltip :file-name="row.file_name" view-mode="list" custom-class="task-name" />
               <div class="task-meta">
                 <el-tag :type="getUploadStatusType(row.status)" size="small" effect="plain">
-                  {{ getUploadStatusText(row.status) }}
+                  {{ getUploadStatusText(row.status, t) }}
                 </el-tag>
                 <span class="task-size"
                   >{{ formatSize(row.uploaded_chunks * row.chunk_size) }} / {{ formatSize(row.file_size) }}</span

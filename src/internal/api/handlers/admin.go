@@ -25,11 +25,7 @@ func NewAdminHandler(service *service.AdminService, cacheLocal cache.Cache) *Adm
 }
 
 func (a *AdminHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(a.cache,
-		a.service.GetRepository().ApiKey(),
-		a.service.GetRepository().User(),
-		a.service.GetRepository().GroupPower(),
-		a.service.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(a.cache, a.service.GetRepository())
 
 	admin := c.Group("/admin")
 	admin.Use(verify.Verify())

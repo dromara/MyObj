@@ -4,6 +4,7 @@ import (
 	"context"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/repository"
+	"myobj/src/pkg/util"
 
 	"gorm.io/gorm"
 )
@@ -78,8 +79,9 @@ func (r *fileInfoRepository) BatchCreate(ctx context.Context, files []*models.Fi
 // SearchByName 根据文件名模糊搜索
 func (r *fileInfoRepository) SearchByName(ctx context.Context, keyword string, offset, limit int) ([]*models.FileInfo, error) {
 	var files []*models.FileInfo
+	safeKeyword := util.EscapeLikeKeyword(keyword)
 	err := r.db.WithContext(ctx).
-		Where("name LIKE ?", "%"+keyword+"%").
+		Where("name LIKE ?", "%"+safeKeyword+"%").
 		Offset(offset).Limit(limit).
 		Find(&files).Error
 	return files, err
@@ -88,10 +90,28 @@ func (r *fileInfoRepository) SearchByName(ctx context.Context, keyword string, o
 // CountByName 根据文件名统计数量
 func (r *fileInfoRepository) CountByName(ctx context.Context, keyword string) (int64, error) {
 	var count int64
+	safeKeyword := util.EscapeLikeKeyword(keyword)
 	err := r.db.WithContext(ctx).Model(&models.FileInfo{}).
-		Where("name LIKE ?", "%"+keyword+"%").
+		Where("name LIKE ?", "%"+safeKeyword+"%").
 		Count(&count).Error
 	return count, err
+}
+
+// BatchGetByIDs 根据多个ID批量查询文件信息
+func (r *fileInfoRepository) BatchGetByIDs(ctx context.Context, ids []string) (map[string]*models.FileInfo, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var files []*models.FileInfo
+	err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&files).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]*models.FileInfo, len(files))
+	for _, f := range files {
+		result[f.ID] = f
+	}
+	return result, nil
 }
 
 // ListByVirtualPath 查询指定虚拟路径下的文件

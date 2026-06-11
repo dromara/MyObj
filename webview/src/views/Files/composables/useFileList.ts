@@ -108,13 +108,25 @@ export function useFileList() {
     loadFileList()
   }
 
+  // 清理缩略图 blob URL 缓存
+  const clearThumbnailCache = () => {
+    for (const blobUrl of thumbnailCache.value.values()) {
+      URL.revokeObjectURL(blobUrl)
+    }
+    thumbnailCache.value.clear()
+  }
+
   // 监听路由变化，支持浏览器前进/后退
   watch(
     () => route.query.virtualPath,
-    newPath => {
+    (newPath, oldPath) => {
       const pathValue = newPath && typeof newPath === 'string' ? newPath : ''
       // 只有当路径真正改变时才更新
       if (currentPath.value !== pathValue) {
+        // 目录切换时清理旧的缩略图缓存，释放内存
+        if (oldPath !== undefined) {
+          clearThumbnailCache()
+        }
         currentPath.value = pathValue
         currentPage.value = 1
         loadFileList()
@@ -122,6 +134,11 @@ export function useFileList() {
     },
     { immediate: true } // 立即执行一次，处理初始加载
   )
+
+  // 组件卸载时清理缩略图缓存
+  onBeforeUnmount(() => {
+    clearThumbnailCache()
+  })
 
   return {
     fileListData,

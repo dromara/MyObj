@@ -15,6 +15,10 @@ type UserRepository interface {
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, offset, limit int) ([]*models.UserInfo, error)
 	Count(ctx context.Context) (int64, error)
+	// CountByGroupID 统计指定组下的用户数量
+	CountByGroupID(ctx context.Context, groupID int) (int64, error)
+	// BatchGetByIDs 根据多个ID批量查询用户信息
+	BatchGetByIDs(ctx context.Context, ids []string) (map[string]*models.UserInfo, error)
 }
 
 // FileInfoRepository 文件信息仓储接口
@@ -28,6 +32,8 @@ type FileInfoRepository interface {
 	List(ctx context.Context, offset, limit int) ([]*models.FileInfo, error)
 	Count(ctx context.Context) (int64, error)
 	BatchCreate(ctx context.Context, files []*models.FileInfo) error
+	// BatchGetByIDs 根据多个ID批量查询文件信息
+	BatchGetByIDs(ctx context.Context, ids []string) (map[string]*models.FileInfo, error)
 	SearchByName(ctx context.Context, keyword string, offset, limit int) ([]*models.FileInfo, error)
 	CountByName(ctx context.Context, keyword string) (int64, error)
 	// ListByVirtualPath 查询指定虚拟路径下的文件
@@ -45,6 +51,8 @@ type GroupRepository interface {
 	List(ctx context.Context, offset, limit int) ([]*models.Group, error)
 	Count(ctx context.Context) (int64, error)
 	GetDefaultGroup(ctx context.Context) (*models.Group, error)
+	// GetMaxID 获取当前最大组ID（用于非自增主键场景）
+	GetMaxID(ctx context.Context) (int, error)
 }
 
 // ShareRepository 分享仓储接口
@@ -57,6 +65,8 @@ type ShareRepository interface {
 	List(ctx context.Context, userID string, offset, limit int) ([]*models.Share, error)
 	Count(ctx context.Context, userID string) (int64, error)
 	IncrementDownloadCount(ctx context.Context, id int) error
+	// DeleteByUserID 删除指定用户的所有分享链接（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 }
 
 // DiskRepository 磁盘仓储接口
@@ -80,6 +90,8 @@ type ApiKeyRepository interface {
 	Delete(ctx context.Context, id int) error
 	List(ctx context.Context, userID string, offset, limit int) ([]*models.ApiKey, error)
 	Count(ctx context.Context, userID string) (int64, error)
+	// DeleteByUserID 删除指定用户的所有 API Keys（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 }
 
 // FileChunkRepository 文件分片仓储接口
@@ -131,8 +143,18 @@ type UserFilesRepository interface {
 	GetByUserIDAndUfID(ctx context.Context, userID, ufID string) (*models.UserFiles, error)
 	// GetByUfID 通过 uf_id 查询文件（用于公开文件访问，不要求 user_id）
 	GetByUfID(ctx context.Context, ufID string) (*models.UserFiles, error)
+	// GetByFileID 通过 file_id 查询任意一条记录（用于公开文件权限校验）
+	GetByFileID(ctx context.Context, fileID string) (*models.UserFiles, error)
 	// ListByVirtualPath 查询指定虚拟路径下的user_files记录（避免file_id重复问题）
 	ListByVirtualPath(ctx context.Context, userID, virtualPath string, offset, limit int) ([]*models.UserFiles, error)
+	// GetByUserIDAndFileIDs 批量查询指定用户和多个fileID的关联记录（避免N+1）
+	GetByUserIDAndFileIDs(ctx context.Context, userID string, fileIDs []string) ([]*models.UserFiles, error)
+	// DeleteByUserID 删除指定用户的所有文件关联记录（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
+	// ExistsByNameInPath 检查指定虚拟路径下是否存在同名文件（排除指定的 ufID）
+	ExistsByNameInPath(ctx context.Context, userID, virtualPath, fileName string, excludeUfID string) (bool, error)
+	// BatchGetByUserIDAndUfIDs 根据用户ID和多个uf_id批量查询用户文件关联
+	BatchGetByUserIDAndUfIDs(ctx context.Context, userID string, ufIDs []string) (map[string]*models.UserFiles, error)
 }
 
 // VirtualPathRepository 虚拟路径仓储接口
@@ -152,6 +174,8 @@ type VirtualPathRepository interface {
 	GetRootPath(ctx context.Context, userID string) (*models.VirtualPath, error)
 	// GetPathByUser 获取用户所有路径
 	GetPathByUser(ctx context.Context, userID string) ([]*models.VirtualPath, error)
+	// DeleteByUserID 删除指定用户的所有虚拟路径（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 }
 
 // RecycledRepository 回收站仓储接口
@@ -166,6 +190,8 @@ type RecycledRepository interface {
 	GetExpiredRecords(ctx context.Context, days int) ([]*models.Recycled, error)
 	// CountFileReferences 统计指定文件被多少个用户持有
 	CountFileReferences(ctx context.Context, fileID string) (int64, error)
+	// DeleteByUserID 删除指定用户的所有回收站记录（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 }
 
 // DownloadTaskRepository 下载任务仓储接口
@@ -176,6 +202,8 @@ type DownloadTaskRepository interface {
 	Delete(ctx context.Context, id string) error
 	ListByUserID(ctx context.Context, userID string, offset, limit int) ([]*models.DownloadTask, error)
 	Count(ctx context.Context, userID string) (int64, error)
+	// DeleteByUserID 删除指定用户的所有下载任务（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 	// ListByState 查询指定状态的任务
 	ListByState(ctx context.Context, userID string, state int, offset, limit int) ([]*models.DownloadTask, error)
 	// CountByState 统计指定状态的任务数量
@@ -226,6 +254,8 @@ type UploadTaskRepository interface {
 	DeleteExpiredByUserID(ctx context.Context, userID string) (int64, error)
 	ListByUserID(ctx context.Context, userID string, offset, limit int) ([]*models.UploadTask, error)
 	CountByUserID(ctx context.Context, userID string) (int64, error) // 统计用户上传任务总数
+	// DeleteByUserID 删除指定用户的所有上传任务（用于级联删除用户时清理关联数据）
+	DeleteByUserID(ctx context.Context, userID string) error
 }
 
 // UploadChunkRepository 上传分片信息仓储接口

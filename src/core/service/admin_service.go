@@ -12,6 +12,7 @@ import (
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/util"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -34,8 +35,10 @@ func (a *AdminService) GetRepository() *impl.RepositoryFactory {
 // ========== 用户管理 ==========
 
 // AdminUserList 获取用户列表
+// 所有 AdminService 方法使用 30 秒超时的 context，防止数据库响应缓慢时请求无限等待。
 func (a *AdminService) AdminUserList(req *request.AdminUserListRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	offset := (req.Page - 1) * req.PageSize
 
 	var users []*models.UserInfo
@@ -48,7 +51,8 @@ func (a *AdminService) AdminUserList(req *request.AdminUserListRequest) (*models
 
 	// 关键词搜索
 	if req.Keyword != "" {
-		keyword := "%" + req.Keyword + "%"
+		safeKeyword := util.EscapeLikeKeyword(req.Keyword)
+		keyword := "%" + safeKeyword + "%"
 		query = query.Where("user_name LIKE ? OR name LIKE ? OR email LIKE ?", keyword, keyword, keyword)
 	}
 
@@ -74,17 +78,26 @@ func (a *AdminService) AdminUserList(req *request.AdminUserListRequest) (*models
 		return nil, err
 	}
 
-	// 填充组名
+	// 填充组名（批量查询避免 N+1）
+	groupIDSet := make(map[int]struct{})
+	for _, user := range users {
+		if user.GroupID > 0 {
+			groupIDSet[user.GroupID] = struct{}{}
+		}
+	}
+	groupNameMap := make(map[int]string, len(groupIDSet))
+	for groupID := range groupIDSet {
+		group, err := a.factory.Group().GetByID(ctx, groupID)
+		if err == nil && group != nil {
+			groupNameMap[groupID] = group.Name
+		}
+	}
+
 	userInfos := make([]*response.AdminUserInfo, 0, len(users))
 	for _, user := range users {
-		group, err := a.factory.Group().GetByID(ctx, user.GroupID)
-		groupName := ""
-		if err == nil && group != nil {
-			groupName = group.Name
-		}
 		userInfos = append(userInfos, &response.AdminUserInfo{
 			UserInfo:  *user,
-			GroupName: groupName,
+			GroupName: groupNameMap[user.GroupID],
 		})
 	}
 
@@ -98,11 +111,12 @@ func (a *AdminService) AdminUserList(req *request.AdminUserListRequest) (*models
 
 // AdminCreateUser 创建用户
 func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查用户名是否已存在
 	existingUser, err := a.factory.User().GetByUserName(ctx, req.UserName)
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户失败", "error", err)
 		return nil, err
 	}
@@ -156,18 +170,37 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 		user.FreeSpace = group.Space
 	}
 
-	if err = a.factory.User().Create(ctx, user); err != nil {
+	// 使用事务包裹 User + VirtualPath 创建，保证原子性
+	tx := a.factory.DB().Begin()
+	if tx.Error != nil {
+		logger.LOG.Error("开启事务失败", "error", tx.Error)
+		return nil, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	txF := a.factory.WithTx(tx)
+	if err = txF.User().Create(ctx, user); err != nil {
+		tx.Rollback()
 		logger.LOG.Error("创建用户失败", "error", err)
 		return nil, err
 	}
-	if err := a.factory.VirtualPath().Create(ctx, &models.VirtualPath{
+	if err := txF.VirtualPath().Create(ctx, &models.VirtualPath{
 		UserID:      user.ID,
 		Path:        "home",
 		CreatedTime: custom_type.Now(),
 		UpdateTime:  custom_type.Now(),
 	}); err != nil {
+		tx.Rollback()
 		logger.LOG.Error("创建虚拟路径失败", "error", err)
-		a.factory.User().Delete(ctx, user.ID)
+		return nil, err
+	}
+	if err = tx.Commit().Error; err != nil {
+		logger.LOG.Error("提交事务失败", "error", err)
 		return nil, err
 	}
 	return models.NewJsonResponse(200, "创建成功", user), nil
@@ -175,7 +208,8 @@ func (a *AdminService) AdminCreateUser(req *request.AdminCreateUserRequest) (*mo
 
 // AdminUpdateUser 更新用户
 func (a *AdminService) AdminUpdateUser(req *request.AdminUpdateUserRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 获取用户
 	user, err := a.factory.User().GetByID(ctx, req.ID)
@@ -202,17 +236,15 @@ func (a *AdminService) AdminUpdateUser(req *request.AdminUpdateUserRequest) (*mo
 			return nil, fmt.Errorf("用户组不存在")
 		}
 		user.GroupID = req.GroupID
-		// 如果更新了组，可能需要更新存储空间
-		if req.Space == 0 && group.Space > 0 {
-			user.Space = group.Space
-			user.FreeSpace = group.Space
-		}
+		// 仅当管理员显式指定 Space 时才覆盖用户空间，避免修改组时意外重置空间
 		// 检查用户存储空间是否超过组存储空间限制
 		// 如果组有存储空间限制（group.Space > 0），且用户设置了存储空间（req.Space > 0），则不能超过组限制
 		if group.Space > 0 && req.Space > 0 && req.Space > group.Space {
 			return nil, fmt.Errorf("用户存储空间不能超过组存储空间限制（组限制：%d 字节）", group.Space)
 		}
 	}
+	// req.Space == 0 表示不修改用户存储空间（保持原值），而非设为"无限"。
+	// 如需支持"无限空间"语义，应使用 *int64 指针类型区分"未传递"和"传递了 0"。
 	if req.Space > 0 {
 		// 如果用户组有存储空间限制，需要再次检查（因为可能只更新了存储空间，没有更新组）
 		if user.GroupID > 0 {
@@ -222,15 +254,19 @@ func (a *AdminService) AdminUpdateUser(req *request.AdminUpdateUserRequest) (*mo
 			}
 		}
 		user.Space = req.Space
-		// 调整剩余空间
+		// 调整剩余空间：已用空间 = 旧总空间 - 旧剩余空间
 		used := user.Space - user.FreeSpace
 		if used < 0 {
 			used = 0
 		}
 		user.FreeSpace = req.Space - used
+		// 当 FreeSpace 为负数时（新总空间 < 已用空间），将其归零以避免无效的负值
+		if user.FreeSpace < 0 {
+			user.FreeSpace = 0
+		}
 	}
-	if req.State >= 0 {
-		user.State = req.State
+	if req.State != nil {
+		user.State = *req.State
 	}
 
 	if err = a.factory.User().Update(ctx, user); err != nil {
@@ -241,9 +277,10 @@ func (a *AdminService) AdminUpdateUser(req *request.AdminUpdateUserRequest) (*mo
 	return models.NewJsonResponse(200, "更新成功", user), nil
 }
 
-// AdminDeleteUser 删除用户
+// AdminDeleteUser 删除用户（在同一事务中级联清理所有关联数据）
 func (a *AdminService) AdminDeleteUser(req *request.AdminDeleteUserRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查用户是否存在
 	user, err := a.factory.User().GetByID(ctx, req.ID)
@@ -257,7 +294,40 @@ func (a *AdminService) AdminDeleteUser(req *request.AdminDeleteUserRequest) (*mo
 		return nil, fmt.Errorf("不能删除管理员用户")
 	}
 
-	if err = a.factory.User().Delete(ctx, req.ID); err != nil {
+	err = a.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txF := a.factory.WithTx(tx)
+		// 1. 删除用户的 API Keys
+		if err := txF.ApiKey().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户API Keys失败: %w", err)
+		}
+		// 2. 删除用户的分享链接
+		if err := txF.Share().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户分享链接失败: %w", err)
+		}
+		// 3. 删除用户的下载任务
+		if err := txF.DownloadTask().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户下载任务失败: %w", err)
+		}
+		// 4. 删除用户的上传任务
+		if err := txF.UploadTask().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户上传任务失败: %w", err)
+		}
+		// 5. 删除回收站记录
+		if err := txF.Recycled().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户回收站记录失败: %w", err)
+		}
+		// 6. 删除用户文件关联
+		if err := txF.UserFiles().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户文件关联失败: %w", err)
+		}
+		// 7. 删除虚拟路径
+		if err := txF.VirtualPath().DeleteByUserID(ctx, req.ID); err != nil {
+			return fmt.Errorf("删除用户虚拟路径失败: %w", err)
+		}
+		// 8. 删除用户
+		return txF.User().Delete(ctx, req.ID)
+	})
+	if err != nil {
 		logger.LOG.Error("删除用户失败", "error", err)
 		return nil, err
 	}
@@ -267,7 +337,8 @@ func (a *AdminService) AdminDeleteUser(req *request.AdminDeleteUserRequest) (*mo
 
 // AdminToggleUserState 启用/禁用用户
 func (a *AdminService) AdminToggleUserState(req *request.AdminToggleUserStateRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	user, err := a.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
@@ -289,59 +360,68 @@ func (a *AdminService) AdminToggleUserState(req *request.AdminToggleUserStateReq
 
 // AdminGroupList 获取组列表
 func (a *AdminService) AdminGroupList() (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	groups, err := a.factory.Group().List(ctx, 0, 1000) // 获取所有组
+	// 使用较大的 limit 一次性查询，避免 Count+List 之间的竞态
+	const maxLimit = 10000
+	groups, err := a.factory.Group().List(ctx, 0, maxLimit)
 	if err != nil {
 		logger.LOG.Error("查询组列表失败", "error", err)
-		return nil, err
-	}
-
-	total, err := a.factory.Group().Count(ctx)
-	if err != nil {
-		logger.LOG.Error("统计组数量失败", "error", err)
 		return nil, err
 	}
 
 	return models.NewJsonResponse(200, "查询成功", response.AdminGroupListResponse{
 		Groups: groups,
-		Total:  total,
+		Total:  int64(len(groups)),
 	}), nil
 }
 
 // AdminCreateGroup 创建组
 func (a *AdminService) AdminCreateGroup(req *request.AdminCreateGroupRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// 检查组名是否已存在
-	groups, err := a.factory.Group().List(ctx, 0, 1000)
+	// 使用事务保证"查询最大ID + 创建"的原子性，避免并发时产生重复ID
+	var group *models.Group
+	err := a.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txF := a.factory.WithTx(tx)
+
+		// 检查组名是否已存在（加载全部组后过滤，因为 GroupRepository 暂无 GetByName）
+		total, err := txF.Group().Count(ctx)
+		if err != nil {
+			return fmt.Errorf("统计组数量失败: %w", err)
+		}
+		existingGroups, err := txF.Group().List(ctx, 0, int(total)+1)
+		if err != nil {
+			return fmt.Errorf("查询组列表失败: %w", err)
+		}
+		for _, g := range existingGroups {
+			if g.Name == req.Name {
+				return fmt.Errorf("组名已存在")
+			}
+		}
+
+		// 在事务内查询最大ID，保证并发安全
+		maxID, err := txF.Group().GetMaxID(ctx)
+		if err != nil {
+			return fmt.Errorf("查询最大组ID失败: %w", err)
+		}
+
+		group = &models.Group{
+			ID:           maxID + 1,
+			Name:         req.Name,
+			GroupDefault: req.GroupDefault,
+			Space:        req.Space,
+			CreatedAt:    custom_type.Now(),
+		}
+
+		if err = txF.Group().Create(ctx, group); err != nil {
+			return fmt.Errorf("创建组失败: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		logger.LOG.Error("查询组列表失败", "error", err)
-		return nil, err
-	}
-	for _, g := range groups {
-		if g.Name == req.Name {
-			return nil, fmt.Errorf("组名已存在")
-		}
-	}
-
-	// 获取最大ID
-	maxID := 0
-	for _, g := range groups {
-		if g.ID > maxID {
-			maxID = g.ID
-		}
-	}
-
-	group := &models.Group{
-		ID:           maxID + 1,
-		Name:         req.Name,
-		GroupDefault: req.GroupDefault,
-		Space:        req.Space,
-		CreatedAt:    custom_type.Now(),
-	}
-
-	if err = a.factory.Group().Create(ctx, group); err != nil {
 		logger.LOG.Error("创建组失败", "error", err)
 		return nil, err
 	}
@@ -351,7 +431,8 @@ func (a *AdminService) AdminCreateGroup(req *request.AdminCreateGroupRequest) (*
 
 // AdminUpdateGroup 更新组
 func (a *AdminService) AdminUpdateGroup(req *request.AdminUpdateGroupRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	group, err := a.factory.Group().GetByID(ctx, req.ID)
 	if err != nil {
@@ -379,31 +460,51 @@ func (a *AdminService) AdminUpdateGroup(req *request.AdminUpdateGroupRequest) (*
 
 // AdminDeleteGroup 删除组
 func (a *AdminService) AdminDeleteGroup(req *request.AdminDeleteGroupRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 不能删除管理员组（ID = 1）
 	if req.ID == 1 {
 		return nil, fmt.Errorf("不能删除管理员组")
 	}
 
-	// 检查是否有用户使用该组
-	users, err := a.factory.User().List(ctx, 0, 1000)
-	if err == nil {
-		for _, user := range users {
-			if user.GroupID == req.ID {
-				return nil, fmt.Errorf("该组下还有用户，无法删除")
-			}
-		}
+	// 检查是否有用户使用该组（精确查询，避免加载全部用户）
+	userCount, err := a.factory.User().CountByGroupID(ctx, req.ID)
+	if err != nil {
+		logger.LOG.Error("统计组用户数量失败", "error", err)
+		return nil, err
+	}
+	if userCount > 0 {
+		return nil, fmt.Errorf("该组下还有用户，无法删除")
 	}
 
-	if err = a.factory.Group().Delete(ctx, req.ID); err != nil {
+	// 在同一个事务中先删权限关联再删组，保证原子性
+	tx := a.factory.DB().Begin()
+	if tx.Error != nil {
+		logger.LOG.Error("开启事务失败", "error", tx.Error)
+		return nil, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	txF := a.factory.WithTx(tx)
+	if err = txF.GroupPower().DeleteByGroupID(ctx, req.ID); err != nil {
+		tx.Rollback()
+		logger.LOG.Error("删除组权限关联失败", "error", err)
+		return nil, err
+	}
+	if err = txF.Group().Delete(ctx, req.ID); err != nil {
+		tx.Rollback()
 		logger.LOG.Error("删除组失败", "error", err)
 		return nil, err
 	}
-
-	// 删除组的权限关联
-	if err = a.factory.GroupPower().DeleteByGroupID(ctx, req.ID); err != nil {
-		logger.LOG.Warn("删除组权限关联失败", "error", err)
+	if err = tx.Commit().Error; err != nil {
+		logger.LOG.Error("提交事务失败", "error", err)
+		return nil, err
 	}
 
 	return models.NewJsonResponse(200, "删除成功", nil), nil
@@ -413,7 +514,8 @@ func (a *AdminService) AdminDeleteGroup(req *request.AdminDeleteGroupRequest) (*
 
 // AdminPowerList 获取权限列表
 func (a *AdminService) AdminPowerList(req *request.AdminPowerListRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 默认分页参数
 	page := req.Page
@@ -452,7 +554,8 @@ func (a *AdminService) AdminPowerList(req *request.AdminPowerListRequest) (*mode
 
 // AdminAssignPower 为组分配权限
 func (a *AdminService) AdminAssignPower(req *request.AdminAssignPowerRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查组是否存在
 	_, err := a.factory.Group().GetByID(ctx, req.GroupID)
@@ -461,31 +564,44 @@ func (a *AdminService) AdminAssignPower(req *request.AdminAssignPowerRequest) (*
 		return nil, fmt.Errorf("组不存在")
 	}
 
-	// 删除原有权限
-	if err = a.factory.GroupPower().DeleteByGroupID(ctx, req.GroupID); err != nil {
-		logger.LOG.Warn("删除组权限失败", "error", err)
-	}
+	// 使用事务包裹"删除旧权限 + 创建新权限"，避免中间失败导致权限丢失
+	err = a.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txF := a.factory.WithTx(tx)
 
-	// 创建新权限关联
-	groupPowers := make([]*models.GroupPower, 0, len(req.PowerIDs))
-	for _, powerID := range req.PowerIDs {
-		// 检查权限是否存在
-		_, err := a.factory.Power().GetByID(ctx, powerID)
-		if err != nil {
-			logger.LOG.Warn("权限不存在，跳过", "power_id", powerID)
-			continue
+		// 删除原有权限
+		if err := txF.GroupPower().DeleteByGroupID(ctx, req.GroupID); err != nil {
+			return fmt.Errorf("删除组权限失败: %w", err)
 		}
-		groupPowers = append(groupPowers, &models.GroupPower{
-			GroupID: req.GroupID,
-			PowerID: powerID,
-		})
-	}
 
-	if len(groupPowers) > 0 {
-		if err = a.factory.GroupPower().BatchCreate(ctx, groupPowers); err != nil {
-			logger.LOG.Error("分配权限失败", "error", err)
-			return nil, err
+		// 检查权限是否存在并收集有效的权限ID
+		validPowerIDs := make(map[int]struct{}, len(req.PowerIDs))
+		for _, powerID := range req.PowerIDs {
+			if _, err := txF.Power().GetByID(ctx, powerID); err != nil {
+				logger.LOG.Warn("权限不存在，跳过", "power_id", powerID)
+				continue
+			}
+			validPowerIDs[powerID] = struct{}{}
 		}
+
+		// 创建新权限关联
+		groupPowers := make([]*models.GroupPower, 0, len(validPowerIDs))
+		for powerID := range validPowerIDs {
+			groupPowers = append(groupPowers, &models.GroupPower{
+				GroupID: req.GroupID,
+				PowerID: powerID,
+			})
+		}
+
+		if len(groupPowers) > 0 {
+			if err := txF.GroupPower().BatchCreate(ctx, groupPowers); err != nil {
+				return fmt.Errorf("分配权限失败: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		logger.LOG.Error("分配权限失败", "error", err)
+		return nil, err
 	}
 
 	return models.NewJsonResponse(200, "分配成功", nil), nil
@@ -493,7 +609,8 @@ func (a *AdminService) AdminAssignPower(req *request.AdminAssignPowerRequest) (*
 
 // AdminGetGroupPowers 获取组的权限列表
 func (a *AdminService) AdminGetGroupPowers(req *request.AdminGetGroupPowersRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	groupPowers, err := a.factory.GroupPower().GetByGroupID(ctx, req.GroupID)
 	if err != nil {
@@ -513,7 +630,8 @@ func (a *AdminService) AdminGetGroupPowers(req *request.AdminGetGroupPowersReque
 
 // AdminCreatePower 创建权限
 func (a *AdminService) AdminCreatePower(req *request.AdminCreatePowerRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	power := &models.Power{
 		Name:           req.Name,
@@ -532,7 +650,8 @@ func (a *AdminService) AdminCreatePower(req *request.AdminCreatePowerRequest) (*
 
 // AdminUpdatePower 更新权限
 func (a *AdminService) AdminUpdatePower(req *request.AdminUpdatePowerRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查权限是否存在
 	power, err := a.factory.Power().GetByID(ctx, req.ID)
@@ -562,7 +681,8 @@ func (a *AdminService) AdminUpdatePower(req *request.AdminUpdatePowerRequest) (*
 
 // AdminDeletePower 删除权限
 func (a *AdminService) AdminDeletePower(req *request.AdminDeletePowerRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查权限是否存在
 	_, err := a.factory.Power().GetByID(ctx, req.ID)
@@ -587,7 +707,8 @@ func (a *AdminService) AdminDeletePower(req *request.AdminDeletePowerRequest) (*
 
 // AdminBatchDeletePower 批量删除权限
 func (a *AdminService) AdminBatchDeletePower(req *request.AdminBatchDeletePowerRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	var successCount int
 	var failedItems []string
@@ -645,29 +766,27 @@ func (a *AdminService) AdminBatchDeletePower(req *request.AdminBatchDeletePowerR
 
 // AdminDiskList 获取磁盘列表
 func (a *AdminService) AdminDiskList() (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	disks, err := a.factory.Disk().List(ctx, 0, 1000)
+	// 使用较大的 limit 一次性查询，避免 Count+List 之间的竞态
+	const maxLimit = 10000
+	disks, err := a.factory.Disk().List(ctx, 0, maxLimit)
 	if err != nil {
 		logger.LOG.Error("查询磁盘列表失败", "error", err)
 		return nil, err
 	}
 
-	total, err := a.factory.Disk().Count(ctx)
-	if err != nil {
-		logger.LOG.Error("统计磁盘数量失败", "error", err)
-		return nil, err
-	}
-
 	return models.NewJsonResponse(200, "查询成功", response.AdminDiskListResponse{
 		Disks: disks,
-		Total: total,
+		Total: int64(len(disks)),
 	}), nil
 }
 
 // AdminCreateDisk 创建磁盘
 func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查路径是否已存在
 	existingDisk, err := a.factory.Disk().GetByPath(ctx, req.DiskPath)
@@ -713,7 +832,8 @@ func (a *AdminService) AdminCreateDisk(req *request.AdminCreateDiskRequest) (*mo
 
 // AdminUpdateDisk 更新磁盘
 func (a *AdminService) AdminUpdateDisk(req *request.AdminUpdateDiskRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	disk, err := a.factory.Disk().GetByID(ctx, req.ID)
 	if err != nil {
@@ -741,7 +861,8 @@ func (a *AdminService) AdminUpdateDisk(req *request.AdminUpdateDiskRequest) (*mo
 
 // AdminDeleteDisk 删除磁盘
 func (a *AdminService) AdminDeleteDisk(req *request.AdminDeleteDiskRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查磁盘是否存在
 	_, err := a.factory.Disk().GetByID(ctx, req.ID)
@@ -764,7 +885,8 @@ func (a *AdminService) AdminDeleteDisk(req *request.AdminDeleteDiskRequest) (*mo
 
 // AdminGetSystemConfig 获取系统配置
 func (a *AdminService) AdminGetSystemConfig() (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 获取配置
 	allowRegister, _ := a.factory.SysConfig().GetByKey(ctx, "allow_register")
@@ -787,7 +909,8 @@ func (a *AdminService) AdminGetSystemConfig() (*models.JsonResponse, error) {
 
 // AdminUpdateSystemConfig 更新系统配置
 func (a *AdminService) AdminUpdateSystemConfig(req *request.AdminUpdateSystemConfigRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	configs := make([]*models.SysConfig, 0)
 
@@ -827,17 +950,38 @@ func (a *AdminService) AdminUpdateSystemConfig(req *request.AdminUpdateSystemCon
 		configs = append(configs, config)
 	}
 
-	// 批量更新
+	// 使用事务批量更新，保证配置更新的原子性
+	tx := a.factory.DB().Begin()
+	if tx.Error != nil {
+		logger.LOG.Error("开启事务失败", "error", tx.Error)
+		return nil, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	txF := a.factory.WithTx(tx)
 	for _, cfg := range configs {
 		if cfg.ID == 0 {
-			if err := a.factory.SysConfig().Create(ctx, cfg); err != nil {
+			if err := txF.SysConfig().Create(ctx, cfg); err != nil {
+				tx.Rollback()
 				logger.LOG.Error("创建配置失败", "key", cfg.Key, "error", err)
+				return nil, err
 			}
 		} else {
-			if err := a.factory.SysConfig().Update(ctx, cfg); err != nil {
+			if err := txF.SysConfig().Update(ctx, cfg); err != nil {
+				tx.Rollback()
 				logger.LOG.Error("更新配置失败", "key", cfg.Key, "error", err)
+				return nil, err
 			}
 		}
+	}
+	if err := tx.Commit().Error; err != nil {
+		logger.LOG.Error("提交事务失败", "error", err)
+		return nil, err
 	}
 
 	return a.AdminGetSystemConfig()

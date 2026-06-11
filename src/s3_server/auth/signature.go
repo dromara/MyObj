@@ -3,17 +3,21 @@ package auth
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 )
+
+// authHeaderSplitRe 用于分割 Authorization 头中的键值对（包级变量，避免每次调用都编译正则）
+var authHeaderSplitRe = regexp.MustCompile(`,\s*`)
 
 // SignatureV4 AWS Signature V4验证器
 type SignatureV4 struct {
@@ -144,9 +148,8 @@ func (sv *SignatureV4) VerifyRequest(r *http.Request, secretKey string) error {
 	signature := sv.calculateSignature(signingKey, stringToSign)
 
 	// 7. 比较签名
-	if signature != providedSignature {
-		// 返回更详细的错误信息用于调试
-		return fmt.Errorf("signature mismatch: calculated=%s, provided=%s", signature, providedSignature)
+	if subtle.ConstantTimeCompare([]byte(signature), []byte(providedSignature)) != 1 {
+		return fmt.Errorf("signature mismatch")
 	}
 
 	return nil
@@ -160,8 +163,7 @@ func (sv *SignatureV4) parseAuthHeader(authHeader string) map[string]string {
 	authHeader = strings.TrimPrefix(authHeader, "AWS4-HMAC-SHA256 ")
 
 	// 分割键值对
-	re := regexp.MustCompile(`,\s*`)
-	parts := re.Split(authHeader, -1)
+	parts := authHeaderSplitRe.Split(authHeader, -1)
 	for _, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) == 2 {
@@ -335,8 +337,10 @@ func (sv *SignatureV4) buildStringToSign(requestDateTime, credentialScope, canon
 
 // deriveSigningKey 派生签名密钥（带缓存）
 func (sv *SignatureV4) deriveSigningKey(secretKey, dateStamp string) []byte {
-	// 构建缓存键：secretKey + region + service + dateStamp
-	cacheKey := fmt.Sprintf("%s:%s:%s:%s", secretKey, sv.region, sv.service, dateStamp)
+	// 构建缓存键：SHA256(secretKey) + region + service + dateStamp
+	// 使用 SHA256 哈希避免在缓存键中直接暴露密钥
+	keyHash := sha256.Sum256([]byte(secretKey))
+	cacheKey := fmt.Sprintf("%x:%s:%s:%s", keyHash, sv.region, sv.service, dateStamp)
 	
 	// 尝试从缓存获取
 	if cachedKey, ok := sv.keyCache.get(cacheKey, dateStamp); ok {
@@ -567,7 +571,7 @@ func (sv *SignatureV4) VerifyPresignedURL(r *http.Request, secretKey string) err
 	calculatedSignature := sv.calculateSignature(signingKey, stringToSign)
 
 	// 8. 比较签名
-	if calculatedSignature != signature {
+	if subtle.ConstantTimeCompare([]byte(calculatedSignature), []byte(signature)) != 1 {
 		return fmt.Errorf("signature mismatch")
 	}
 

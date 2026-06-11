@@ -9,6 +9,7 @@ import (
 	"myobj/src/pkg/enum"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/upload"
+	"net"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -24,6 +25,94 @@ var (
 	downloadTasks   = make(map[string]context.CancelFunc)
 	downloadTasksMu sync.RWMutex
 )
+
+// validateURL 校验URL合法性，防止SSRF攻击
+// 返回验证后的第一个公共IP地址，供后续 DialContext 使用以防止 DNS Rebinding
+func validateURL(rawURL string) (string, error) {
+	parsed, err := neturl.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("URL格式无效: %w", err)
+	}
+
+	// 只允许 http 和 https 协议
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", fmt.Errorf("不支持的URL协议: %s（仅允许 http/https）", scheme)
+	}
+
+	hostname := parsed.Hostname()
+	if hostname == "" {
+		return "", fmt.Errorf("URL缺少主机名")
+	}
+
+	// 解析IP地址
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return "", fmt.Errorf("DNS解析失败: %w", err)
+	}
+
+	var verifiedIP string
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return "", fmt.Errorf("URL目标为内网地址，不允许访问: %s (%s)", hostname, ip.String())
+		}
+		if verifiedIP == "" {
+			verifiedIP = ip.String()
+		}
+	}
+
+	return verifiedIP, nil
+}
+
+// newSafeHTTPClient 创建使用 IP Pinning 的 HTTP 客户端，防止 DNS Rebinding 攻击
+// verifiedIP 是 validateURL 返回的已验证公共 IP 地址
+func newSafeHTTPClient(verifiedIP string, timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// 使用已验证的 IP 地址替代 DNS 解析结果，防止 DNS Rebinding
+				_, port, err := net.SplitHostPort(addr)
+				if err != nil {
+					return nil, fmt.Errorf("解析地址失败: %w", err)
+				}
+				safeAddr := net.JoinHostPort(verifiedIP, port)
+				dialer := &net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}
+				return dialer.DialContext(ctx, network, safeAddr)
+			},
+		},
+	}
+}
+
+// isPrivateIP 检查IP是否为内网地址
+func isPrivateIP(ip net.IP) bool {
+	// 127.0.0.0/8
+	if ip.IsLoopback() {
+		return true
+	}
+	// 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+	if ip.IsPrivate() {
+		return true
+	}
+	// 额外检查 0.0.0.0
+	if ip.IsUnspecified() {
+		return true
+	}
+	return false
+}
+
+// sanitizeDownloadFileName 清理文件名，防止路径穿越
+func sanitizeDownloadFileName(fileName string) string {
+	// 替换路径分隔符和 .. 为下划线
+	fileName = strings.ReplaceAll(fileName, "..", "_")
+	fileName = strings.ReplaceAll(fileName, "/", "_")
+	fileName = strings.ReplaceAll(fileName, "\\", "_")
+	fileName = strings.ReplaceAll(fileName, "\x00", "_")
+	return fileName
+}
 
 // HTTPDownloadOptions HTTP下载配置
 type HTTPDownloadOptions struct {
@@ -190,9 +279,15 @@ func DownloadHTTP(
 		}
 	}
 
-	// 1. 获取文件信息
+	// 0. 校验URL合法性（防止SSRF），同时获取已验证的 IP 用于防止 DNS Rebinding
+	verifiedIP, err := validateURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("URL校验失败: %w", err)
+	}
+
+	// 1. 获取文件信息（使用已验证的 IP 防止 DNS Rebinding）
 	logger.LOG.Info("开始获取文件信息", "url", url)
-	fileInfo, supportRange, err := GetFileInfo(url, opts.Timeout)
+	fileInfo, supportRange, err := GetFileInfo(url, opts.Timeout, verifiedIP)
 	if err != nil {
 		return nil, fmt.Errorf("获取文件信息失败: %w", err)
 	}
@@ -225,6 +320,13 @@ func DownloadHTTP(
 	}
 	// 注意：不在defer中删除，以支持断点续传
 
+	// 3.5 校验文件名（防止路径穿越）
+	safeFileName := sanitizeDownloadFileName(fileInfo.FileName)
+	if safeFileName == "" {
+		safeFileName = "download_" + taskID
+	}
+	fileInfo.FileName = safeFileName
+
 	// 4. 下载文件
 	filePath := filepath.Join(sessionDir, fileInfo.FileName)
 	progress := newDownloadProgress(taskID, fileInfo.FileSize, repoFactory)
@@ -232,11 +334,11 @@ func DownloadHTTP(
 	if supportRange && fileInfo.FileSize > opts.ChunkSize {
 		// 支持断点续传，使用多线程下载
 		logger.LOG.Info("使用多线程下载", "chunkSize", opts.ChunkSize, "concurrent", opts.MaxConcurrent)
-		err = downloadWithRange(ctx, url, filePath, fileInfo.FileSize, opts, progress, taskID, repoFactory)
+		err = downloadWithRange(ctx, url, filePath, fileInfo.FileSize, opts, progress, taskID, repoFactory, verifiedIP)
 	} else {
 		// 不支持断点续传或文件较小，直接下载
 		logger.LOG.Info("使用单线程下载")
-		err = downloadDirect(ctx, url, filePath, opts.Timeout, progress, taskID, repoFactory)
+		err = downloadDirect(ctx, url, filePath, opts.Timeout, progress, taskID, repoFactory, verifiedIP)
 	}
 
 	if err != nil {
@@ -323,9 +425,15 @@ type FileInfoResult struct {
 }
 
 // GetFileInfo 获取文件信息（文件名和大小）
-func GetFileInfo(url string, timeout int) (*FileInfoResult, bool, error) {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+// verifiedIP 为空时不使用 IP Pinning（兼容外部直接调用）
+func GetFileInfo(url string, timeout int, verifiedIP string) (*FileInfoResult, bool, error) {
+	var client *http.Client
+	if verifiedIP != "" {
+		client = newSafeHTTPClient(verifiedIP, time.Duration(timeout)*time.Second)
+	} else {
+		client = &http.Client{
+			Timeout: time.Duration(timeout) * time.Second,
+		}
 	}
 
 	req, err := http.NewRequest("HEAD", url, nil)
@@ -337,7 +445,20 @@ func GetFileInfo(url string, timeout int) (*FileInfoResult, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("请求失败: %w", err)
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
+
+	// 对 405 Method Not Allowed 回退到 GET 请求
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		req, err = http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, false, fmt.Errorf("创建GET请求失败: %w", err)
+		}
+		resp, err = client.Do(req)
+		if err != nil {
+			return nil, false, fmt.Errorf("GET请求失败: %w", err)
+		}
+		resp.Body.Close()
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, false, fmt.Errorf("服务器返回错误: %d", resp.StatusCode)
@@ -467,9 +588,15 @@ func downloadDirect(
 	progress *downloadProgress,
 	taskID string,
 	repoFactory *impl.RepositoryFactory,
+	verifiedIP string,
 ) error {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+	var client *http.Client
+	if verifiedIP != "" {
+		client = newSafeHTTPClient(verifiedIP, time.Duration(timeout)*time.Second)
+	} else {
+		client = &http.Client{
+			Timeout: time.Duration(timeout) * time.Second,
+		}
 	}
 
 	resp, err := client.Get(url)
@@ -529,6 +656,7 @@ func downloadWithRange(
 	progress *downloadProgress,
 	taskID string,
 	repoFactory *impl.RepositoryFactory,
+	verifiedIP string,
 ) error {
 	// 检查是否存在未完成的下载文件
 	var file *os.File
@@ -633,7 +761,7 @@ func downloadWithRange(
 					time.Sleep(time.Duration(retry) * 2 * time.Second) // 指数退避
 				}
 
-				err := downloadChunk(ctx, url, file, chunk, &downloadedBytes, progress, opts.Timeout)
+				err := downloadChunk(ctx, url, file, chunk, &downloadedBytes, progress, opts.Timeout, verifiedIP)
 				if err == nil {
 					return // 下载成功
 				}
@@ -694,9 +822,15 @@ func downloadChunk(
 	downloadedBytes *int64,
 	progress *downloadProgress,
 	timeout int,
+	verifiedIP string,
 ) error {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+	var client *http.Client
+	if verifiedIP != "" {
+		client = newSafeHTTPClient(verifiedIP, time.Duration(timeout)*time.Second)
+	} else {
+		client = &http.Client{
+			Timeout: time.Duration(timeout) * time.Second,
+		}
 	}
 
 	req, err := http.NewRequest("GET", url, nil)

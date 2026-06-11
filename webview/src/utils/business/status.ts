@@ -39,19 +39,24 @@ export const getUploadStatusType = (status: string): 'info' | 'primary' | 'warni
 /**
  * 获取上传任务状态文本
  * @param status 状态字符串
+ * @param t 国际化翻译函数（可选，如果不提供则返回状态 key 本身）
  * @returns 状态文本
  */
-export const getUploadStatusText = (status: string): string => {
-  const textMap: Record<string, string> = {
-    prechecking: '预检中',
-    pending: '等待中',
-    uploading: '上传中',
-    paused: '已暂停',
-    completed: '已完成',
-    failed: '失败',
-    cancelled: '已取消'
+export const getUploadStatusText = (status: string, t?: (key: string) => string): string => {
+  const keyMap: Record<string, string> = {
+    prechecking: 'tasks.prechecking',
+    pending: 'tasks.pending',
+    uploading: 'tasks.running',
+    paused: 'tasks.paused',
+    completed: 'tasks.completed',
+    failed: 'tasks.failed',
+    cancelled: 'tasks.cancelSuccess'
   }
-  return textMap[status] || '未知'
+  const i18nKey = keyMap[status]
+  if (i18nKey && t) {
+    return t(i18nKey)
+  }
+  return i18nKey || status
 }
 
 /**

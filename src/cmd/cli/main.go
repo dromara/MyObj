@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"myobj/src/config"
 	"myobj/src/internal/repository/database"
 	"myobj/src/internal/repository/impl"
@@ -155,30 +154,32 @@ func initialize(c *cli.Context) error {
 	return nil
 }
 
-func loadConfig() error {
+func loadConfig() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[错误] 配置加载异常: %v\n", r)
+			err = fmt.Errorf("config load failed: %v", r)
 		}
 	}()
-	config.InitConfig()
+	if err := config.InitConfig(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func setupLogger() error {
+func setupLogger() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[错误] 日志系统初始化异常: %v\n", r)
+			err = fmt.Errorf("logger setup failed: %v", r)
 		}
 	}()
 	logger.InitLogger()
 	return nil
 }
 
-func setupDatabase() error {
+func setupDatabase() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.LOG.Error("[错误] 数据库连接异常", "panic", r)
+			err = fmt.Errorf("database setup failed: %v", r)
 		}
 	}()
 	database.InitDataBase()
@@ -193,7 +194,9 @@ func listUsersAction(c *cli.Context) error {
 	ctx := context.Background()
 
 	spinner, _ := pterm.DefaultSpinner.Start("正在获取用户列表...")
-	users, err := db.User().List(ctx, 0, 10000)
+	// 先获取用户总数，再按总数分页查询，避免硬编码 limit 导致数据截断
+	totalUsers, _ := db.User().Count(ctx)
+	users, err := db.User().List(ctx, 0, int(totalUsers))
 	spinner.Stop()
 
 	if err != nil {
@@ -530,9 +533,9 @@ func kickUserAction(c *cli.Context) error {
 		return nil
 	}
 
-	// 清除缓存中与该用户相关的JWT tokens
-	// 由于缓存中key是token本身，我们需要清除所有缓存（或使用特定前缀）
-	// 这里采用简单策略：清除所有缓存
+	// 注意：Clear() 会清空所有缓存，包括其他用户的会话 token 和所有系统缓存数据。
+	// 影响范围：所有已登录用户需要重新认证，所有缓存的系统数据（如配置、统计等）将失效并需重新加载。
+	// 后续优化：应实现按用户前缀清除缓存，避免影响其他用户。
 	cacheStore.Clear()
 
 	pterm.Success.Printf("用户 '%s' (ID: %s) 的所有登录会话已被清除\n", username, user.ID)
@@ -559,8 +562,9 @@ func listGroupsAction(c *cli.Context) error {
 		return nil
 	}
 
-	// 统计每个组的用户数
-	users, _ := db.User().List(ctx, 0, 10000)
+	// 统计每个组的用户数（按实际用户总数查询，避免硬编码 limit）
+	totalUserCount, _ := db.User().Count(ctx)
+	users, _ := db.User().List(ctx, 0, int(totalUserCount))
 	groupUserCount := make(map[int]int)
 	for _, user := range users {
 		groupUserCount[user.GroupID]++
@@ -624,9 +628,9 @@ func systemStatsAction(c *cli.Context) error {
 
 	spinner, _ := pterm.DefaultSpinner.Start("正在统计系统数据...")
 
-	// 统计用户数
+	// 统计用户数（按实际用户总数查询，避免硬编码 limit）
 	totalUsers, _ := db.User().Count(ctx)
-	users, _ := db.User().List(ctx, 0, 10000)
+	users, _ := db.User().List(ctx, 0, int(totalUsers))
 	activeUsers := 0
 	bannedUsers := 0
 	for _, user := range users {

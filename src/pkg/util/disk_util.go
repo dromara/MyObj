@@ -151,6 +151,15 @@ func shouldSkipMount(mountpoint string) bool {
 	return false
 }
 
+// GetDiskFreeSpaceByPath 获取指定路径所在磁盘的可用空间（字节）
+func GetDiskFreeSpaceByPath(path string) (int64, error) {
+	usage, err := disk.Usage(path)
+	if err != nil {
+		return 0, fmt.Errorf("获取磁盘可用空间失败(%s): %w", path, err)
+	}
+	return int64(usage.Free), nil
+}
+
 // FormatBytes 格式化字节大小为可读字符串
 func FormatBytes(bytes uint64) string {
 	const unit = 1024

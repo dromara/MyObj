@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -112,8 +113,8 @@ func Encrypt(publicKeyPEM string, data []byte) (string, error) {
 		return "", err
 	}
 
-	// 使用PKCS1v15加密（与Rust代码保持一致）
-	encryptedData, err := rsa.EncryptPKCS1v15(rand.Reader, publicKey, data)
+	// 使用OAEP加密（比PKCS1v15更安全）
+	encryptedData, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, publicKey, data, nil)
 	if err != nil {
 		return "", fmt.Errorf("加密失败: %w", err)
 	}
@@ -136,8 +137,8 @@ func Decrypt(privateKeyPEM string, encryptedDataB64 string) ([]byte, error) {
 		return nil, fmt.Errorf("Base64解码失败: %w", err)
 	}
 
-	// 使用PKCS1v15解密
-	decryptedData, err := rsa.DecryptPKCS1v15(rand.Reader, privateKey, encryptedData)
+	// 使用OAEP解密
+	decryptedData, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privateKey, encryptedData, nil)
 	if err != nil {
 		return nil, fmt.Errorf("解密失败: %w", err)
 	}

@@ -23,6 +23,9 @@ import (
 	_ "image/jpeg"
 )
 
+// MaxPixelCount 最大允许的图片像素数（5000万像素）
+const MaxPixelCount = 50_000_000
+
 // GenerateImageThumbnail 生成图片缩略图
 //
 // 参数:
@@ -50,7 +53,25 @@ func GenerateImageThumbnail(inputPath, outputPath string, maxDimension uint) err
 	}
 	defer file.Close()
 
-	img, format, err := image.Decode(file)
+	// 使用 image.DecodeConfig 先获取图片尺寸，避免超大图片直接解码导致内存溢出
+	config, format, err := image.DecodeConfig(file)
+	if err != nil {
+		return fmt.Errorf("读取图片配置失败: %w", err)
+	}
+
+	// 检查图片像素数是否超过限制
+	pixelCount := int64(config.Width) * int64(config.Height)
+	if pixelCount > MaxPixelCount {
+		return fmt.Errorf("图片尺寸过大(%dx%d, %d像素)，超过限制(%d像素)，拒绝处理",
+			config.Width, config.Height, pixelCount, MaxPixelCount)
+	}
+
+	// 重置文件指针到开头，准备解码完整图片
+	if _, err := file.Seek(0, 0); err != nil {
+		return fmt.Errorf("重置文件指针失败: %w", err)
+	}
+
+	img, _, err := image.Decode(file)
 	if err != nil {
 		return fmt.Errorf("图片解码失败: %w", err)
 	}
@@ -79,8 +100,8 @@ func GenerateImageThumbnail(inputPath, outputPath string, maxDimension uint) err
 	}
 	defer outFile.Close()
 
-	// 根据文件扩展名选择编码器
-	if err := encodeImageByExtension(outputPath, dst); err != nil {
+	// 根据文件扩展名选择编码器，直接使用已打开的文件句柄
+	if err := encodeImageByExtension(outputPath, outFile, dst); err != nil {
 		return fmt.Errorf("图片编码失败: %w", err)
 	}
 	logger.LOG.Debug("图片缩略图生成成功", "input_path", inputPath,
@@ -117,16 +138,9 @@ func calculateThumbnailDimensions(width, height, maxDimension int) (int, int) {
 	return newWidth, newHeight
 }
 
-// encodeImageByExtension 根据文件扩展名选择图像编码器
-func encodeImageByExtension(outputPath string, img image.Image) error {
+// encodeImageByExtension 根据文件扩展名选择图像编码器，使用已打开的文件句柄
+func encodeImageByExtension(outputPath string, outFile *os.File, img image.Image) error {
 	ext := filepath.Ext(outputPath)
-
-	// 创建输出文件
-	outFile, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
 
 	switch ext {
 	case ".jpg", ".jpeg":

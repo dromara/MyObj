@@ -14,6 +14,7 @@ import (
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/upload"
+	"myobj/src/pkg/util"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,9 +28,52 @@ import (
 	"gorm.io/gorm"
 )
 
+// uploadLockEntry 带过期时间的锁条目
+type uploadLockEntry struct {
+	mu       *sync.Mutex
+	createAt time.Time
+}
+
+// processingEntry 带过期时间的处理标记条目
+type processingEntry struct {
+	createdAt time.Time
+}
+
 // 全局上传锁，用于防止同一文件的并发处理
-var uploadLocks sync.Map     // key: userID+fileName, value: *sync.Mutex
-var processingFiles sync.Map // key: userID+fileName, value: bool (标记文件是否正在处理)
+var uploadLocks sync.Map     // key: userID+fileName, value: *uploadLockEntry
+var processingFiles sync.Map // key: userID+fileName, value: *processingEntry (标记文件是否正在处理)
+
+func init() {
+	// 启动清理 goroutine，定期清理超过 1 小时的锁条目，防止内存泄漏
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			uploadLocks.Range(func(key, value any) bool {
+				entry := value.(*uploadLockEntry)
+				if time.Since(entry.createAt) > 1*time.Hour {
+					uploadLocks.Delete(key)
+				}
+				return true
+			})
+		}
+	}()
+
+	// 启动清理 goroutine，定期清理超过 1 小时的 processingFiles 条目，防止内存泄漏
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			processingFiles.Range(func(key, value any) bool {
+				entry := value.(*processingEntry)
+				if time.Since(entry.createdAt) > time.Hour {
+					processingFiles.Delete(key)
+				}
+				return true
+			})
+		}
+	}()
+}
 
 // FileService 文件服务
 type FileService struct {
@@ -47,9 +91,56 @@ func (f *FileService) GetRepository() *impl.RepositoryFactory {
 	return f.factory
 }
 
+// handleInstantUpload 处理秒传逻辑，使用数据库事务保护 UserFiles 创建，处理并发竞态
+func (f *FileService) handleInstantUpload(ctx context.Context, user *models.UserInfo, fileID string, req *request.UploadPrecheckRequest, userSpace int64, fileSize int64) (*models.JsonResponse, error) {
+	userFile := &models.UserFiles{
+		UserID:      user.ID,
+		FileID:      fileID,
+		FileName:    req.FileName,
+		VirtualPath: req.PathID,
+		IsPublic:    false,
+		CreatedAt:   custom_type.Now(),
+		UfID:        uuid.NewString(),
+	}
+
+	// 使用事务保护 UserFiles 创建，处理并发秒传竞态条件
+	err := f.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := f.factory.WithTx(tx)
+		if err := txFactory.UserFiles().Create(ctx, userFile); err != nil {
+			// 如果 UserFiles 表有 (user_id, file_id) 复合唯一索引，重复插入会报 Duplicate 错误
+			// 视为秒传成功（另一个并发请求已创建）
+			logger.LOG.Warn("创建用户文件失败（可能是并发重复插入）", "error", err, "userID", user.ID, "fileID", fileID)
+			return err
+		}
+
+		// 秒传成功后扣除用户空间（只对非无限空间用户）
+		if userSpace > 0 {
+			user.FreeSpace -= fileSize
+			if err := txFactory.User().Update(ctx, user); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		logger.LOG.Error("秒传事务失败", "error", err, "userID", user.ID, "fileID", fileID)
+		return nil, err
+	}
+
+	if userSpace > 0 {
+		logger.LOG.Debug("秒传扣除用户空间",
+			"user_id", user.ID,
+			"file_size", fileSize,
+			"new_free_space", user.FreeSpace)
+	}
+	return models.NewJsonResponse(200, "秒传成功", nil), nil
+}
+
 // Precheck 文件预检查
 func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	user, err := f.factory.User().GetByID(ctx, req.UserID)
 	if err != nil {
 		logger.LOG.Error("获取用户信息失败", "error", err, "userID", req.UserID)
@@ -70,10 +161,15 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 		return models.NewJsonResponse(500, "没有可用的存储磁盘", nil), nil
 	}
 
-	// 查找能容纳此文件的磁盘
+	// 查找能容纳此文件的磁盘（使用实际可用空间判断）
 	var hasEnoughSpace bool
 	for _, disk := range disks {
-		if disk.Size >= req.FileSize {
+		freeSpaceBytes, err := util.GetDiskFreeSpaceByPath(disk.DataPath)
+		if err != nil {
+			logger.LOG.Warn("获取磁盘可用空间失败，跳过该磁盘", "disk_id", disk.ID, "data_path", disk.DataPath, "error", err)
+			continue
+		}
+		if freeSpaceBytes >= req.FileSize {
 			hasEnoughSpace = true
 			break
 		}
@@ -92,71 +188,11 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 	if err == nil && signature != nil && signature.ID != "" {
 		if len(req.FilesMd5) >= 3 {
 			if signature.FirstChunkHash == req.FilesMd5[0] && signature.SecondChunkHash == req.FilesMd5[1] && signature.ThirdChunkHash == req.FilesMd5[2] && signature.IsEnc == false {
-				userFile := &models.UserFiles{
-					UserID:      user.ID,
-					FileID:      signature.ID,
-					FileName:    req.FileName,
-					VirtualPath: req.PathID,
-					IsPublic:    false,
-					CreatedAt:   custom_type.Now(),
-					UfID:        uuid.NewString(),
-				}
-				err := f.factory.UserFiles().Create(context.Background(), userFile)
-				if err != nil {
-					logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
-					return nil, err
-				}
-				// 秒传成功后扣除用户空间（只对非无限空间用户）
-				if user.Space > 0 {
-					user.FreeSpace -= req.FileSize
-					if err := f.factory.User().Update(ctx, user); err != nil {
-						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
-						// 回滚：删除刚创建的用户文件关联
-						if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
-							logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
-						}
-						return nil, err
-					}
-					logger.LOG.Debug("秒传扣除用户空间",
-						"user_id", user.ID,
-						"file_size", req.FileSize,
-						"new_free_space", user.FreeSpace)
-				}
-				return models.NewJsonResponse(200, "秒传成功", nil), nil
+				return f.handleInstantUpload(ctx, user, signature.ID, req, user.Space, req.FileSize)
 			}
 		} else {
 			if signature.FileHash == req.FilesMd5[0] && signature.IsEnc == false {
-				userFile := &models.UserFiles{
-					UserID:      user.ID,
-					FileID:      signature.ID,
-					FileName:    req.FileName,
-					VirtualPath: req.PathID,
-					IsPublic:    false,
-					CreatedAt:   custom_type.Now(),
-					UfID:        uuid.NewString(),
-				}
-				err := f.factory.UserFiles().Create(context.Background(), userFile)
-				if err != nil {
-					logger.LOG.Error("创建用户文件失败", "error", err, "userID", req.UserID, "fileID", signature.ID, "fileName", req.FileName)
-					return nil, err
-				}
-				// 秒传成功后扣除用户空间（只对非无限空间用户）
-				if user.Space > 0 {
-					user.FreeSpace -= req.FileSize
-					if err := f.factory.User().Update(ctx, user); err != nil {
-						logger.LOG.Error("更新用户空间失败", "error", err, "userID", user.ID)
-						// 回滚：删除刚创建的用户文件关联
-						if delErr := f.factory.UserFiles().Delete(ctx, user.ID, userFile.FileID); delErr != nil {
-							logger.LOG.Error("回滚删除用户文件失败", "error", delErr)
-						}
-						return nil, err
-					}
-					logger.LOG.Debug("秒传扣除用户空间",
-						"user_id", user.ID,
-						"file_size", req.FileSize,
-						"new_free_space", user.FreeSpace)
-				}
-				return models.NewJsonResponse(200, "秒传成功", nil), nil
+				return f.handleInstantUpload(ctx, user, signature.ID, req, user.Space, req.FileSize)
 			}
 		}
 	}
@@ -274,7 +310,8 @@ func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache
 
 // SearchUserFiles 搜索当前用户的文件
 func (f *FileService) SearchUserFiles(req *request.FileSearchRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 默认分页参数
 	page := req.Page
@@ -301,10 +338,21 @@ func (f *FileService) SearchUserFiles(req *request.FileSearchRequest, userID str
 		IsPublic bool   `json:"public"`
 	}
 
+	// 批量收集 fileID，一次性查询 FileInfo（避免 N+1）
+	fileIDs := make([]string, 0, len(userFiles))
+	for _, uf := range userFiles {
+		fileIDs = append(fileIDs, uf.FileID)
+	}
+	fileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询文件信息失败", "error", err, "fileIDs", fileIDs)
+		return nil, err
+	}
+
 	resultFiles := make([]*FileWithUserInfo, 0, len(userFiles))
 	for _, uf := range userFiles {
-		file, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
-		if err != nil {
+		file, ok := fileInfoMap[uf.FileID]
+		if !ok {
 			continue
 		}
 
@@ -332,7 +380,8 @@ func (f *FileService) SearchUserFiles(req *request.FileSearchRequest, userID str
 
 // SearchPublicFiles 搜索公开文件（广场）
 func (f *FileService) SearchPublicFiles(req *request.FileSearchRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 默认分页参数
 	page := req.Page
@@ -378,18 +427,34 @@ func (f *FileService) SearchPublicFiles(req *request.FileSearchRequest) (*models
 		OwnerName string `json:"owner_name"`
 	}
 
+	// 批量收集 fileID 和 userID，一次性查询（避免 N+1）
+	fileIDs := make([]string, 0, len(userFiles))
+	userIDs := make([]string, 0, len(userFiles))
+	for _, uf := range userFiles {
+		fileIDs = append(fileIDs, uf.FileID)
+		userIDs = append(userIDs, uf.UserID)
+	}
+	fileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询文件信息失败", "error", err)
+		return nil, err
+	}
+	userMap, err := f.factory.User().BatchGetByIDs(ctx, userIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询用户信息失败", "error", err)
+		return nil, err
+	}
+
 	resultFiles := make([]*FileWithOwner, 0, len(userFiles))
 	for _, uf := range userFiles {
-		file, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
-		if err != nil {
+		file, ok := fileInfoMap[uf.FileID]
+		if !ok {
 			continue
 		}
 
-		// 获取用户名
-		user, err := f.factory.User().GetByID(ctx, uf.UserID)
 		ownerName := "Unknown"
-		if err == nil && user != nil {
-			ownerName = user.UserName
+		if u, ok := userMap[uf.UserID]; ok {
+			ownerName = u.UserName
 		}
 
 		resultFiles = append(resultFiles, &FileWithOwner{
@@ -407,7 +472,8 @@ func (f *FileService) SearchPublicFiles(req *request.FileSearchRequest) (*models
 
 // GetFileList 获取文件列表（我的文件页面）
 func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 处理虚拟路径ID，空或为0时使用根目录
 	var currentPathID int
@@ -521,25 +587,36 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 		})
 	}
 
-	// 转换文件数据（直接使用user_files记录，避免file_id重复导致查询错误）
-	for _, uf := range userFiles {
-		// 获取file_info详情
-		fileInfo, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
-		if err != nil {
-			logger.LOG.Warn("获取文件信息失败", "error", err, "fileID", uf.FileID, "ufID", uf.UfID)
-			continue
+	// 批量收集 fileID，一次性查询 FileInfo（避免 N+1）
+	if len(userFiles) > 0 {
+		fileIDs := make([]string, 0, len(userFiles))
+		for _, uf := range userFiles {
+			fileIDs = append(fileIDs, uf.FileID)
+		}
+		fileInfoMap, batchErr := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+		if batchErr != nil {
+			logger.LOG.Error("批量查询文件信息失败", "error", batchErr)
+			return nil, batchErr
 		}
 
-		resp.Files = append(resp.Files, &response.FileItem{
-			FileID:       uf.UfID,
-			FileName:     uf.FileName,
-			FileSize:     fileInfo.Size,
-			MimeType:     fileInfo.Mime,
-			IsEnc:        fileInfo.IsEnc,
-			HasThumbnail: fileInfo.ThumbnailImg != "",
-			Public:       uf.IsPublic,
-			CreatedAt:    fileInfo.CreatedAt,
-		})
+		for _, uf := range userFiles {
+			fileInfo, ok := fileInfoMap[uf.FileID]
+			if !ok {
+				logger.LOG.Warn("获取文件信息失败", "fileID", uf.FileID, "ufID", uf.UfID)
+				continue
+			}
+
+			resp.Files = append(resp.Files, &response.FileItem{
+				FileID:       uf.UfID,
+				FileName:     uf.FileName,
+				FileSize:     fileInfo.Size,
+				MimeType:     fileInfo.Mime,
+				IsEnc:        fileInfo.IsEnc,
+				HasThumbnail: fileInfo.ThumbnailImg != "",
+				Public:       uf.IsPublic,
+				CreatedAt:    fileInfo.CreatedAt,
+			})
+		}
 	}
 
 	return models.NewJsonResponse(200, "获取成功", resp), nil
@@ -595,7 +672,8 @@ func (f *FileService) buildBreadcrumbs(ctx context.Context, currentPath *models.
 
 // MakeDir 创建目录
 func (f *FileService) MakeDir(req *request.MakeDirRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	path, err := f.factory.VirtualPath().GetByPath(ctx, userID, req.DirPath)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("获取目录失败", "error", err)
@@ -635,7 +713,8 @@ func (f *FileService) MakeDir(req *request.MakeDirRequest, userID string) (*mode
 
 // MoveFile 移动文件
 func (f *FileService) MoveFile(req *request.MoveFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
@@ -653,7 +732,9 @@ func (f *FileService) MoveFile(req *request.MoveFileRequest, userID string) (*mo
 
 // GetVirtualPath 获取虚拟路径
 func (f *FileService) GetVirtualPath(userID string) (*models.JsonResponse, error) {
-	user, err := f.factory.VirtualPath().GetPathByUser(context.Background(), userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	user, err := f.factory.VirtualPath().GetPathByUser(ctx, userID)
 	if err != nil {
 		logger.LOG.Error("获取虚拟路径失败", "error", err)
 		return nil, err
@@ -663,49 +744,53 @@ func (f *FileService) GetVirtualPath(userID string) (*models.JsonResponse, error
 
 // RenameFile 重命名文件
 func (f *FileService) RenameFile(req *request.RenameFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// 1. 验证用户是否拥有该文件
-	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.NewJsonResponse(404, "文件不存在或无权访问", nil), nil
-		}
-		logger.LOG.Error("获取文件失败", "error", err, "fileID", req.FileID)
-		return nil, err
-	}
-
-	// 2. 验证新文件名不能为空
+	// 1. 验证新文件名不能为空
 	if strings.TrimSpace(req.NewFileName) == "" {
 		return models.NewJsonResponse(400, "新文件名不能为空", nil), nil
 	}
 
-	// 3. 检查同一目录下是否已存在同名文件
-	// 注意：UserFiles.VirtualPath 存储的是路径ID（字符串格式）
-	existingFiles, err := f.factory.UserFiles().ListByUserID(ctx, userID, 0, 10000)
-	if err != nil {
-		logger.LOG.Error("查询文件列表失败", "error", err)
-		return nil, err
-	}
+	var oldFileName string
+	err := f.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := f.factory.WithTx(tx)
 
-	// 检查同一虚拟路径下是否有同名文件
-	for _, file := range existingFiles {
-		if file.VirtualPath == userFile.VirtualPath &&
-			file.FileName == req.NewFileName &&
-			file.UfID != req.FileID {
-			return models.NewJsonResponse(400, "该目录下已存在同名文件", nil), nil
+		// 2. 验证用户是否拥有该文件
+		userFile, err := txFactory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("文件不存在或无权访问")
+			}
+			return err
 		}
-	}
 
-	// 4. 保存旧文件名用于日志
-	oldFileName := userFile.FileName
+		// 3. 检查同一目录下是否已存在同名文件
+		exists, err := txFactory.UserFiles().ExistsByNameInPath(ctx, userID, userFile.VirtualPath, req.NewFileName, req.FileID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return fmt.Errorf("该目录下已存在同名文件")
+		}
 
-	// 5. 更新文件名
-	userFile.FileName = req.NewFileName
-	err = f.factory.UserFiles().Update(ctx, userFile)
+		// 4. 保存旧文件名用于日志
+		oldFileName = userFile.FileName
+
+		// 5. 更新文件名
+		userFile.FileName = req.NewFileName
+		return txFactory.UserFiles().Update(ctx, userFile)
+	})
+
 	if err != nil {
-		logger.LOG.Error("重命名文件失败", "error", err, "fileID", req.FileID, "newFileName", req.NewFileName)
-		return nil, fmt.Errorf("重命名文件失败: %w", err)
+		if err.Error() == "文件不存在或无权访问" {
+			return models.NewJsonResponse(404, err.Error(), nil), nil
+		}
+		if err.Error() == "该目录下已存在同名文件" {
+			return models.NewJsonResponse(400, err.Error(), nil), nil
+		}
+		logger.LOG.Error("重命名文件失败", "error", err, "fileID", req.FileID)
+		return nil, err
 	}
 
 	logger.LOG.Info("文件重命名成功", "fileID", req.FileID, "oldFileName", oldFileName, "newFileName", req.NewFileName)
@@ -717,7 +802,8 @@ func (f *FileService) RenameFile(req *request.RenameFileRequest, userID string) 
 
 // RenameDir 重命名目录
 func (f *FileService) RenameDir(req *request.RenameDirRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 获取目录信息
 	virtualPath, err := f.factory.VirtualPath().GetByID(ctx, req.DirID)
@@ -814,7 +900,8 @@ func (f *FileService) RenameDir(req *request.RenameDirRequest, userID string) (*
 
 // SetFilePublic 设置文件公开状态
 func (f *FileService) SetFilePublic(req *request.SetFilePublicRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 验证用户是否拥有该文件
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
@@ -861,7 +948,8 @@ func (f *FileService) SetFilePublic(req *request.SetFilePublicRequest, userID st
 
 // DeleteDir 删除目录（递归删除目录下的所有文件和子目录）
 func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 获取目录信息
 	virtualPath, err := f.factory.VirtualPath().GetByID(ctx, req.DirID)
@@ -893,28 +981,22 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 	// 4. 递归获取目录下的所有文件和子目录
 	dirPathID := strconv.Itoa(req.DirID)
 
-	// 4.1 获取目录下的所有文件（直接查询该目录下的文件，避免获取所有文件）
-	// 注意：由于 UserFilesRepository 没有 ListByVirtualPath 方法，我们使用 ListByUserID 然后过滤
-	// 对于大多数用户，文件数量不会太多，这个实现是可以接受的
-	allFiles, err := f.factory.UserFiles().ListByUserID(ctx, userID, 0, 100000)
+	// 4.1 精确查询该目录下的文件（使用 ListByVirtualPath，避免加载用户全部文件）
+	dirFiles, err := f.factory.UserFiles().ListByVirtualPath(ctx, userID, dirPathID, 0, 100000)
 	if err != nil {
-		logger.LOG.Error("获取文件列表失败", "error", err)
+		logger.LOG.Error("获取目录下文件列表失败", "error", err)
 		return nil, err
 	}
 
-	// 过滤出该目录下的文件（VirtualPath 存储的是路径ID的字符串形式）
 	var filesToDelete []string
-	for _, file := range allFiles {
-		// 检查文件是否在该目录下（VirtualPath 存储的是目录ID的字符串形式）
-		if file.VirtualPath == dirPathID {
-			filesToDelete = append(filesToDelete, file.UfID)
-		}
+	for _, file := range dirFiles {
+		filesToDelete = append(filesToDelete, file.UfID)
 	}
 
 	// 4.2 递归获取所有子目录
 	// 注意：需要处理根目录的子目录（ParentLevel 可能为空）的情况
 	var dirsToDelete []int
-	err = f.collectSubDirs(ctx, userID, req.DirID, &dirsToDelete, rootPath.ID)
+	err = f.collectSubDirs(ctx, userID, req.DirID, &dirsToDelete, rootPath.ID, 50)
 	if err != nil {
 		logger.LOG.Error("收集子目录失败", "error", err)
 		return nil, err
@@ -943,32 +1025,41 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 				}
 			}
 		}
-	}
 
-	// 6. 递归删除所有子目录（从最深层开始）
-	// 注意：如果子目录删除失败，我们仍然会尝试删除父目录
-	// 这是合理的，因为用户已经确认要删除整个目录，且返回了详细的失败信息
-	dirSuccessCount := 0
-	dirFailedCount := 0
-	// 反转数组，从最深层开始删除（确保先删除子目录，再删除父目录）
-	for i := len(dirsToDelete) - 1; i >= 0; i-- {
-		dirID := dirsToDelete[i]
-		err := f.factory.VirtualPath().Delete(ctx, dirID)
-		if err != nil {
-			logger.LOG.Error("删除子目录失败", "error", err, "dirID", dirID)
-			dirFailedCount++
-			// 继续删除其他目录，不中断流程
-		} else {
-			dirSuccessCount++
+		// 如果有文件删除失败，中止操作，不删除目录
+		if fileFailedCount > 0 {
+			return models.NewJsonResponse(500, fmt.Sprintf("部分文件删除失败，目录保留。成功 %d 个，失败 %d 个", fileSuccessCount, fileFailedCount), map[string]interface{}{
+				"dir_id":        req.DirID,
+				"files_deleted": fileSuccessCount,
+				"files_failed":  fileFailedCount,
+			}), nil
 		}
 	}
 
-	// 7. 删除目录本身
-	// 即使部分子目录删除失败，仍然删除父目录（用户已确认删除）
-	err = f.factory.VirtualPath().Delete(ctx, req.DirID)
+	// 6. 在事务中递归删除所有子目录（从最深层开始）和目录本身
+	dirSuccessCount := 0
+	dirFailedCount := 0
+	err = f.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := f.factory.WithTx(tx)
+		// 反转数组，从最深层开始删除（确保先删除子目录，再删除父目录）
+		for i := len(dirsToDelete) - 1; i >= 0; i-- {
+			dirID := dirsToDelete[i]
+			if delErr := txFactory.VirtualPath().Delete(ctx, dirID); delErr != nil {
+				logger.LOG.Error("删除子目录失败", "error", delErr, "dirID", dirID)
+				return fmt.Errorf("删除子目录失败(dirID=%s): %w", dirID, delErr)
+			}
+			dirSuccessCount++
+		}
+
+		// 删除目录本身
+		if delErr := txFactory.VirtualPath().Delete(ctx, req.DirID); delErr != nil {
+			logger.LOG.Error("删除目录失败", "error", delErr, "dirID", req.DirID)
+			return fmt.Errorf("删除目录失败: %w", delErr)
+		}
+		return nil
+	})
 	if err != nil {
-		logger.LOG.Error("删除目录失败", "error", err, "dirID", req.DirID)
-		return nil, fmt.Errorf("删除目录失败: %w", err)
+		return nil, err
 	}
 
 	logger.LOG.Info("目录删除成功", "dirID", req.DirID,
@@ -976,9 +1067,6 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 		"dirsDeleted", dirSuccessCount, "dirsFailed", dirFailedCount)
 
 	message := fmt.Sprintf("目录删除成功，已删除 %d 个文件", fileSuccessCount)
-	if fileFailedCount > 0 {
-		message = fmt.Sprintf("%s，%d 个文件删除失败", message, fileFailedCount)
-	}
 	if dirSuccessCount > 0 {
 		message = fmt.Sprintf("%s，已删除 %d 个子目录", message, dirSuccessCount)
 	}
@@ -989,14 +1077,19 @@ func (f *FileService) DeleteDir(req *request.DeleteDirRequest, userID string) (*
 	return models.NewJsonResponse(200, message, map[string]interface{}{
 		"dir_id":        req.DirID,
 		"files_deleted": fileSuccessCount,
-		"files_failed":  fileFailedCount,
 		"dirs_deleted":  dirSuccessCount,
 		"dirs_failed":   dirFailedCount,
 	}), nil
 }
 
 // collectSubDirs 递归收集目录下的所有子目录
-func (f *FileService) collectSubDirs(ctx context.Context, userID string, parentDirID int, result *[]int, rootDirID int) error {
+// maxDepth 限制递归深度，防止无限递归（建议值 50）
+func (f *FileService) collectSubDirs(ctx context.Context, userID string, parentDirID int, result *[]int, rootDirID int, maxDepth int) error {
+	if maxDepth <= 0 {
+		logger.LOG.Warn("collectSubDirs 达到最大递归深度，停止收集", "parentDirID", parentDirID)
+		return nil
+	}
+
 	// 获取直接子目录
 	// 注意：ListSubFoldersByParentID 使用整数 parentID 查询 TEXT 类型的 parent_level 字段
 	// GORM 会自动进行类型转换，这在其他代码（如 RenameDir）中已经验证可行
@@ -1023,7 +1116,7 @@ func (f *FileService) collectSubDirs(ctx context.Context, userID string, parentD
 		if isValidChild && subDir.IsDir {
 			*result = append(*result, subDir.ID)
 			// 递归收集子目录的子目录
-			if err := f.collectSubDirs(ctx, userID, subDir.ID, result, rootDirID); err != nil {
+			if err := f.collectSubDirs(ctx, userID, subDir.ID, result, rootDirID, maxDepth-1); err != nil {
 				return err
 			}
 		}
@@ -1034,7 +1127,8 @@ func (f *FileService) collectSubDirs(ctx context.Context, userID string, parentD
 
 // DeleteFiles 删除文件（移动到回收站）
 func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	successCount := 0
 	failedCount := 0
@@ -1112,32 +1206,15 @@ func (f *FileService) DeleteFiles(req *request.DeleteFileRequest, userID string)
 
 // UploadFile 文件上传处理
 func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.File, header *multipart.FileHeader, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 从缓存获取预检信息
 	cacheKey := fmt.Sprintf("fileUpload:%s", req.PrecheckID)
-	precheckData, err := f.cacheLocal.Get(cacheKey)
-	if err != nil {
+	var precheckResp response.FilePrecheckResponse
+	if err := util.CacheGetJSON(f.cacheLocal, cacheKey, &precheckResp); err != nil {
 		logger.LOG.Error("获取预检信息失败", "error", err, "precheckID", req.PrecheckID)
 		return nil, fmt.Errorf("预检信息已过期或不存在")
-	}
-
-	// 2. 反序列化预检响应数据
-	var precheckResp response.FilePrecheckResponse
-	// 统一处理：Redis和LocalCache都可能返回string或对象
-	switch v := precheckData.(type) {
-	case *response.FilePrecheckResponse:
-		// LocalCache直接返回对象指针
-		precheckResp = *v
-	case string:
-		// Redis返回JSON字符串，需要反序列化
-		if err := json.Unmarshal([]byte(v), &precheckResp); err != nil {
-			logger.LOG.Error("反序列化预检信息失败", "error", err, "data", v)
-			return nil, fmt.Errorf("预检信息格式错误")
-		}
-	default:
-		logger.LOG.Error("预检信息类型错误", "type", fmt.Sprintf("%T", v))
-		return nil, fmt.Errorf("预检信息类型错误")
 	}
 
 	if precheckResp.PrecheckID != req.PrecheckID {
@@ -1148,27 +1225,10 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 	// 获取预检请求中的文件大小
 	var fileSize int64
 	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
-	reqData, err := f.cacheLocal.Get(reqCacheKey)
-	if err != nil {
+	var precheckReq request.UploadPrecheckRequest
+	if err := util.CacheGetJSON(f.cacheLocal, reqCacheKey, &precheckReq); err != nil {
 		logger.LOG.Error("获取预检请求失败", "error", err)
 		return nil, fmt.Errorf("无法获取原始上传请求信息")
-	}
-
-	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
-	var precheckReq request.UploadPrecheckRequest
-	switch v := reqData.(type) {
-	case *request.UploadPrecheckRequest:
-		// LocalCache直接返回对象指针
-		precheckReq = *v
-	case string:
-		// Redis返回JSON字符串，需要反序列化
-		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
-			return nil, fmt.Errorf("预检请求信息格式错误")
-		}
-	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
-		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 	fileSize = precheckReq.FileSize
 
@@ -1186,7 +1246,12 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 	var bestDisk *models.Disk
 	var maxFreeSpace int64 = -1
 	for _, disk := range disks {
-		freeSpaceBytes := disk.Size
+		// 获取实际磁盘可用空间
+		freeSpaceBytes, err := util.GetDiskFreeSpaceByPath(disk.DataPath)
+		if err != nil {
+			logger.LOG.Warn("获取磁盘可用空间失败，跳过该磁盘", "disk_id", disk.ID, "data_path", disk.DataPath, "error", err)
+			continue
+		}
 		if freeSpaceBytes >= fileSize && freeSpaceBytes > maxFreeSpace {
 			maxFreeSpace = freeSpaceBytes
 			bestDisk = disk
@@ -1196,15 +1261,8 @@ func (f *FileService) UploadFile(req *request.FileUploadRequest, file multipart.
 		return nil, fmt.Errorf("没有足够空间的磁盘")
 	}
 
-	// 4. 在选中磁盘的temp目录下创建临时目录：{DiskPath}/temp/{fileName}_{sessionID}/
-	// 参考下载时的临时目录管理方式
-	sessionID := req.PrecheckID[:8] // 使用预检ID的前8位作为会话ID
-	// 使用文件名（去除扩展名）+ sessionID作为子目录名
-	fileNameWithoutExt := precheckReq.FileName
-	if idx := strings.LastIndex(precheckReq.FileName, "."); idx != -1 {
-		fileNameWithoutExt = precheckReq.FileName[:idx]
-	}
-	tempBaseDir := filepath.Join(bestDisk.DataPath, "temp", fmt.Sprintf("%s_%s", fileNameWithoutExt, sessionID))
+	// 4. 在选中磁盘的temp目录下创建临时目录
+	tempBaseDir := util.BuildTempDir(bestDisk.DataPath, "upload")
 	if err := os.MkdirAll(tempBaseDir, 0755); err != nil {
 		logger.LOG.Error("创建临时目录失败", "error", err, "path", tempBaseDir)
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
@@ -1229,7 +1287,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	totalChunks := *req.TotalChunks
 
 	// 1. 保存分片文件
-	chunkPath := filepath.Join(tempBaseDir, fmt.Sprintf("%d.chunk.data", chunkIndex))
+	chunkPath := util.ChunkPath(tempBaseDir, chunkIndex)
 	chunkFile, err := os.Create(chunkPath)
 	if err != nil {
 		return nil, fmt.Errorf("创建分片文件失败: %w", err)
@@ -1244,20 +1302,20 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 
 	// 2. 使用锁保护分片计数和删除操作，防止并发竞争
 	lockKey := userID + ":" + header.Filename
-	mutexVal, _ := uploadLocks.LoadOrStore(lockKey, &sync.Mutex{})
-	mutex := mutexVal.(*sync.Mutex)
+	lockVal, _ := uploadLocks.LoadOrStore(lockKey, &uploadLockEntry{mu: &sync.Mutex{}, createAt: time.Now()})
+	entry := lockVal.(*uploadLockEntry)
 
-	mutex.Lock()
+	entry.mu.Lock()
 	// 注意：不使用defer，因为我们需要在文件处理前手动释放锁
 
 	// 3. 删除 UploadChunk 表中对应的 MD5 记录（在锁保护下）
 	// 注意：这里删除只是为了清理数据，不用于统计进度
 	if req.ChunkMD5 != "" {
-		// 查找匹配的 UploadChunk 记录
-		chunks, err := f.factory.UploadChunk().ListByUserID(ctx, userID, 0, 1000)
+		// 使用 GetByUserIDAndFileName 精确查询，避免加载用户所有分片记录
+		chunks, err := f.factory.UploadChunk().GetByUserIDAndFileName(ctx, userID, header.Filename)
 		if err == nil {
 			for _, chunk := range chunks {
-				if chunk.Md5 == req.ChunkMD5 && chunk.FileName == header.Filename {
+				if chunk.Md5 == req.ChunkMD5 {
 					if err := f.factory.UploadChunk().Delete(ctx, chunk.ChunkID); err != nil {
 						logger.LOG.Warn("删除UploadChunk记录失败", "error", err, "chunkID", chunk.ChunkID)
 					} else {
@@ -1273,7 +1331,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	// 重要：不依赖UploadChunk表，而是直接检查磁盘上的分片文件
 	uploadedChunkCount := 0
 	for i := 0; i < totalChunks; i++ {
-		chunkPath := filepath.Join(tempBaseDir, fmt.Sprintf("%d.chunk.data", i))
+		chunkPath := util.ChunkPath(tempBaseDir, i)
 		if _, err := os.Stat(chunkPath); err == nil {
 			uploadedChunkCount++
 		}
@@ -1290,7 +1348,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 
 	// 5. 如果还有分片未完成，释放锁并返回成功响应
 	if remaining > 0 {
-		mutex.Unlock() // 释放锁
+		entry.mu.Unlock() // 释放锁
 		return models.NewJsonResponse(200, "分片上传成功", map[string]interface{}{
 			"chunk_index": chunkIndex,
 			"uploaded":    totalChunks - int(remaining),
@@ -1300,9 +1358,9 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	}
 
 	// 6. 所有分片上传完成，检查是否已经有其他请求在处理
-	if _, isProcessing := processingFiles.LoadOrStore(lockKey, true); isProcessing {
+	if _, isProcessing := processingFiles.LoadOrStore(lockKey, &processingEntry{createdAt: time.Now()}); isProcessing {
 		// 已经有其他请求在处理此文件
-		mutex.Unlock()
+		entry.mu.Unlock()
 		logger.LOG.Info("文件已被其他请求处理", "fileName", header.Filename)
 		return models.NewJsonResponse(200, "文件处理中", map[string]interface{}{
 			"is_complete": false,
@@ -1311,7 +1369,7 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 	}
 
 	// 7. 标记为正在处理，现在可以释放锁了
-	mutex.Unlock()
+	entry.mu.Unlock()
 	uploadLocks.Delete(lockKey)
 
 	// 确保处理完成后删除处理标记
@@ -1321,27 +1379,10 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 
 	// 获取预检请求中的原始数据
 	reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
-	reqData, err := f.cacheLocal.Get(reqCacheKey)
-	if err != nil {
+	var precheckReq request.UploadPrecheckRequest
+	if err := util.CacheGetJSON(f.cacheLocal, reqCacheKey, &precheckReq); err != nil {
 		logger.LOG.Error("预检信息缓存未命中", "error", err, "precheckID", req.PrecheckID, "key", reqCacheKey)
 		return nil, fmt.Errorf("预检信息已过期或不存在，请重新预检")
-	}
-
-	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
-	var precheckReq request.UploadPrecheckRequest
-	switch v := reqData.(type) {
-	case *request.UploadPrecheckRequest:
-		// LocalCache直接返回对象指针
-		precheckReq = *v
-	case string:
-		// Redis返回JSON字符串，需要反序列化
-		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
-			return nil, fmt.Errorf("预检请求信息格式错误")
-		}
-	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
-		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
 	// 构造上传数据
@@ -1389,8 +1430,8 @@ func (f *FileService) handleChunkUpload(ctx context.Context, req *request.FileUp
 		// 不阻塞主流程，继续执行
 	}
 
-	// 6. 清除缓存
-	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", userID))
+	// 6. 清除缓存（使用 precheckID 而非 userID 构造缓存 key）
+	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", req.PrecheckID))
 	f.cacheLocal.Delete(reqCacheKey)
 
 	logger.LOG.Info("文件上传完成", "fileID", fileID, "fileName", header.Filename)
@@ -1418,27 +1459,10 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 
 	// 2. 获取预检请求中的原始数据
 	cacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
-	reqData, err := f.cacheLocal.Get(cacheKey)
-	if err != nil {
+	var precheckReq request.UploadPrecheckRequest
+	if err := util.CacheGetJSON(f.cacheLocal, cacheKey, &precheckReq); err != nil {
 		logger.LOG.Error("预检信息缓存未命中", "error", err, "precheckID", req.PrecheckID, "key", cacheKey)
 		return nil, fmt.Errorf("预检信息已过期或不存在，请重新预检")
-	}
-
-	// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
-	var precheckReq request.UploadPrecheckRequest
-	switch v := reqData.(type) {
-	case *request.UploadPrecheckRequest:
-		// LocalCache直接返回对象指针
-		precheckReq = *v
-	case string:
-		// Redis返回JSON字符串，需要反序列化
-		if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-			logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
-			return nil, fmt.Errorf("预检请求信息格式错误")
-		}
-	default:
-		logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
-		return nil, fmt.Errorf("预检请求信息类型错误")
 	}
 
 	// 3. 构造上传数据
@@ -1482,8 +1506,8 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 		// 不阻塞主流程，继续执行
 	}
 
-	// 5. 清除缓存
-	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", userID))
+	// 5. 清除缓存（使用 precheckID 而非 userID 构造缓存 key）
+	f.cacheLocal.Delete(fmt.Sprintf("fileUpload:%s", req.PrecheckID))
 	f.cacheLocal.Delete(cacheKey)
 
 	logger.LOG.Info("文件上传完成", "fileID", fileID, "fileName", header.Filename)
@@ -1495,7 +1519,8 @@ func (f *FileService) handleSingleUpload(ctx context.Context, req *request.FileU
 
 // PublicFileList 获取公开文件列表
 func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 默认分页参数
 	page := req.Page
@@ -1522,21 +1547,36 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 		return nil, err
 	}
 
+	// 批量收集 fileID 和 userID，一次性查询（避免 N+1）
+	fileIDs := make([]string, 0, len(userFiles))
+	userIDs := make([]string, 0, len(userFiles))
+	for _, uf := range userFiles {
+		fileIDs = append(fileIDs, uf.FileID)
+		userIDs = append(userIDs, uf.UserID)
+	}
+	fileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询文件信息失败", "error", err)
+		return nil, err
+	}
+	userMap, err := f.factory.User().BatchGetByIDs(ctx, userIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询用户信息失败", "error", err)
+		return nil, err
+	}
+
 	// 构建响应数据
 	fileList := make([]response.PublicFileItem, 0, len(userFiles))
 	for _, uf := range userFiles {
-		// 获取文件详情
-		fileInfo, err := f.factory.FileInfo().GetByID(ctx, uf.FileID)
-		if err != nil {
-			logger.LOG.Warn("获取文件信息失败", "fileID", uf.FileID, "error", err)
+		fileInfo, ok := fileInfoMap[uf.FileID]
+		if !ok {
+			logger.LOG.Warn("获取文件信息失败", "fileID", uf.FileID)
 			continue
 		}
 
-		// 获取文件所属用户信息
-		user, err := f.factory.User().GetByID(ctx, uf.UserID)
-		if err != nil {
-			logger.LOG.Warn("获取用户信息失败", "userID", uf.UserID, "error", err)
-			continue
+		ownerName := "Unknown"
+		if u, ok := userMap[uf.UserID]; ok {
+			ownerName = u.Name
 		}
 
 		// 根据文件类型过滤
@@ -1552,25 +1592,12 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 
 			// 特殊处理压缩文件
 			if req.Type == "archive" {
-				if !strings.Contains(fileInfo.Mime, "zip") && !strings.Contains(fileInfo.Mime, "rar") &&
-					!strings.Contains(fileInfo.Mime, "7z") && !strings.Contains(fileInfo.Mime, "tar") &&
-					!strings.Contains(fileInfo.Mime, "gzip") {
+				if !util.IsArchiveMime(fileInfo.Mime) {
 					continue
 				}
 			} else if req.Type == "doc" {
 				// 文档类型：pdf、word、excel、ppt等
-				// 检查 PDF
-				isPDF := strings.Contains(fileInfo.Mime, "pdf")
-				// 检查 Word 文档（包括旧格式 .doc 和新格式 .docx）
-				isWord := strings.Contains(fileInfo.Mime, "word") || strings.Contains(fileInfo.Mime, "wordprocessingml")
-				// 检查 Excel 表格（包括旧格式 .xls 和新格式 .xlsx）
-				isExcel := strings.Contains(fileInfo.Mime, "excel") || strings.Contains(fileInfo.Mime, "spreadsheetml")
-				// 检查 PowerPoint 演示（包括旧格式 .ppt 和新格式 .pptx）
-				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
-				// 检查通用文档类型
-				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
-
-				if !isPDF && !isWord && !isDocument && !isExcel && !isPPT {
+				if !util.IsDocumentMime(fileInfo.Mime) {
 					continue
 				}
 			} else if req.Type == "other" {
@@ -1578,25 +1605,13 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 				if mainType == "image" || mainType == "video" || mainType == "audio" {
 					continue
 				}
-				// 检查是否是文档类型
-				isPDF := strings.Contains(fileInfo.Mime, "pdf")
-				isWord := strings.Contains(fileInfo.Mime, "word") || strings.Contains(fileInfo.Mime, "wordprocessingml")
-				isExcel := strings.Contains(fileInfo.Mime, "excel") || strings.Contains(fileInfo.Mime, "spreadsheetml")
-				isPPT := strings.Contains(fileInfo.Mime, "powerpoint") || strings.Contains(fileInfo.Mime, "presentationml")
-				isDocument := strings.Contains(fileInfo.Mime, "document") || strings.Contains(fileInfo.Mime, "presentation")
-
-				if isPDF || isWord || isDocument || isExcel || isPPT {
+				if util.IsDocumentMime(fileInfo.Mime) {
 					continue
 				}
-				// 检查是否是压缩文件
-				if strings.Contains(fileInfo.Mime, "zip") || strings.Contains(fileInfo.Mime, "rar") ||
-					strings.Contains(fileInfo.Mime, "7z") || strings.Contains(fileInfo.Mime, "tar") ||
-					strings.Contains(fileInfo.Mime, "gzip") {
+				if util.IsArchiveMime(fileInfo.Mime) {
 					continue
 				}
-				// 其他所有类型都匹配（包括 text、application 等）
 			} else if mainType != req.Type {
-				// 其他类型直接匹配主类型（image、video、audio）
 				continue
 			}
 		}
@@ -1606,7 +1621,7 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 			FileName:     uf.FileName,
 			FileSize:     fileInfo.Size,
 			MimeType:     fileInfo.Mime,
-			OwnerName:    user.Name,
+			OwnerName:    ownerName,
 			HasThumbnail: fileInfo.ThumbnailImg != "",
 			CreatedAt:    uf.CreatedAt,
 		})
@@ -1646,31 +1661,16 @@ func (f *FileService) PublicFileList(req *request.PublicFileListRequest) (*model
 // 2. 如果缓存命中，再查询数据库获取实时进度（因为上传过程中只更新数据库，不更新缓存）
 // 3. 如果缓存未命中，说明任务不存在或已过期，直接返回404
 func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 优先查询缓存（快速判断任务是否存在）
-	// 注意：缓存key应该是 fileUpload:{precheckID}，而不是 fileUpload:{userID}
 	cacheKey := fmt.Sprintf("fileUpload:%s", req.PrecheckID)
-	precheckData, err := f.cacheLocal.Get(cacheKey)
-	if err != nil {
+	var precheckResp response.FilePrecheckResponse
+	if err := util.CacheGetJSON(f.cacheLocal, cacheKey, &precheckResp); err != nil {
 		// 缓存未命中，说明任务不存在或已过期
 		logger.LOG.Debug("预检信息缓存未命中", "precheckID", req.PrecheckID, "userID", userID, "cacheKey", cacheKey)
 		return models.NewJsonResponse(404, "预检信息不存在或已过期", nil), nil
-	}
-
-	// 2. 反序列化缓存中的预检响应数据
-	var precheckResp response.FilePrecheckResponse
-	switch v := precheckData.(type) {
-	case *response.FilePrecheckResponse:
-		precheckResp = *v
-	case string:
-		if err := json.Unmarshal([]byte(v), &precheckResp); err != nil {
-			logger.LOG.Error("反序列化预检信息失败", "error", err)
-			return models.NewJsonResponse(400, "预检信息格式错误", nil), nil
-		}
-	default:
-		logger.LOG.Error("预检信息类型错误", "type", fmt.Sprintf("%T", v))
-		return models.NewJsonResponse(400, "预检信息类型错误", nil), nil
 	}
 
 	// 3. 验证预检ID是否匹配
@@ -1686,27 +1686,10 @@ func (f *FileService) GetUploadProgress(req *request.UploadProgressRequest, user
 
 		// 从缓存获取预检请求信息（包含文件大小、文件名等）
 		reqCacheKey := fmt.Sprintf("fileUploadReq:%s", req.PrecheckID)
-		reqData, err := f.cacheLocal.Get(reqCacheKey)
-		if err != nil {
+		var precheckReq request.UploadPrecheckRequest
+		if err := util.CacheGetJSON(f.cacheLocal, reqCacheKey, &precheckReq); err != nil {
 			logger.LOG.Error("获取预检请求失败", "error", err)
 			return models.NewJsonResponse(404, "无法获取原始上传请求信息", nil), nil
-		}
-
-		// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
-		var precheckReq request.UploadPrecheckRequest
-		switch v := reqData.(type) {
-		case *request.UploadPrecheckRequest:
-			// LocalCache直接返回对象指针
-			precheckReq = *v
-		case string:
-			// Redis返回JSON字符串，需要反序列化
-			if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-				logger.LOG.Error("反序列化预检请求失败", "error", err, "data", v)
-				return models.NewJsonResponse(400, "预检请求信息格式错误", nil), nil
-			}
-		default:
-			logger.LOG.Error("预检请求类型错误", "type", fmt.Sprintf("%T", reqData))
-			return models.NewJsonResponse(400, "预检请求信息类型错误", nil), nil
 		}
 
 		// 计算总分片数
@@ -1762,24 +1745,9 @@ func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID s
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 从缓存获取预检请求信息
 			reqCacheKey := fmt.Sprintf("fileUploadReq:%s", precheckID)
-			reqData, err := f.cacheLocal.Get(reqCacheKey)
-			if err != nil {
-				return fmt.Errorf("无法获取预检请求信息: %w", err)
-			}
-
-			// 兼容处理：LocalCache返回对象指针，RedisCache返回JSON字符串
 			var precheckReq request.UploadPrecheckRequest
-			switch v := reqData.(type) {
-			case *request.UploadPrecheckRequest:
-				// LocalCache直接返回对象指针
-				precheckReq = *v
-			case string:
-				// Redis返回JSON字符串，需要反序列化
-				if err := json.Unmarshal([]byte(v), &precheckReq); err != nil {
-					return fmt.Errorf("反序列化预检请求失败: %w", err)
-				}
-			default:
-				return fmt.Errorf("预检请求类型错误: %T", reqData)
+			if err := util.CacheGetJSON(f.cacheLocal, reqCacheKey, &precheckReq); err != nil {
+				return fmt.Errorf("无法获取预检请求信息: %w", err)
 			}
 
 			chunkSize := int64(5 * 1024 * 1024) // 5MB
@@ -1825,7 +1793,8 @@ func (f *FileService) updateUploadTask(ctx context.Context, precheckID, userID s
 
 // ListUncompletedUploads 查询未完成的上传任务列表
 func (f *FileService) ListUncompletedUploads(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	tasks, err := f.factory.UploadTask().GetUncompletedByUserID(ctx, userID)
 	if err != nil {
@@ -1834,7 +1803,7 @@ func (f *FileService) ListUncompletedUploads(userID string) (*models.JsonRespons
 	}
 
 	// 转换为响应格式
-	var taskList []map[string]interface{}
+	taskList := make([]response.UploadTaskItem, 0, len(tasks))
 	for _, task := range tasks {
 		// 计算进度百分比
 		progress := 0.0
@@ -1842,20 +1811,21 @@ func (f *FileService) ListUncompletedUploads(userID string) (*models.JsonRespons
 			progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
 		}
 
-		taskList = append(taskList, map[string]interface{}{
-			"id":              task.ID,
-			"file_name":       task.FileName,
-			"file_size":       task.FileSize,
-			"chunk_size":      task.ChunkSize,
-			"total_chunks":    task.TotalChunks,
-			"uploaded_chunks": task.UploadedChunks,
-			"progress":        progress,
-			"status":          task.Status,
-			"error_message":   task.ErrorMessage,
-			"path_id":         task.PathID,
-			"create_time":     task.CreateTime,
-			"update_time":     task.UpdateTime,
-			"expire_time":     task.ExpireTime,
+		taskList = append(taskList, response.UploadTaskItem{
+			ID:              task.ID,
+			FileName:        task.FileName,
+			FileSize:        task.FileSize,
+			ChunkSize:       task.ChunkSize,
+			TotalChunks:     task.TotalChunks,
+			UploadedChunks:  task.UploadedChunks,
+			ChunkSignature:  task.ChunkSignature,
+			PathID:          task.PathID,
+			Status:          task.Status,
+			ErrorMessage:    task.ErrorMessage,
+			Progress:        progress,
+			CreateTime:      task.CreateTime,
+			UpdateTime:      task.UpdateTime,
+			ExpireTime:      task.ExpireTime,
 		})
 	}
 
@@ -1864,7 +1834,8 @@ func (f *FileService) ListUncompletedUploads(userID string) (*models.JsonRespons
 
 // DeleteUploadTask 删除上传任务
 func (f *FileService) DeleteUploadTask(taskID string, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 先查询任务是否存在，并验证是否属于当前用户
 	task, err := f.factory.UploadTask().GetByID(ctx, taskID)
@@ -1895,7 +1866,8 @@ func (f *FileService) DeleteUploadTask(taskID string, userID string) (*models.Js
 // CleanExpiredUploads 清理过期的上传任务
 // userID: 如果提供，则只清理该用户的过期任务；如果为空，则清理所有用户的过期任务（系统自动清理）
 func (f *FileService) CleanExpiredUploads(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	var count int64
 	var err error
@@ -1925,7 +1897,8 @@ func (f *FileService) CleanExpiredUploads(userID string) (*models.JsonResponse, 
 
 // ListExpiredUploads 查询过期的上传任务列表
 func (f *FileService) ListExpiredUploads(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	tasks, err := f.factory.UploadTask().GetExpiredByUserID(ctx, userID)
 	if err != nil {
@@ -1934,7 +1907,7 @@ func (f *FileService) ListExpiredUploads(userID string) (*models.JsonResponse, e
 	}
 
 	// 转换为响应格式
-	var taskList []map[string]interface{}
+	taskList := make([]response.UploadTaskItem, 0, len(tasks))
 	for _, task := range tasks {
 		// 计算进度百分比
 		progress := 0.0
@@ -1942,20 +1915,21 @@ func (f *FileService) ListExpiredUploads(userID string) (*models.JsonResponse, e
 			progress = float64(task.UploadedChunks) / float64(task.TotalChunks) * 100
 		}
 
-		taskList = append(taskList, map[string]interface{}{
-			"id":              task.ID,
-			"file_name":       task.FileName,
-			"file_size":       task.FileSize,
-			"chunk_size":      task.ChunkSize,
-			"total_chunks":    task.TotalChunks,
-			"uploaded_chunks": task.UploadedChunks,
-			"progress":        progress,
-			"status":          task.Status,
-			"error_message":   task.ErrorMessage,
-			"path_id":         task.PathID,
-			"create_time":     task.CreateTime,
-			"update_time":     task.UpdateTime,
-			"expire_time":     task.ExpireTime,
+		taskList = append(taskList, response.UploadTaskItem{
+			ID:              task.ID,
+			FileName:        task.FileName,
+			FileSize:        task.FileSize,
+			ChunkSize:       task.ChunkSize,
+			TotalChunks:     task.TotalChunks,
+			UploadedChunks:  task.UploadedChunks,
+			ChunkSignature:  task.ChunkSignature,
+			PathID:          task.PathID,
+			Status:          task.Status,
+			ErrorMessage:    task.ErrorMessage,
+			Progress:        progress,
+			CreateTime:      task.CreateTime,
+			UpdateTime:      task.UpdateTime,
+			ExpireTime:      task.ExpireTime,
 		})
 	}
 
@@ -1964,7 +1938,8 @@ func (f *FileService) ListExpiredUploads(userID string) (*models.JsonResponse, e
 
 // RenewExpiredTask 延期过期任务（恢复任务，延长过期时间）
 func (f *FileService) RenewExpiredTask(taskID string, userID string, days int) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 查询任务
 	task, err := f.factory.UploadTask().GetByID(ctx, taskID)
@@ -2016,7 +1991,8 @@ func (f *FileService) GetUploadTaskList(req *request.UploadTaskListRequest, user
 		req.PageSize = 20
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 计算偏移量
 	offset := (req.Page - 1) * req.PageSize

@@ -35,8 +35,7 @@ func NewAuthenticator(
 // Authenticate WebDAV 认证（使用 API Key）
 // username: 用户名
 // password: API Key（直接使用，无需签名）
-func (a *Authenticator) Authenticate(username, password string) (*models.UserInfo, error) {
-	ctx := context.Background()
+func (a *Authenticator) Authenticate(ctx context.Context, username, password string) (*models.UserInfo, error) {
 
 	// 0. 检查 WebDAV 是否全局启用
 	webdavConfig, err := a.sysConfigRepo.GetByKey(ctx, "webdav_enabled")
@@ -78,10 +77,10 @@ func (a *Authenticator) Authenticate(username, password string) (*models.UserInf
 		return nil, fmt.Errorf("API Key 已过期")
 	}
 
-	// 5. 检查用户状态
-	if user.State == 1 {
-		logger.LOG.Warn("WebDAV 认证失败：用户已被禁用", "username", username, "user_id", user.ID)
-		return nil, fmt.Errorf("用户已被禁用")
+	// 5. 检查用户状态（State != 0 表示非正常状态）
+	if user.State != 0 {
+		logger.LOG.Warn("WebDAV 认证失败：用户已被禁用", "username", username, "user_id", user.ID, "state", user.State)
+		return nil, fmt.Errorf("账户已被禁用")
 	}
 
 	logger.LOG.Info("WebDAV 认证成功", "username", username, "user_id", user.ID)
@@ -89,8 +88,7 @@ func (a *Authenticator) Authenticate(username, password string) (*models.UserInf
 }
 
 // CheckPermission 检查用户是否有 WebDAV 访问权限
-func (a *Authenticator) CheckPermission(userID string, groupID int, permission string) (bool, error) {
-	ctx := context.Background()
+func (a *Authenticator) CheckPermission(ctx context.Context, userID string, groupID int, permission string) (bool, error) {
 
 	// 查询用户的所有权限
 	powers, err := a.powerRepo.GetByGroupID(ctx, groupID)

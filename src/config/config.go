@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -54,6 +57,8 @@ type Auth struct {
 	ApiKey bool `toml:"api_key"`
 	// JwtExpire JWT过期时间
 	JwtExpire int `toml:"jwt_expire"`
+	// AdminGroupID 管理员组ID
+	AdminGroupID int `toml:"admin_group_id"`
 }
 
 // Log 日志配置
@@ -98,13 +103,13 @@ type File struct {
 type Cors struct {
 	// Enable 是否启用跨域
 	Enable bool `toml:"enable"`
-	// AllowOrigins 允许的源
-	AllowOrigins string `toml:"allow_origins"`
-	// AllowOriginFunc 允许的源函数
+	// AllowOrigin 允许的源（多个用逗号分隔）
+	AllowOrigin string `toml:"allow_origin"`
+	// AllowMethods 允许的HTTP方法
 	AllowMethods string `toml:"allow_methods"`
 	// AllowHeaders 允许的请求头
 	AllowHeaders string `toml:"allow_headers"`
-	// AllowExposeHeaders 允许发送凭证(cookies)
+	// AllowCredentials 允许发送凭证(cookies)
 	AllowCredentials bool `toml:"allow_credentials"`
 	// ExposeHeaders 允许的响应头
 	ExposeHeaders string `toml:"expose_headers"`
@@ -171,7 +176,7 @@ func InitConfig() error {
 	configPath := findConfigFile()
 	if configPath != "" {
 		if _, err := toml.DecodeFile(configPath, config); err != nil {
-			return fmt.Errorf(fmt.Sprintf("配置文件解析失败: %v", err))
+			return fmt.Errorf("配置文件解析失败: %v", err)
 		}
 	}
 
@@ -180,7 +185,7 @@ func InitConfig() error {
 
 	// 验证必要的配置
 	if err := validateConfig(config); err != nil {
-		return fmt.Errorf(fmt.Sprintf("配置验证失败: %v", err))
+		return fmt.Errorf("配置验证失败: %v", err)
 	}
 
 	CONFIG = config
@@ -252,11 +257,41 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
+// weakSecrets 弱密钥检测列表
+var weakSecrets = map[string]bool{
+	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": true,
+	"00000000000000000000000000000000":  true,
+	"11111111111111111111111111111111":  true,
+	"passwordpasswordpasswordpassword": true,
+	"secretsecretsecretsecretsecretsec": true,
+	"abcdefghijklmnopqrstuvwxyzabcdef": true,
+	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": true,
+	"000000000000000000000000000000000": true,
+	"12345678901234567890123456789012": true,
+	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa":  true,
+	"password":                          true,
+	"secret":                            true,
+	"12345678":                          true,
+	"qwerty":                            true,
+	"admin":                             true,
+	"default":                           true,
+	"test":                              true,
+	"your-secret-key-here-change-me":    true,
+	"change-me-to-a-real-secret":        true,
+}
+
 // validateConfig 验证配置的必要字段
 func validateConfig(cfg *MyObjConfig) error {
 	// 验证服务器配置
 	if cfg.Server.Port <= 0 || cfg.Server.Port > 65535 {
 		return fmt.Errorf("无效的端口号: %d", cfg.Server.Port)
+	}
+
+	// 验证 Server.Host 是否为合法 IP 或 0.0.0.0
+	if cfg.Server.Host != "" {
+		if net.ParseIP(cfg.Server.Host) == nil {
+			return fmt.Errorf("无效的服务器监听地址: %s，必须是合法 IP 或 0.0.0.0", cfg.Server.Host)
+		}
 	}
 
 	// 验证数据库配置
@@ -267,17 +302,87 @@ func validateConfig(cfg *MyObjConfig) error {
 		return fmt.Errorf("不支持的数据库类型: %s", cfg.Database.Type)
 	}
 
+	// MySQL 时校验 Host/Port/User/Password 非空
+	if cfg.Database.Type == "mysql" {
+		if cfg.Database.Host == "" {
+			return fmt.Errorf("MySQL 数据库主机地址不能为空")
+		}
+		if cfg.Database.Port <= 0 || cfg.Database.Port > 65535 {
+			return fmt.Errorf("MySQL 数据库端口号无效: %d", cfg.Database.Port)
+		}
+		if cfg.Database.User == "" {
+			return fmt.Errorf("MySQL 数据库用户名不能为空")
+		}
+		if cfg.Database.Password == "" {
+			return fmt.Errorf("MySQL 数据库密码不能为空")
+		}
+	}
+
 	// 验证认证配置
 	if cfg.Auth.Secret == "" {
-		return fmt.Errorf("JWT密钥不能为空")
+		// 自动生成安全随机密钥
+		key := make([]byte, 32)
+		if _, err := rand.Read(key); err != nil {
+			return fmt.Errorf("无法生成随机 JWT 密钥: %v", err)
+		}
+		cfg.Auth.Secret = hex.EncodeToString(key)
+		fmt.Println("[INFO] JWT 密钥已自动生成（本次会话有效）")
 	}
 	if len(cfg.Auth.Secret) < 32 {
 		return fmt.Errorf("JWT密钥长度至少32字符")
+	}
+	// 弱密钥检测
+	if weakSecrets[strings.ToLower(cfg.Auth.Secret)] {
+		return fmt.Errorf("JWT密钥为常见弱密钥，请更换为安全的随机密钥")
+	}
+
+	// 验证 JWT 过期时间为正数且不超过 720 小时（30天）
+	if cfg.Auth.JwtExpire <= 0 {
+		return fmt.Errorf("JWT 过期时间必须为正数")
+	}
+	if cfg.Auth.JwtExpire > 720 {
+		return fmt.Errorf("JWT 过期时间不能超过 720 小时（30天）")
+	}
+
+	// 验证管理员组ID
+	if cfg.Auth.AdminGroupID <= 0 {
+		cfg.Auth.AdminGroupID = 1 // 默认管理员组ID为1
 	}
 
 	// 验证日志配置
 	if cfg.Log.LogPath == "" {
 		cfg.Log.LogPath = "./logs/" // 使用默认路径
+	}
+	// 验证 Log.Level
+	if cfg.Log.Level != "" {
+		validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
+		if !validLogLevels[strings.ToLower(cfg.Log.Level)] {
+			return fmt.Errorf("无效的日志级别: %s，必须为 debug/info/warn/error 之一", cfg.Log.Level)
+		}
+	}
+
+	// 验证 Cache.Type
+	if cfg.Cache.Type != "" {
+		validCacheTypes := map[string]bool{"redis": true, "local": true}
+		if !validCacheTypes[strings.ToLower(cfg.Cache.Type)] {
+			return fmt.Errorf("无效的缓存类型: %s，必须为 redis/local 之一", cfg.Cache.Type)
+		}
+	}
+
+	// 验证 Storage.Driver
+	if cfg.Storage.Driver != "" {
+		validStorageDrivers := map[string]bool{"local": true}
+		if !validStorageDrivers[strings.ToLower(cfg.Storage.Driver)] {
+			return fmt.Errorf("无效的存储驱动: %s，目前仅支持 local", cfg.Storage.Driver)
+		}
+	}
+
+	// S3 启用时 encryption_master_key 不能为空
+	if cfg.S3.Enable {
+		if cfg.S3.EncryptionMasterKey == "" {
+			fmt.Println("[WARN] S3 服务已启用但 encryption_master_key 为空，已自动禁用 S3 服务以保障数据安全")
+			cfg.S3.Enable = false
+		}
 	}
 
 	return nil

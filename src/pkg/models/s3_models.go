@@ -148,7 +148,7 @@ func (S3BucketLifecycle) TableName() string {
 type S3EncryptionKey struct {
 	ID        int                  `gorm:"primaryKey;autoIncrement" json:"id"`
 	KeyID     string               `gorm:"uniqueIndex:idx_key_id;size:64;not null" json:"key_id"` // 密钥ID（用于标识）
-	KeyData   string               `gorm:"type:text;not null" json:"key_data"`                   // 加密后的密钥数据（base64）
+	KeyData   string               `gorm:"type:text;not null" json:"-"`                          // 加密后的密钥数据（base64）
 	Algorithm string               `gorm:"size:32;default:'AES256'" json:"algorithm"`            // 加密算法（AES256等）
 	CreatedAt custom_type.JsonTime `gorm:"type:DATETIME;not null" json:"created_at"`
 	UpdatedAt custom_type.JsonTime `gorm:"type:DATETIME;not null" json:"updated_at"`

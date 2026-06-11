@@ -5,10 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"myobj/src/internal/repository/impl"
-	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/enum"
 	"myobj/src/pkg/logger"
-	"myobj/src/pkg/models"
+	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/upload"
 	"os"
 	"path/filepath"
@@ -142,9 +141,14 @@ func DownloadTorrent(
 		logger.LOG.Info("添加种子文件成功", "torrent", magnetOrTorrentPath)
 	}
 
-	// 等待获取种子元数据
+	// 等待获取种子元数据（带5分钟超时）
 	logger.LOG.Info("等待获取种子元数据...")
-	<-t.GotInfo()
+	select {
+	case <-t.GotInfo():
+		// 成功获取
+	case <-time.After(5 * time.Minute):
+		return nil, fmt.Errorf("获取种子元数据超时（5分钟）")
+	}
 	info := t.Info()
 	logger.LOG.Info("种子元数据获取成功", "name", info.Name, "files", len(info.Files), "totalSize", info.TotalLength())
 
@@ -184,7 +188,8 @@ func DownloadTorrent(
 
 DownloadComplete:
 	// 创建虚拟目录结构（包含种子名称的子目录）
-	torrentVirtualPath := filepath.Join(virtualPath, torrentName)
+	// 虚拟路径始终使用 / 作为分隔符，不使用 filepath.Join（它会在Windows下转换为\）
+	torrentVirtualPath := strings.TrimSuffix(virtualPath, "/") + "/" + torrentName
 	if err := ensureVirtualPath(ctx, userID, torrentVirtualPath, repoFactory); err != nil {
 		return nil, fmt.Errorf("创建虚拟目录失败: %w", err)
 	}
@@ -225,14 +230,17 @@ DownloadComplete:
 		go func(idx int, torrentFile metainfo.FileInfo) {
 			defer wg.Done()
 
-			// 构建文件在种子内的相对路径（保持原始目录结构）
+			// 构建文件在种子内的相对路径（保持原始目录结构，使用/作为分隔符）
 			relativeDir := ""
 			if len(torrentFile.Path) > 1 {
-				relativeDir = filepath.Join(torrentFile.Path[:len(torrentFile.Path)-1]...)
+				relativeDir = strings.Join(torrentFile.Path[:len(torrentFile.Path)-1], "/")
 			}
 
-			// 文件的虚拟路径
-			fileVirtualPath := filepath.Join(torrentVirtualPath, relativeDir)
+			// 文件的虚拟路径（始终使用/作为分隔符）
+			fileVirtualPath := torrentVirtualPath
+			if relativeDir != "" {
+				fileVirtualPath = torrentVirtualPath + "/" + relativeDir
+			}
 
 			// 确保文件的虚拟目录存在
 			if relativeDir != "" {
@@ -328,90 +336,10 @@ DownloadComplete:
 }
 
 // ensureVirtualPath 确保虚拟路径存在，不存在则创建（支持层级结构）
+// 委托给 upload.EnsureVirtualPath 以消除重复代码
 func ensureVirtualPath(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) error {
-	// 分割路径为各层级
-	parts := strings.Split(strings.Trim(fullPath, "/"), "/")
-	if len(parts) == 0 {
-		return fmt.Errorf("无效的虚拟路径: %s", fullPath)
-	}
-
-	// 首先获取用户的根目录（home），作为第一级子目录的父级
-	rootPath, err := repoFactory.VirtualPath().GetRootPath(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("获取根目录失败: %w", err)
-	}
-	var parentID = fmt.Sprintf("%d", rootPath.ID) // 使用根目录的ID作为第一级子目录的父级ID
-
-	// 逐层创建虚拟路径
-	for i, part := range parts {
-		if part == "" {
-			continue
-		}
-
-		currentPath := "/" + part
-
-		// 查询当前层级路径是否存在（通过用户ID和路径匹配）
-		existingPaths, err := repoFactory.VirtualPath().ListByUserID(ctx, userID, 0, 1000)
-		if err != nil {
-			return fmt.Errorf("查询虚拟路径失败: %w", err)
-		}
-
-		// 查找是否已存在当前路径且父级匹配的记录
-		var existingPath *models.VirtualPath
-		for _, vp := range existingPaths {
-			if vp.Path == currentPath && vp.ParentLevel == parentID {
-				existingPath = vp
-				break
-			}
-		}
-
-		if existingPath != nil {
-			// 路径已存在，使用该路径的ID作为下一层的父级ID
-			parentID = fmt.Sprintf("%d", existingPath.ID)
-			continue
-		}
-
-		// 路径不存在，创建新记录
-		newPath := &models.VirtualPath{
-			UserID:      userID,
-			Path:        currentPath,
-			IsFile:      false,
-			IsDir:       true,
-			ParentLevel: parentID,
-			CreatedTime: custom_type.Now(),
-			UpdateTime:  custom_type.Now(),
-		}
-
-		if err := repoFactory.VirtualPath().Create(ctx, newPath); err != nil {
-			// 可能是并发创建导致的重复，再次查询
-			existingPaths, queryErr := repoFactory.VirtualPath().ListByUserID(ctx, userID, 0, 1000)
-			if queryErr != nil {
-				return fmt.Errorf("创建虚拟路径失败: %w, 查询失败: %w", err, queryErr)
-			}
-			for _, vp := range existingPaths {
-				if vp.Path == currentPath && vp.ParentLevel == parentID {
-					existingPath = vp
-					break
-				}
-			}
-			if existingPath != nil {
-				parentID = fmt.Sprintf("%d", existingPath.ID)
-			} else {
-				return fmt.Errorf("创建虚拟路径失败且无法查询到已创建的路径")
-			}
-		} else {
-			parentID = fmt.Sprintf("%d", newPath.ID)
-		}
-
-		logger.LOG.Debug("创建虚拟路径",
-			"userID", userID,
-			"path", currentPath,
-			"parentID", parentID,
-			"level", i+1,
-		)
-	}
-
-	return nil
+	_, err := upload.EnsureVirtualPath(ctx, userID, fullPath, repoFactory)
+	return err
 }
 
 // TorrentFileInfo 种子文件信息
@@ -1010,7 +938,7 @@ func PauseTorrentDownload(taskID string, repoFactory *impl.RepositoryFactory) er
 		logger.LOG.Info("已取消种子下载任务", "taskID", taskID)
 	}
 
-	task.State = 2 // 2=暂停
+	task.State = enum.DownloadTaskStatePaused.Value()
 	task.UpdateTime = custom_type.Now()
 
 	if err := repoFactory.DownloadTask().Update(ctx, task); err != nil {
@@ -1032,11 +960,11 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 		return fmt.Errorf("获取任务失败: %w", err)
 	}
 
-	if task.State != 2 { // 2=暂停
+	if task.State != enum.DownloadTaskStatePaused.Value() {
 		return fmt.Errorf("任务状态不允许恢复")
 	}
 
-	task.State = 1     // 1=下载中
+	task.State = enum.DownloadTaskStateDownloading.Value()
 	task.ErrorMsg = "" // 清除错误信息
 	task.UpdateTime = custom_type.Now()
 
@@ -1068,9 +996,9 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 			logger.LOG.Error("恢复种子下载失败", "taskID", taskID, "error", err)
 			// 获取最新任务状态，防止覆盖暂停状态
 			task, getErr := repoFactory.DownloadTask().GetByID(context.Background(), taskID)
-			if getErr == nil && task != nil && task.State != 2 {
+			if getErr == nil && task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
 				// 只有当任务不是暂停状态时，才更新为失败
-				task.State = 4 // 4=失败
+				task.State = enum.DownloadTaskStateFailed.Value()
 				task.ErrorMsg = err.Error()
 				task.UpdateTime = custom_type.Now()
 				repoFactory.DownloadTask().Update(context.Background(), task)
@@ -1078,7 +1006,7 @@ func ResumeTorrentDownload(taskID string, userID string, tempDir string, repoFac
 		} else if err == nil {
 			// 成功完成下载，但需要检查是否被暂停
 			task, getErr := repoFactory.DownloadTask().GetByID(context.Background(), taskID)
-			if getErr == nil && task != nil && task.State != 2 {
+			if getErr == nil && task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
 				// 只有当任务不是暂停状态时，才更新为完成
 				// 注意：err==nil且fileID为空表示暂停，不应该更新为完成
 				logger.LOG.Debug("任务正常退出，不更新状态", "taskID", taskID)
@@ -1100,7 +1028,7 @@ func CancelTorrentDownload(taskID string, repoFactory *impl.RepositoryFactory) e
 		return fmt.Errorf("获取任务失败: %w", err)
 	}
 
-	if task.State == 3 { // 3=完成
+	if task.State == enum.DownloadTaskStateFinished.Value() {
 		return fmt.Errorf("任务已完成，无法取消")
 	}
 
@@ -1114,7 +1042,7 @@ func CancelTorrentDownload(taskID string, repoFactory *impl.RepositoryFactory) e
 		logger.LOG.Info("已取消种子下载任务", "taskID", taskID)
 	}
 
-	task.State = 4 // 4=失败
+	task.State = enum.DownloadTaskStateFailed.Value()
 	task.ErrorMsg = "用户取消下载"
 	task.UpdateTime = custom_type.Now()
 

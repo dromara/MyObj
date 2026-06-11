@@ -28,7 +28,7 @@ type AdminUpdateUserRequest struct {
 	Phone   string `json:"phone"`
 	GroupID int    `json:"group_id"`
 	Space   int64  `json:"space"`
-	State   int    `json:"state"` // 0-正常 1-禁用
+	State   *int   `json:"state"` // nil-不更新 0-正常 1-禁用（使用指针类型以区分未传递和传递了0）
 }
 
 // AdminDeleteUserRequest 管理员删除用户请求

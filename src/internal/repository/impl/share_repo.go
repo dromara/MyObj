@@ -72,3 +72,8 @@ func (r *shareRepository) IncrementDownloadCount(ctx context.Context, id int) er
 		Where("id = ?", id).
 		UpdateColumn("download_count", gorm.Expr("download_count + ?", 1)).Error
 }
+
+// DeleteByUserID 删除指定用户的所有分享链接
+func (r *shareRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.Share{}).Error
+}

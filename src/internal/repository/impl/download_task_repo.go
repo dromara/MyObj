@@ -157,3 +157,8 @@ func (r *downloadTaskRepository) CountByStateAndTypeRange(ctx context.Context, u
 		Count(&count).Error
 	return count, err
 }
+
+// DeleteByUserID 删除指定用户的所有下载任务
+func (r *downloadTaskRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.DownloadTask{}).Error
+}

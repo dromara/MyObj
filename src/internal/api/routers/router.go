@@ -138,11 +138,15 @@ func Execute(cacheLocal cache.Cache) {
 	if config.CONFIG.S3.Enable {
 		logger.LOG.Info("[定时任务] 正在启动S3生命周期管理任务...")
 		fileService := service.NewFileService(factory, cacheLocal)
-		s3ObjectService := s3Service.NewS3ObjectService(factory, fileService)
-		lifecycleTask := s3Task.NewLifecycleTask(factory, s3ObjectService)
-		// 每小时执行一次生命周期规则检查
-		lifecycleTask.StartScheduledExecution(1 * time.Hour)
-		logger.LOG.Info("[定时任务] S3生命周期管理任务已启动 ✔️")
+		s3ObjectService, err := s3Service.NewS3ObjectService(factory, fileService)
+		if err != nil {
+			logger.LOG.Error("[定时任务] 创建S3对象服务失败", "error", err)
+		} else {
+			lifecycleTask := s3Task.NewLifecycleTask(factory, s3ObjectService)
+			// 每小时执行一次生命周期规则检查
+			lifecycleTask.StartScheduledExecution(1 * time.Hour)
+			logger.LOG.Info("[定时任务] S3生命周期管理任务已启动 ✔️")
+		}
 	}
 
 	// 初始化主服务器路由

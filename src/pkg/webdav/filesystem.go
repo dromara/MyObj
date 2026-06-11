@@ -8,6 +8,7 @@ import (
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/repository"
 	"myobj/src/pkg/upload"
+	"myobj/src/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/net/webdav"
 )
 
@@ -83,7 +83,7 @@ func (fs *MyObjFileSystem) Mkdir(ctx context.Context, name string, perm os.FileM
 
 // OpenFile 打开文件
 func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
-	logger.LOG.Info("WebDAV OpenFile", "user_id", fs.user.ID, "path", name, "flag", flag, "isCreate", flag&os.O_CREATE != 0)
+	logger.LOG.Debug("WebDAV OpenFile", "user_id", fs.user.ID, "path", name, "flag", flag, "isCreate", flag&os.O_CREATE != 0)
 
 	name = fs.cleanPath(name)
 	// 如果是系统文件（desktop.ini 等），返回不存在
@@ -95,6 +95,7 @@ func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, 
 	if name == "/" {
 		return &davDir{
 			fs:   fs,
+			ctx:  ctx,
 			path: "", // 根目录使用空字符串
 			name: "/",
 		}, nil
@@ -103,23 +104,39 @@ func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, 
 	// 如果是创建模式，直接尝试创建文件（避免锁冲突）
 	if flag&os.O_CREATE != 0 {
 		// 先检查文件是否已存在
-		_, err := fs.getUserFileByPath(ctx, name)
+		userFiles, err := fs.getUserFileByPath(ctx, name)
 		if err != nil {
 			// 文件不存在，创建新文件
 			logger.LOG.Info("WebDAV 创建新文件", "path", name)
 			return fs.createFile(ctx, name, flag, perm)
 		}
+		// 文件已存在，根据 O_TRUNC 决定是否截断
+		fileInfo, err := fs.fileRepo.GetByID(ctx, userFiles.FileID)
+		if err != nil {
+			return nil, err
+		}
+		f, err := os.OpenFile(fileInfo.Path, flag, perm)
+		if err != nil {
+			logger.LOG.Error("WebDAV 打开文件失败", "path", name, "physical_path", fileInfo.Path, "error", err)
+			return nil, err
+		}
+		return &davFile{
+			file:      f,
+			name:      path.Base(name),
+			fileInfo:  fileInfo,
+			userFiles: userFiles,
+		}, nil
 	}
 
 	// 尝试作为目录打开
 	vpath, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, name)
 	if err != nil {
-		logger.LOG.Info("WebDAV OpenFile - 第一次查询失败", "path", name, "error", err)
+		logger.LOG.Debug("WebDAV OpenFile - 第一次查询失败", "path", name, "error", err)
 		// 尝试带 / 前缀的版本
 		vpath, err = fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, "/"+name)
 		if err != nil {
-			logger.LOG.Info("WebDAV OpenFile - 第二次查询失败", "path", "/"+name, "error", err)
-			logger.LOG.Info("WebDAV OpenFile - 检查第三次查询条件", "name", name, "contains_slash", strings.Contains(name, "/"))
+			logger.LOG.Debug("WebDAV OpenFile - 第二次查询失败", "path", "/"+name, "error", err)
+			logger.LOG.Debug("WebDAV OpenFile - 检查第三次查询条件", "name", name, "contains_slash", strings.Contains(name, "/"))
 			// 如果路径包含 /，尝试只用最后一部分（文件夹名）查询
 			if strings.Contains(name, "/") {
 				folderName := path.Base(name)
@@ -127,7 +144,7 @@ func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, 
 				if parentPath == "." {
 					parentPath = ""
 				}
-				logger.LOG.Info("WebDAV OpenFile - 尝试第三次查询", "folderName", folderName, "parentPath", parentPath)
+				logger.LOG.Debug("WebDAV OpenFile - 尝试第三次查询", "folderName", folderName, "parentPath", parentPath)
 				// 先查询父目录 ID
 				var parentID int
 				if parentPath == "" || parentPath == "/" {
@@ -160,7 +177,7 @@ func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, 
 							if dirName == folderName {
 								vpath = dir
 								err = nil
-								logger.LOG.Info("WebDAV OpenFile - 第三次查询成功", "folderName", folderName, "vpath.ID", vpath.ID)
+								logger.LOG.Debug("WebDAV OpenFile - 第三次查询成功", "folderName", folderName, "vpath.ID", vpath.ID)
 								break
 							}
 						}
@@ -170,9 +187,10 @@ func (fs *MyObjFileSystem) OpenFile(ctx context.Context, name string, flag int, 
 		}
 	}
 	if err == nil && vpath.IsDir {
-		logger.LOG.Info("WebDAV OpenFile - 找到目录", "path", name, "vpath.Path", vpath.Path, "vpath.ID", vpath.ID)
+		logger.LOG.Debug("WebDAV OpenFile - 找到目录", "path", name, "vpath.Path", vpath.Path, "vpath.ID", vpath.ID)
 		return &davDir{
 			fs:   fs,
+			ctx:  ctx,
 			path: name, // 使用标准化后的路径（不带前缀 /）
 			name: path.Base(name),
 		}, nil
@@ -242,9 +260,32 @@ func (fs *MyObjFileSystem) RemoveAll(ctx context.Context, name string) error {
 		return nil
 	}
 
-	// 尝试删除目录
+	// 尝试删除目录（递归删除所有子内容）
 	vpath, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, name)
 	if err == nil {
+		// 获取用户所有路径，递归删除以该目录为前缀的子目录和文件
+		allPaths, err := fs.virtualPathRepo.GetPathByUser(ctx, fs.user.ID)
+		if err == nil {
+			prefix := vpath.Path + "/"
+			for _, child := range allPaths {
+				if child.ID == vpath.ID {
+					continue
+				}
+				// 匹配子路径
+				childPath := strings.TrimPrefix(child.Path, "/")
+				cleanPrefix := strings.TrimPrefix(prefix, "/")
+				if strings.HasPrefix(childPath, cleanPrefix) || strings.HasPrefix(child.Path, prefix) {
+					// 删除该子路径下的所有文件关联
+					fs.removeFilesInPath(ctx, child.ID)
+					// 删除子路径记录
+					if delErr := fs.virtualPathRepo.Delete(ctx, child.ID); delErr != nil {
+						logger.LOG.Warn("WebDAV RemoveAll: 删除子目录失败", "id", child.ID, "path", child.Path, "error", delErr)
+					}
+				}
+			}
+		}
+		// 删除目录自身下的文件关联
+		fs.removeFilesInPath(ctx, vpath.ID)
 		return fs.virtualPathRepo.Delete(ctx, vpath.ID)
 	}
 
@@ -257,6 +298,28 @@ func (fs *MyObjFileSystem) Rename(ctx context.Context, oldName, newName string) 
 
 	oldName = fs.cleanPath(oldName)
 	newName = fs.cleanPath(newName)
+
+	// 检查目标是否已存在（文件或目录）
+	if _, err := fs.getUserFileByPath(ctx, newName); err == nil {
+		return os.ErrExist
+	}
+	if _, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, newName); err == nil {
+		return os.ErrExist
+	}
+	if _, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, "/"+newName); err == nil {
+		return os.ErrExist
+	}
+	// 检查目标的父目录是否存在（非根目录时）
+	newDir := path.Dir(newName)
+	if newDir != "." && newDir != "/" && newDir != "" {
+		_, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, newDir)
+		if err != nil {
+			_, err = fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, "/"+newDir)
+		}
+		if err != nil {
+			return os.ErrNotExist
+		}
+	}
 
 	// 尝试重命名文件
 	userFiles, err := fs.getUserFileByPath(ctx, oldName)
@@ -285,12 +348,46 @@ func (fs *MyObjFileSystem) Rename(ctx context.Context, oldName, newName string) 
 
 	// 尝试重命名目录
 	vpath, err := fs.virtualPathRepo.GetByPath(ctx, fs.user.ID, oldName)
-	if err == nil {
-		vpath.Path = newName
-		return fs.virtualPathRepo.Update(ctx, vpath)
+	if err != nil {
+		return os.ErrNotExist
 	}
 
-	return os.ErrNotExist
+	// 先更新目录自身的 Path
+	vpath.Path = newName
+	if err := fs.virtualPathRepo.Update(ctx, vpath); err != nil {
+		return err
+	}
+
+	// 递归更新所有子目录的路径前缀
+	oldPrefix := oldName + "/"
+	newPrefix := newName + "/"
+	allPaths, err := fs.virtualPathRepo.GetPathByUser(ctx, fs.user.ID)
+	if err != nil {
+		logger.LOG.Warn("WebDAV Rename: 获取子目录列表失败，子目录路径可能不一致", "error", err)
+		return nil // 自身已更新成功，子目录获取失败不影响主流程
+	}
+	updated := 0
+	for _, child := range allPaths {
+		if child.ID == vpath.ID {
+			continue // 跳过自身
+		}
+		// 匹配以 oldPrefix 开头的路径
+		if strings.HasPrefix(child.Path, oldPrefix) || strings.HasPrefix(child.Path, "/"+oldPrefix) {
+			// 计算新路径：替换前缀
+			childPath := strings.TrimPrefix(child.Path, "/")
+			newChildPath := newPrefix + strings.TrimPrefix(childPath, oldPrefix)
+			child.Path = newChildPath
+			if updateErr := fs.virtualPathRepo.Update(ctx, child); updateErr != nil {
+				logger.LOG.Warn("WebDAV Rename: 更新子目录路径失败", "child_id", child.ID, "old_path", childPath, "error", updateErr)
+			} else {
+				updated++
+			}
+		}
+	}
+	if updated > 0 {
+		logger.LOG.Info("WebDAV Rename: 已递归更新子目录路径", "count", updated)
+	}
+	return nil
 }
 
 // Stat 获取文件/目录信息
@@ -406,6 +503,39 @@ func (fs *MyObjFileSystem) cleanPath(p string) string {
 	return p
 }
 
+// removeFilesInPath 删除指定虚拟路径下的所有文件关联（移入回收站）
+func (fs *MyObjFileSystem) removeFilesInPath(ctx context.Context, virtualPathID int) {
+	pathID := fmt.Sprintf("%d", virtualPathID)
+	const pageSize = 1000
+	offset := 0
+	recycledRepo := fs.factory.Recycled()
+	for {
+		files, err := fs.userFilesRepo.ListByVirtualPath(ctx, fs.user.ID, pathID, offset, pageSize)
+		if err != nil {
+			logger.LOG.Warn("WebDAV removeFilesInPath: 查询文件失败", "path_id", pathID, "error", err)
+			return
+		}
+		for _, f := range files {
+			// 移入回收站
+			recycled := &models.Recycled{
+				UserID: fs.user.ID,
+				FileID: f.FileID,
+			}
+			if err := recycledRepo.Create(ctx, recycled); err != nil {
+				logger.LOG.Warn("WebDAV removeFilesInPath: 移入回收站失败", "file_id", f.FileID, "error", err)
+			}
+			// 删除 user_files 记录
+			if err := fs.userFilesRepo.Delete(ctx, fs.user.ID, f.FileID); err != nil {
+				logger.LOG.Warn("WebDAV removeFilesInPath: 删除文件关联失败", "file_id", f.FileID, "error", err)
+			}
+		}
+		if len(files) < pageSize {
+			break
+		}
+		offset += pageSize
+	}
+}
+
 // getUserFileByPath 根据虚拟路径获取用户文件
 func (fs *MyObjFileSystem) getUserFileByPath(ctx context.Context, fullPath string) (*models.UserFiles, error) {
 	dir := path.Dir(fullPath)
@@ -438,17 +568,23 @@ func (fs *MyObjFileSystem) getUserFileByPath(ctx context.Context, fullPath strin
 		pathID = fmt.Sprintf("%d", vpath.ID)
 	}
 
-	// 查询该目录下的所有文件
-	files, err := fs.userFilesRepo.ListByVirtualPath(ctx, fs.user.ID, pathID, 0, 1000)
-	if err != nil {
-		return nil, err
-	}
-
-	// 查找匹配的文件
-	for _, f := range files {
-		if f.FileName == name {
-			return f, nil
+	// 查询该目录下的文件，使用分页避免遗漏
+	const pageSize = 1000
+	offset := 0
+	for {
+		files, err := fs.userFilesRepo.ListByVirtualPath(ctx, fs.user.ID, pathID, offset, pageSize)
+		if err != nil {
+			return nil, err
 		}
+		for _, f := range files {
+			if f.FileName == name {
+				return f, nil
+			}
+		}
+		if len(files) < pageSize {
+			break // 已经获取所有文件
+		}
+		offset += pageSize
 	}
 
 	return nil, os.ErrNotExist
@@ -501,15 +637,10 @@ func (fs *MyObjFileSystem) createFile(ctx context.Context, name string, flag int
 		return nil, fmt.Errorf("无可用磁盘")
 	}
 
-	// 3. 创建临时目录：{DiskPath}/temp/{fileName}_{sessionID}/
+	// 3. 创建临时目录
 	fileName := path.Base(name)
-	sessionID := uuid.Must(uuid.NewV7()).String()[:8]
-	fileNameWithoutExt := fileName
-	if idx := strings.LastIndex(fileName, "."); idx != -1 {
-		fileNameWithoutExt = fileName[:idx]
-	}
-	tempBaseDir := filepath.Join(bestDisk.DataPath, "temp", fmt.Sprintf("%s_%s", fileNameWithoutExt, sessionID))
-	if err := os.MkdirAll(tempBaseDir, 0755); err != nil {
+	tempBaseDir := util.BuildTempDir(bestDisk.DataPath, "webdav")
+	if err := os.MkdirAll(tempBaseDir, 0700); err != nil {
 		logger.LOG.Error("WebDAV 创建临时目录失败", "error", err, "path", tempBaseDir)
 		return nil, fmt.Errorf("创建临时目录失败: %w", err)
 	}
@@ -540,6 +671,7 @@ func (fs *MyObjFileSystem) createFile(ctx context.Context, name string, flag int
 // davDir 目录对象
 type davDir struct {
 	fs   *MyObjFileSystem
+	ctx  context.Context
 	path string
 	name string
 	pos  int
@@ -558,7 +690,7 @@ func (d *davDir) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (d *davDir) Readdir(count int) ([]os.FileInfo, error) {
-	ctx := context.Background()
+	ctx := d.ctx
 
 	var infos []os.FileInfo
 
@@ -566,7 +698,7 @@ func (d *davDir) Readdir(count int) ([]os.FileInfo, error) {
 	// d.path 已经是标准化后的路径（根目录为空，其他不带 / 前缀）
 	virtualPath := d.path
 
-	logger.LOG.Info("WebDAV Readdir", "user_id", d.fs.user.ID, "virtual_path", virtualPath)
+	logger.LOG.Debug("WebDAV Readdir", "user_id", d.fs.user.ID, "virtual_path", virtualPath)
 
 	// 首先查询当前路径对应的 virtual_path ID
 	var currentPathID int
@@ -608,7 +740,7 @@ func (d *davDir) Readdir(count int) ([]os.FileInfo, error) {
 				// 如果还有 /，取最后一部分
 				folderName = path.Base(dir.Path)
 			}
-			logger.LOG.Info("WebDAV Readdir - 添加子文件夹", "originalPath", dir.Path, "folderName", folderName)
+			logger.LOG.Debug("WebDAV Readdir - 添加子文件夹", "originalPath", dir.Path, "folderName", folderName)
 			infos = append(infos, &davFileInfo{
 				name:    folderName,
 				isDir:   true,
@@ -616,37 +748,49 @@ func (d *davDir) Readdir(count int) ([]os.FileInfo, error) {
 			})
 		}
 	}
-	logger.LOG.Info("WebDAV Readdir - 子文件夹数量", "count", len(infos))
+	logger.LOG.Debug("WebDAV Readdir - 子文件夹数量", "count", len(infos))
 
-	// 读取文件
+	// 读取文件（分页循环，避免遗漏超过 1000 条的文件）
 	// 注意：user_files 表的 virtual_path 字段存储的是 virtual_path 表的 ID
 	// 使用前面查询到的 currentPathID
 	pathID := fmt.Sprintf("%d", currentPathID)
-	logger.LOG.Info("WebDAV 查询文件", "current_path_id", pathID)
+	logger.LOG.Debug("WebDAV 查询文件", "current_path_id", pathID)
 
-	files, _ := d.fs.userFilesRepo.ListByVirtualPath(ctx, d.fs.user.ID, pathID, 0, 1000)
-	for _, f := range files {
-		// 获取文件大小
-		fileInfo, err := d.fs.fileRepo.GetByID(ctx, f.FileID)
-		size := int64(0)
-		if err == nil {
-			size = int64(fileInfo.Size)
+	const pageSize = 1000
+	offset := 0
+	for {
+		files, err := d.fs.userFilesRepo.ListByVirtualPath(ctx, d.fs.user.ID, pathID, offset, pageSize)
+		if err != nil {
+			logger.LOG.Warn("WebDAV Readdir 查询文件失败", "path_id", pathID, "error", err)
+			break
 		}
-		logger.LOG.Info("WebDAV Readdir - 添加文件", "name", f.FileName, "size", size, "modTime", time.Time(f.CreatedAt))
-		infos = append(infos, &davFileInfo{
-			name:    f.FileName,
-			size:    size,
-			isDir:   false,
-			modTime: time.Time(f.CreatedAt),
-		})
+		for _, f := range files {
+			// 获取文件大小
+			fileInfo, err := d.fs.fileRepo.GetByID(ctx, f.FileID)
+			size := int64(0)
+			if err == nil {
+				size = int64(fileInfo.Size)
+			}
+			logger.LOG.Debug("WebDAV Readdir - 添加文件", "name", f.FileName, "size", size, "modTime", time.Time(f.CreatedAt))
+			infos = append(infos, &davFileInfo{
+				name:    f.FileName,
+				size:    size,
+				isDir:   false,
+				modTime: time.Time(f.CreatedAt),
+			})
+		}
+		if len(files) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
 
-	logger.LOG.Info("WebDAV Readdir - 返回结果", "count", len(infos))
+	logger.LOG.Debug("WebDAV Readdir - 返回结果", "count", len(infos))
 	return infos, nil
 }
 
 func (d *davDir) Stat() (os.FileInfo, error) {
-	logger.LOG.Info("WebDAV davDir.Stat", "path", d.path, "name", d.name)
+	logger.LOG.Debug("WebDAV davDir.Stat", "path", d.path, "name", d.name)
 	return &davFileInfo{
 		name:    d.name,
 		isDir:   true,

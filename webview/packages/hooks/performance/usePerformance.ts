@@ -31,6 +31,8 @@ export interface PerformanceMetrics {
 export function usePerformance() {
   const metrics = ref<PerformanceMetrics | null>(null)
   const isMonitoring = ref(false)
+  let paintObserver: PerformanceObserver | null = null
+  let loadHandler: (() => void) | null = null
 
   /**
    * 获取页面加载性能指标
@@ -132,7 +134,7 @@ export function usePerformance() {
     // 监听 Paint Timing
     if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
       try {
-        const observer = new PerformanceObserver(list => {
+        paintObserver = new PerformanceObserver(list => {
           for (const entry of list.getEntries()) {
             if (entry.entryType === 'paint') {
               const paintEntry = entry as PerformancePaintTiming
@@ -151,7 +153,7 @@ export function usePerformance() {
           }
         })
 
-        observer.observe({ entryTypes: ['paint'] })
+        paintObserver.observe({ entryTypes: ['paint'] })
       } catch (e) {
         console.warn('PerformanceObserver not supported:', e)
       }
@@ -161,9 +163,10 @@ export function usePerformance() {
     if (document.readyState === 'complete') {
       metrics.value = collectMetrics()
     } else {
-      window.addEventListener('load', () => {
+      loadHandler = () => {
         metrics.value = collectMetrics()
-      })
+      }
+      window.addEventListener('load', loadHandler)
     }
   }
 
@@ -172,6 +175,16 @@ export function usePerformance() {
    */
   const stopMonitoring = () => {
     isMonitoring.value = false
+
+    if (paintObserver) {
+      paintObserver.disconnect()
+      paintObserver = null
+    }
+
+    if (loadHandler) {
+      window.removeEventListener('load', loadHandler)
+      loadHandler = null
+    }
   }
 
   /**

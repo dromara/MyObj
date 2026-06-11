@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"fmt"
-	"net/url"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
@@ -10,7 +8,9 @@ import (
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"myobj/src/pkg/util"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,16 +30,33 @@ func (s *SharesHandler) GetRepository() *impl.RepositoryFactory {
 	return s.service.GetRepository()
 }
 
+// getSharePassword 从请求中获取分享密码（优先 POST body，向后兼容 URL query）
+func getSharePassword(c *gin.Context) string {
+	// 仅当请求方法为 POST 时尝试从 body 读取
+	if c.Request.Method == "POST" {
+		var req struct {
+			Password string `json:"password"`
+		}
+		// Content-Type 为 application/json 时才尝试绑定 body
+		if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
+			if err := c.ShouldBindJSON(&req); err == nil && req.Password != "" {
+				return req.Password
+			}
+		}
+	}
+	// 回退：从 URL query 参数读取（向后兼容）
+	return c.Query("password")
+}
+
 func (s *SharesHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(s.cache,
-		s.service.GetRepository().ApiKey(),
-		s.service.GetRepository().User(),
-		s.service.GetRepository().GroupPower(),
-		s.service.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(s.cache, s.service.GetRepository())
 	share := c.Group("/share")
+	share.Use(middleware.ShareRateLimit()) // 分享公开接口限流中间件，防止暴力破解
 	{
-		share.GET("/info", s.GetShareInfo)      // 获取分享信息（不触发下载）
-		share.GET("/download", s.DownloadShare) // 下载分享文件（GET请求，直接触发下载）
+		share.GET("/info", s.GetShareInfo)           // 获取分享信息（不触发下载）
+		share.POST("/info", s.GetShareInfo)          // 获取分享信息（POST，密码通过 body 传递）
+		share.GET("/download", s.DownloadShare)      // 下载分享文件（GET请求，直接触发下载）
+		share.POST("/download", s.DownloadShare)     // 下载分享文件（POST，密码通过 body 传递）
 	}
 	ver := c.Group("/share")
 	ver.Use(verify.Verify())
@@ -73,8 +90,8 @@ func (s *SharesHandler) CreateShare(c *gin.Context) {
 // GetShareInfo 获取分享信息（不触发下载）
 func (s *SharesHandler) GetShareInfo(c *gin.Context) {
 	token := c.Query("token")
-	password := c.Query("password") // 可选，如果有密码则必需
-	
+	password := getSharePassword(c) // 优先从 POST body 读取，向后兼容 URL query
+
 	if token == "" {
 		c.JSON(400, models.NewJsonResponse(400, "token参数不能为空", nil))
 		return
@@ -92,7 +109,7 @@ func (s *SharesHandler) GetShareInfo(c *gin.Context) {
 // DownloadShare 下载分享文件（GET请求，直接触发浏览器下载）
 func (s *SharesHandler) DownloadShare(c *gin.Context) {
 	token := c.Query("token")
-	password := c.Query("password") // 可选，如果有密码则必需
+	password := getSharePassword(c) // 优先从 POST body 读取，向后兼容 URL query
 
 	if token == "" {
 		c.JSON(400, models.NewJsonResponse(400, "token参数不能为空", nil))
@@ -135,8 +152,7 @@ func (s *SharesHandler) DownloadShare(c *gin.Context) {
 		fileName = "download"
 	}
 	// 使用 RFC 5987 格式编码文件名，支持中文和特殊字符
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, 
-		fileName, url.QueryEscape(fileName)))
+	c.Header("Content-Disposition", util.BuildContentDisposition(fileName, "attachment"))
 	c.Header("Content-Type", "application/octet-stream")
 	
 	// 使用 c.File 发送文件，直接触发浏览器下载

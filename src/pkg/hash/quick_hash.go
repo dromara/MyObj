@@ -31,10 +31,10 @@ type QuickHashResult struct {
 	ChunkHashes []string
 }
 
-// DefaultQuickHashConfig 默认配置：采样前3个分片，每片4MB
+// DefaultQuickHashConfig 默认配置：采样前5个分片+最后1个分片，每片4MB
 func DefaultQuickHashConfig() *QuickHashConfig {
 	return &QuickHashConfig{
-		SampleChunkCount: 3,
+		SampleChunkCount: 5,
 		ChunkSize:        4 * 1024 * 1024, // 4MB
 		ComputeFullHash:  false,
 	}
@@ -62,13 +62,20 @@ func ComputeQuickHash(filePath string, config *QuickHashConfig) (*QuickHashResul
 
 	result := &QuickHashResult{
 		FileSize:    fileSize,
-		ChunkHashes: make([]string, 0, config.SampleChunkCount),
+		ChunkHashes: make([]string, 0, config.SampleChunkCount+1), // +1 for last chunk
 	}
 
-	// 计算采样分片的hash
+	// 计算总分片数
+	totalChunks := int((fileSize + config.ChunkSize - 1) / config.ChunkSize)
+
+	// 计算采样分片的hash（前N个分片）
 	chunkBuffer := make([]byte, config.ChunkSize)
 	signatureHasher := blake3.New() // 用于生成分片签名
 
+	// 将文件大小纳入签名计算，防止不同大小文件产生相同签名
+	signatureHasher.Write([]byte(fmt.Sprintf("size:%d", fileSize)))
+
+	sampledCount := 0
 	for i := 0; i < config.SampleChunkCount; i++ {
 		// 读取一个分片
 		n, err := io.ReadFull(file, chunkBuffer)
@@ -78,6 +85,7 @@ func ComputeQuickHash(filePath string, config *QuickHashConfig) (*QuickHashResul
 		if n == 0 {
 			break // 文件已读完
 		}
+		sampledCount++
 
 		// 计算当前分片的hash
 		chunkHash := blake3.Sum256(chunkBuffer[:n])
@@ -86,6 +94,24 @@ func ComputeQuickHash(filePath string, config *QuickHashConfig) (*QuickHashResul
 
 		// 更新分片签名（所有采样分片hash的组合）
 		signatureHasher.Write(chunkHash[:])
+	}
+
+	// 采样最后一个分片（如果文件有多个分片且最后一个分片未被采样过）
+	if totalChunks > config.SampleChunkCount {
+		lastChunkOffset := int64(totalChunks-1) * config.ChunkSize
+		if _, err := file.Seek(lastChunkOffset, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("定位到最后分片失败: %w", err)
+		}
+		n, err := io.ReadFull(file, chunkBuffer)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("读取最后分片失败: %w", err)
+		}
+		if n > 0 {
+			chunkHash := blake3.Sum256(chunkBuffer[:n])
+			chunkHashStr := hex.EncodeToString(chunkHash[:])
+			result.ChunkHashes = append(result.ChunkHashes, chunkHashStr)
+			signatureHasher.Write(chunkHash[:])
+		}
 	}
 
 	// 生成分片签名（用于快速匹配）

@@ -35,6 +35,7 @@ class UploadTaskManager {
   private readonly DELETED_TASKS_KEY_PREFIX = 'deleted_upload_tasks'
   private deletedPrecheckIds: Set<string> = new Set()
   private currentUserId: string | null = null
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     // 延迟加载，等待用户ID确定后再加载
@@ -530,7 +531,8 @@ class UploadTaskManager {
 
   private notifyListeners() {
     const tasks = this.getAllTasks()
-    this.saveTasksToStorage()
+    // 防抖保存，避免频繁写入 localStorage（如进度更新时每秒多次调用）
+    this.debouncedSave()
     this.listeners.forEach(listener => {
       try {
         listener(tasks)
@@ -538,6 +540,16 @@ class UploadTaskManager {
         logger.error('上传任务监听器错误:', error)
       }
     })
+  }
+
+  private debouncedSave() {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer)
+    }
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null
+      this.saveTasksToStorage()
+    }, 500)
   }
 
   /**

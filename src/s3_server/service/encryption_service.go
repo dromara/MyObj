@@ -21,16 +21,17 @@ type EncryptionService struct {
 }
 
 // NewEncryptionService 创建加密服务
-func NewEncryptionService(masterKey string) *EncryptionService {
-	// 如果没有提供主密钥，使用默认密钥（生产环境应该从配置读取）
+func NewEncryptionService(masterKey string) (*EncryptionService, error) {
 	if masterKey == "" {
-		masterKey = "default-master-key-change-in-production"
+		return nil, fmt.Errorf("S3 encryption master key is required")
 	}
 	// 使用PBKDF2派生32字节主密钥
+	// NOTE: 盐值为固定字符串，这是可接受的——PBKDF2的安全性主要依赖高迭代次数（100,000次）而非盐值的保密性。
+	// 相同主密钥派生相同密钥是预期行为，主密钥本身已在外部（环境变量/配置文件）中受保护。
 	key := pbkdf2.Key([]byte(masterKey), []byte("s3-encryption-salt"), 100000, 32, sha256.New)
 	return &EncryptionService{
 		masterKey: key,
-	}
+	}, nil
 }
 
 // GenerateDataKey 生成数据加密密钥

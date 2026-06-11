@@ -21,7 +21,48 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	ExtractStateDone   = "completed"
+	ExtractStateFailed = "failed"
+)
+
 var extractTasks sync.Map
+
+func init() {
+	go func() {
+		ticker := time.NewTicker(30 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			extractTasks.Range(func(key, value interface{}) bool {
+				task := value.(*ExtractTask)
+				task.mu.Lock()
+				updatedAt := task.UpdatedAt
+				if updatedAt.IsZero() {
+					updatedAt = task.CreatedAt
+				}
+				status := task.Status
+				task.mu.Unlock()
+
+				// 清理已完成/失败超过1小时的任务
+				if status == ExtractStateDone || status == ExtractStateFailed {
+					if time.Since(updatedAt) > time.Hour {
+						extractTasks.Delete(key)
+					}
+				} else {
+					// 清理中间状态超过30分钟的任务（可能是 goroutine 异常退出）
+					if time.Since(updatedAt) > 30*time.Minute {
+						task.mu.Lock()
+						task.Status = ExtractStateFailed
+						task.ErrorMsg = "任务超时，自动标记为失败"
+						task.mu.Unlock()
+						extractTasks.Delete(key)
+					}
+				}
+				return true
+			})
+		}
+	}()
+}
 
 type ExtractTask struct {
 	TaskID             string
@@ -40,11 +81,13 @@ type ExtractTask struct {
 	ErrorMsg           string
 	CurrentFile        string
 	CreatedAt          time.Time
+	UpdatedAt          time.Time
 	mu                 sync.Mutex
 }
 
 func (f *FileService) CreateExtractTask(req *request.ExtractFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
@@ -67,6 +110,7 @@ func (f *FileService) CreateExtractTask(req *request.ExtractFileRequest, userID 
 	archiveType := extract.DetectArchiveType(fileInfo.Name)
 
 	taskID := uuid.New().String()
+	now := time.Now()
 	task := &ExtractTask{
 		TaskID:             taskID,
 		UserID:             userID,
@@ -76,11 +120,13 @@ func (f *FileService) CreateExtractTask(req *request.ExtractFileRequest, userID 
 		ConflictResolution: req.ConflictResolution,
 		Status:             "preparing",
 		Progress:           0,
-		CreatedAt:          time.Now(),
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 	extractTasks.Store(taskID, task)
 
-	go f.runExtractTask(ctx, task, userFile, fileInfo, req)
+	taskCtx, taskCancel := context.WithCancel(context.Background())
+	go f.runExtractTask(taskCtx, taskCancel, task, userFile, fileInfo, req)
 
 	return models.NewJsonResponse(200, "extract task created", response.ExtractCreateResponse{
 		TaskID:      taskID,
@@ -92,12 +138,14 @@ func (f *FileService) CreateExtractTask(req *request.ExtractFileRequest, userID 
 	}), nil
 }
 
-func (f *FileService) runExtractTask(ctx context.Context, task *ExtractTask, userFile *models.UserFiles, fileInfo *models.FileInfo, req *request.ExtractFileRequest) {
+func (f *FileService) runExtractTask(ctx context.Context, cancel context.CancelFunc, task *ExtractTask, userFile *models.UserFiles, fileInfo *models.FileInfo, req *request.ExtractFileRequest) {
+	defer cancel()
 	defer func() {
 		if r := recover(); r != nil {
 			task.mu.Lock()
 			task.Status = "failed"
 			task.ErrorMsg = fmt.Sprintf("extract panic: %v", r)
+			task.UpdatedAt = time.Now()
 			task.mu.Unlock()
 			logger.LOG.Error("extract task panic", "taskID", task.TaskID, "error", r)
 		}
@@ -232,9 +280,10 @@ func (f *FileService) runExtractTask(ctx context.Context, task *ExtractTask, use
 	} else if task.Skipped > 0 {
 		task.Status = fmt.Sprintf("completed, %d skipped", task.Skipped)
 	} else {
-		task.Status = "completed"
+		task.Status = ExtractStateDone
 	}
 	task.Progress = 100
+	task.UpdatedAt = time.Now()
 	task.mu.Unlock()
 
 	logger.LOG.Info("extract task finished",
@@ -269,6 +318,8 @@ func (f *FileService) uploadExtractedFile(ctx context.Context, filePath, fileNam
 			if hashErr != nil {
 				logger.LOG.Warn("compute hash failed for overwrite check", "fileName", fileName, "error", hashErr)
 				// hash 计算失败，直接覆盖（删除旧文件后上传新文件）
+				// 归还旧文件占用的用户空间
+				f.reclaimUserSpace(ctx, userID, existingFile.FileID)
 				if delErr := f.factory.UserFiles().Delete(ctx, userID, existingFile.UfID); delErr != nil {
 					return fmt.Errorf("delete existing file failed: %w", delErr)
 				}
@@ -278,6 +329,8 @@ func (f *FileService) uploadExtractedFile(ctx context.Context, filePath, fileNam
 			oldFileInfo, infoErr := f.factory.FileInfo().GetByID(ctx, existingFile.FileID)
 			if infoErr != nil {
 				logger.LOG.Warn("get old file info failed for overwrite", "fileName", fileName, "error", infoErr)
+				// 无法获取旧文件信息，仍尝试归还空间（基于已有的 FileID）
+				f.reclaimUserSpace(ctx, userID, existingFile.FileID)
 				if delErr := f.factory.UserFiles().Delete(ctx, userID, existingFile.UfID); delErr != nil {
 					return fmt.Errorf("delete existing file failed: %w", delErr)
 				}
@@ -288,7 +341,8 @@ func (f *FileService) uploadExtractedFile(ctx context.Context, filePath, fileNam
 				logger.LOG.Info("overwrite: same hash, skip upload", "fileName", fileName, "hash", newHash)
 				return fmt.Errorf("skipped")
 			}
-			// hash 不同，软删除旧文件后上传新文件
+			// hash 不同，归还旧文件空间后软删除旧文件，再上传新文件
+			f.reclaimUserSpace(ctx, userID, existingFile.FileID)
 			if delErr := f.factory.UserFiles().Delete(ctx, userID, existingFile.UfID); delErr != nil {
 				return fmt.Errorf("delete existing file failed: %w", delErr)
 			}
@@ -320,6 +374,27 @@ func (f *FileService) uploadExtractedFile(ctx context.Context, filePath, fileNam
 	}
 
 	return nil
+}
+
+// reclaimUserSpace 归还被覆盖文件占用的用户空间
+func (f *FileService) reclaimUserSpace(ctx context.Context, userID string, fileID string) {
+	user, err := f.factory.User().GetByID(ctx, userID)
+	if err != nil {
+		logger.LOG.Warn("reclaimUserSpace: 获取用户信息失败", "userID", userID, "error", err)
+		return
+	}
+	if user.Space <= 0 {
+		return // 无限空间用户无需归还
+	}
+	fileInfo, err := f.factory.FileInfo().GetByID(ctx, fileID)
+	if err != nil {
+		logger.LOG.Warn("reclaimUserSpace: 获取文件信息失败", "fileID", fileID, "error", err)
+		return
+	}
+	user.FreeSpace += int64(fileInfo.Size)
+	if err := f.factory.User().Update(ctx, user); err != nil {
+		logger.LOG.Warn("reclaimUserSpace: 更新用户空间失败", "userID", userID, "error", err)
+	}
 }
 
 // findExistingFile 在目标路径下查找同名文件
@@ -358,14 +433,15 @@ func (f *FileService) generateUniqueName(ctx context.Context, userID, virtualPat
 	ext := filepath.Ext(fileName)
 	nameWithoutExt := strings.TrimSuffix(fileName, ext)
 
-	counter := 1
-	for {
+	const maxRetries = 1000
+	for counter := 1; counter <= maxRetries; counter++ {
 		newName := fmt.Sprintf("%s (%d)%s", nameWithoutExt, counter, ext)
 		if !existingNames[newName] {
 			return newName
 		}
-		counter++
 	}
+	// 超过最大重试次数，使用UUID后缀确保唯一性
+	return fmt.Sprintf("%s_%s%s", nameWithoutExt, uuid.New().String()[:8], ext)
 }
 
 func (f *FileService) GetExtractProgress(taskID, userID string) (*models.JsonResponse, error) {
@@ -400,6 +476,7 @@ func taskFail(task *ExtractTask, errMsg string) {
 	task.mu.Lock()
 	task.Status = "failed"
 	task.ErrorMsg = errMsg
+	task.UpdatedAt = time.Now()
 	task.mu.Unlock()
 	logger.LOG.Error("extract task failed", "taskID", task.TaskID, "error", errMsg)
 }
@@ -429,7 +506,8 @@ func archiveTypeStr(t extract.ArchiveType) string {
 
 // CheckExtractConflict 检测解压冲突
 func (f *FileService) CheckExtractConflict(req *request.ExtractCheckRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
@@ -564,6 +642,12 @@ func (f *FileService) resolveVirtualPathID(ctx context.Context, userID, pathID s
 	parentID := fmt.Sprintf("%d", rootPath.ID)
 	lastPathID := parentID
 
+	// 在循环外一次性查询所有虚拟路径，循环内使用缓存匹配
+	allPaths, err := f.factory.VirtualPath().ListByUserID(ctx, userID, 0, 10000)
+	if err != nil {
+		return "", fmt.Errorf("query virtual paths failed: %w", err)
+	}
+
 	// 逐层查找路径
 	for _, part := range parts {
 		if part == "" {
@@ -571,13 +655,9 @@ func (f *FileService) resolveVirtualPathID(ctx context.Context, userID, pathID s
 		}
 
 		currentPath := "/" + part
-		existingPaths, err := f.factory.VirtualPath().ListByUserID(ctx, userID, 0, 1000)
-		if err != nil {
-			return "", fmt.Errorf("query virtual paths failed: %w", err)
-		}
 
 		var existingPath *models.VirtualPath
-		for _, vp := range existingPaths {
+		for _, vp := range allPaths {
 			if vp.Path == currentPath && vp.ParentLevel == parentID {
 				existingPath = vp
 				break

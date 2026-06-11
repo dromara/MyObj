@@ -64,15 +64,24 @@ func main() {
 	localCache := cache.InitCache()
 
 	// 4. 启动 WebDAV 服务（如果启用）
+	var webdavServer *webdav.Server
 	if config.CONFIG.WebDAV.Enable {
 		logger.LOG.Info("WebDAV 服务已启用，正在启动...")
 		factory := impl.NewRepositoryFactory(database.GetDB())
-		webdavServer := webdav.NewServer(factory)
+		webdavServer = webdav.NewServer(factory)
+		webdavErrChan := make(chan error, 1)
 		go func() {
 			if err := webdavServer.Start(); err != nil {
-				logger.LOG.Error("WebDAV 服务器启动失败", "error", err)
+				webdavErrChan <- err
 			}
 		}()
+		// 非阻塞检查 WebDAV 启动错误
+		select {
+		case err := <-webdavErrChan:
+			logger.LOG.Error("WebDAV 服务器启动失败", "error", err)
+		default:
+			// 启动正常，继续运行
+		}
 	} else {
 		logger.LOG.Info("WebDAV 服务未启用（可在 config.toml 中设置 webdav.enable=true 启用）")
 	}
@@ -91,8 +100,8 @@ func main() {
 	}
 
 	// 5. 注册关闭信号处理
-	setupGracefulShutdown(localCache)
-	fmt.Printf("apiKey开启情况: %v", config.CONFIG.Auth.ApiKey)
+	setupGracefulShutdown(localCache, webdavServer)
+
 	// 6. 启动HTTP服务器
 	if err := startServer(localCache); err != nil {
 		logger.LOG.Error("服务器启动失败", "error", err)
@@ -114,12 +123,12 @@ func initConfig() error {
 
 // initLogger 初始化日志系统
 // 根据配置创建日志处理器并设置日志级别
-func initLogger() error {
+func initLogger() (err error) {
 	log.Println("[初始化] 正在初始化日志系统...")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[错误] 日志系统初始化失败: %v\n", r)
-			panic(r)
+			err = fmt.Errorf("logger init failed: %v", r)
 		}
 	}()
 
@@ -130,12 +139,12 @@ func initLogger() error {
 
 // initDatabase 初始化数据库连接
 // 根据配置类型(MySQL/SQLite)建立数据库连接并测试连通性
-func initDatabase() error {
+func initDatabase() (err error) {
 	logger.LOG.Info("[初始化] 正在连接数据库...", "type", config.CONFIG.Database.Type)
 	defer func() {
 		if r := recover(); r != nil {
 			logger.LOG.Error("[错误] 数据库连接失败，程序即将退出", "panic", r)
-			panic(r)
+			err = fmt.Errorf("database init failed: %v", r)
 		}
 	}()
 
@@ -169,7 +178,7 @@ func startServer(cacheLocal cache.Cache) error {
 
 // setupGracefulShutdown 设置优雅关闭信号处理
 // 监听系统中断信号，在收到信号时优雅关闭应用
-func setupGracefulShutdown(cacheLocal cache.Cache) {
+func setupGracefulShutdown(cacheLocal cache.Cache, webdavServer *webdav.Server) {
 	// 创建信号通道
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -178,6 +187,12 @@ func setupGracefulShutdown(cacheLocal cache.Cache) {
 	go func() {
 		sig := <-sigChan
 		logger.LOG.Warn("收到关闭信号，系统即将关闭", "signal", sig.String())
+
+		// 关闭 WebDAV 服务
+		if webdavServer != nil {
+			webdavServer.Stop()
+			logger.LOG.Info("WebDAV 服务已关闭")
+		}
 
 		// 关闭数据库连接
 		db := database.GetDB()

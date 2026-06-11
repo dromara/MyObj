@@ -31,11 +31,7 @@ func NewVideoHandler(fileService *service.FileService, cacheLocal cache.Cache) *
 }
 
 func (v *VideoHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(v.cache,
-		v.fileService.GetRepository().ApiKey(),
-		v.fileService.GetRepository().User(),
-		v.fileService.GetRepository().GroupPower(),
-		v.fileService.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(v.cache, v.fileService.GetRepository())
 
 	videoGroup := c.Group("/video")
 	{
@@ -234,8 +230,14 @@ func (v *VideoHandler) VideoPlay(c *gin.Context) {
 		return
 	}
 
+	tokenStr, ok := tokenInfoStr.(string)
+	if !ok {
+		logger.LOG.Error("Token 缓存数据类型错误")
+		c.JSON(500, models.NewJsonResponse(500, "Token 信息损坏", nil))
+		return
+	}
 	var tokenInfo PlayTokenInfo
-	if err := json.Unmarshal([]byte(tokenInfoStr.(string)), &tokenInfo); err != nil {
+	if err := json.Unmarshal([]byte(tokenStr), &tokenInfo); err != nil {
 		logger.LOG.Error("解析 Token 信息失败", "error", err)
 		c.JSON(500, models.NewJsonResponse(500, "Token 信息损坏", nil))
 		return

@@ -7,9 +7,9 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 	"myobj/src/pkg/logger"
 	"os"
 	"runtime"
@@ -73,11 +73,10 @@ func DeriveEncryptionKey(password string, userSalt string) string {
 	salt := []byte(userSalt)
 
 	// 使用PBKDF2派生32字节密钥
-	// 注意：这里使用较少的迭代次数(10000)，因为我们还会在加密时再次使用PBKDF2
-	derivedKey := pbkdf2.Key([]byte(password), salt, 10000, 32, sha256.New)
+	derivedKey := pbkdf2.Key([]byte(password), salt, PBKDF2Iterations, 32, sha256.New)
 
 	// 返回base64编码的密钥，便于存储和使用
-	return string(derivedKey)
+	return base64.StdEncoding.EncodeToString(derivedKey)
 }
 
 // EncryptFile 加密文件
@@ -116,7 +115,7 @@ func (fc *FileCrypto) EncryptFile(inputPath, outputPath string) error {
 	}
 
 	duration := time.Since(startTime)
-	log.Printf("加密完成: %s, 耗时: %v", outputPath, duration)
+	logger.LOG.Info("加密完成", "path", outputPath, "duration", duration)
 	return nil
 }
 
@@ -156,7 +155,7 @@ func (fc *FileCrypto) DecryptFile(inputPath, outputPath string) error {
 	}
 
 	duration := time.Since(startTime)
-	log.Printf("解密完成: %s, 耗时: %v", outputPath, duration)
+	logger.LOG.Info("解密完成", "path", outputPath, "duration", duration)
 	return nil
 }
 
@@ -551,13 +550,9 @@ func (fc *FileCrypto) decryptWithStreaming(inputPath, outputPath string) error {
 
 	// 验证HMAC
 	computedHMAC := hmacHash.Sum(nil)
-	if !hmac.Equal(storedHMAC, computedHMAC) {
-		// HMAC验证失败，删除输出文件
-		err := os.Remove(outputPath)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("HMAC验证失败，文件可能已被篡改或密码错误")
+	if err := verifyHMAC(storedHMAC, computedHMAC); err != nil {
+		os.Remove(outputPath) // 删除不完整的输出文件
+		return fmt.Errorf("HMAC验证失败，文件可能已被篡改或密码错误: %w", err)
 	}
 
 	return nil
@@ -637,5 +632,13 @@ func (fc *FileCrypto) DecryptFiles(files []struct{ Input, Output string }) error
 		return fmt.Errorf("批量解密过程中发生 %d 个错误: %v", len(errors), errors)
 	}
 
+	return nil
+}
+
+// verifyHMAC 验证HMAC是否匹配
+func verifyHMAC(expected, computed []byte) error {
+	if !hmac.Equal(expected, computed) {
+		return fmt.Errorf("HMAC不匹配")
+	}
 	return nil
 }

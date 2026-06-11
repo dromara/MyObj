@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	coreService "myobj/src/core/service"
@@ -26,12 +27,16 @@ type S3Handler struct {
 }
 
 // NewS3Handler 创建S3处理器
-func NewS3Handler(factory *impl.RepositoryFactory, fileService *coreService.FileService) *S3Handler {
+func NewS3Handler(factory *impl.RepositoryFactory, fileService *coreService.FileService) (*S3Handler, error) {
+	objectService, err := service.NewS3ObjectService(factory, fileService)
+	if err != nil {
+		return nil, fmt.Errorf("create S3 object service failed: %w", err)
+	}
 	return &S3Handler{
 		bucketService: service.NewS3BucketService(factory),
-		objectService: service.NewS3ObjectService(factory, fileService),
+		objectService: objectService,
 		factory:       factory,
-	}
+	}, nil
 }
 
 // ListBuckets 列出所有Bucket
@@ -165,7 +170,7 @@ func (h *S3Handler) DeleteBucket(c *gin.Context) {
 		)
 
 		// 根据错误类型返回不同的错误码
-		if err.Error() == "bucket not found" {
+		if errors.Is(err, types.ErrBucketNotFoundError) {
 			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
 		} else {
 			s3Err := types.MapErrorToS3Error(err)
@@ -305,12 +310,8 @@ func (h *S3Handler) PutBucketCORS(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -343,12 +344,8 @@ func (h *S3Handler) GetBucketCORS(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -528,6 +525,9 @@ func (h *S3Handler) ListObjects(c *gin.Context) {
 	if maxKeys <= 0 {
 		maxKeys = 1000
 	}
+	if maxKeys > 1000 {
+		maxKeys = 1000
+	}
 
 	// 调用服务层
 	output, err := h.objectService.ListObjects(c.Request.Context(), &service.ListObjectsInput{
@@ -625,6 +625,9 @@ func (h *S3Handler) ListObjectsV2(c *gin.Context) {
 	maxKeysStr := c.DefaultQuery("max-keys", "1000")
 	maxKeys, _ := strconv.Atoi(maxKeysStr)
 	if maxKeys <= 0 {
+		maxKeys = 1000
+	}
+	if maxKeys > 1000 {
 		maxKeys = 1000
 	}
 
@@ -779,12 +782,8 @@ func (h *S3Handler) PutObject(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -828,15 +827,21 @@ func (h *S3Handler) GetObject(c *gin.Context) {
 	var rangeStart, rangeEnd int64
 	rangeHeader := c.GetHeader("Range")
 	if rangeHeader != "" {
-		// 解析 "bytes=0-1023" 格式
+		// 解析 "bytes=0-1023" 或 "bytes=-500"（后缀范围）格式
 		if strings.HasPrefix(rangeHeader, "bytes=") {
 			rangeStr := rangeHeader[6:]
 			parts := strings.Split(rangeStr, "-")
 			if len(parts) == 2 {
 				if parts[0] != "" {
 					rangeStart, _ = strconv.ParseInt(parts[0], 10, 64)
+				} else if parts[1] != "" {
+					// 后缀范围 "bytes=-500"：表示文件末尾的500字节
+					// 使用 RangeStart = -1 标记后缀范围，RangeEnd 存储后缀长度
+					suffixLen, _ := strconv.ParseInt(parts[1], 10, 64)
+					rangeStart = -1
+					rangeEnd = suffixLen
 				}
-				if parts[1] != "" {
+				if parts[0] != "" && parts[1] != "" {
 					rangeEnd, _ = strconv.ParseInt(parts[1], 10, 64)
 				}
 			}
@@ -1499,12 +1504,8 @@ func (h *S3Handler) CopyObject(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, sourceBucket+"/"+sourceKey)
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, sourceBucket+"/"+sourceKey)
 		return
 	}
 
@@ -1784,13 +1785,8 @@ func (h *S3Handler) GetObjectTagging(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "object not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchKey, bucketName+"/"+objectKey)
-		} else {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrInternalError, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName+"/"+objectKey)
 		return
 	}
 
@@ -1848,13 +1844,8 @@ func (h *S3Handler) DeleteObjectTagging(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "object not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchKey, bucketName+"/"+objectKey)
-		} else {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrInternalError, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName+"/"+objectKey)
 		return
 	}
 
@@ -1895,12 +1886,8 @@ func (h *S3Handler) PutBucketACL(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -1985,14 +1972,8 @@ func (h *S3Handler) PutObjectACL(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "object not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchKey, bucketName+"/"+objectKey)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName+"/"+objectKey)
 		return
 	}
 
@@ -2031,13 +2012,8 @@ func (h *S3Handler) GetObjectACL(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "object not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchKey, bucketName+"/"+objectKey)
-		} else {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrInternalError, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName+"/"+objectKey)
 		return
 	}
 
@@ -2084,12 +2060,8 @@ func (h *S3Handler) PutBucketPolicy(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -2122,13 +2094,8 @@ func (h *S3Handler) GetBucketPolicy(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "policy not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrInternalError, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -2202,12 +2169,8 @@ func (h *S3Handler) PutBucketLifecycle(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			s3Err := types.MapErrorToS3Error(err)
-			types.WriteErrorResponse(c.Writer, c.Request, s3Err, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 
@@ -2240,13 +2203,8 @@ func (h *S3Handler) GetBucketLifecycle(c *gin.Context) {
 			"error", err,
 		)
 
-		if strings.Contains(err.Error(), "bucket not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else if strings.Contains(err.Error(), "lifecycle configuration not found") {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrNoSuchBucket, bucketName)
-		} else {
-			types.WriteErrorResponse(c.Writer, c.Request, types.ErrInternalError, "")
-		}
+		s3Err := types.MapErrorToS3Error(err)
+		types.WriteErrorResponse(c.Writer, c.Request, s3Err, bucketName)
 		return
 	}
 

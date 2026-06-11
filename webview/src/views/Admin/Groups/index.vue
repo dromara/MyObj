@@ -23,7 +23,7 @@
       <el-table-column prop="created_at" :label="t('admin.users.createTime')" width="180" />
       <el-table-column :label="t('admin.users.operation')" width="200" fixed="right">
         <template #default="{ row }">
-          <template v-if="row.id !== 1">
+          <template v-if="row.id !== ADMIN_GROUP_ID">
             <el-button link type="primary" @click="handleEdit(row)">{{ t('admin.users.edit') }}</el-button>
             <el-button link type="primary" @click="handleAssignPower(row)">{{
               t('admin.groups.assignPower')
@@ -113,10 +113,10 @@
                   <div v-for="power in category.powers" :key="power.id" class="power-item">
                     <el-checkbox :label="power.id">
                       <div class="power-content">
-                        <div class="power-name">{{ getPermissionName(power.characteristic, power.name) }}</div>
+                        <div class="power-name">{{ getPermissionName(power.characteristic, power.name, t) }}</div>
                         <div class="power-description">
                           {{
-                            getPermissionDescription(power.characteristic, power.description) ||
+                            getPermissionDescription(power.characteristic, power.description, t) ||
                             t('admin.groups.noDescription')
                           }}
                         </div>
@@ -166,6 +166,7 @@
   import { formatSize, bytesToGB, GBToBytes } from '@/utils'
   import { useI18n } from '@/composables'
   import { getPermissionName, getPermissionDescription } from '@/utils/business/permission'
+  import { ADMIN_GROUP_ID } from '@/composables/business/useAdmin'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
@@ -226,8 +227,8 @@
         (power.description && power.description.toLowerCase().includes(keyword))
 
       // 搜索国际化后的名称和描述
-      const i18nName = getPermissionName(power.characteristic, power.name).toLowerCase()
-      const i18nDescription = getPermissionDescription(power.characteristic, power.description || '').toLowerCase()
+      const i18nName = getPermissionName(power.characteristic, power.name, t).toLowerCase()
+      const i18nDescription = getPermissionDescription(power.characteristic, power.description || '', t).toLowerCase()
       const matchesI18n = i18nName.includes(keyword) || i18nDescription.includes(keyword)
 
       return matchesOriginal || matchesI18n
@@ -394,7 +395,7 @@
   // 编辑组
   const handleEdit = (group: AdminGroup) => {
     // 禁止操作管理员组
-    if (group.id === 1) {
+    if (group.id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.groups.cannotEditAdmin'))
       return
     }
@@ -415,7 +416,7 @@
     await formRef.value.validate(async (valid: boolean) => {
       if (valid) {
         // 禁止编辑管理员组
-        if (isEdit.value && formData.id === 1) {
+        if (isEdit.value && formData.id === ADMIN_GROUP_ID) {
           proxy?.$modal.msgWarning(t('admin.groups.cannotEditAdmin'))
           return
         }
@@ -462,7 +463,7 @@
   // 删除组
   const handleDelete = async (group: AdminGroup) => {
     // 禁止操作管理员组
-    if (group.id === 1) {
+    if (group.id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.groups.cannotDeleteAdmin'))
       return
     }
@@ -491,7 +492,7 @@
   // 分配权限
   const handleAssignPower = async (group: AdminGroup) => {
     // 禁止操作管理员组
-    if (group.id === 1) {
+    if (group.id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.groups.cannotModifyAdminPower'))
       return
     }

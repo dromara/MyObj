@@ -5,3 +5,5 @@
 .vscode
 /obj_temp/
 /obj_data/
+config.toml
+*.exe

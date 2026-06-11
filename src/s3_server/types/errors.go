@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 // 定义业务错误类型，用于错误判断
@@ -223,6 +224,28 @@ func MapErrorToS3Error(err error) S3Error {
 	}
 	// 默认返回内部错误
 	return ErrInternalError
+}
+
+// MapError 根据错误类型返回对应的 S3 错误
+func MapError(err error) S3Error {
+	if err == nil {
+		return S3Error{}
+	}
+	errMsg := err.Error()
+	switch {
+	case strings.Contains(errMsg, "bucket not found"):
+		return ErrNoSuchBucket
+	case strings.Contains(errMsg, "object not found"):
+		return ErrNoSuchKey
+	case strings.Contains(errMsg, "access denied"):
+		return ErrAccessDenied
+	case strings.Contains(errMsg, "policy not found"):
+		return ErrNoSuchPolicy
+	case strings.Contains(errMsg, "lifecycle"):
+		return ErrNoSuchLifecycleConfiguration
+	default:
+		return ErrInternalError
+	}
 }
 
 // ErrorResponse S3错误响应XML结构

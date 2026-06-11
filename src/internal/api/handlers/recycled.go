@@ -24,11 +24,7 @@ func NewRecycledHandler(service *service.RecycledService, cacheLocal cache.Cache
 }
 
 func (h *RecycledHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(h.cache,
-		h.service.GetRepository().ApiKey(),
-		h.service.GetRepository().User(),
-		h.service.GetRepository().GroupPower(),
-		h.service.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository())
 
 	recycled := c.Group("/recycled")
 	recycled.Use(verify.Verify())

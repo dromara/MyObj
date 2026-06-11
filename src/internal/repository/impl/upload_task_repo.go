@@ -110,3 +110,8 @@ func (r *uploadTaskRepository) CountByUserID(ctx context.Context, userID string)
 		Count(&count).Error
 	return count, err
 }
+
+// DeleteByUserID 删除指定用户的所有上传任务
+func (r *uploadTaskRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.UploadTask{}).Error
+}

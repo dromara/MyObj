@@ -83,7 +83,11 @@ if exist libs (
 if exist templates (
     xcopy /E /I /Y templates bin\templates
 )
-copy /Y config.toml bin\config.toml
+if exist config.example.toml (
+    copy /Y config.example.toml bin\config.toml
+) else (
+    echo # 请复制 config.toml 到 bin\ 目录并根据实际环境修改配置 > bin\config.toml.example
+)
 if exist docs (
     xcopy /E /I /Y docs bin\docs
 )

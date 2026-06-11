@@ -33,6 +33,12 @@ func NewS3BucketService(factory *impl.RepositoryFactory) *S3BucketService {
 	}
 }
 
+// 包级预编译正则，避免每次调用 ValidateBucketName 时重复编译
+var (
+	bucketNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*[a-z0-9]$`)
+	bucketIPPattern   = regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$`)
+)
+
 // ValidateBucketName 验证Bucket名称（符合S3规范）
 func ValidateBucketName(bucketName string) error {
 	// S3 bucket命名规范：
@@ -47,8 +53,7 @@ func ValidateBucketName(bucketName string) error {
 	}
 
 	// 检查字符合法性
-	matched, _ := regexp.MatchString(`^[a-z0-9][a-z0-9.-]*[a-z0-9]$`, bucketName)
-	if !matched {
+	if !bucketNamePattern.MatchString(bucketName) {
 		return fmt.Errorf("bucket name must consist of lowercase letters, numbers, dots and hyphens")
 	}
 
@@ -58,8 +63,7 @@ func ValidateBucketName(bucketName string) error {
 	}
 
 	// 不能是IP地址格式
-	ipPattern := regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$`)
-	if ipPattern.MatchString(bucketName) {
+	if bucketIPPattern.MatchString(bucketName) {
 		return fmt.Errorf("bucket name cannot be formatted as IP address")
 	}
 

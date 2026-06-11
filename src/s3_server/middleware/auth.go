@@ -25,7 +25,7 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 		c.Header("X-Amz-Request-Id", requestID)
 		c.Set("request_id", requestID)
 
-		ctx := context.Background()
+		ctx := c.Request.Context()
 		var accessKeyID string
 		var apiKey *models.ApiKey
 		var err error
@@ -103,8 +103,13 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 
 			accessKeyID = auth.ExtractAccessKeyID(authHeader)
 			if accessKeyID == "" {
+				// 截断 auth_header 避免泄露完整凭据
+				truncated := authHeader
+				if len(authHeader) > 20 {
+					truncated = authHeader[:20] + "..."
+				}
 				logger.LOG.Warn("S3 invalid Authorization header format",
-					"auth_header", authHeader,
+					"auth_header", truncated,
 				)
 				types.WriteErrorResponse(c.Writer, c.Request, types.ErrInvalidAccessKeyId, "")
 				c.Abort()
@@ -126,7 +131,7 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 			// 验证签名
 			// 使用 S3 Secret Key（专门用于 S3 服务的 HMAC-SHA256 签名）
 			if err := verifier.VerifyRequest(c.Request, apiKey.S3SecretKey); err != nil {
-				// 记录详细的调试信息
+				// 记录详细的调试信息（不记录完整的 Authorization 头，避免泄露签名密钥）
 				logger.LOG.Warn("S3 signature verification failed",
 					"access_key", accessKeyID,
 					"user_id", apiKey.UserID,
@@ -134,7 +139,6 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 					"method", c.Request.Method,
 					"path", c.Request.URL.Path,
 					"host", c.Request.Host,
-					"authorization", c.Request.Header.Get("Authorization"),
 					"x_amz_date", c.Request.Header.Get("X-Amz-Date"),
 					"x_amz_content_sha256", c.Request.Header.Get("X-Amz-Content-Sha256"),
 				)
@@ -170,6 +174,7 @@ func S3AuthMiddleware(factory *impl.RepositoryFactory, region string) gin.Handle
 		// 6. 设置用户上下文
 		c.Set("user_id", user.ID)
 		c.Set("user", user)
+		c.Set("api_key", apiKey)
 		c.Set("api_key_id", apiKey.ID)
 		c.Set("access_key", accessKeyID)
 
@@ -257,8 +262,8 @@ func hasPublicReadAccess(acl *types.AccessControlPolicy) bool {
 	allUsersURI := "http://acs.amazonaws.com/groups/global/AllUsers"
 
 	for _, grant := range acl.AccessControlList.Grants {
-		// 检查是否是 AllUsers
-		if grant.Grantee.URI == allUsersURI || grant.Grantee.Type == "Group" {
+		// 只检查 AllUsers 组的授权，不检查其他 Group 类型
+		if grant.Grantee.URI == allUsersURI {
 			// 检查权限：READ 或 FULL_CONTROL
 			if grant.Permission == "READ" || grant.Permission == "FULL_CONTROL" {
 				return true

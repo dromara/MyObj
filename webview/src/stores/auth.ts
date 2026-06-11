@@ -34,6 +34,11 @@ export const useAuthStore = defineStore(StoreId.Auth, () => {
 
   /**
    * 设置 token
+   *
+   * 安全说明：当前使用 localStorage 存储 token，存在以下风险：
+   * - XSS 攻击可通过 document.cookie 或 localStorage 读取 token
+   * - 建议生产环境使用 httpOnly cookie 存储 token，以防止 JavaScript 直接访问
+   * - 如需保留 localStorage 方案，请确保 CSP 和 XSS 防护到位
    */
   const setToken = (newToken: string) => {
     token.value = newToken

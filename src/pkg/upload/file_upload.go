@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"myobj/src/config"
@@ -115,7 +116,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 
 	// 3.2 异步生成缩略图（如果需要）
 	var needThumbnail bool
-	if config.CONFIG.File.Thumbnail && isImage(mimeType) {
+	if config.CONFIG.File.Thumbnail && util.IsImageByMime(mimeType) {
 		needThumbnail = true
 		wg.Add(1)
 		go func() {
@@ -268,7 +269,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		ID:              fileID,
 		Name:            data.FileName,
 		RandomName:      virtualFileName,
-		Size:            int(actualFileSize), // 使用实际计算的文件大小
+		Size:            actualFileSize, // 使用实际计算的文件大小
 		Mime:            mimeType,
 		ThumbnailImg:    thumbnailPath,
 		Path:            mainFilePath,
@@ -387,7 +388,7 @@ func mergeChunks(data *FileUploadData) (string, error) {
 
 	// 按索引顺序合并分片
 	for i := 0; i < data.ChunkCount; i++ {
-		chunkPath := filepath.Join(tempDir, fmt.Sprintf("%d.chunk.data", i))
+		chunkPath := util.ChunkPath(tempDir, i)
 		chunkFile, err := os.Open(chunkPath)
 		if err != nil {
 			return "", fmt.Errorf("打开分片文件失败 [%d]: %w", i, err)
@@ -419,10 +420,6 @@ func detectMimeType(filePath string) (string, error) {
 	return mime.String(), nil
 }
 
-// isImage 判断MIME类型是否为图片
-func isImage(mimeType string) bool {
-	return strings.HasPrefix(mimeType, "image/")
-}
 
 // selectBestDisk 选择剩余空间最大的磁盘
 func selectBestDisk(ctx context.Context, repoFactory *impl.RepositoryFactory, fileSize int64) (*models.Disk, error) {
@@ -466,37 +463,65 @@ func splitAndStoreFile(filePath, storageDir, virtualFileName, fileID string, chu
 	}
 	defer file.Close()
 
+	const streamBufferSize = 1024 * 1024 // 1MB 流式读取缓冲区，避免一次性分配整个分片大小的内存
+
 	var chunks []*models.FileChunk
 	var chunkIndex uint32 = 0
-	buffer := make([]byte, chunkSize)
 
 	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return nil, "", fmt.Errorf("读取文件失败: %w", err)
-		}
-		if n == 0 {
-			break
-		}
-
-		// 分片文件路径
+		// 每个分片使用较小的缓冲区逐块读取，然后写入分片文件
 		chunkFileName := fmt.Sprintf("%s_%d.data", virtualFileName, chunkIndex)
 		chunkPath := filepath.Join(storageDir, chunkFileName)
 
-		// 写入分片
-		if err := os.WriteFile(chunkPath, buffer[:n], 0644); err != nil {
-			return nil, "", fmt.Errorf("写入分片失败: %w", err)
+		chunkFile, err := os.Create(chunkPath)
+		if err != nil {
+			return nil, "", fmt.Errorf("创建分片文件失败: %w", err)
+		}
+
+		hasher := hash.NewStreamingHasher()
+		var chunkBytesRead int64 = 0
+		readBuf := make([]byte, streamBufferSize)
+
+		for chunkBytesRead < chunkSize {
+			toRead := chunkSize - chunkBytesRead
+			if toRead > streamBufferSize {
+				toRead = streamBufferSize
+			}
+
+			n, readErr := io.ReadFull(file, readBuf[:toRead])
+			if n > 0 {
+				if _, writeErr := chunkFile.Write(readBuf[:n]); writeErr != nil {
+					chunkFile.Close()
+					return nil, "", fmt.Errorf("写入分片文件失败: %w", writeErr)
+				}
+				hasher.Write(readBuf[:n])
+				chunkBytesRead += int64(n)
+			}
+			if readErr != nil {
+				if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+					break
+				}
+				chunkFile.Close()
+				return nil, "", fmt.Errorf("读取文件失败: %w", readErr)
+			}
+		}
+
+		chunkFile.Close()
+
+		if chunkBytesRead == 0 {
+			os.Remove(chunkPath)
+			break
 		}
 
 		// 计算分片hash
-		chunkHash := hash.ComputeBytes(buffer[:n])
+		chunkHash := hasher.Sum()
 
 		// 记录分片信息
 		chunk := &models.FileChunk{
 			ID:         uuid.Must(uuid.NewV7()).String(),
 			FileID:     fileID,
 			ChunkPath:  chunkPath,
-			ChunkSize:  uint64(n),
+			ChunkSize:  uint64(chunkBytesRead),
 			ChunkHash:  chunkHash,
 			ChunkIndex: chunkIndex,
 		}
@@ -577,10 +602,14 @@ func writeInfoFile(dataFilePath, fileHash, fileEncHash string) error {
 	infoFilePath := strings.TrimSuffix(dataFilePath, ".data") + ".info"
 
 	// 创建JSON数据
-	jsonData := fmt.Sprintf(`{"file_hash":"%s","file_enc_hash":"%s"}`, fileHash, fileEncHash)
+	info := FileHashInfo{FileHash: fileHash, FileEncHash: fileEncHash}
+	jsonData, err := json.Marshal(info)
+	if err != nil {
+		return fmt.Errorf("序列化JSON失败: %w", err)
+	}
 
 	// 写入文件
-	if err := os.WriteFile(infoFilePath, []byte(jsonData), 0644); err != nil {
+	if err := os.WriteFile(infoFilePath, jsonData, 0644); err != nil {
 		return fmt.Errorf("写入.info文件失败: %w", err)
 	}
 
@@ -629,8 +658,9 @@ func cleanupProcessedFiles(mainFilePath, thumbnailPath string, chunks []*models.
 	logger.LOG.Info("已清理处理失败的文件", "mainFilePath", mainFilePath)
 }
 
-// getVirtualPathID 获取虚拟路径的ID（如果路径不存在则创建）
-func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) (string, error) {
+// EnsureVirtualPath 确保虚拟路径存在，不存在则创建（支持层级结构）
+// 返回最后一级路径的ID字符串。同时可作为纯确保存在性使用（忽略返回值）。
+func EnsureVirtualPath(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) (string, error) {
 	// 分割路径为各层级
 	parts := strings.Split(strings.Trim(fullPath, "/"), "/")
 	if len(parts) == 0 {
@@ -646,7 +676,7 @@ func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory 
 	var lastPathID string
 
 	// 逐层查找或创建虚拟路径
-	for _, part := range parts {
+	for i, part := range parts {
 		if part == "" {
 			continue
 		}
@@ -707,6 +737,13 @@ func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory 
 				lastPathID = parentID
 			}
 		}
+
+		logger.LOG.Debug("确保虚拟路径",
+			"userID", userID,
+			"path", currentPath,
+			"parentID", parentID,
+			"level", i+1,
+		)
 	}
 
 	if lastPathID == "" {
@@ -714,4 +751,9 @@ func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory 
 	}
 
 	return lastPathID, nil
+}
+
+// getVirtualPathID 获取虚拟路径的ID（如果路径不存在则创建）
+func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) (string, error) {
+	return EnsureVirtualPath(ctx, userID, fullPath, repoFactory)
 }

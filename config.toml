@@ -7,30 +7,29 @@ api_key = true
 swagger = true
 
 [log]
-level = "debug"
+level = "info"
 log_path = "./logs/"
 max_size = 10
 max_age = 7
 
 [database]
-type = "sqlite"
-host = "./libs/my_obj.db"
-# host = "E:\\codes\\myobj\\libs\\my_obj.db"
-# port = 3306
-# user = "root"
-# password = "password"
-# database = "database"
-# db_name = "my_obj"
+type = "mysql"
+host = "localhost"
+port = 3306
+user = "root"
+# password = ""  # 请配置数据库密码
+db_name = "my_obj"
 max_open = 10
 max_idle = 5
 max_life = 60
 max_idle_life = 360
 
 [auth]
-secret = "yI1NiW4bmcMyApSL5jg0cnWGc8QdBRgCubdN3DkvwqcAYRU"
+# JWT 密钥留空时，启动会自动生成并保存到环境变量或日志中
+secret = ""
 api_key = true
 # 令牌有效期 小时
-jwt_expire = 2
+jwt_expire = 24
 
 [file]
 # 是否生成缩略图
@@ -48,11 +47,11 @@ temp_dir = "obj_temp"
 # 跨域开启
 enable = true
 # 跨域域名配置 , 多个用,隔开
-allow_origin = "*"
+allow_origin = "http://localhost:5173,http://localhost:8080"
 # 跨域请求方法 , 多个用,隔开
-allow_methods = "*"
+allow_methods = "GET,POST,PUT,DELETE,PATCH,OPTIONS"
 # 跨域请求头 , 多个用,隔开
-allow_headers = "*"
+allow_headers = "Authorization,Content-Type,Accept,Origin,X-Requested-With"
 # 允许发送凭证(cookies)
 allow_credentials = true
 # 跨域响应头 , 多个用,隔开
@@ -62,7 +61,7 @@ expose_headers = "*"
 type = "redis"
 host = "127.0.0.1"
 port = 6379
-password = ""
+# password = ""  # 请配置 Redis 密码
 db = 0
 pool_size = 10
 

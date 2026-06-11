@@ -171,18 +171,12 @@ func validateFilePermission(ctx context.Context, fileID string, userID string, r
 		}
 	}
 
-	// 检查是否为公开文件（查询所有公开文件）
-	allPublicFiles, err := repoFactory.UserFiles().ListPublicFiles(ctx, 0, 1000)
-	if err != nil {
-		return fmt.Errorf("查询文件失败: %w", err)
-	}
-
-	for _, uf := range allPublicFiles {
-		if uf.FileID == fileID && uf.IsPublic {
-			// 公开文件，允许下载
-			logger.LOG.Info("下载公开文件", "fileID", fileID, "ownerID", uf.UserID, "downloaderID", userID)
-			return nil
-		}
+	// 直接查询该 fileID 是否存在公开记录，避免加载所有公开文件
+	userFile, err := repoFactory.UserFiles().GetByFileID(ctx, fileID)
+	if err == nil && userFile != nil && userFile.IsPublic {
+		// 公开文件，允许下载
+		logger.LOG.Info("下载公开文件", "fileID", fileID, "ownerID", userFile.UserID, "downloaderID", userID)
+		return nil
 	}
 
 	// 既不是自己的文件，也不是公开文件

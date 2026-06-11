@@ -36,13 +36,17 @@ func (u *UserService) GetRepository() *impl.RepositoryFactory {
 
 // Login 用户登录
 func (u *UserService) Login(username, password, challenge string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	get, err := u.cacheLocal.Get(challenge)
-	if err != nil {
+	if err != nil || get == nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("验证已过期")
 	}
-	challengeId := get.(string)
+	challengeId, ok := get.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid challenge cache data")
+	}
 	if challengeId == "" {
 		return nil, fmt.Errorf("验证已过期")
 	}
@@ -90,19 +94,39 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 		logger.LOG.Error("生成JWT失败", "error", err)
 		return nil, err
 	}
-	_ = u.cacheLocal.Set(uid, jwt, 7300)
+
+	// 清除该用户的旧 session，使之前的 token 失效
+	sessionKey := "user_session:" + user.ID
+	if oldUID, err := u.cacheLocal.Get(sessionKey); err == nil && oldUID != nil {
+		if oldUIDStr, ok := oldUID.(string); ok && oldUIDStr != "" {
+			_ = u.cacheLocal.Delete(oldUIDStr)
+		}
+	}
+
+	if err = u.cacheLocal.Set(uid, jwt, 7300); err != nil {
+		logger.LOG.Error("缓存JWT失败", "error", err)
+		return nil, fmt.Errorf("登录失败，请重试")
+	}
+	// 记录用户当前 session 的 uid，用于后续登录时清除旧 session
+	if err = u.cacheLocal.Set(sessionKey, uid, 7300); err != nil {
+		logger.LOG.Warn("缓存用户session失败，旧token可能无法失效", "error", err, "userID", user.ID)
+	}
+
 	res.Token = uid
 	res.Power = nil
 
 	// 删除已使用的挑战
-	_ = u.cacheLocal.Delete(challenge)
+	if err = u.cacheLocal.Delete(challenge); err != nil {
+		logger.LOG.Warn("删除已使用的挑战缓存失败", "error", err, "challenge", challenge)
+	}
 
 	return models.NewJsonResponse(200, "登录成功", res), nil
 }
 
 // Register 用户注册
 func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 检查系统是否允许注册（第一个用户注册除外，用于系统初始化）
 	userCount, err := u.factory.User().Count(ctx)
@@ -130,36 +154,47 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		logger.LOG.Error("获取缓存失败", "error", err)
 		return nil, fmt.Errorf("验证已过期")
 	}
-	challengeId := get.(string)
+	challengeId, ok := get.(string)
+	if !ok {
+		_ = u.cacheLocal.Delete(req.Challenge)
+		return nil, fmt.Errorf("invalid challenge cache data")
+	}
 	if challengeId == "" {
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, fmt.Errorf("验证已过期")
 	}
 	decrypt, err := util.Decrypt(challengeId, req.Password)
 	if err != nil {
 		logger.LOG.Error("密码挑战验证失败", "error", err)
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, err
 	}
 	psw := string(decrypt)
 	// 验证用户名和密码
 	if req.Username == "" || psw == "" {
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, fmt.Errorf("用户名或密码不能为空")
 	}
 	user, err := u.factory.User().GetByUserName(ctx, req.Username)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户失败", "error", err)
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, err
 	}
 	if user != nil {
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, fmt.Errorf("用户已存在")
 	}
 	v7, err := uuid.NewV7()
 	if err != nil {
 		logger.LOG.Error("生成UUID失败", "error", err)
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, err
 	}
 	password, err := util.GeneratePassword(psw)
 	if err != nil {
 		logger.LOG.Error("生成密码失败", "error", err)
+		_ = u.cacheLocal.Delete(req.Challenge)
 		return nil, err
 	}
 	// 检查是否是首次使用（第一个用户注册）
@@ -229,21 +264,27 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		FreeSpace:    group.Space,
 		State:        0,
 	}
-	err = u.factory.User().Create(ctx, user)
+	// 在事务中创建用户和虚拟目录，确保数据一致性
+	err = u.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := u.factory.WithTx(tx)
+		if err := txFactory.User().Create(ctx, user); err != nil {
+			logger.LOG.Error("创建用户失败", "error", err)
+			return err
+		}
+		virtualPath := &models.VirtualPath{
+			UserID:      user.ID,
+			Path:        "home",
+			ParentLevel: "",
+			CreatedTime: custom_type.Now(),
+			UpdateTime:  custom_type.Now(),
+		}
+		if err := txFactory.VirtualPath().Create(ctx, virtualPath); err != nil {
+			logger.LOG.Error("创建目录失败", "error", err)
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		logger.LOG.Error("创建用户失败", "error", err)
-		return nil, err
-	}
-	virtualPath := &models.VirtualPath{
-		UserID:      user.ID,
-		Path:        "home",
-		ParentLevel: "",
-		CreatedTime: custom_type.Now(),
-		UpdateTime:  custom_type.Now(),
-	}
-	err = u.factory.VirtualPath().Create(ctx, virtualPath)
-	if err != nil {
-		logger.LOG.Error("创建目录失败", "error", err)
 		return nil, err
 	}
 	// 删除已使用的挑战
@@ -335,6 +376,8 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 			logger.LOG.Debug("权限已存在，跳过创建", "characteristic", dp.Characteristic)
 		} else {
 			// 创建新权限
+			// 注意：这里手动递增 maxID 作为自增主键，仅在系统初始化时执行一次。
+			// 此时 Power 表为空或仅有少量记录，不存在并发写入风险，ID 冲突的可能性极低。
 			maxID++
 			power = &models.Power{
 				ID:             maxID,
@@ -399,7 +442,8 @@ func (u *UserService) Challenge() (*models.JsonResponse, error) {
 
 // SysInit 查询系统是否初次使用和注册配置
 func (u *UserService) SysInit() (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	count, err := u.factory.User().Count(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户数量失败", "error", err)
@@ -431,8 +475,13 @@ func (u *UserService) SysInit() (*models.JsonResponse, error) {
 }
 
 // UpdateUser 修改用户信息
-func (u *UserService) UpdateUser(req *request.UserUpdateRequest) (*models.JsonResponse, error) {
-	ctx := context.Background()
+func (u *UserService) UpdateUser(req *request.UserUpdateRequest, currentUserID string) (*models.JsonResponse, error) {
+	// 权限验证：只有用户本人可以修改自己的信息
+	if req.ID != currentUserID {
+		return nil, fmt.Errorf("无权修改其他用户的信息")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -456,14 +505,22 @@ func (u *UserService) UpdateUser(req *request.UserUpdateRequest) (*models.JsonRe
 }
 
 // UpdatePassword 修改用户密码
-func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*models.JsonResponse, error) {
+func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+	// 权限验证：只有用户本人可以修改密码
+	if req.ID != currentUserID {
+		return nil, fmt.Errorf("无权修改其他用户的密码")
+	}
+
 	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
 		return nil, fmt.Errorf("验证已过期")
 	}
-	challengeId := get.(string)
+	challengeId, ok := get.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid challenge cache data")
+	}
 	if challengeId == "" {
 		return nil, fmt.Errorf("验证已过期")
 	}
@@ -484,7 +541,8 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 	}
 	newPsw := string(decryptNew)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -502,20 +560,43 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest) (*m
 	}
 
 	// 删除已使用的挑战
-	_ = u.cacheLocal.Delete(req.Challenge)
+	if err := u.cacheLocal.Delete(req.Challenge); err != nil {
+		logger.LOG.Warn("删除已使用的挑战缓存失败", "error", err)
+	}
+
+	// 密码修改成功后，清除该用户的 session 缓存，使旧 token 失效
+	sessionKey := "user_session:" + user.ID
+	if oldUID, err := u.cacheLocal.Get(sessionKey); err == nil && oldUID != nil {
+		if oldUIDStr, ok := oldUID.(string); ok && oldUIDStr != "" {
+			if err := u.cacheLocal.Delete(oldUIDStr); err != nil {
+				logger.LOG.Warn("清除旧session缓存失败，旧token可能仍有效", "error", err, "userID", user.ID)
+			}
+		}
+	}
+	if err := u.cacheLocal.Delete(sessionKey); err != nil {
+		logger.LOG.Warn("清除session key缓存失败，旧token可能仍有效", "error", err, "userID", user.ID, "sessionKey", sessionKey)
+	}
 
 	return models.NewJsonResponse(200, "ok", nil), nil
 }
 
 // SetFilePassword 设置文件密码
-func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (*models.JsonResponse, error) {
+func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+	// 权限验证：只有用户本人可以设置文件密码
+	if req.ID != currentUserID {
+		return nil, fmt.Errorf("无权修改其他用户的文件密码")
+	}
+
 	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
 		return nil, fmt.Errorf("验证已过期")
 	}
-	challengeId := get.(string)
+	challengeId, ok := get.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid challenge cache data")
+	}
 	if challengeId == "" {
 		return nil, fmt.Errorf("验证已过期")
 	}
@@ -528,7 +609,8 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (
 	}
 	psw := string(decrypt)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -551,14 +633,22 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest) (
 }
 
 // UpdateFilePassword 修改文件密码
-func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest) (*models.JsonResponse, error) {
+func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+	// 权限验证：只有用户本人可以修改文件密码
+	if req.ID != currentUserID {
+		return nil, fmt.Errorf("无权修改其他用户的文件密码")
+	}
+
 	// 验证挑战是否有效
 	get, err := u.cacheLocal.Get(req.Challenge)
 	if err != nil {
 		logger.LOG.Error("获取缓存失败", "error", err)
 		return nil, fmt.Errorf("验证已过期")
 	}
-	challengeId := get.(string)
+	challengeId, ok := get.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid challenge cache data")
+	}
 	if challengeId == "" {
 		return nil, fmt.Errorf("验证已过期")
 	}
@@ -579,7 +669,8 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 	}
 	newPsw := string(decryptNew)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -604,7 +695,8 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest)
 
 // GenerateApiKey 生成API Key
 func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 生成唯一的 API Key（使用 UUID）
 	apiKeyStr := uuid.Must(uuid.NewV7()).String()
@@ -667,7 +759,8 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 
 // ListApiKeys 获取用户的API Key列表
 func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 查询用户的API Key列表
 	apiKeys, err := u.factory.ApiKey().List(ctx, userID, 0, 100)
@@ -715,7 +808,8 @@ func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 
 // DeleteApiKey 删除API Key
 func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证API Key是否存在且属于该用户
 	apiKey, err := u.factory.ApiKey().GetByID(ctx, req.ApiKeyID)
@@ -752,7 +846,9 @@ func maskApiKey(key string) string {
 }
 
 func (u *UserService) GetUserInfo(userID string) (*models.JsonResponse, error) {
-	id, err := u.factory.User().GetByID(context.Background(), userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	id, err := u.factory.User().GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

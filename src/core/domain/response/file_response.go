@@ -40,7 +40,7 @@ type FileItem struct {
 	FileID string `json:"file_id"`
 	//UfID         string               `json:"uf_id"` // 用户文件ID
 	FileName     string               `json:"file_name"`
-	FileSize     int                  `json:"file_size"`
+	FileSize     int64                `json:"file_size"`
 	MimeType     string               `json:"mime_type"`
 	IsEnc        bool                 `json:"is_enc"`
 	HasThumbnail bool                 `json:"has_thumbnail"` // 是否有缩略图
@@ -95,7 +95,7 @@ type ShareListItem struct {
 	FileName      string               `json:"file_name"` // 用户文件名
 	Token         string               `json:"token"`
 	ExpiresAt     custom_type.JsonTime `json:"expires_at"`
-	PasswordHash  string               `json:"password_hash"`
+	PasswordHash  string               `json:"-"` // 不暴露密码哈希到JSON响应
 	DownloadCount int                  `json:"download_count"`
 	CreatedAt     custom_type.JsonTime `json:"created_at"`
 }
@@ -147,7 +147,7 @@ type PublicFileItem struct {
 	// 文件名
 	FileName string `json:"file_name"`
 	// 文件大小
-	FileSize int `json:"file_size"`
+	FileSize int64 `json:"file_size"`
 	// MIME 类型
 	MimeType string `json:"mime_type"`
 	// 所属用户名

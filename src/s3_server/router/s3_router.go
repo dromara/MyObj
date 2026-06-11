@@ -36,7 +36,11 @@ func SetupS3Router(router *gin.Engine, factory *impl.RepositoryFactory, fileServ
 	)
 
 	// 创建S3处理器
-	s3Handler := handler.NewS3Handler(factory, fileService)
+	s3Handler, err := handler.NewS3Handler(factory, fileService)
+	if err != nil {
+		logger.LOG.Error("创建S3处理器失败", "error", err)
+		return
+	}
 
 	// S3 API路由组 - 使用配置的路径前缀
 	s3Group := router.Group(pathPrefix)

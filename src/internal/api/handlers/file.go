@@ -28,17 +28,13 @@ func NewFileHandler(service *service.FileService, cacheLocal cache.Cache) *FileH
 }
 
 func (f *FileHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(f.cache,
-		f.service.GetRepository().ApiKey(),
-		f.service.GetRepository().User(),
-		f.service.GetRepository().GroupPower(),
-		f.service.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(f.cache, f.service.GetRepository())
 
 	// 公开路由（不需要验证）
 	publicGroup := c.Group("/file")
 	{
-		// 公开文件列表
-		publicGroup.GET("/public/list", f.PublicFileList)
+		// 公开文件列表（无认证，应添加限流中间件防止滥用，可复用 middleware.ShareRateLimit）
+		publicGroup.GET("/public/list", middleware.ShareRateLimit(), f.PublicFileList)
 	}
 
 	// 需要验证的路由
@@ -77,14 +73,14 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/move", middleware.PowerVerify("file:move"), f.MoveFile)
 		// 删除文件
 		fileGroup.POST("/delete", middleware.PowerVerify("file:delete"), f.DeleteFile)
-		// 重命名文件（业务逻辑已验证文件所有权，无需额外权限验证）
-		fileGroup.POST("/rename", f.RenameFile)
-		// 重命名目录（业务逻辑已验证目录所有权，无需额外权限验证）
-		fileGroup.POST("/renameDir", f.RenameDir)
-		// 删除目录（业务逻辑已验证目录所有权，无需额外权限验证）
-		fileGroup.POST("/deleteDir", f.DeleteDir)
-		// 设置文件公开状态（业务逻辑已验证文件所有权和加密状态，无需额外权限验证）
-		fileGroup.POST("/setPublic", f.SetFilePublic)
+		// 重命名文件
+		fileGroup.POST("/rename", middleware.PowerVerify("file:rename"), f.RenameFile)
+		// 重命名目录
+		fileGroup.POST("/renameDir", middleware.PowerVerify("file:rename"), f.RenameDir)
+		// 删除目录
+		fileGroup.POST("/deleteDir", middleware.PowerVerify("file:delete"), f.DeleteDir)
+		// 设置文件公开状态
+		fileGroup.POST("/setPublic", middleware.PowerVerify("file:update"), f.SetFilePublic)
 		// 获取虚拟路径
 		fileGroup.GET("/virtualPath", middleware.PowerVerify("file:preview"), f.GetVirtualPath)
 		// 打包下载
@@ -206,6 +202,9 @@ func (f *FileHandler) sendThumbnailResponse(c *gin.Context, thumbnailPath string
 		return
 	}
 
+	// 使用 filepath.Clean 校验路径，防止路径遍历攻击
+	thumbnailPath = filepath.Clean(thumbnailPath)
+
 	// 设置响应头
 	ext := filepath.Ext(thumbnailPath)
 	contentType := "image/jpeg"
@@ -237,14 +236,7 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 	// 因为前端传递的是 uf_id（用户文件关联表的ID），而不是 file_info 表的 id
 	userFile, err := f.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
 	if err != nil {
-		// 如果通过 uf_id 查询失败，尝试直接作为 file_id 查询（兼容旧版本）
-		fileInfo, err2 := f.service.GetRepository().FileInfo().GetByID(ctx, fileID)
-		if err2 != nil {
-			c.JSON(200, models.NewJsonResponse(404, "文件不存在", err.Error()))
-			return
-		}
-		// 发送缩略图响应
-		f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
+		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
 		return
 	}
 	if !userFile.IsPublic && userFile.UserID != userID {
@@ -618,23 +610,17 @@ func (f *FileHandler) DeleteUploadTask(c *gin.Context) {
 
 // CleanExpiredUploads godoc
 // @Summary 清理过期的上传任务
-// @Description 清理过期的未完成上传任务。如果提供 userID 参数，则只清理该用户的过期任务；如果不提供，则清理所有用户的过期任务（系统自动清理）
+// @Description 清理当前用户的过期未完成上传任务（始终仅清理自己的任务，防止越权）
 // @Tags 文件管理
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param user_id query string false "用户ID（可选，不提供则清理所有用户的过期任务）"
 // @Success 200 {object} models.JsonResponse{data=object} "清理结果"
 // @Failure 500 {object} models.JsonResponse "清理失败"
 // @Router /file/upload/clean-expired [post]
 func (f *FileHandler) CleanExpiredUploads(c *gin.Context) {
-	// 获取当前用户ID（用户清理自己的任务）
+	// 始终从 JWT 中获取当前用户 ID，防止越权清理其他用户的任务
 	userID := c.GetString("userID")
-
-	// 如果提供了 user_id 查询参数，使用该参数（用于系统自动清理）
-	if queryUserID := c.Query("user_id"); queryUserID != "" {
-		userID = queryUserID
-	}
 
 	result, err := f.service.CleanExpiredUploads(userID)
 	if err != nil {

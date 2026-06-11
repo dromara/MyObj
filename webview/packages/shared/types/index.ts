@@ -18,6 +18,14 @@ export interface UserInfo {
   file_password: string
   free_space: number
   state: number
+  /** 已使用存储空间（部分后端版本返回） */
+  used?: number
+  /** 存储容量限制（部分后端版本返回，别名 space） */
+  capacity?: number
+  /** 存储容量限制（部分后端版本返回，别名 space） */
+  storage_limit?: number
+  /** 已使用存储空间（部分后端版本返回，别名 used） */
+  used_storage?: number
 }
 
 // 存储信息类型

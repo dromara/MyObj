@@ -25,7 +25,7 @@ type DownloadTask struct {
 	// 任务类型
 	Type int `gorm:"column:type;type:integer;not null"`
 	// 下载URL
-	URL string `gorm:"column:url;type:text"`
+	URL string `gorm:"column:url;type:text" json:"url,omitempty"`
 	// 下载路径
 	Path string `gorm:"column:path;type:text"`
 	// 虚拟路径

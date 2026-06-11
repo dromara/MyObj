@@ -18,7 +18,12 @@ func InitCache() Cache {
 	cfg := config.GetConfig().Cache
 	if cfg.Type == "redis" {
 		logger.LOG.Info("使用 Redis 缓存")
-		return NewRedisCache(&cfg)
+		redisCache, err := NewRedisCache(&cfg)
+		if err != nil {
+			logger.LOG.Error("Redis 缓存初始化失败，回退到本地缓存", "error", err)
+			return NewLocalCache()
+		}
+		return redisCache
 	}
 	return NewLocalCache()
 }

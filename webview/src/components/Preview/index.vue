@@ -155,7 +155,7 @@
         <code
           v-if="previewType === 'code'"
           :class="`language-${codeLanguage}`"
-          v-html="highlightedContent || textContent"
+          v-html="highlightedContent || escapeHtml(textContent)"
         ></code>
         <code v-else>{{ textContent }}</code>
       </pre>
@@ -275,6 +275,19 @@
 
   const { t } = useI18n()
   const { isDark } = useTheme()
+
+  /**
+   * HTML 转义函数 - 防止 XSS 攻击
+   * 对未经过 highlight.js 处理的纯文本内容进行 HTML 实体转义
+   */
+  function escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
 
   interface Props {
     modelValue: boolean

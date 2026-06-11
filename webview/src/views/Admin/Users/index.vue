@@ -42,7 +42,7 @@
             v-model="row.state"
             :active-value="0"
             :inactive-value="1"
-            :disabled="row.group_id === 1"
+            :disabled="row.group_id === ADMIN_GROUP_ID"
             @change="handleStatusChange(row)"
           />
         </template>
@@ -50,13 +50,13 @@
       <el-table-column prop="created_at" :label="t('admin.users.createTime')" width="180" />
       <el-table-column :label="t('admin.users.operation')" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.group_id !== 1" link type="primary" @click="handleEdit(row)">
+          <el-button v-if="row.group_id !== ADMIN_GROUP_ID" link type="primary" @click="handleEdit(row)">
             {{ t('admin.users.edit') }}
           </el-button>
-          <el-button v-if="row.group_id !== 1" link type="danger" @click="handleDelete(row)">
+          <el-button v-if="row.group_id !== ADMIN_GROUP_ID" link type="danger" @click="handleDelete(row)">
             {{ t('admin.users.delete') }}
           </el-button>
-          <span v-if="row.group_id === 1" style="color: var(--el-text-color-secondary); font-size: 12px">
+          <span v-if="row.group_id === ADMIN_GROUP_ID" style="color: var(--el-text-color-secondary); font-size: 12px">
             {{ t('admin.users.adminCannotOperate') }}
           </span>
         </template>
@@ -131,6 +131,7 @@
   import type { FormRules } from 'element-plus'
   import { useI18n } from '@/composables'
   import { useUserStore } from '@/stores'
+  import { ADMIN_GROUP_ID } from '@/composables/business/useAdmin'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
@@ -266,7 +267,7 @@
   // 编辑用户
   const handleEdit = (user: AdminUser) => {
     // 禁止操作管理员组
-    if (user.group_id === 1) {
+    if (user.group_id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.users.cannotEditAdmin'))
       return
     }
@@ -338,7 +339,7 @@
   // 删除用户
   const handleDelete = async (user: AdminUser) => {
     // 禁止操作管理员组
-    if (user.group_id === 1) {
+    if (user.group_id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.users.cannotDeleteAdmin'))
       return
     }
@@ -368,7 +369,7 @@
   // 用户状态修改（参考 plus-ui 实现）
   const handleStatusChange = async (row: AdminUser) => {
     // 禁止操作管理员组
-    if (row.group_id === 1) {
+    if (row.group_id === ADMIN_GROUP_ID) {
       proxy?.$modal.msgWarning(t('admin.users.cannotOperateAdmin'))
       // 回滚状态
       row.state = row.state === 0 ? 1 : 0

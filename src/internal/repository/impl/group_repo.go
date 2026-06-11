@@ -55,3 +55,10 @@ func (r *groupRepository) GetDefaultGroup(ctx context.Context) (*models.Group, e
 	err := r.db.WithContext(ctx).Where("group_default = ?", 1).First(&group).Error
 	return &group, err
 }
+
+// GetMaxID 获取当前最大组ID
+func (r *groupRepository) GetMaxID(ctx context.Context) (int, error) {
+	var maxID int
+	err := r.db.WithContext(ctx).Model(&models.Group{}).Select("COALESCE(MAX(id), 0)").Scan(&maxID).Error
+	return maxID, err
+}

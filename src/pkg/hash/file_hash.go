@@ -131,7 +131,7 @@ func (h *FastBlake3Hasher) ComputeFileHash(filePath string) (string, time.Durati
 				logger.LOG.Debug("使用内存映射模式计算哈希")
 			}
 		}
-		hashResult, err = h.hashWithMmap(filePath)
+		hashResult, err = h.hashWithFullRead(filePath)
 	} else {
 		if h.verbose {
 			if logger.LOG != nil {
@@ -157,8 +157,10 @@ func (h *FastBlake3Hasher) ComputeFileHash(filePath string) (string, time.Durati
 	return hashResult, duration, nil
 }
 
-// hashWithMmap 使用内存映射方式计算哈希（最快）
-func (h *FastBlake3Hasher) hashWithMmap(filePath string) (string, error) {
+// hashWithFullRead 读取整个文件到内存后计算哈希（适用于中等大小文件）
+// 注意：此函数并非使用真正的内存映射(mmap)，而是通过os.ReadFile将文件内容全部读入内存。
+// 对于大文件应使用hashStreaming进行流式处理。
+func (h *FastBlake3Hasher) hashWithFullRead(filePath string) (string, error) {
 	// 读取整个文件到内存
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -287,6 +289,27 @@ func (h *FastBlake3Hasher) ComputeMultipleFilesConcurrent(filePaths []string, ma
 func ComputeBytes(data []byte) string {
 	hash := blake3.Sum256(data)
 	return hex.EncodeToString(hash[:])
+}
+
+// StreamingHasher 流式Blake3哈希计算器，支持分块写入数据
+type StreamingHasher struct {
+	hasher *blake3.Hasher
+}
+
+// NewStreamingHasher 创建新的流式哈希计算器
+func NewStreamingHasher() *StreamingHasher {
+	return &StreamingHasher{hasher: blake3.New()}
+}
+
+// Write 写入数据块
+func (h *StreamingHasher) Write(data []byte) {
+	h.hasher.Write(data)
+}
+
+// Sum 计算并返回最终的十六进制哈希字符串
+func (h *StreamingHasher) Sum() string {
+	hashBytes := h.hasher.Sum(nil)
+	return hex.EncodeToString(hashBytes)
 }
 
 // ComputeString 计算字符串的Blake3哈希

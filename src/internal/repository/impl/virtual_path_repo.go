@@ -99,3 +99,8 @@ func (r *virtualPathRepository) GetPathByUser(ctx context.Context, userID string
 	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&vpaths).Error
 	return vpaths, err
 }
+
+// DeleteByUserID 删除指定用户的所有虚拟路径
+func (r *virtualPathRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.VirtualPath{}).Error
+}

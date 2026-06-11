@@ -11,9 +11,8 @@ import (
 	"myobj/src/pkg/custom_type"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
-	"os"
-	"path/filepath"
-	"strings"
+	"myobj/src/pkg/util"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -38,7 +37,8 @@ func (r *RecycledService) GetRepository() *impl.RepositoryFactory {
 
 // GetRecycledList 获取回收站列表
 func (r *RecycledService) GetRecycledList(req *request.RecycledListRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	offset := (req.Page - 1) * req.PageSize
 
@@ -56,19 +56,58 @@ func (r *RecycledService) GetRecycledList(req *request.RecycledListRequest, user
 		return nil, fmt.Errorf("统计回收站数量失败: %w", err)
 	}
 
+	// 收集所有 fileID，批量查询 UserFiles 和 FileInfo，避免 N+1 查询
+	fileIDs := make([]string, 0, len(recycleds))
+	fileIDSet := make(map[string]struct{}, len(recycleds))
+	for _, recycled := range recycleds {
+		if _, exists := fileIDSet[recycled.FileID]; !exists {
+			fileIDSet[recycled.FileID] = struct{}{}
+			fileIDs = append(fileIDs, recycled.FileID)
+		}
+	}
+
+	// 批量查询 UserFiles（使用 Unscoped 查询软删除的记录）
+	var userFiles []models.UserFiles
+	if len(fileIDs) > 0 {
+		if err = r.factory.DB().Unscoped().Where("user_id = ? AND uf_id IN ?", userID, fileIDs).Find(&userFiles).Error; err != nil {
+			logger.LOG.Warn("批量获取用户文件关联失败", "error", err, "userID", userID)
+		}
+	}
+	// 构建 uf_id -> UserFiles 映射
+	ufMap := make(map[string]models.UserFiles, len(userFiles))
+	internalFileIDs := make([]string, 0, len(userFiles))
+	internalFileIDSet := make(map[string]struct{}, len(userFiles))
+	for _, uf := range userFiles {
+		ufMap[uf.UfID] = uf
+		if _, exists := internalFileIDSet[uf.FileID]; !exists {
+			internalFileIDSet[uf.FileID] = struct{}{}
+			internalFileIDs = append(internalFileIDs, uf.FileID)
+		}
+	}
+
+	// 批量查询 FileInfo
+	fileInfoMap := make(map[string]models.FileInfo, len(internalFileIDs))
+	if len(internalFileIDs) > 0 {
+		var fileInfos []models.FileInfo
+		if err = r.factory.DB().Where("id IN ?", internalFileIDs).Find(&fileInfos).Error; err != nil {
+			logger.LOG.Warn("批量获取文件信息失败", "error", err)
+		}
+		for _, fi := range fileInfos {
+			fileInfoMap[fi.ID] = fi
+		}
+	}
+
 	// 构造响应数据
 	items := make([]*response.RecycledItem, 0, len(recycleds))
 	for _, recycled := range recycleds {
-		// 获取用户文件关联，以获取文件名（使用 Unscoped 查询软删除的记录）
-		var userFile models.UserFiles
-		err = r.factory.DB().Unscoped().Where("user_id = ? AND uf_id = ?", userID, recycled.FileID).First(&userFile).Error
-		if err != nil {
-			logger.LOG.Warn("获取用户文件关联失败", "error", err, "userID", userID, "fileID", recycled.FileID)
+		userFile, ok := ufMap[recycled.FileID]
+		if !ok {
+			logger.LOG.Warn("获取用户文件关联失败", "userID", userID, "fileID", recycled.FileID)
 			continue
 		}
-		fileInfo, err := r.factory.FileInfo().GetByID(ctx, userFile.FileID)
-		if err != nil {
-			logger.LOG.Warn("获取文件信息失败", "error", err, "userID", userID, "fileID", recycled.FileID)
+		fileInfo, ok := fileInfoMap[userFile.FileID]
+		if !ok {
+			logger.LOG.Warn("获取文件信息失败", "userID", userID, "fileID", recycled.FileID)
 			continue
 		}
 		items = append(items, &response.RecycledItem{
@@ -95,7 +134,8 @@ func (r *RecycledService) GetRecycledList(req *request.RecycledListRequest, user
 
 // RestoreFile 还原文件
 func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证回收站记录是否存在且属于该用户
 	recycled, err := r.factory.Recycled().GetByID(ctx, req.RecycledID)
@@ -126,7 +166,7 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 	// 检查父目录是否存在
 	var targetVirtualPath string = userFile.VirtualPath
 	parentDirExists := false
-	
+
 	// 如果 VirtualPath 为空或 "0"，说明文件原本就在根目录，不需要检查
 	if userFile.VirtualPath == "" || userFile.VirtualPath == "0" {
 		parentDirExists = true // 根目录总是存在的
@@ -141,9 +181,9 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 				parentDirExists = true
 			} else if errors.Is(err, gorm.ErrRecordNotFound) {
 				// 父目录不存在
-				logger.LOG.Warn("文件原父目录已删除，将还原到根目录", 
-					"userID", userID, 
-					"fileID", recycled.FileID, 
+				logger.LOG.Warn("文件原父目录已删除，将还原到根目录",
+					"userID", userID,
+					"fileID", recycled.FileID,
 					"originalPath", userFile.VirtualPath)
 			} else {
 				logger.LOG.Warn("检查父目录时出错", "error", err, "pathID", pathID)
@@ -159,10 +199,10 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 			return nil, fmt.Errorf("获取根目录失败: %w", err)
 		}
 		targetVirtualPath = fmt.Sprintf("%d", rootPath.ID)
-		logger.LOG.Info("文件将还原到根目录", 
-			"userID", userID, 
-			"fileID", recycled.FileID, 
-			"originalPath", userFile.VirtualPath, 
+		logger.LOG.Info("文件将还原到根目录",
+			"userID", userID,
+			"fileID", recycled.FileID,
+			"originalPath", userFile.VirtualPath,
 			"newPath", targetVirtualPath)
 	}
 
@@ -178,7 +218,7 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 		if !parentDirExists {
 			updateMap["virtual_path"] = targetVirtualPath
 		}
-		
+
 		if err := tx.Model(&models.UserFiles{}).Unscoped().
 			Where("user_id = ? AND uf_id = ?", userID, recycled.FileID).
 			Updates(updateMap).Error; err != nil {
@@ -203,9 +243,9 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 		message = "文件已还原到根目录（原父目录已删除）"
 	}
 
-	logger.LOG.Info("文件已还原", 
-		"recycledID", req.RecycledID, 
-		"userID", userID, 
+	logger.LOG.Info("文件已还原",
+		"recycledID", req.RecycledID,
+		"userID", userID,
 		"fileID", recycled.FileID,
 		"originalPath", userFile.VirtualPath,
 		"newPath", targetVirtualPath)
@@ -214,7 +254,8 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 
 // DeletePermanently 永久删除文件
 func (r *RecycledService) DeletePermanently(req *request.DeleteRecycledRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证回收站记录
 	recycled, err := r.factory.Recycled().GetByID(ctx, req.RecycledID)
@@ -243,25 +284,37 @@ func (r *RecycledService) DeletePermanently(req *request.DeleteRecycledRequest, 
 
 // EmptyRecycled 清空回收站
 func (r *RecycledService) EmptyRecycled(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// 获取该用户的所有回收站记录
-	recycleds, err := r.factory.Recycled().ListByUserID(ctx, userID, 0, 10000) // 每次清除10000个文件
-	if err != nil {
-		logger.LOG.Error("查询回收站列表失败", "error", err, "userID", userID)
-		return nil, fmt.Errorf("查询回收站列表失败: %w", err)
-	}
-
+	const batchSize = 1000
+	const maxIterations = 100
 	deletedCount := 0
 	failedCount := 0
 
-	// 逐个删除
-	for _, recycled := range recycleds {
-		if err := r.deleteSingleFile(ctx, recycled); err != nil {
-			logger.LOG.Error("删除文件失败", "error", err, "recycledID", recycled.ID)
-			failedCount++
-		} else {
-			deletedCount++
+	// 循环分批清理直到全部清完
+	for i := 0; i < maxIterations; i++ {
+		recycleds, err := r.factory.Recycled().ListByUserID(ctx, userID, 0, batchSize)
+		if err != nil {
+			logger.LOG.Error("查询回收站列表失败", "error", err, "userID", userID)
+			return nil, fmt.Errorf("查询回收站列表失败: %w", err)
+		}
+		if len(recycleds) == 0 {
+			break
+		}
+
+		for _, recycled := range recycleds {
+			if err := r.deleteSingleFile(ctx, recycled); err != nil {
+				logger.LOG.Error("删除文件失败", "error", err, "recycledID", recycled.ID)
+				failedCount++
+			} else {
+				deletedCount++
+			}
+		}
+
+		// 如果本批返回的数量不足 batchSize，说明已经全部清完
+		if len(recycleds) < batchSize {
+			break
 		}
 	}
 
@@ -283,7 +336,8 @@ func (r *RecycledService) EmptyRecycled(userID string) (*models.JsonResponse, er
 
 // MoveToRecycled 将文件移动到回收站
 func (r *RecycledService) MoveToRecycled(fileID, userID string) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 创建回收站记录
 	recycled := &models.Recycled{
@@ -344,46 +398,33 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 		return fmt.Errorf("获取用户信息失败: %w", err)
 	}
 
-	// 5. 在事务中执行删除操作
-	return r.factory.DB().Transaction(func(tx *gorm.DB) error {
+	// 5. 在事务中仅执行数据库记录删除操作（不删除物理文件）
+	err = r.factory.DB().Transaction(func(tx *gorm.DB) error {
 		txFactory := r.factory.WithTx(tx)
 
-		// 5.1 删除物理文件（普通文件或加密文件）
-		if err := r.deletePhysicalFile(fileInfo); err != nil {
-			logger.LOG.Warn("删除物理文件失败", "error", err)
-			// 物理文件删除失败不阻塞事务，继续执行
-		}
-
-		// 5.2 删除缩略图
-		if fileInfo.ThumbnailImg != "" {
-			if err := r.deleteThumbnail(fileInfo.ThumbnailImg); err != nil {
-				logger.LOG.Warn("删除缩略图失败", "error", err)
-			}
-		}
-
-		// 5.3 删除用户文件关联
-		if err := txFactory.UserFiles().Delete(ctx, recycled.UserID, recycled.FileID); err != nil {
+		// 5.1 删除用户文件关联（使用 Unscoped 物理删除已软删除的记录）
+		if err := txFactory.DB().Unscoped().Where("user_id = ? AND uf_id = ?", recycled.UserID, recycled.FileID).Delete(&models.UserFiles{}).Error; err != nil {
 			return fmt.Errorf("删除用户文件关联失败: %w", err)
 		}
 
-		// 5.4 如果是分片文件，删除所有分片记录
+		// 5.2 如果是分片文件，删除所有分片记录
 		if fileInfo.IsChunk {
 			if err := txFactory.FileChunk().DeleteByFileID(ctx, recycled.FileID); err != nil {
 				return fmt.Errorf("删除文件分片记录失败: %w", err)
 			}
 		}
 
-		// 5.5 删除FileInfo记录
+		// 5.3 删除FileInfo记录
 		if err := txFactory.FileInfo().Delete(ctx, userFile.FileID); err != nil {
 			return fmt.Errorf("删除文件信息记录失败: %w", err)
 		}
 
-		// 5.6 删除回收站记录
+		// 5.4 删除回收站记录
 		if err := txFactory.Recycled().Delete(ctx, recycled.ID); err != nil {
 			return fmt.Errorf("删除回收站记录失败: %w", err)
 		}
 
-		// 5.7 归还用户空间（只对非无限空间用户）
+		// 5.5 归还用户空间（只对非无限空间用户）
 		if user.Space > 0 {
 			user.FreeSpace += int64(fileInfo.Size)
 			if err := txFactory.User().Update(ctx, user); err != nil {
@@ -396,134 +437,19 @@ func (r *RecycledService) deleteSingleFile(ctx context.Context, recycled *models
 		}
 		return nil
 	})
-}
-
-// deletePhysicalFile 删除物理文件
-func (r *RecycledService) deletePhysicalFile(fileInfo *models.FileInfo) error {
-	// 如果有加密文件，优先删除加密文件
-	if fileInfo.IsEnc && fileInfo.EncPath != "" {
-		if err := r.deleteFile(fileInfo.EncPath); err != nil {
-			logger.LOG.Warn("删除加密文件失败", "path", fileInfo.EncPath, "error", err)
-		}
-		// 删除.info文件
-		infoPath := fileInfo.EncPath + ".info"
-		if err := r.deleteFile(infoPath); err != nil {
-			logger.LOG.Warn("删除.info文件失败", "path", infoPath, "error", err)
-		}
-	}
-
-	// 删除普通文件
-	if fileInfo.Path != "" {
-		if err := r.deleteFile(fileInfo.Path); err != nil {
-			logger.LOG.Warn("删除普通文件失败", "path", fileInfo.Path, "error", err)
-		}
-		ext := filepath.Ext(fileInfo.Path)
-		basePath := strings.TrimSuffix(fileInfo.Path, ext)
-		infoPath := basePath + ".info"
-		if err := r.deleteFile(infoPath); err != nil {
-			logger.LOG.Warn("删除.info文件失败", "path", infoPath, "error", err)
-		}
-
-	}
-
-	// 如果是分片文件，删除分片目录
-	if fileInfo.IsChunk && fileInfo.Path != "" {
-		// 文件路径格式: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}.data
-		// 分片目录为: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}
-		chunkDir := strings.TrimSuffix(fileInfo.Path, ".data")
-		if err := r.deleteDirectory(chunkDir); err != nil {
-			logger.LOG.Warn("删除分片目录失败", "path", chunkDir, "error", err)
-		}
-		// 删除父目录（如果为空）
-		// 路径格式: {DataPath}/data/{\u539f文件名不带后缀}
-		parentDir := filepath.Dir(fileInfo.Path)
-		if err := r.deleteDirectoryIfEmpty(parentDir); err != nil {
-			logger.LOG.Warn("删除父目录失败", "path", parentDir, "error", err)
-		}
-	} else if fileInfo.Path != "" {
-		// 对于非分片文件，删除 .data 文件所在的文件夹（如果为空）
-		// 路径格式: {DataPath}/data/{\u539f文件名不带后缀}/{\u865a拟文件名}.data
-		parentDir := filepath.Dir(fileInfo.Path)
-		if err := r.deleteDirectoryIfEmpty(parentDir); err != nil {
-			logger.LOG.Warn("删除文件夹失败", "path", parentDir, "error", err)
-		}
-	}
-
-	return nil
-}
-
-// deleteThumbnail 删除缩略图
-func (r *RecycledService) deleteThumbnail(thumbnailPath string) error {
-	return r.deleteFile(thumbnailPath)
-}
-
-// deleteFile 删除文件
-func (r *RecycledService) deleteFile(filePath string) error {
-	if filePath == "" {
-		return nil
-	}
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		logger.LOG.Debug("文件不存在，跳过删除", "path", filePath)
-		return nil
-	}
-
-	if err := os.Remove(filePath); err != nil {
-		return fmt.Errorf("删除文件失败 %s: %w", filePath, err)
-	}
-
-	logger.LOG.Debug("成功删除文件", "path", filePath)
-	return nil
-}
-
-// deleteDirectory 删除目录
-func (r *RecycledService) deleteDirectory(dirPath string) error {
-	if dirPath == "" {
-		return nil
-	}
-
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		logger.LOG.Debug("目录不存在，跳过删除", "path", dirPath)
-		return nil
-	}
-
-	if err := os.RemoveAll(dirPath); err != nil {
-		return fmt.Errorf("删除目录失败 %s: %w", dirPath, err)
-	}
-
-	logger.LOG.Debug("成功删除目录", "path", dirPath)
-	return nil
-}
-
-// deleteDirectoryIfEmpty 删除空目录（如果目录为空）
-func (r *RecycledService) deleteDirectoryIfEmpty(dirPath string) error {
-	if dirPath == "" {
-		return nil
-	}
-
-	// 检查目录是否存在
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		logger.LOG.Debug("目录不存在，跳过删除", "path", dirPath)
-		return nil
-	}
-
-	// 读取目录内容
-	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return fmt.Errorf("读取目录失败 %s: %w", dirPath, err)
+		return err
 	}
 
-	// 如果目录不为空，不删除
-	if len(entries) > 0 {
-		logger.LOG.Debug("目录不为空，跳过删除", "path", dirPath, "file_count", len(entries))
-		return nil
+	// 6. 事务提交成功后，删除物理文件（不影响数据库一致性）
+	if err := util.DeletePhysicalFile(fileInfo.Path); err != nil {
+		logger.LOG.Warn("删除物理文件失败（数据库记录已删除）", "error", err, "file_id", recycled.FileID)
 	}
 
-	// 删除空目录
-	if err := os.Remove(dirPath); err != nil {
-		return fmt.Errorf("删除空目录失败 %s: %w", dirPath, err)
+	// 7. 删除缩略图
+	if fileInfo.ThumbnailImg != "" {
+		util.DeleteThumbnail(fileInfo.ThumbnailImg)
 	}
 
-	logger.LOG.Debug("成功删除空目录", "path", dirPath)
 	return nil
 }

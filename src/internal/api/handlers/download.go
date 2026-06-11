@@ -12,9 +12,11 @@ import (
 	"myobj/src/pkg/download"
 	"myobj/src/pkg/logger"
 	"myobj/src/pkg/models"
+	"myobj/src/pkg/util"
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,11 +35,7 @@ func NewDownloadHandler(service *service.DownloadService, cacheLocal cache.Cache
 }
 
 func (h *DownloadHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddleware(h.cache,
-		h.service.GetRepository().ApiKey(),
-		h.service.GetRepository().User(),
-		h.service.GetRepository().GroupPower(),
-		h.service.GetRepository().Power())
+	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository())
 
 	downloadGroup := c.Group("/download")
 	{
@@ -97,15 +95,8 @@ func (h *DownloadHandler) GetTaskList(c *gin.Context) {
 		return
 	}
 
-	// 默认查询所有状态
-	if req.State == 0 && c.Query("state") == "" {
-		req.State = -1
-	}
-	// 默认查询所有类型（如果未指定 type 参数，则 Type 为 0，需要设置为 -1）
-	// 注意：type=0 是有效的类型值（HTTP下载），所以只有当查询参数中完全没有 type 时才设置为 -1
-	if c.Query("type") == "" {
-		req.Type = -1
-	}
+	// State 和 Type 为 *int 指针类型，nil 表示不过滤（查询所有）
+	// 不再需要 -1 哨兵值
 
 	userID := c.GetString("userID")
 	result, err := h.service.GetTaskList(req, userID)
@@ -281,18 +272,23 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 	fileSize := fileInfo.Size()
 
 	// 7. 传输文件（使用公共函数）
+	var taskMu sync.Mutex // 保护 task.State 的并发修改
 	serveFileWithOptions(c, file, fileSize, &serveFileOptions{
 		ContentType:        "application/octet-stream",
-		ContentDisposition: "attachment; filename=\"" + task.FileName + "\"",
+		ContentDisposition: util.BuildContentDisposition(task.FileName, "attachment"),
 		FileName:           task.FileName,
 		LogContext:         map[string]interface{}{"taskID": taskID},
 		OnComplete: func() {
 			// 完整文件下载后清理临时文件
 			go func() {
-				// 更新任务状态为完成
+				// 使用 mutex 保护 task.State 的修改，防止并发请求对同一任务的竞态写入
+				taskMu.Lock()
 				task.State = 3 // 3=完成
 				task.FinishTime = custom_type.Now()
-				h.service.GetRepository().DownloadTask().Update(context.Background(), task)
+				if err := h.service.GetRepository().DownloadTask().Update(context.Background(), task); err != nil {
+					logger.LOG.Error("更新下载任务状态失败", "taskID", taskID, "error", err)
+				}
+				taskMu.Unlock()
 
 				// 如果是临时文件，则清理
 				if download.IsTempPath(tempFilePath) {
@@ -336,14 +332,14 @@ func serveFileWithOptions(c *gin.Context, file *os.File, fileSize int64, opts *s
 		contentLength := rangeInfo.End - rangeInfo.Start + 1
 		c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
 		c.Header("Content-Range", "bytes "+strconv.FormatInt(rangeInfo.Start, 10)+"-"+strconv.FormatInt(rangeInfo.End, 10)+"/"+strconv.FormatInt(fileSize, 10))
-		c.Status(206)
-
 		// 定位到起始位置
 		if _, err := file.Seek(rangeInfo.Start, io.SeekStart); err != nil {
 			logger.LOG.Error("文件定位失败", "error", err)
 			c.JSON(500, models.NewJsonResponse(500, "文件读取失败", nil))
 			return
 		}
+
+		c.Status(206)
 
 		// 读取指定范围的数据
 		_, err = io.CopyN(c.Writer, file, contentLength)
@@ -498,7 +494,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 	tempFilePath := result.TempFilePath
 	serveFileWithOptions(c, file, fileSize, &serveFileOptions{
 		ContentType:        result.ContentType,
-		ContentDisposition: "inline; filename=\"" + fileInfo.Name + "\"", // inline 用于预览
+		ContentDisposition: util.BuildContentDisposition(fileInfo.Name, "inline"),
 		FileName:           fileInfo.Name,
 		LogContext:         map[string]interface{}{"fileID": fileID},
 		OnComplete: func() {
@@ -507,7 +503,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 				go func() {
 					// 异步清理临时文件（延迟清理，避免频繁创建）
 					time.Sleep(5 * time.Minute) // 5分钟后清理
-					if err := os.RemoveAll(filepath.Dir(tempFilePath)); err != nil {
+					if err := os.Remove(tempFilePath); err != nil {
 						logger.LOG.Warn("清理预览临时文件失败", "path", tempFilePath, "error", err)
 					} else {
 						logger.LOG.Debug("预览临时文件已清理", "path", tempFilePath)

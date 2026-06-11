@@ -144,8 +144,11 @@ func matchOrigin(origin string, allowedOrigins []string) bool {
 		if strings.Contains(allowed, "*") {
 			pattern := strings.ReplaceAll(allowed, ".", "\\.")
 			pattern = strings.ReplaceAll(pattern, "*", ".*")
-			matched, _ := regexp.MatchString("^"+pattern+"$", origin)
-			if matched {
+			re, err := regexp.Compile("^" + pattern + "$")
+			if err != nil {
+				continue
+			}
+			if re.MatchString(origin) {
 				return true
 			}
 		}

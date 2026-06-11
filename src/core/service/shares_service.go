@@ -14,6 +14,7 @@ import (
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/util"
 	"path"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -36,8 +37,11 @@ func (s *SharesService) GetRepository() *impl.RepositoryFactory {
 
 // CreateShare 创建分享
 func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	uid := fmt.Sprintf("%s-%v", uuid.New().String(), util.TimeUtil{}.GetTimestamp())
-	
+
 	// 如果密码为空，不生成哈希，直接设置为空字符串
 	var passwordHash string
 	if req.Password != "" {
@@ -48,8 +52,8 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 		}
 		passwordHash = password
 	}
-	
-	userFile, err := s.factory.UserFiles().GetByUserIDAndUfID(context.Background(), userID, req.FileID)
+
+	userFile, err := s.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
 		return nil, err
@@ -63,7 +67,7 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 		DownloadCount: 0,
 		CreatedAt:     custom_type.Now(),
 	}
-	err = s.factory.Share().Create(context.Background(), data)
+	err = s.factory.Share().Create(ctx, data)
 	if err != nil {
 		logger.LOG.Error("创建分享失败", "error", err)
 		return nil, err
@@ -74,7 +78,8 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 // GetShareInfo 获取分享信息（不触发下载）
 // password: 分享密码（如果有密码则必需）
 func (s *SharesService) GetShareInfo(token string, password string) (*response.ShareInfoResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	byToken, err := s.factory.Share().GetByToken(ctx, token)
 	if err != nil {
 		logger.LOG.Error("获取分享失败", "error", err)
@@ -132,7 +137,8 @@ func (s *SharesService) GetShareInfo(token string, password string) (*response.S
 
 // DownloadShare 下载分享文件
 func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloadResponse {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	sdr := &response.SharesDownloadResponse{}
 	byToken, err := s.factory.Share().GetByToken(ctx, token)
 	if err != nil {
@@ -163,7 +169,7 @@ func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloa
 		return sdr
 	}
 	// 使用时间戳生成临时目录，避免Windows文件名非法字符
-	tmpDir := path.Join(disk.DiskPath, config.CONFIG.File.TempDir, fmt.Sprintf("share_%d", util.TimeUtil{}.GetTimestamp()))
+	tmpDir := path.Join(disk.DataPath, config.CONFIG.File.TempDir, fmt.Sprintf("share_%d", util.TimeUtil{}.GetTimestamp()))
 
 	// 准备文件下载（解密+合并）
 	result, err := download.PrepareLocalFileDownload(
@@ -186,11 +192,10 @@ func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloa
 		sdr.Err = "获取文件失败"
 		return sdr
 	}
-	byToken.DownloadCount += 1
-	err = s.factory.Share().Update(ctx, byToken)
+	err = s.factory.Share().IncrementDownloadCount(ctx, byToken.ID)
 	if err != nil {
-		logger.LOG.Error("更新分享失败", "error", err)
-		sdr.Err = "获取分享失败"
+		logger.LOG.Error("更新下载次数失败", "error", err)
+		sdr.Err = "更新下载次数失败"
 		return sdr
 	}
 	sdr.FileName = id.FileName
@@ -201,20 +206,43 @@ func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloa
 
 // GetShareList 获取用户的分享列表
 func (s *SharesService) GetShareList(userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	shares, err := s.factory.Share().List(ctx, userID, 0, 1000)
 	if err != nil {
 		logger.LOG.Error("获取分享列表失败", "error", err)
 		return nil, fmt.Errorf("获取分享列表失败")
 	}
 
+	// 收集所有 fileID，批量查询 UserFiles，避免 N+1 查询
+	fileIDs := make([]string, 0, len(shares))
+	fileIDSet := make(map[string]struct{}, len(shares))
+	for _, share := range shares {
+		if _, exists := fileIDSet[share.FileID]; !exists {
+			fileIDSet[share.FileID] = struct{}{}
+			fileIDs = append(fileIDs, share.FileID)
+		}
+	}
+
+	// 批量查询 UserFiles（同一 userID 下）
+	var userFiles []models.UserFiles
+	if len(fileIDs) > 0 {
+		if err = s.factory.DB().Where("user_id = ? AND file_id IN ?", userID, fileIDs).Find(&userFiles).Error; err != nil {
+			logger.LOG.Error("批量获取用户文件失败", "error", err)
+		}
+	}
+	// 构建 file_id -> fileName 映射
+	fileNameMap := make(map[string]string, len(userFiles))
+	for _, uf := range userFiles {
+		fileNameMap[uf.FileID] = uf.FileName
+	}
+
 	// 构建带文件名的分享列表
 	var shareList []map[string]interface{}
 	for _, share := range shares {
-		// 获取用户文件信息
-		userFile, err := s.factory.UserFiles().GetByUserIDAndFileID(ctx, share.UserID, share.FileID)
-		if err != nil {
-			logger.LOG.Error("获取用户文件失败", "error", err, "fileID", share.FileID)
+		fileName, ok := fileNameMap[share.FileID]
+		if !ok {
+			logger.LOG.Error("获取用户文件失败", "fileID", share.FileID)
 			continue
 		}
 
@@ -222,10 +250,10 @@ func (s *SharesService) GetShareList(userID string) (*models.JsonResponse, error
 			"id":             share.ID,
 			"user_id":        share.UserID,
 			"file_id":        share.FileID,
-			"file_name":      userFile.FileName,
+			"file_name":      fileName,
 			"token":          share.Token,
 			"expires_at":     share.ExpiresAt.Format("2006-01-02 15:04:05"),
-			"password_hash":  share.PasswordHash,
+			"has_password":   share.PasswordHash != "",
 			"download_count": share.DownloadCount,
 			"created_at":     share.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
@@ -237,7 +265,8 @@ func (s *SharesService) GetShareList(userID string) (*models.JsonResponse, error
 
 // DeleteShare 删除分享
 func (s *SharesService) DeleteShare(shareID int, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	// 验证分享是否属于该用户
 	share, err := s.factory.Share().GetByID(ctx, shareID)
 	if err != nil {
@@ -257,7 +286,8 @@ func (s *SharesService) DeleteShare(shareID int, userID string) (*models.JsonRes
 
 // UpdateSharePassword 修改分享密码
 func (s *SharesService) UpdateSharePassword(shareID int, password string, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	// 验证分享是否属于该用户
 	share, err := s.factory.Share().GetByID(ctx, shareID)
 	if err != nil {

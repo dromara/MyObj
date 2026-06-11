@@ -95,7 +95,7 @@ func (h *MultiHandler) WithGroup(name string) slog.Handler {
 func InitLogger() {
 	cfg := config.CONFIG.Log
 	// 确保日志目录存在
-	if err := os.MkdirAll(cfg.LogPath, 0777); err != nil {
+	if err := os.MkdirAll(cfg.LogPath, 0750); err != nil {
 		log.Fatalf("创建日志目录失败: %v", err)
 	}
 

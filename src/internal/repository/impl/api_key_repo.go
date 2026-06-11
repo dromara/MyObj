@@ -66,3 +66,8 @@ func (r *apiKeyRepository) Count(ctx context.Context, userID string) (int64, err
 	err := query.Count(&count).Error
 	return count, err
 }
+
+// DeleteByUserID 删除指定用户的所有 API Keys
+func (r *apiKeyRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.ApiKey{}).Error
+}

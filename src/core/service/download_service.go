@@ -14,21 +14,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 // DownloadService 下载服务
 type DownloadService struct {
-	factory *impl.RepositoryFactory
-	tempDir string // 临时目录
+	factory  *impl.RepositoryFactory
+	tempDir  string // 临时目录
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 func NewDownloadService(factory *impl.RepositoryFactory) *DownloadService {
 	// 选择最大磁盘创建临时目录
 	tempDir := "./obj_temp/downloads" // 默认值
 
-	ctx := context.Background()
+	ctx, timeoutCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer timeoutCancel()
 	disk, err := factory.Disk().GetBigDisk(ctx)
 	if err == nil && disk != nil {
 		// 在最大磁盘的data_path下创建 temp 目录
@@ -45,9 +49,13 @@ func NewDownloadService(factory *impl.RepositoryFactory) *DownloadService {
 		logger.LOG.Info("临时目录初始化成功", "tempDir", tempDir)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &DownloadService{
 		factory: factory,
 		tempDir: tempDir,
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 }
 
@@ -55,9 +63,15 @@ func (d *DownloadService) GetRepository() *impl.RepositoryFactory {
 	return d.factory
 }
 
+// Close 取消所有正在进行的异步下载任务，用于服务优雅关闭
+func (d *DownloadService) Close() {
+	d.cancel()
+}
+
 // CreateOfflineDownload 创建离线下载任务
 func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 验证用户是否存在并获取用户信息
 	user, err := d.factory.User().GetByID(ctx, userID)
@@ -79,7 +93,7 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 	}
 
 	// 3. 获取文件信息并检查用户空间
-	fileInfo, _, err := download.GetFileInfo(req.URL, 300)
+	fileInfo, _, err := download.GetFileInfo(req.URL, 300, "")
 	if err != nil {
 		// 无法获取文件大小时，仍然允许创建任务（可能是动态内容）
 		logger.LOG.Warn("无法获取文件信息，跳过空间检查", "url", req.URL, "error", err)
@@ -117,7 +131,7 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 		return nil, fmt.Errorf("创建任务失败: %w", err)
 	}
 
-	// 5. 异步启动下载任务
+	// 5. 异步启动下载任务（使用服务级context，支持优雅关闭）
 	go func() {
 		opts := &download.HTTPDownloadOptions{
 			EnableEncryption: req.EnableEncryption,
@@ -129,11 +143,17 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 			FilePassword:     req.FilePassword,
 		}
 
+		// 检查服务级context是否已取消
+		select {
+		case <-d.ctx.Done():
+			logger.LOG.Info("服务已关闭，跳过离线下载任务", "taskID", taskID)
+			return
+		default:
+		}
+
 		_, err := download.DownloadHTTP(taskID, req.URL, userID, d.tempDir, d.factory, opts)
 		if err != nil {
 			logger.LOG.Error("离线下载失败", "taskID", taskID, "error", err)
-		} else {
-
 		}
 	}()
 
@@ -146,7 +166,8 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 
 // GetTaskList 获取下载任务列表
 func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	offset := (req.Page - 1) * req.PageSize
 
@@ -154,44 +175,44 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 	var total int64
 	var err error
 
-	// 判断是否指定了类型过滤
+	// 判断是否指定了类型/状态过滤（*int 指针，nil 表示不过滤）
 	// 注意：如果同时指定了 Type 和 TypeMax，优先使用 Type（单个类型查询，向后兼容）
-	hasTypeFilter := req.Type >= 0
+	hasTypeFilter := req.Type != nil
 	hasTypeRangeFilter := req.TypeMax > 0 && !hasTypeFilter // 只有在没有指定 Type 时才使用 TypeMax
-	hasStateFilter := req.State >= 0
+	hasStateFilter := req.State != nil
 
 	if hasStateFilter && hasTypeFilter {
 		// 按状态和类型查询（单个类型）
-		tasks, err = d.factory.DownloadTask().ListByStateAndType(ctx, userID, req.State, req.Type, offset, req.PageSize)
+		tasks, err = d.factory.DownloadTask().ListByStateAndType(ctx, userID, *req.State, *req.Type, offset, req.PageSize)
 		if err != nil {
-			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State, "type", req.Type)
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", *req.State, "type", *req.Type)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
-		total, err = d.factory.DownloadTask().CountByStateAndType(ctx, userID, req.State, req.Type)
+		total, err = d.factory.DownloadTask().CountByStateAndType(ctx, userID, *req.State, *req.Type)
 	} else if hasStateFilter && hasTypeRangeFilter {
 		// 按状态和类型范围查询
-		tasks, err = d.factory.DownloadTask().ListByStateAndTypeRange(ctx, userID, req.State, req.TypeMax, offset, req.PageSize)
+		tasks, err = d.factory.DownloadTask().ListByStateAndTypeRange(ctx, userID, *req.State, req.TypeMax, offset, req.PageSize)
 		if err != nil {
-			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State, "typeMax", req.TypeMax)
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", *req.State, "typeMax", req.TypeMax)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
-		total, err = d.factory.DownloadTask().CountByStateAndTypeRange(ctx, userID, req.State, req.TypeMax)
+		total, err = d.factory.DownloadTask().CountByStateAndTypeRange(ctx, userID, *req.State, req.TypeMax)
 	} else if hasStateFilter {
 		// 只按状态查询
-		tasks, err = d.factory.DownloadTask().ListByState(ctx, userID, req.State, offset, req.PageSize)
+		tasks, err = d.factory.DownloadTask().ListByState(ctx, userID, *req.State, offset, req.PageSize)
 		if err != nil {
-			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", req.State)
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "state", *req.State)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
-		total, err = d.factory.DownloadTask().CountByState(ctx, userID, req.State)
+		total, err = d.factory.DownloadTask().CountByState(ctx, userID, *req.State)
 	} else if hasTypeFilter {
 		// 只按类型查询（单个类型）
-		tasks, err = d.factory.DownloadTask().ListByType(ctx, userID, req.Type, offset, req.PageSize)
+		tasks, err = d.factory.DownloadTask().ListByType(ctx, userID, *req.Type, offset, req.PageSize)
 		if err != nil {
-			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "type", req.Type)
+			logger.LOG.Error("查询下载任务失败", "error", err, "userID", userID, "type", *req.Type)
 			return nil, fmt.Errorf("查询任务失败: %w", err)
 		}
-		total, err = d.factory.DownloadTask().CountByType(ctx, userID, req.Type)
+		total, err = d.factory.DownloadTask().CountByType(ctx, userID, *req.Type)
 	} else if hasTypeRangeFilter {
 		// 只按类型范围查询
 		tasks, err = d.factory.DownloadTask().ListByTypeRange(ctx, userID, req.TypeMax, offset, req.PageSize)
@@ -215,6 +236,32 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 		return nil, fmt.Errorf("统计任务失败: %w", err)
 	}
 
+	// 批量收集需要查询的 fileID，避免 N+1 查询
+	var fileIDsToQuery []string
+	taskIndexMap := make(map[string][]int) // fileID -> 任务索引列表
+	for i, task := range tasks {
+		if task.State == enum.DownloadTaskStateFinished.Value() && task.FileID != "" {
+			if _, exists := taskIndexMap[task.FileID]; !exists {
+				fileIDsToQuery = append(fileIDsToQuery, task.FileID)
+			}
+			taskIndexMap[task.FileID] = append(taskIndexMap[task.FileID], i)
+		}
+	}
+
+	// 批量查询 user_files
+	var ufMap map[string]*models.UserFiles
+	if len(fileIDsToQuery) > 0 {
+		userFiles, err := d.factory.UserFiles().GetByUserIDAndFileIDs(ctx, userID, fileIDsToQuery)
+		if err != nil {
+			logger.LOG.Error("批量查询用户文件失败", "error", err, "userID", userID)
+		} else {
+			ufMap = make(map[string]*models.UserFiles, len(userFiles))
+			for _, uf := range userFiles {
+				ufMap[uf.FileID] = uf
+			}
+		}
+	}
+
 	// 转换为响应格式
 	taskResponses := make([]*response.DownloadTaskResponse, 0, len(tasks))
 	for _, task := range tasks {
@@ -222,15 +269,16 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 
 		// 只有已完成的任务才有 FileID，需要查询 user_files 获取 uf_id
 		if task.State == enum.DownloadTaskStateFinished.Value() && task.FileID != "" {
-			userFile, err := d.factory.UserFiles().GetByUserIDAndFileID(ctx, userID, task.FileID)
-			if err != nil {
-				// 文件可能已被删除（移到回收站或永久删除），这是正常场景
-				logger.LOG.Debug("下载任务关联的文件已不存在", "fileID", task.FileID, "taskID", task.ID, "error", err.Error())
-				// 不阻断整个列表，继续处理下一个任务
-				// 返回空字符串表示文件已不可用
-				t.FileID = ""
+			if ufMap != nil {
+				if userFile, exists := ufMap[task.FileID]; exists {
+					t.FileID = userFile.UfID // 返回 uf_id
+				} else {
+					// 文件可能已被删除（移到回收站或永久删除），这是正常场景
+					logger.LOG.Debug("下载任务关联的文件已不存在", "fileID", task.FileID, "taskID", task.ID)
+					t.FileID = ""
+				}
 			} else {
-				t.FileID = userFile.UfID // 返回 uf_id
+				t.FileID = ""
 			}
 		} else {
 			// 未完成的任务，返回空字符串
@@ -252,7 +300,8 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 
 // PauseTask 暂停下载任务
 func (d *DownloadService) PauseTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证任务是否属于该用户
 	task, err := d.factory.DownloadTask().GetByID(ctx, req.TaskID)
@@ -287,7 +336,8 @@ func (d *DownloadService) PauseTask(req *request.TaskOperationRequest, userID st
 
 // ResumeTask 恢复下载任务
 func (d *DownloadService) ResumeTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证任务是否属于该用户
 	task, err := d.factory.DownloadTask().GetByID(ctx, req.TaskID)
@@ -322,7 +372,8 @@ func (d *DownloadService) ResumeTask(req *request.TaskOperationRequest, userID s
 
 // CancelTask 取消下载任务
 func (d *DownloadService) CancelTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证任务是否属于该用户
 	task, err := d.factory.DownloadTask().GetByID(ctx, req.TaskID)
@@ -357,7 +408,8 @@ func (d *DownloadService) CancelTask(req *request.TaskOperationRequest, userID s
 
 // DeleteTask 删除下载任务
 func (d *DownloadService) DeleteTask(req *request.DeleteTaskRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 验证任务是否属于该用户
 	task, err := d.factory.DownloadTask().GetByID(ctx, req.TaskID)
@@ -478,7 +530,8 @@ func (d *DownloadService) getTypeText(taskType int) string {
 
 // CreateLocalFileDownload 创建网盘文件下载任务
 func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 验证用户是否存在
 	_, err := d.factory.User().GetByID(ctx, userID)
@@ -528,19 +581,27 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 	// 保存真实的 file_id，用于异步任务
 	realFileID := userFile.FileID
 
-	// 4. 异步准备下载文件（解密+合并）
+	// 4. 异步准备下载文件（解密+合并，使用服务级context）
 	go func() {
+		// 检查服务级context是否已取消
+		select {
+		case <-d.ctx.Done():
+			logger.LOG.Info("服务已关闭，跳过本地文件下载准备", "taskID", taskID)
+			return
+		default:
+		}
+
 		// 更新任务状态为准备中
 		task.State = enum.DownloadTaskStateDownloading.Value()
 		task.UpdateTime = custom_type.Now()
-		d.factory.DownloadTask().Update(context.Background(), task)
+		d.factory.DownloadTask().Update(d.ctx, task)
 
 		opts := &download.LocalFileDownloadOptions{
 			FilePassword: req.FilePassword,
 		}
 
 		result, err := download.PrepareLocalFileDownload(
-			context.Background(),
+			d.ctx,
 			realFileID, // 使用真实的 file_id
 			userID,
 			d.tempDir,
@@ -553,7 +614,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 			task.State = enum.DownloadTaskStateFailed.Value()
 			task.ErrorMsg = err.Error()
 			task.UpdateTime = custom_type.Now()
-			d.factory.DownloadTask().Update(context.Background(), task)
+			d.factory.DownloadTask().Update(d.ctx, task)
 			logger.LOG.Error("准备下载文件失败", "taskID", taskID, "error", err)
 			return
 		}
@@ -565,7 +626,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 		task.Path = result.TempFilePath // 存储临时文件路径
 		task.UpdateTime = custom_type.Now()
 		task.FinishTime = custom_type.Now()
-		d.factory.DownloadTask().Update(context.Background(), task)
+		d.factory.DownloadTask().Update(d.ctx, task)
 
 		logger.LOG.Info("网盘文件下载准备完成", "taskID", taskID, "realFileID", realFileID, "ufID", req.FileID, "tempPath", result.TempFilePath)
 	}()
@@ -619,7 +680,8 @@ func (d *DownloadService) ParseTorrent(req *request.ParseTorrentRequest) (*model
 
 // StartTorrentDownload 开始种子/磁力链下载
 func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// 1. 验证用户是否存在并获取用户信息
 	user, err := d.factory.User().GetByID(ctx, userID)
@@ -708,8 +770,16 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 
 		taskIDs = append(taskIDs, taskID)
 
-		// 异步启动下载任务
+		// 异步启动下载任务（使用服务级context）
 		go func(tid string, fIndex int) {
+			// 检查服务级context是否已取消
+			select {
+			case <-d.ctx.Done():
+				logger.LOG.Info("服务已关闭，跳过种子下载任务", "taskID", tid)
+				return
+			default:
+			}
+
 			opts := &download.TorrentSingleFileDownloadOptions{
 				MaxConcurrentPeers: 200, // 提高并发连接数以加速下载
 				EnableEncryption:   req.EnableEncryption,
@@ -722,7 +792,7 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 			logger.LOG.Debug("启动种子下载任务", "taskID", tid, "tempDir", d.tempDir)
 
 			fileID, err := download.DownloadTorrentSingleFile(
-				context.Background(),
+				d.ctx,
 				tid,
 				req.Content,
 				fIndex,
@@ -735,17 +805,17 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 			if err != nil {
 				logger.LOG.Error("种子文件下载失败", "taskID", tid, "error", err)
 				// 获取最新任务状态，防止覆盖暂停状态
-				task, _ := d.factory.DownloadTask().GetByID(context.Background(), tid)
+				task, _ := d.factory.DownloadTask().GetByID(d.ctx, tid)
 				if task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
 					// 只有当任务不是暂停状态时，才更新为失败
 					task.State = enum.DownloadTaskStateFailed.Value()
 					task.ErrorMsg = err.Error()
 					task.UpdateTime = custom_type.Now()
-					d.factory.DownloadTask().Update(context.Background(), task)
+					d.factory.DownloadTask().Update(d.ctx, task)
 				}
 			} else {
 				// 获取最新任务状态，防止覆盖暂停状态
-				task, _ := d.factory.DownloadTask().GetByID(context.Background(), tid)
+				task, _ := d.factory.DownloadTask().GetByID(d.ctx, tid)
 				if task != nil && task.State != enum.DownloadTaskStatePaused.Value() {
 					// 只有当任务不是暂停状态时，才更新为完成
 					task.FileID = fileID
@@ -753,7 +823,7 @@ func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownload
 					task.Progress = 100
 					task.UpdateTime = custom_type.Now()
 					task.FinishTime = custom_type.Now()
-					d.factory.DownloadTask().Update(context.Background(), task)
+					d.factory.DownloadTask().Update(d.ctx, task)
 				}
 				logger.LOG.Info("种子文件下载完成", "taskID", tid, "fileID", fileID)
 			}

@@ -75,3 +75,8 @@ func (r *recycledRepository) CountFileReferences(ctx context.Context, fileID str
 		Where("file_id = ?", fileID).Count(&count).Error
 	return count, err
 }
+
+// DeleteByUserID 删除指定用户的所有回收站记录
+func (r *recycledRepository) DeleteByUserID(ctx context.Context, userID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.Recycled{}).Error
+}

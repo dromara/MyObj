@@ -24,6 +24,33 @@ import (
 // 打包任务状态管理
 var packageTasks sync.Map // key: packageID, value: *PackageTask
 
+func init() {
+	// 定期清理已完成/失败超过1小时的打包任务
+	go func() {
+		ticker := time.NewTicker(30 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			packageTasks.Range(func(key, value interface{}) bool {
+				task := value.(*PackageTask)
+				task.mu.Lock()
+				isTerminal := task.Status == "ready" || task.Status == "failed"
+				createdAt := task.CreatedAt
+				filePath := task.FilePath
+				task.mu.Unlock()
+				if isTerminal && time.Since(createdAt) > time.Hour {
+					// 清理临时文件
+					if filePath != "" {
+						tempDir := filepath.Dir(filePath)
+						os.RemoveAll(tempDir)
+					}
+					packageTasks.Delete(key)
+				}
+				return true
+			})
+		}
+	}()
+}
+
 // PackageTask 打包任务
 type PackageTask struct {
 	PackageID   string
@@ -38,20 +65,22 @@ type PackageTask struct {
 	ErrorMsg    string
 	CreatedAt   time.Time // 创建时间，用于清理过期任务
 	mu          sync.Mutex
+	cleanupOnce sync.Once
 }
 
 // CreatePackage 创建打包下载任务
 func (f *FileService) CreatePackage(req *request.PackageCreateRequest, userID string) (*models.JsonResponse, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	// 验证文件权限（前端传递的是 uf_id）
+	// 批量验证文件权限（前端传递的是 uf_id）
+	userFilesMap, err := f.factory.UserFiles().BatchGetByUserIDAndUfIDs(ctx, userID, req.FileIDs)
+	if err != nil {
+		return nil, fmt.Errorf("批量查询用户文件失败: %v", err)
+	}
 	for _, fileID := range req.FileIDs {
-		userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
-		if err != nil {
+		if _, ok := userFilesMap[fileID]; !ok {
 			return nil, fmt.Errorf("文件不存在或无权限: %s", fileID)
-		}
-		if userFile.UserID != userID {
-			return nil, fmt.Errorf("无权限访问文件: %s", fileID)
 		}
 	}
 
@@ -81,19 +110,27 @@ func (f *FileService) CreatePackage(req *request.PackageCreateRequest, userID st
 	}
 	packageTasks.Store(packageID, task)
 
-	// 异步创建压缩包
-	go f.createZipPackage(ctx, task)
-
-	// 计算总大小（前端传递的是 uf_id）
-	for _, fileID := range req.FileIDs {
-		userFile, _ := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
-		if userFile != nil {
-			fileInfo, _ := f.factory.FileInfo().GetByID(ctx, userFile.FileID)
-			if fileInfo != nil {
-				task.TotalSize += int64(fileInfo.Size)
+	// 批量计算总大小，避免N+1查询
+	fileIDs := make([]string, 0, len(userFilesMap))
+	for _, uf := range userFilesMap {
+		fileIDs = append(fileIDs, uf.FileID)
+	}
+	if len(fileIDs) > 0 {
+		fileInfoMap, batchErr := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+		if batchErr != nil {
+			logger.LOG.Warn("批量获取文件信息失败", "error", batchErr)
+		} else {
+			for _, uf := range userFilesMap {
+				if fi, ok := fileInfoMap[uf.FileID]; ok && fi != nil {
+					task.TotalSize += int64(fi.Size)
+				}
 			}
 		}
 	}
+
+	// 异步创建压缩包（使用独立context，不继承超时）
+	go f.createZipPackage(context.Background(), task)
+
 	return models.NewJsonResponse(200, "创建成功", response.PackageCreateResponse{
 		PackageID:   packageID,
 		PackageName: packageName,
@@ -142,6 +179,28 @@ func (f *FileService) createZipPackage(ctx context.Context, task *PackageTask) {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
+	// 批量预加载用户文件和文件信息，避免N+1查询
+	zipUserFilesMap, err := f.factory.UserFiles().BatchGetByUserIDAndUfIDs(ctx, task.UserID, task.FileIDs)
+	if err != nil {
+		task.mu.Lock()
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("批量查询用户文件失败: %v", err)
+		task.mu.Unlock()
+		return
+	}
+	zipFileIDs := make([]string, 0, len(zipUserFilesMap))
+	for _, uf := range zipUserFilesMap {
+		zipFileIDs = append(zipFileIDs, uf.FileID)
+	}
+	zipFileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, zipFileIDs)
+	if err != nil {
+		task.mu.Lock()
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("批量查询文件信息失败: %v", err)
+		task.mu.Unlock()
+		return
+	}
+
 	// 逐个添加文件到ZIP
 	totalFiles := len(task.FileIDs)
 	for i, fileID := range task.FileIDs {
@@ -150,17 +209,17 @@ func (f *FileService) createZipPackage(ctx context.Context, task *PackageTask) {
 		task.Progress = int((i + 1) * 100 / totalFiles)
 		task.mu.Unlock()
 
-		// 获取用户文件（前端传递的是 uf_id）
-		userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, task.UserID, fileID)
-		if err != nil {
-			logger.LOG.Warn("获取用户文件失败", "fileID", fileID, "error", err)
+		// 从预加载的map中获取用户文件（前端传递的是 uf_id）
+		userFile, ok := zipUserFilesMap[fileID]
+		if !ok {
+			logger.LOG.Warn("获取用户文件失败，文件不存在或无权限", "fileID", fileID)
 			continue
 		}
 
-		// 获取文件信息
-		fileInfo, err := f.factory.FileInfo().GetByID(ctx, userFile.FileID)
-		if err != nil {
-			logger.LOG.Warn("获取文件信息失败", "fileID", fileID, "error", err)
+		// 从预加载的map中获取文件信息
+		fileInfo, ok := zipFileInfoMap[userFile.FileID]
+		if !ok {
+			logger.LOG.Warn("获取文件信息失败", "fileID", fileID)
 			continue
 		}
 
@@ -209,13 +268,12 @@ func (f *FileService) createZipPackage(ctx context.Context, task *PackageTask) {
 
 		// 清理临时文件（如果是PrepareLocalFileDownload创建的临时文件）
 		// 注意：PrepareLocalFileDownload 创建的临时文件在磁盘的 temp 目录下
-		// 这里暂时不清理，由系统定期清理或下载完成后清理
 		// 如果需要立即清理，可以通过提取路径判断
 		if downloadResult.TempFilePath != fileInfo.Path && strings.Contains(downloadResult.TempFilePath, "temp") {
-			// 提取临时目录并清理
-			tempDir := filepath.Dir(downloadResult.TempFilePath)
-			if strings.Contains(tempDir, "temp") {
-				defer os.RemoveAll(tempDir)
+			// 提取临时目录并清理（不使用 defer，避免在循环内延迟执行）
+			tmpDir := filepath.Dir(downloadResult.TempFilePath)
+			if strings.Contains(tmpDir, "temp") {
+				os.RemoveAll(tmpDir)
 			}
 		}
 	}
@@ -289,24 +347,26 @@ func (f *FileService) DownloadPackage(packageID, userID string) (string, string,
 	// 下载完成后，异步清理文件（延迟5分钟，给用户足够时间下载）
 	go func() {
 		time.Sleep(5 * time.Minute)
-		// 再次检查任务状态，如果还是 ready，则清理文件
-		task.mu.Lock()
-		if task.Status == "ready" && task.FilePath != "" {
-			// 删除文件
-			if err := os.Remove(task.FilePath); err != nil {
-				logger.LOG.Warn("删除打包文件失败", "packageID", packageID, "filePath", task.FilePath, "error", err)
-			} else {
-				logger.LOG.Info("打包文件已清理", "packageID", packageID, "filePath", task.FilePath)
-			}
-			// 删除临时目录
-			tempDir := filepath.Dir(task.FilePath)
-			if err := os.RemoveAll(tempDir); err != nil {
-				logger.LOG.Warn("删除临时目录失败", "packageID", packageID, "tempDir", tempDir, "error", err)
+		task.cleanupOnce.Do(func() {
+			task.mu.Lock()
+			defer task.mu.Unlock()
+			if task.FilePath != "" {
+				// 删除文件
+				if err := os.Remove(task.FilePath); err != nil {
+					logger.LOG.Warn("删除打包文件失败", "packageID", packageID, "filePath", task.FilePath, "error", err)
+				} else {
+					logger.LOG.Info("打包文件已清理", "packageID", packageID, "filePath", task.FilePath)
+				}
+				// 删除临时目录
+				tempDir := filepath.Dir(task.FilePath)
+				if err := os.RemoveAll(tempDir); err != nil {
+					logger.LOG.Warn("删除临时目录失败", "packageID", packageID, "tempDir", tempDir, "error", err)
+				}
+				task.FilePath = ""
 			}
 			// 从任务列表中移除
 			packageTasks.Delete(packageID)
-		}
-		task.mu.Unlock()
+		})
 	}()
 
 	return task.FilePath, task.PackageName, nil
@@ -314,18 +374,34 @@ func (f *FileService) DownloadPackage(packageID, userID string) (string, string,
 
 // createDownloadTasksForPackage 为打包中的每个文件创建下载任务记录
 func (f *FileService) createDownloadTasksForPackage(ctx context.Context, task *PackageTask) {
+	// 批量预加载用户文件和文件信息，避免N+1查询
+	dlUserFilesMap, err := f.factory.UserFiles().BatchGetByUserIDAndUfIDs(ctx, task.UserID, task.FileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询用户文件失败", "packageID", task.PackageID, "error", err)
+		return
+	}
+	dlFileIDs := make([]string, 0, len(dlUserFilesMap))
+	for _, uf := range dlUserFilesMap {
+		dlFileIDs = append(dlFileIDs, uf.FileID)
+	}
+	dlFileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, dlFileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询文件信息失败", "packageID", task.PackageID, "error", err)
+		return
+	}
+
 	for _, fileID := range task.FileIDs {
-		// 获取用户文件（前端传递的是 uf_id）
-		userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, task.UserID, fileID)
-		if err != nil {
-			logger.LOG.Warn("获取用户文件失败", "fileID", fileID, "error", err)
+		// 从预加载的map中获取用户文件（前端传递的是 uf_id）
+		userFile, ok := dlUserFilesMap[fileID]
+		if !ok {
+			logger.LOG.Warn("获取用户文件失败，文件不存在或无权限", "fileID", fileID)
 			continue
 		}
 
-		// 获取文件信息
-		fileInfo, err := f.factory.FileInfo().GetByID(ctx, userFile.FileID)
-		if err != nil {
-			logger.LOG.Warn("获取文件信息失败", "fileID", fileID, "error", err)
+		// 从预加载的map中获取文件信息
+		fileInfo, ok := dlFileInfoMap[userFile.FileID]
+		if !ok {
+			logger.LOG.Warn("获取文件信息失败", "fileID", fileID)
 			continue
 		}
 

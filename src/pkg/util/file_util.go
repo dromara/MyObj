@@ -7,6 +7,7 @@ import (
 	"myobj/src/pkg/logger"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -50,6 +51,19 @@ func isImageByExtension(filePath string) bool {
 	default:
 		return false
 	}
+}
+
+// EscapeLikeKeyword 转义 LIKE 查询中的通配符（%、_、\），防止用户输入干扰查询语义
+func EscapeLikeKeyword(keyword string) string {
+	keyword = strings.ReplaceAll(keyword, "\\", "\\\\")
+	keyword = strings.ReplaceAll(keyword, "%", "\\%")
+	keyword = strings.ReplaceAll(keyword, "_", "\\_")
+	return keyword
+}
+
+// IsImageByMime 根据 MIME 类型判断是否为图片
+func IsImageByMime(mimeType string) bool {
+	return strings.HasPrefix(mimeType, "image/")
 }
 
 // fileRechristen 重命名文件，保留在原目录

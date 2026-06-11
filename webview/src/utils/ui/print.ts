@@ -61,7 +61,7 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
         <!DOCTYPE html>
         <html>
         <head>
-          <title>${title}</title>
+          <title>${escapeHtml(title)}</title>
           <meta charset="UTF-8">
           <style>
             * {
@@ -169,18 +169,27 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
             <p>${t('print.preparing')}</p>
           </div>
           <div class="image-container">
-            <img src="${imageUrl}" alt="${escapeHtml(title)}" onload="setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 300);" onerror="alert('${t('print.imageLoadFailed')}'); window.close();" />
+            <img id="printImg" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" />
           </div>
+          <script>
+            (function() {
+              var img = document.getElementById('printImg');
+              img.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.onafterprint = function() { window.close(); };
+                }, 300);
+              };
+              img.onerror = function() {
+                alert(${JSON.stringify(t('print.imageLoadFailed'))});
+                window.close();
+              };
+            })();
+          </script>
         </body>
         </html>
       `)
       printWindow.document.close()
-
-      // 监听打印完成
-      printWindow.addEventListener('afterprint', () => {
-        printWindow.close()
-        resolve()
-      })
 
       // 如果打印窗口被关闭，也resolve
       const checkClosed = setInterval(() => {
@@ -189,6 +198,13 @@ export function printImage(imageUrl: string, options?: PrintOptions): Promise<vo
           resolve()
         }
       }, 100)
+
+      // 监听打印完成
+      printWindow.addEventListener('afterprint', () => {
+        clearInterval(checkClosed)
+        printWindow.close()
+        resolve()
+      })
     } catch (error) {
       reject(error)
     }
@@ -226,7 +242,7 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
         <!DOCTYPE html>
         <html>
         <head>
-          <title>${title}</title>
+          <title>${escapeHtml(title)}</title>
           <meta charset="UTF-8">
           <style>
             * {
@@ -284,7 +300,7 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
           </style>
         </head>
         <body>
-          <iframe id="pdfFrame" src="${finalPdfUrl}" style="width: 100%; height: 100vh; border: none;" onerror="alert('${t('print.pdfLoadFailed')}'); window.close();"></iframe>
+          <iframe id="pdfFrame" src="${escapeHtml(finalPdfUrl)}" style="width: 100%; height: 100vh; border: none;"></iframe>
           <script>
             (function() {
               var iframe = document.getElementById('pdfFrame');
@@ -319,6 +335,12 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
               iframe.addEventListener('load', function() {
                 tryPrint();
               });
+
+              // 监听iframe加载失败
+              iframe.addEventListener('error', function() {
+                alert(${JSON.stringify(t('print.pdfLoadFailed'))});
+                window.close();
+              });
               
               // 备用方案：窗口加载完成后也尝试打印
               window.addEventListener('load', function() {
@@ -333,12 +355,6 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
       `)
       printWindow.document.close()
 
-      // 监听打印完成
-      printWindow.addEventListener('afterprint', () => {
-        printWindow.close()
-        resolve()
-      })
-
       // 如果打印窗口被关闭，也resolve
       const checkClosed = setInterval(() => {
         if (printWindow.closed) {
@@ -346,6 +362,13 @@ export function printPDF(pdfUrl: string, options?: PrintOptions): Promise<void> 
           resolve()
         }
       }, 100)
+
+      // 监听打印完成
+      printWindow.addEventListener('afterprint', () => {
+        clearInterval(checkClosed)
+        printWindow.close()
+        resolve()
+      })
     } catch (error) {
       reject(error)
     }
@@ -373,7 +396,7 @@ export function printText(content: string, title?: string, options?: PrintOption
         <!DOCTYPE html>
         <html>
         <head>
-          <title>${printTitle}</title>
+          <title>${escapeHtml(printTitle)}</title>
           <meta charset="UTF-8">
           <style>
             * {
@@ -492,12 +515,6 @@ export function printText(content: string, title?: string, options?: PrintOption
       `)
       printWindow.document.close()
 
-      // 监听打印完成
-      printWindow.addEventListener('afterprint', () => {
-        printWindow.close()
-        resolve()
-      })
-
       // 如果打印窗口被关闭，也resolve
       const checkClosed = setInterval(() => {
         if (printWindow.closed) {
@@ -505,6 +522,13 @@ export function printText(content: string, title?: string, options?: PrintOption
           resolve()
         }
       }, 100)
+
+      // 监听打印完成
+      printWindow.addEventListener('afterprint', () => {
+        clearInterval(checkClosed)
+        printWindow.close()
+        resolve()
+      })
     } catch (error) {
       reject(error)
     }
@@ -620,7 +644,7 @@ export function printOfficeDocument(fileUrl: string, fileName: string, options?:
         <!DOCTYPE html>
         <html>
         <head>
-          <title>${title}</title>
+          <title>${escapeHtml(title)}</title>
           <meta charset="UTF-8">
           <style>
             @media print {
@@ -689,19 +713,33 @@ export function printOfficeDocument(fileUrl: string, fileName: string, options?:
             <h3>${t('print.officeDocumentTip')}</h3>
             <p>${t('print.tryingToOpen')}</p>
             <p>${t('print.officeDocumentDescription')}</p>
-            <p><a href="${fileUrl}" download="${fileName}">📥 ${t('print.downloadFile')}</a></p>
+            <p><a href="${escapeHtml(fileUrl)}" download="${escapeHtml(fileName)}">📥 ${t('print.downloadFile')}</a></p>
           </div>
-          <iframe src="${fileUrl}" onload="setTimeout(function() { try { window.print(); window.onafterprint = function() { window.close(); } } catch(e) { alert('${t('print.cannotPrintOfficeType')}'); window.close(); } }, 1500);" onerror="alert('${t('print.cannotLoadDocument')}'); window.close();"></iframe>
+          <iframe id="officeFrame" src="${escapeHtml(fileUrl)}"></iframe>
+          <script>
+            (function() {
+              var iframe = document.getElementById('officeFrame');
+              iframe.onload = function() {
+                setTimeout(function() {
+                  try {
+                    window.print();
+                    window.onafterprint = function() { window.close(); };
+                  } catch(e) {
+                    alert(${JSON.stringify(t('print.cannotPrintOfficeType'))});
+                    window.close();
+                  }
+                }, 1500);
+              };
+              iframe.onerror = function() {
+                alert(${JSON.stringify(t('print.cannotLoadDocument'))});
+                window.close();
+              };
+            })();
+          </script>
         </body>
         </html>
       `)
       printWindow.document.close()
-
-      // 监听打印完成
-      printWindow.addEventListener('afterprint', () => {
-        printWindow.close()
-        resolve()
-      })
 
       // 如果打印窗口被关闭，也resolve
       const checkClosed = setInterval(() => {
@@ -710,6 +748,13 @@ export function printOfficeDocument(fileUrl: string, fileName: string, options?:
           resolve()
         }
       }, 100)
+
+      // 监听打印完成
+      printWindow.addEventListener('afterprint', () => {
+        clearInterval(checkClosed)
+        printWindow.close()
+        resolve()
+      })
     } catch (error) {
       reject(error)
     }

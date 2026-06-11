@@ -5,6 +5,8 @@
 -- 注意：执行此脚本前请确保已创建数据库
 -- CREATE DATABASE IF NOT EXISTS myobj CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 -- USE myobj;
+-- 注意：此脚本不包含初始管理员用户。
+-- 系统设计：首次注册的用户将自动成为管理员（归属 administer 组）。
 
 -- 开始事务
 START TRANSACTION;
@@ -51,8 +53,7 @@ CREATE TABLE `power` (
     `description` TEXT NOT NULL COMMENT '权限描述',
     `characteristic` TEXT NOT NULL COMMENT '权限特征',
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`)
+    PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限表';
 
 -- 组表
@@ -62,8 +63,7 @@ CREATE TABLE `groups` (
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
     `group_default` INT NOT NULL COMMENT '是否为默认组 0-否 1-是',
     `space` BIGINT DEFAULT NULL COMMENT '组默认可用存储空间',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`)
+    PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组表';
 
 -- 组权限关联表
@@ -84,7 +84,7 @@ CREATE TABLE `user_info` (
     `name` VARCHAR(255) NOT NULL COMMENT '用户昵称',
     `user_name` VARCHAR(255) NOT NULL COMMENT '用户名',
     `password` TEXT NOT NULL COMMENT '用户密码',
-    `email` TEXT NOT NULL COMMENT '用户邮箱',
+    `email` VARCHAR(254) NOT NULL COMMENT '用户邮箱',
     `phone` VARCHAR(20) NOT NULL COMMENT '用户手机号',
     `group_id` INT NOT NULL COMMENT '用户组ID',
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
@@ -93,7 +93,6 @@ CREATE TABLE `user_info` (
     `free_space` BIGINT DEFAULT NULL COMMENT '用户剩余存储空间',
     `state` INT NOT NULL DEFAULT 0 COMMENT '用户状态 0正常 1禁用',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_group_id` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户信息表';
 
@@ -101,13 +100,13 @@ CREATE TABLE `user_info` (
 CREATE TABLE `api_key` (
     `id` INT NOT NULL AUTO_INCREMENT COMMENT 'API密钥ID',
     `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
-    `key` TEXT NOT NULL COMMENT 'API密钥',
+    `key` VARCHAR(255) NOT NULL COMMENT 'API密钥',
     `expires_at` DATETIME DEFAULT NULL COMMENT '过期时间',
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
     `private_key` TEXT NOT NULL COMMENT '私钥',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
-    KEY `idx_user_id` (`user_id`)
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_key` (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='API密钥表';
 
 -- ================================
@@ -137,7 +136,6 @@ CREATE TABLE `file_info` (
     `created_at` DATETIME DEFAULT NULL COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_file_hash` (`file_hash`(255)),
     KEY `idx_chunk_signature` (`chunk_signature`(255)),
     KEY `idx_mime` (`mime`),
@@ -168,7 +166,6 @@ CREATE TABLE `file_chunk` (
     `chunk_hash` TEXT NOT NULL COMMENT '分片文件哈希',
     `chunk_index` INT NOT NULL COMMENT '分片文件索引',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_file_id` (`file_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件分片表';
 
@@ -183,7 +180,6 @@ CREATE TABLE `virtual_path` (
     `created_time` DATETIME NOT NULL COMMENT '创建时间',
     `update_time` DATETIME NOT NULL COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='虚拟路径表';
 
@@ -217,7 +213,7 @@ CREATE TABLE `upload_chunk` (
     `chunk_id` VARCHAR(64) NOT NULL COMMENT '分片ID',
     `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
     `file_name` TEXT NOT NULL COMMENT '文件名',
-    `file_size` INT DEFAULT NULL COMMENT '文件大小',
+    `file_size` BIGINT DEFAULT NULL COMMENT '文件大小',
     `md5` TEXT DEFAULT NULL COMMENT 'MD5',
     `path_id` TEXT DEFAULT NULL COMMENT '路径ID',
     PRIMARY KEY (`chunk_id`),
@@ -263,13 +259,13 @@ CREATE TABLE `shares` (
     `id` INT NOT NULL AUTO_INCREMENT COMMENT '分享记录ID',
     `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
     `file_id` VARCHAR(64) NOT NULL COMMENT '文件ID',
-    `token` TEXT NOT NULL COMMENT '分享令牌',
+    `token` VARCHAR(255) NOT NULL COMMENT '分享令牌',
     `expires_at` DATETIME NOT NULL COMMENT '分享过期时间',
-    `password_hash` TEXT NOT NULL COMMENT '访问密码哈希',
+    `password_hash` VARCHAR(255) NOT NULL COMMENT '访问密码哈希',
     `download_count` INT NOT NULL DEFAULT 0 COMMENT '下载次数统计',
     `created_at` DATETIME NOT NULL COMMENT '分享创建时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
+    UNIQUE KEY `uk_token` (`token`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_file_id` (`file_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分享表';
@@ -281,7 +277,6 @@ CREATE TABLE `recycled` (
     `user_id` VARCHAR(64) NOT NULL COMMENT '用户ID',
     `created_at` DATETIME NOT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_file_id` (`file_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='回收站表';
@@ -293,11 +288,10 @@ CREATE TABLE `recycled` (
 -- 磁盘表
 CREATE TABLE `disk` (
     `id` VARCHAR(64) NOT NULL COMMENT '磁盘ID',
-    `size` INT NOT NULL COMMENT '磁盘总大小',
+    `size` BIGINT NOT NULL COMMENT '磁盘总大小',
     `disk_path` TEXT NOT NULL COMMENT '磁盘路径',
     `data_path` TEXT NOT NULL COMMENT '数据存储路径',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_disk_path` (`disk_path`(255))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='磁盘信息表';
 
@@ -307,7 +301,6 @@ CREATE TABLE `sys_config` (
     `key` VARCHAR(255) NOT NULL COMMENT '配置键',
     `value` TEXT NOT NULL COMMENT '配置值',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_id` (`id`),
     KEY `idx_key` (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
@@ -349,7 +342,7 @@ CREATE TABLE `s3_object_metadata` (
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    KEY `idx_bucket_key` (`bucket_name`, `object_key`(255)),
+    KEY `idx_bucket_key` (`bucket_name`, `object_key`(512)),
     KEY `idx_file_id` (`file_id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_version_id` (`version_id`),
@@ -480,7 +473,7 @@ CREATE TABLE `s3_object_encryption` (
     `created_at` DATETIME NOT NULL COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    KEY `idx_bucket_key` (`bucket_name`, `object_key`(255), `version_id`),
+    KEY `idx_bucket_key` (`bucket_name`, `object_key`(512), `version_id`),
     KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='S3对象加密元数据表';
 

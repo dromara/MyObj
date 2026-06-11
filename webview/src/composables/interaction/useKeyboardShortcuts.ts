@@ -13,7 +13,8 @@ interface ShortcutConfig {
   description?: string
 }
 
-// 将状态提升到模块级别，确保所有调用共享同一个状态
+// 模块级单例状态：App.vue 始终挂载且是唯一调用方，因此共享 ref 不会产生冲突。
+// 所有组件通过 useKeyboardShortcuts() 获取的是同一份 shortcuts/showHelp 引用。
 const shortcuts = ref<ShortcutConfig[]>([])
 const showHelp = ref(false)
 let isInitialized = false // 初始化标志，确保只初始化一次
@@ -417,9 +418,13 @@ export function useKeyboardShortcuts() {
   })
 
   onBeforeUnmount(() => {
-    // 只有最后一个组件卸载时才移除事件监听器
-    // 注意：这里无法准确判断是否是最后一个，所以暂时不移除
-    // 因为事件监听器是全局的，应该一直存在
+    // 当使用键盘快捷键的组件卸载时，移除全局事件监听器并重置初始化标志
+    // 下次挂载时会重新注册，避免内存泄漏和重复绑定
+    if (isInitialized && keydownHandler) {
+      window.removeEventListener('keydown', keydownHandler, true)
+      keydownHandler = null
+      isInitialized = false
+    }
   })
 
   // 切换帮助显示

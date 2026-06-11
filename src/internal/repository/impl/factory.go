@@ -31,218 +31,172 @@ type RepositoryFactory struct {
 	s3BucketRepo         repository.S3BucketRepository
 	s3ObjectMetadataRepo repository.S3ObjectMetadataRepository
 	s3MultipartRepo      repository.S3MultipartRepository
-	s3BucketCORSRepo     *S3BucketCORSRepositoryImpl
-	s3ACLRepo            *S3ACLRepositoryImpl
-	s3BucketPolicyRepo   *S3BucketPolicyRepositoryImpl
+	// 以下S3仓储使用具体类型而非接口，因为它们仅在S3模块内部使用，
+	// 暂未抽取公共接口（S3模块独立于主业务，接口隔离成本高于收益）。
+	s3BucketCORSRepo      *S3BucketCORSRepositoryImpl
+	s3ACLRepo             *S3ACLRepositoryImpl
+	s3BucketPolicyRepo    *S3BucketPolicyRepositoryImpl
 	s3BucketLifecycleRepo *S3BucketLifecycleRepositoryImpl
 	s3EncryptionKeyRepo   *S3EncryptionKeyRepositoryImpl
 	s3ObjectEncryptionRepo *S3ObjectEncryptionRepositoryImpl
 }
 
-// NewRepositoryFactory 创建仓储工厂实例
+// NewRepositoryFactory 创建仓储工厂实例（立即初始化所有仓储，确保并发安全）
 func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 	return &RepositoryFactory{
 		db: db,
+
+		userRepo:         NewUserRepository(db),
+		fileInfoRepo:     NewFileInfoRepository(db),
+		groupRepo:        NewGroupRepository(db),
+		shareRepo:        NewShareRepository(db),
+		diskRepo:         NewDiskRepository(db),
+		apiKeyRepo:       NewApiKeyRepository(db),
+		fileChunkRepo:    NewFileChunkRepository(db),
+		powerRepo:        NewPowerRepository(db),
+		groupPowerRepo:   NewGroupPowerRepository(db),
+		userFilesRepo:    NewUserFilesRepository(db),
+		virtualPathRepo:  NewVirtualPathRepository(db),
+		recycledRepo:     NewRecycledRepository(db),
+		downloadTaskRepo: NewDownloadTaskRepository(db),
+		sysConfigRepo:    NewSysConfigRepository(db),
+		uploadChunkRepo:  NewUploadChunkRepository(db),
+		uploadTaskRepo:   NewUploadTaskRepository(db),
+
+		s3BucketRepo:          NewS3BucketRepository(db),
+		s3ObjectMetadataRepo:  NewS3ObjectMetadataRepository(db),
+		s3MultipartRepo:       NewS3MultipartRepository(db),
+		s3BucketCORSRepo:      NewS3BucketCORSRepository(db),
+		s3ACLRepo:             NewS3ACLRepository(db),
+		s3BucketPolicyRepo:    NewS3BucketPolicyRepository(db),
+		s3BucketLifecycleRepo: NewS3BucketLifecycleRepository(db),
+		s3EncryptionKeyRepo:   NewS3EncryptionKeyRepository(db),
+		s3ObjectEncryptionRepo: NewS3ObjectEncryptionRepository(db),
 	}
 }
 
 // User 获取用户仓储
 func (f *RepositoryFactory) User() repository.UserRepository {
-	if f.userRepo == nil {
-		f.userRepo = NewUserRepository(f.db)
-	}
 	return f.userRepo
 }
 
 // FileInfo 获取文件信息仓储
 func (f *RepositoryFactory) FileInfo() repository.FileInfoRepository {
-	if f.fileInfoRepo == nil {
-		f.fileInfoRepo = NewFileInfoRepository(f.db)
-	}
 	return f.fileInfoRepo
 }
 
 // Group 获取组仓储
 func (f *RepositoryFactory) Group() repository.GroupRepository {
-	if f.groupRepo == nil {
-		f.groupRepo = NewGroupRepository(f.db)
-	}
 	return f.groupRepo
 }
 
 // Share 获取分享仓储
 func (f *RepositoryFactory) Share() repository.ShareRepository {
-	if f.shareRepo == nil {
-		f.shareRepo = NewShareRepository(f.db)
-	}
 	return f.shareRepo
 }
 
 // Disk 获取磁盘仓储
 func (f *RepositoryFactory) Disk() repository.DiskRepository {
-	if f.diskRepo == nil {
-		f.diskRepo = NewDiskRepository(f.db)
-	}
 	return f.diskRepo
 }
 
 // ApiKey 获取API密钥仓储
 func (f *RepositoryFactory) ApiKey() repository.ApiKeyRepository {
-	if f.apiKeyRepo == nil {
-		f.apiKeyRepo = NewApiKeyRepository(f.db)
-	}
 	return f.apiKeyRepo
 }
 
 // FileChunk 获取文件分片仓储
 func (f *RepositoryFactory) FileChunk() repository.FileChunkRepository {
-	if f.fileChunkRepo == nil {
-		f.fileChunkRepo = NewFileChunkRepository(f.db)
-	}
 	return f.fileChunkRepo
 }
 
 // Power 获取权限仓储
 func (f *RepositoryFactory) Power() repository.PowerRepository {
-	if f.powerRepo == nil {
-		f.powerRepo = NewPowerRepository(f.db)
-	}
 	return f.powerRepo
 }
 
 // GroupPower 获取组权限关联仓储
 func (f *RepositoryFactory) GroupPower() repository.GroupPowerRepository {
-	if f.groupPowerRepo == nil {
-		f.groupPowerRepo = NewGroupPowerRepository(f.db)
-	}
 	return f.groupPowerRepo
 }
 
 // UserFiles 获取用户文件关联仓储
 func (f *RepositoryFactory) UserFiles() repository.UserFilesRepository {
-	if f.userFilesRepo == nil {
-		f.userFilesRepo = NewUserFilesRepository(f.db)
-	}
 	return f.userFilesRepo
 }
 
 // VirtualPath 获取虚拟路径仓储
 func (f *RepositoryFactory) VirtualPath() repository.VirtualPathRepository {
-	if f.virtualPathRepo == nil {
-		f.virtualPathRepo = NewVirtualPathRepository(f.db)
-	}
 	return f.virtualPathRepo
 }
 
 // Recycled 获取回收站仓储
 func (f *RepositoryFactory) Recycled() repository.RecycledRepository {
-	if f.recycledRepo == nil {
-		f.recycledRepo = NewRecycledRepository(f.db)
-	}
 	return f.recycledRepo
 }
 
 // DownloadTask 获取下载任务仓储
 func (f *RepositoryFactory) DownloadTask() repository.DownloadTaskRepository {
-	if f.downloadTaskRepo == nil {
-		f.downloadTaskRepo = NewDownloadTaskRepository(f.db)
-	}
 	return f.downloadTaskRepo
 }
 
 // SysConfig 获取系统配置仓储
 func (f *RepositoryFactory) SysConfig() repository.SysConfigRepository {
-	if f.sysConfigRepo == nil {
-		f.sysConfigRepo = NewSysConfigRepository(f.db)
-	}
 	return f.sysConfigRepo
 }
 
 // UploadChunk 获取上传分片信息仓储
 func (f *RepositoryFactory) UploadChunk() repository.UploadChunkRepository {
-	if f.uploadChunkRepo == nil {
-		f.uploadChunkRepo = NewUploadChunkRepository(f.db)
-	}
 	return f.uploadChunkRepo
 }
 
 // UploadTask 获取上传任务仓储
 func (f *RepositoryFactory) UploadTask() repository.UploadTaskRepository {
-	if f.uploadTaskRepo == nil {
-		f.uploadTaskRepo = NewUploadTaskRepository(f.db)
-	}
 	return f.uploadTaskRepo
 }
 
 // S3Bucket 获取S3 Bucket仓储
 func (f *RepositoryFactory) S3Bucket() repository.S3BucketRepository {
-	if f.s3BucketRepo == nil {
-		f.s3BucketRepo = NewS3BucketRepository(f.db)
-	}
 	return f.s3BucketRepo
 }
 
 // S3ObjectMetadata 获取S3对象元数据仓储
 func (f *RepositoryFactory) S3ObjectMetadata() repository.S3ObjectMetadataRepository {
-	if f.s3ObjectMetadataRepo == nil {
-		f.s3ObjectMetadataRepo = NewS3ObjectMetadataRepository(f.db)
-	}
 	return f.s3ObjectMetadataRepo
 }
 
 // S3Multipart 获取S3分片上传仓储
 func (f *RepositoryFactory) S3Multipart() repository.S3MultipartRepository {
-	if f.s3MultipartRepo == nil {
-		f.s3MultipartRepo = NewS3MultipartRepository(f.db)
-	}
 	return f.s3MultipartRepo
 }
 
 // S3BucketCORS 获取S3 Bucket CORS配置仓储
 func (f *RepositoryFactory) S3BucketCORS() *S3BucketCORSRepositoryImpl {
-	if f.s3BucketCORSRepo == nil {
-		f.s3BucketCORSRepo = NewS3BucketCORSRepository(f.db)
-	}
 	return f.s3BucketCORSRepo
 }
 
 // S3ACL 获取S3 ACL配置仓储
 func (f *RepositoryFactory) S3ACL() *S3ACLRepositoryImpl {
-	if f.s3ACLRepo == nil {
-		f.s3ACLRepo = NewS3ACLRepository(f.db)
-	}
 	return f.s3ACLRepo
 }
 
 // S3BucketPolicy 获取S3 Bucket Policy配置仓储
 func (f *RepositoryFactory) S3BucketPolicy() *S3BucketPolicyRepositoryImpl {
-	if f.s3BucketPolicyRepo == nil {
-		f.s3BucketPolicyRepo = NewS3BucketPolicyRepository(f.db)
-	}
 	return f.s3BucketPolicyRepo
 }
 
 // S3BucketLifecycle 获取S3 Bucket Lifecycle配置仓储
 func (f *RepositoryFactory) S3BucketLifecycle() *S3BucketLifecycleRepositoryImpl {
-	if f.s3BucketLifecycleRepo == nil {
-		f.s3BucketLifecycleRepo = NewS3BucketLifecycleRepository(f.db)
-	}
 	return f.s3BucketLifecycleRepo
 }
 
 // S3EncryptionKey 获取S3加密密钥仓储
 func (f *RepositoryFactory) S3EncryptionKey() *S3EncryptionKeyRepositoryImpl {
-	if f.s3EncryptionKeyRepo == nil {
-		f.s3EncryptionKeyRepo = NewS3EncryptionKeyRepository(f.db)
-	}
 	return f.s3EncryptionKeyRepo
 }
 
 // S3ObjectEncryption 获取S3对象加密元数据仓储
 func (f *RepositoryFactory) S3ObjectEncryption() *S3ObjectEncryptionRepositoryImpl {
-	if f.s3ObjectEncryptionRepo == nil {
-		f.s3ObjectEncryptionRepo = NewS3ObjectEncryptionRepository(f.db)
-	}
 	return f.s3ObjectEncryptionRepo
 }
 

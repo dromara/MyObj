@@ -48,9 +48,11 @@
   const { updatePassword } = userApi
   const { getChallenge } = authApi
   import { useI18n } from '@/composables'
+  import { useAuthStore } from '@/stores/auth'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
   const { t } = useI18n()
+  const authStore = useAuthStore()
 
   const formRef = ref<FormInstance>()
   const saving = ref(false)
@@ -111,9 +113,7 @@
           proxy?.$modal.msgSuccess(t('settings.password.changeSuccess'))
           // 延迟跳转到登录页
           setTimeout(() => {
-            proxy?.$cache.local.remove('token')
-            proxy?.$cache.local.remove('userInfo')
-            window.location.href = '/login'
+            authStore.logout()
           }, 1500)
         } else {
           proxy?.$modal.msgError(result.message || t('settings.password.changeFailed'))

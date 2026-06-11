@@ -13,7 +13,7 @@ type UserInfo struct {
 	//用户名
 	UserName string `gorm:"type:VARCHAR;not null" json:"user_name"`
 	//用户密码
-	Password string `gorm:"type:TEXT;not null" json:"password"`
+	Password string `gorm:"type:TEXT;not null" json:"-"`
 	//用户邮箱
 	Email string `gorm:"type:TEXT;not null" json:"email"`
 	//用户手机号
@@ -25,9 +25,9 @@ type UserInfo struct {
 	//用户可用存储空间
 	Space int64 `gorm:"type:integer" json:"space"`
 	//用户文件密码
-	FilePassword string `gorm:"type:text" json:"file_password"`
+	FilePassword string `gorm:"type:text" json:"-"`
 	//用户剩余存储空间
-	FreeSpace int64 `gorm:"type:free_space" json:"free_space"`
+	FreeSpace int64 `gorm:"type:BIGINT" json:"free_space"`
 	//用户状态 0正常 1禁用
 	State int `gorm:"type:INTEGER;not null" json:"state"`
 }

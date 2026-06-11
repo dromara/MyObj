@@ -1,6 +1,9 @@
 import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 
+/** 管理员组 ID 常量 - 与后端保持一致 */
+export const ADMIN_GROUP_ID = 1
+
 /**
  * 管理员权限检查 Composable
  */
@@ -9,14 +12,13 @@ export function useAdmin() {
 
   /**
    * 检查当前用户是否为管理员
-   * 通常 group_id = 1 为管理员组
+   * 通过常量 ADMIN_GROUP_ID 判断，避免魔法数字
    */
   const isAdmin = computed(() => {
     if (!userStore.userInfo) {
       return false
     }
-    // group_id = 1 通常为管理员组
-    return userStore.userInfo.group_id === 1
+    return userStore.userInfo.group_id === ADMIN_GROUP_ID
   })
 
   /**

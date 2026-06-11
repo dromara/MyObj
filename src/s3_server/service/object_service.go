@@ -19,6 +19,7 @@ import (
 	"myobj/src/pkg/models"
 	"myobj/src/pkg/preview"
 	"myobj/src/pkg/repository"
+	"myobj/src/pkg/util"
 	"myobj/src/s3_server/auth"
 	"myobj/src/s3_server/types"
 	"os"
@@ -70,7 +71,7 @@ type S3ObjectService struct {
 }
 
 // NewS3ObjectService 创建S3对象服务
-func NewS3ObjectService(factory *impl.RepositoryFactory, fileService *service.FileService) *S3ObjectService {
+func NewS3ObjectService(factory *impl.RepositoryFactory, fileService *service.FileService) (*S3ObjectService, error) {
 	// 从配置读取主密钥，支持环境变量
 	masterKey := config.CONFIG.S3.EncryptionMasterKey
 	if masterKey == "" {
@@ -79,7 +80,10 @@ func NewS3ObjectService(factory *impl.RepositoryFactory, fileService *service.Fi
 			masterKey = envKey
 		}
 	}
-	encryptionService := NewEncryptionService(masterKey)
+	encryptionService, err := NewEncryptionService(masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("create encryption service failed: %w", err)
+	}
 	return &S3ObjectService{
 		objectMetadataRepo: factory.S3ObjectMetadata(),
 		bucketRepo:         factory.S3Bucket(),
@@ -87,7 +91,7 @@ func NewS3ObjectService(factory *impl.RepositoryFactory, fileService *service.Fi
 		fileService:        fileService,
 		factory:            factory,
 		encryptionService:  encryptionService,
-	}
+	}, nil
 }
 
 // PutObjectInput PutObject输入参数
@@ -129,13 +133,13 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 				"bucket_name", input.BucketName,
 				"user_id", input.UserID,
 			)
-			
+
 			// 获取区域（从配置读取）
 			region := config.CONFIG.S3.Region
 			if region == "" {
 				region = "us-east-1"
 			}
-			
+
 			// 自动创建Bucket
 			if err := s.bucketService.CreateBucket(ctx, input.BucketName, input.UserID, region); err != nil {
 				// 如果创建失败（例如名称已存在），尝试再次获取
@@ -148,7 +152,7 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 					return nil, fmt.Errorf("auto-create bucket failed: %w", err)
 				}
 			}
-			
+
 			// 重新获取Bucket
 			bucket, err = s.bucketRepo.GetByName(ctx, input.BucketName, input.UserID)
 			if err != nil {
@@ -156,13 +160,8 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 					"bucket_name", input.BucketName,
 					"error", err,
 				)
-				return nil, fmt.Errorf("get bucket failed after auto-create: %w", err)
+				return nil, fmt.Errorf("get bucket after auto-create failed: %w", err)
 			}
-			
-			logger.LOG.Info("Bucket auto-created successfully",
-				"bucket_name", input.BucketName,
-				"user_id", input.UserID,
-			)
 		} else {
 			logger.LOG.Error("Get bucket failed",
 				"bucket_name", input.BucketName,
@@ -201,8 +200,8 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 	}
 
 	// 4. 创建临时目录并保存文件
-	tempDir := filepath.Join(bestDisk.DataPath, "temp", "s3_upload_"+uuid.New().String())
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	tempDir := util.BuildTempDir(bestDisk.DataPath, "s3_upload")
+	if err := os.MkdirAll(tempDir, 0700); err != nil {
 		logger.LOG.Error("Create temp dir failed", "error", err, "path", tempDir)
 		return nil, fmt.Errorf("create temp dir failed: %w", err)
 	}
@@ -298,7 +297,7 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 
 		// 生成缩略图（如果是图片且配置启用）
 		var thumbnailPath string
-		if config.CONFIG.File.Thumbnail && isImage(input.ContentType) {
+		if config.CONFIG.File.Thumbnail && util.IsImageByMime(input.ContentType) {
 			thumbnailFileName := fmt.Sprintf("%s_%s.jpg", blake3Hash, filepath.Base(input.ObjectKey))
 			thumbnailPath = filepath.Join(bestDisk.DataPath, "files", thumbnailFileName)
 			
@@ -325,7 +324,7 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 			FirstChunkHash:  "",
 			SecondChunkHash: "",
 			ThirdChunkHash:  "",
-			Size:            int(fileSize),
+			Size:            fileSize,
 			Mime:            input.ContentType,
 			Path:            finalPath,
 			IsEnc:           false,
@@ -696,8 +695,26 @@ func (s *S3ObjectService) GetObject(ctx context.Context, input *GetObjectInput) 
 	actualStart := input.RangeStart
 	actualEnd := input.RangeEnd
 
-	if input.RangeStart > 0 || input.RangeEnd > 0 {
-		// Range请求
+	if input.RangeStart == -1 && input.RangeEnd > 0 {
+		// 后缀范围 "bytes=-N"：返回文件末尾的N个字节
+		suffixLen := input.RangeEnd
+		if suffixLen > contentLength {
+			suffixLen = contentLength
+		}
+		actualStart = contentLength - suffixLen
+		actualEnd = contentLength - 1
+
+		// Seek到起始位置
+		if _, err := reader.Seek(actualStart, 0); err != nil {
+			if closer, ok := reader.(io.Closer); ok {
+				closer.Close()
+			}
+			return nil, fmt.Errorf("seek file failed: %w", err)
+		}
+
+		contentLength = actualEnd - actualStart + 1
+	} else if input.RangeStart > 0 || input.RangeEnd > 0 {
+		// 普通范围请求
 		if actualEnd == 0 || actualEnd >= contentLength {
 			actualEnd = contentLength - 1
 		}
@@ -846,23 +863,20 @@ func (s *S3ObjectService) DeleteObject(ctx context.Context, bucketName, objectKe
 	// 5. 删除 UserFiles 关联（仅在版本控制未启用或删除所有版本时）
 	// 如果版本控制已启用且只删除特定版本，不删除 UserFiles（其他版本可能还在使用）
 	if !versioningEnabled || versionID == "" {
-		// 查找对应的 UserFiles 记录
-		bucket, err := s.bucketRepo.GetByName(ctx, bucketName, userID)
+		// 复用前面已获取的 bucket 变量，避免重复查询
+		virtualPathID := fmt.Sprintf("%d", bucket.VirtualPathID)
+		// 查找该虚拟路径下的所有 UserFiles 记录
+		userFiles, err := s.factory.UserFiles().ListByVirtualPath(ctx, userID, virtualPathID, 0, 10000)
 		if err == nil {
-			virtualPathID := fmt.Sprintf("%d", bucket.VirtualPathID)
-			// 查找该虚拟路径下的所有 UserFiles 记录
-			userFiles, err := s.factory.UserFiles().ListByVirtualPath(ctx, userID, virtualPathID, 0, 10000)
-			if err == nil {
-				// 查找匹配的 UserFiles 记录（通过 file_id 和文件名匹配）
-				objectFileName := filepath.Base(objectKey)
-				for _, uf := range userFiles {
-					if uf.FileID == fileID && uf.FileName == objectFileName {
-						// 删除 UserFiles 记录
-						if err := s.factory.UserFiles().Delete(ctx, userID, uf.UfID); err != nil {
-							logger.LOG.Warn("Delete user file failed", "uf_id", uf.UfID, "error", err)
-						}
-						break
+			// 查找匹配的 UserFiles 记录（通过 file_id 和文件名匹配）
+			objectFileName := filepath.Base(objectKey)
+			for _, uf := range userFiles {
+				if uf.FileID == fileID && uf.FileName == objectFileName {
+					// 删除 UserFiles 记录
+					if err := s.factory.UserFiles().Delete(ctx, userID, uf.UfID); err != nil {
+						logger.LOG.Warn("Delete user file failed", "uf_id", uf.UfID, "error", err)
 					}
+					break
 				}
 			}
 		}
@@ -983,17 +997,9 @@ func (s *S3ObjectService) HeadObject(ctx context.Context, input *HeadObjectInput
 	// 4. 解析用户元数据
 	userMetadata := make(map[string]string)
 	if objectMetadata.UserMetadata != "" {
-		metaStr := strings.Trim(objectMetadata.UserMetadata, "{}")
-		if metaStr != "" {
-			pairs := strings.Split(metaStr, ",")
-			for _, pair := range pairs {
-				kv := strings.SplitN(pair, ":", 2)
-				if len(kv) == 2 {
-					key := strings.Trim(kv[0], `"`)
-					value := strings.Trim(kv[1], `"`)
-					userMetadata[key] = value
-				}
-			}
+		if err := json.Unmarshal([]byte(objectMetadata.UserMetadata), &userMetadata); err != nil {
+			logger.LOG.Warn("Unmarshal user metadata failed, using empty metadata", "error", err)
+			userMetadata = make(map[string]string)
 		}
 	}
 
@@ -1484,8 +1490,8 @@ func (s *S3ObjectService) UploadPart(ctx context.Context, input *UploadPartInput
 	}
 
 	// 8. 保存分片到临时文件
-	tempDir := filepath.Join(bestDisk.DataPath, "temp", "s3_multipart_"+uuid.New().String())
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	tempDir := util.BuildTempDir(bestDisk.DataPath, "s3_multipart")
+	if err := os.MkdirAll(tempDir, 0700); err != nil {
 		return nil, fmt.Errorf("create temp dir failed: %w", err)
 	}
 	// 确保临时目录在失败时被清理
@@ -1707,7 +1713,7 @@ func (s *S3ObjectService) CompleteMultipartUpload(ctx context.Context, input *Co
 	}
 	finalETag := hex.EncodeToString(hasher.Sum(nil))
 
-	// 9. 创建 FileInfo
+	// 9. 在事务中创建 FileInfo、ObjectMetadata、UserFiles 并更新上传状态
 	// 从上传会话的元数据中获取 ContentType
 	contentType := "application/octet-stream"
 	if upload.Metadata != "" {
@@ -1719,12 +1725,16 @@ func (s *S3ObjectService) CompleteMultipartUpload(ctx context.Context, input *Co
 		}
 	}
 
+	fileID := uuid.NewString()
+	versionID := uuid.New().String()
+	ufID := uuid.NewString()
+
 	fileInfo := &models.FileInfo{
-		ID:             uuid.NewString(),
+		ID:             fileID,
 		Name:           filepath.Base(input.ObjectKey),
 		RandomName:     filepath.Base(finalPath),
 		Path:           finalPath,
-		Size:           int(totalSize),
+		Size:           totalSize,
 		Mime:           contentType,
 		FileHash:       finalETag,
 		ChunkSignature: finalETag[:16], // 使用前16位作为签名
@@ -1735,22 +1745,8 @@ func (s *S3ObjectService) CompleteMultipartUpload(ctx context.Context, input *Co
 		UpdatedAt:      custom_type.Now(),
 	}
 
-	if err := s.factory.FileInfo().Create(ctx, fileInfo); err != nil {
-		os.Remove(finalPath)
-		return nil, fmt.Errorf("create file info failed: %w", err)
-	}
-	// 确保文件在失败时被清理
-	defer func() {
-		if err != nil {
-			s.factory.FileInfo().Delete(ctx, fileInfo.ID)
-			os.Remove(finalPath)
-		}
-	}()
-
-	// 10. 创建对象元数据
-	versionID := uuid.New().String()
 	objectMetadata := &models.S3ObjectMetadata{
-		FileID:       fileInfo.ID,
+		FileID:       fileID,
 		BucketName:   input.BucketName,
 		ObjectKey:    input.ObjectKey,
 		UserID:       input.UserID,
@@ -1764,30 +1760,42 @@ func (s *S3ObjectService) CompleteMultipartUpload(ctx context.Context, input *Co
 		UpdatedAt:    custom_type.Now(),
 	}
 
-	if err := s.objectMetadataRepo.Create(ctx, objectMetadata); err != nil {
-		s.factory.FileInfo().Delete(ctx, fileInfo.ID)
-		os.Remove(finalPath)
-		return nil, fmt.Errorf("create object metadata failed: %w", err)
-	}
-
-	// 11. 创建 UserFiles 关联
 	userFile := &models.UserFiles{
 		UserID:      input.UserID,
-		FileID:      fileInfo.ID,
+		FileID:      fileID,
 		FileName:    filepath.Base(input.ObjectKey),
 		VirtualPath: fmt.Sprintf("%d", bucket.VirtualPathID),
 		IsPublic:    false,
 		CreatedAt:   custom_type.Now(),
-		UfID:        uuid.NewString(),
+		UfID:        ufID,
 	}
 
-	if err := s.factory.UserFiles().Create(ctx, userFile); err != nil {
-		logger.LOG.Warn("Create user file failed", "error", err)
-	}
+	// 使用数据库事务包裹所有写操作，确保数据一致性
+	txErr := s.factory.DB().Transaction(func(tx *gorm.DB) error {
+		txFactory := s.factory.WithTx(tx)
 
-	// 12. 更新上传状态
-	if err := multipartRepo.UpdateUploadStatus(ctx, input.UploadID, "completed"); err != nil {
-		logger.LOG.Warn("Update upload status failed", "error", err)
+		if err := txFactory.FileInfo().Create(ctx, fileInfo); err != nil {
+			return fmt.Errorf("create file info failed: %w", err)
+		}
+
+		if err := s.objectMetadataRepo.Create(ctx, objectMetadata); err != nil {
+			return fmt.Errorf("create object metadata failed: %w", err)
+		}
+
+		if err := txFactory.UserFiles().Create(ctx, userFile); err != nil {
+			return fmt.Errorf("create user file failed: %w", err)
+		}
+
+		if err := multipartRepo.UpdateUploadStatus(ctx, input.UploadID, "completed"); err != nil {
+			return fmt.Errorf("update upload status failed: %w", err)
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		os.Remove(finalPath)
+		return nil, txErr
 	}
 
 	// 13. 清理临时分片文件
@@ -2120,16 +2128,7 @@ func (s *S3ObjectService) CopyObject(ctx context.Context, input *CopyObjectInput
 		return nil, fmt.Errorf("source file not found: %w", err)
 	}
 
-	// 4. 检查目标对象是否已存在（如果存在，标记旧版本）
-	existingMetadata, err := s.objectMetadataRepo.GetByKey(ctx, input.DestinationBucket, input.DestinationKey, input.UserID)
-	if err == nil && existingMetadata != nil {
-		// 标记旧版本为非最新
-		if err := s.objectMetadataRepo.MarkOldVersions(ctx, input.DestinationBucket, input.DestinationKey, input.UserID); err != nil {
-			logger.LOG.Warn("Mark old versions failed", "error", err)
-		}
-	}
-
-	// 5. 处理元数据
+	// 4. 处理元数据
 	userMetadataJSON := ""
 	contentType := sourceMetadata.ContentType
 	storageClass := sourceMetadata.StorageClass
@@ -2154,7 +2153,7 @@ func (s *S3ObjectService) CopyObject(ctx context.Context, input *CopyObjectInput
 		storageClass = input.StorageClass
 	}
 
-	// 6. 复制文件（如果源和目标在同一磁盘，可以创建硬链接；否则复制文件）
+	// 5. 复制文件（如果源和目标在同一磁盘，可以创建硬链接；否则复制文件）
 	// 查找源文件所在的磁盘
 	sourceDisk, err := s.factory.Disk().GetByPath(ctx, filepath.Dir(sourceFileInfo.Path))
 	if err != nil {
@@ -2206,79 +2205,98 @@ func (s *S3ObjectService) CopyObject(ctx context.Context, input *CopyObjectInput
 		}
 	}
 
-	// 7. 创建目标 FileInfo（如果文件已存在，可以复用）
-	var destFileInfo *models.FileInfo
-	var isNewFile bool
-	existingFile, err := s.factory.FileInfo().GetByHash(ctx, sourceFileInfo.FileHash)
-	if err == nil && existingFile != nil {
-		// 文件已存在，复用
-		destFileInfo = existingFile
-		isNewFile = false
-		// 删除刚复制的文件（因为已存在）
-		os.Remove(finalPath)
-	} else {
-		// 创建新的 FileInfo
-		isNewFile = true
-		destFileInfo = &models.FileInfo{
-			ID:              uuid.New().String(),
-			FileHash:        sourceFileInfo.FileHash,
-			ChunkSignature:  sourceFileInfo.ChunkSignature,
-			FirstChunkHash:  sourceFileInfo.FirstChunkHash,
-			SecondChunkHash: sourceFileInfo.SecondChunkHash,
-			ThirdChunkHash:  sourceFileInfo.ThirdChunkHash,
-			Size:            sourceFileInfo.Size,
-			Mime:            contentType,
-			Path:            finalPath,
-			IsEnc:           sourceFileInfo.IsEnc,
-			ThumbnailImg:    sourceFileInfo.ThumbnailImg,
-			CreatedAt:       custom_type.Now(),
-		}
-
-		if err := s.factory.FileInfo().Create(ctx, destFileInfo); err != nil {
-			os.Remove(finalPath)
-			return nil, fmt.Errorf("create file info failed: %w", err)
-		}
-	}
-
-	// 8. 创建目标对象元数据
+	// 6. 在事务中执行所有数据库操作，确保数据一致性
+	// 包括：标记旧版本、创建 FileInfo、创建 S3ObjectMetadata、创建 UserFiles
 	versionID := uuid.New().String()
-	destObjectMetadata := &models.S3ObjectMetadata{
-		FileID:       destFileInfo.ID,
-		BucketName:   input.DestinationBucket,
-		ObjectKey:    input.DestinationKey,
-		UserID:       input.UserID,
-		ETag:         sourceMetadata.ETag,
-		StorageClass: storageClass,
-		ContentType:  contentType,
-		UserMetadata: userMetadataJSON,
-		VersionID:    versionID,
-		IsLatest:     true,
-		CreatedAt:    custom_type.Now(),
-		UpdatedAt:    custom_type.Now(),
-	}
+	var destObjectMetadata *models.S3ObjectMetadata
 
-	if err := s.objectMetadataRepo.Create(ctx, destObjectMetadata); err != nil {
-		// 如果是新文件，需要清理
-		if isNewFile {
-			s.factory.FileInfo().Delete(ctx, destFileInfo.ID)
-			os.Remove(finalPath)
+	db := s.factory.DB()
+	txErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txFactory := s.factory.WithTx(tx)
+
+		// 6a. 检查目标对象是否已存在（如果存在，标记旧版本）
+		existingMetadata, err := txFactory.S3ObjectMetadata().GetByKey(ctx, input.DestinationBucket, input.DestinationKey, input.UserID)
+		if err == nil && existingMetadata != nil {
+			if err := txFactory.S3ObjectMetadata().MarkOldVersions(ctx, input.DestinationBucket, input.DestinationKey, input.UserID); err != nil {
+				return fmt.Errorf("mark old versions failed: %w", err)
+			}
 		}
-		return nil, fmt.Errorf("create object metadata failed: %w", err)
-	}
 
-	// 9. 创建 UserFiles 关联
-	userFile := &models.UserFiles{
-		UserID:      input.UserID,
-		FileID:      destFileInfo.ID,
-		FileName:    filepath.Base(input.DestinationKey),
-		VirtualPath: fmt.Sprintf("%d", destBucket.VirtualPathID),
-		IsPublic:    false,
-		CreatedAt:   custom_type.Now(),
-		UfID:        uuid.NewString(),
-	}
+		// 6b. 创建目标 FileInfo（如果文件已存在，可以复用）
+		existingFile, err := txFactory.FileInfo().GetByHash(ctx, sourceFileInfo.FileHash)
+		if err == nil && existingFile != nil {
+			// 文件已存在，复用；删除刚复制的文件
+			os.Remove(finalPath)
+		} else {
+			// 创建新的 FileInfo
+			destFileInfo := &models.FileInfo{
+				ID:              uuid.New().String(),
+				FileHash:        sourceFileInfo.FileHash,
+				ChunkSignature:  sourceFileInfo.ChunkSignature,
+				FirstChunkHash:  sourceFileInfo.FirstChunkHash,
+				SecondChunkHash: sourceFileInfo.SecondChunkHash,
+				ThirdChunkHash:  sourceFileInfo.ThirdChunkHash,
+				Size:            sourceFileInfo.Size,
+				Mime:            contentType,
+				Path:            finalPath,
+				IsEnc:           sourceFileInfo.IsEnc,
+				ThumbnailImg:    sourceFileInfo.ThumbnailImg,
+				CreatedAt:       custom_type.Now(),
+			}
 
-	if err := s.factory.UserFiles().Create(ctx, userFile); err != nil {
-		logger.LOG.Warn("Create user file failed", "error", err)
+			if err := txFactory.FileInfo().Create(ctx, destFileInfo); err != nil {
+				return fmt.Errorf("create file info failed: %w", err)
+			}
+		}
+
+		// 6c. 重新获取目标 FileInfo（可能是刚创建的或复用的）
+		destFileInfo, err := txFactory.FileInfo().GetByHash(ctx, sourceFileInfo.FileHash)
+		if err != nil {
+			return fmt.Errorf("get dest file info failed: %w", err)
+		}
+
+		// 6d. 创建目标对象元数据
+		destObjectMetadata = &models.S3ObjectMetadata{
+			FileID:       destFileInfo.ID,
+			BucketName:   input.DestinationBucket,
+			ObjectKey:    input.DestinationKey,
+			UserID:       input.UserID,
+			ETag:         sourceMetadata.ETag,
+			StorageClass: storageClass,
+			ContentType:  contentType,
+			UserMetadata: userMetadataJSON,
+			VersionID:    versionID,
+			IsLatest:     true,
+			CreatedAt:    custom_type.Now(),
+			UpdatedAt:    custom_type.Now(),
+		}
+
+		if err := txFactory.S3ObjectMetadata().Create(ctx, destObjectMetadata); err != nil {
+			return fmt.Errorf("create object metadata failed: %w", err)
+		}
+
+		// 6e. 创建 UserFiles 关联
+		userFile := &models.UserFiles{
+			UserID:      input.UserID,
+			FileID:      destFileInfo.ID,
+			FileName:    filepath.Base(input.DestinationKey),
+			VirtualPath: fmt.Sprintf("%d", destBucket.VirtualPathID),
+			IsPublic:    false,
+			CreatedAt:   custom_type.Now(),
+			UfID:        uuid.NewString(),
+		}
+
+		if err := txFactory.UserFiles().Create(ctx, userFile); err != nil {
+			return fmt.Errorf("create user file failed: %w", err)
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		// 事务失败，清理物理文件
+		os.Remove(finalPath)
+		return nil, txErr
 	}
 
 	logger.LOG.Info("Copy object success",
@@ -2740,11 +2758,6 @@ func (s *S3ObjectService) convertCannedACLToPolicy(cannedACL string, userID stri
 	return aclPolicy
 }
 
-// isImage 判断MIME类型是否为图片
-func isImage(mimeType string) bool {
-	return strings.HasPrefix(mimeType, "image/")
-}
-
 // handleServerSideEncryption 处理服务端加密
 func (s *S3ObjectService) handleServerSideEncryption(ctx context.Context, input *PutObjectInput, fileInfo *models.FileInfo, isNewFile bool) (*models.S3ObjectEncryption, error) {
 	// 只支持 SSE-S3（使用S3管理的密钥）
@@ -2796,7 +2809,7 @@ func (s *S3ObjectService) handleServerSideEncryption(ctx context.Context, input 
 
 		// 更新文件大小（加密后增加了IV的大小，即16字节）
 		if stat, err := os.Stat(encryptedPath); err == nil {
-			fileInfo.Size = int(stat.Size())
+			fileInfo.Size = stat.Size()
 		}
 	} else {
 		// 对于秒传的文件，检查是否已加密
@@ -2833,7 +2846,7 @@ func (s *S3ObjectService) handleServerSideEncryption(ctx context.Context, input 
 
 			// 更新文件大小
 			if stat, err := os.Stat(encryptedPath); err == nil {
-				fileInfo.Size = int(stat.Size())
+				fileInfo.Size = stat.Size()
 			}
 
 			// 更新FileInfo记录
