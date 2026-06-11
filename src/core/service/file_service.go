@@ -138,13 +138,13 @@ func (f *FileService) handleInstantUpload(ctx context.Context, user *models.User
 }
 
 // Precheck 文件预检查
-func (f *FileService) Precheck(req *request.UploadPrecheckRequest, c cache.Cache) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (f *FileService) Precheck(ctx context.Context, req *request.UploadPrecheckRequest, c cache.Cache) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	user, err := f.factory.User().GetByID(ctx, req.UserID)
 	if err != nil {
 		logger.LOG.Error("获取用户信息失败", "error", err, "userID", req.UserID)
-		return nil, err
+		return nil, fmt.Errorf("获取用户信息失败: %w", err)
 	}
 	// 检查用户可用空间 如果不是无限空间，且可用空间不足
 	if user.Space > 0 && user.FreeSpace < req.FileSize {

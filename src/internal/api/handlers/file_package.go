@@ -24,7 +24,7 @@ func (f *FileHandler) CreatePackage(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := f.service.CreatePackage(req, userID)
+	result, err := f.service.CreatePackage(c.Request.Context(), req, userID)
 	if err != nil {
 		logger.LOG.Error("创建打包任务失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
@@ -42,7 +42,7 @@ func (f *FileHandler) GetPackageProgress(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := f.service.GetPackageProgress(req.PackageID, userID)
+	result, err := f.service.GetPackageProgress(c.Request.Context(), req.PackageID, userID)
 	if err != nil {
 		logger.LOG.Error("获取打包进度失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
@@ -61,7 +61,7 @@ func (f *FileHandler) DownloadPackage(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	filePath, fileName, err := f.service.DownloadPackage(req.PackageID, userID)
+	filePath, fileName, err := f.service.DownloadPackage(c.Request.Context(), req.PackageID, userID)
 	if err != nil {
 		logger.LOG.Error("下载打包文件失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))

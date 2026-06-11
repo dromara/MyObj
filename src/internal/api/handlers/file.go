@@ -1,4 +1,4 @@
-﻿package handlers
+package handlers
 
 import (
 	"errors"
@@ -115,7 +115,7 @@ func (f *FileHandler) Precheck(c *gin.Context) {
 		return
 	}
 	req.UserID = c.GetString("userID")
-	precheck, err := f.service.Precheck(req, f.cache)
+	precheck, err := f.service.Precheck(c.Request.Context(), req, f.cache)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, "预检查失败", err.Error()))
 		return
@@ -699,7 +699,7 @@ func (f *FileHandler) CheckExtractConflict(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := f.service.CheckExtractConflict(req, userID)
+	result, err := f.service.CheckExtractConflict(c.Request.Context(), req, userID)
 	if err != nil {
 		logger.LOG.Error("解压冲突检测失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
@@ -727,7 +727,7 @@ func (f *FileHandler) CreateExtract(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := f.service.CreateExtractTask(req, userID)
+	result, err := f.service.CreateExtractTask(c.Request.Context(), req, userID)
 	if err != nil {
 		logger.LOG.Error("创建解压任务失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
@@ -755,7 +755,7 @@ func (f *FileHandler) GetExtractProgress(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := f.service.GetExtractProgress(taskID, userID)
+	result, err := f.service.GetExtractProgress(c.Request.Context(), taskID, userID)
 	if err != nil {
 		logger.LOG.Error("获取解压进度失败", "error", err)
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))

@@ -69,14 +69,14 @@ type PackageTask struct {
 }
 
 // CreatePackage 创建打包下载任务
-func (f *FileService) CreatePackage(req *request.PackageCreateRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (f *FileService) CreatePackage(ctx context.Context, req *request.PackageCreateRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 批量验证文件权限（前端传递的是 uf_id）
 	userFilesMap, err := f.factory.UserFiles().BatchGetByUserIDAndUfIDs(ctx, userID, req.FileIDs)
 	if err != nil {
-		return nil, fmt.Errorf("批量查询用户文件失败: %v", err)
+		return nil, fmt.Errorf("批量查询用户文件失败: %w", err)
 	}
 	for _, fileID := range req.FileIDs {
 		if _, ok := userFilesMap[fileID]; !ok {
@@ -292,7 +292,7 @@ func (f *FileService) createZipPackage(ctx context.Context, task *PackageTask) {
 }
 
 // GetPackageProgress 获取打包进度
-func (f *FileService) GetPackageProgress(packageID, userID string) (*models.JsonResponse, error) {
+func (f *FileService) GetPackageProgress(ctx context.Context, packageID, userID string) (*models.JsonResponse, error) {
 	value, ok := packageTasks.Load(packageID)
 	if !ok {
 		return nil, fmt.Errorf("打包任务不存在")
@@ -317,7 +317,7 @@ func (f *FileService) GetPackageProgress(packageID, userID string) (*models.Json
 }
 
 // DownloadPackage 下载打包文件
-func (f *FileService) DownloadPackage(packageID, userID string) (string, string, error) {
+func (f *FileService) DownloadPackage(ctx context.Context, packageID, userID string) (string, string, error) {
 	value, ok := packageTasks.Load(packageID)
 	if !ok {
 		return "", "", fmt.Errorf("打包任务不存在")

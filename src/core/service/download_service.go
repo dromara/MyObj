@@ -59,18 +59,18 @@ func NewDownloadService(factory *impl.RepositoryFactory) *DownloadService {
 	}
 }
 
-func (d *DownloadService) GetRepository() *impl.RepositoryFactory {
+func (d *DownloadService) GetRepository(ctx context.Context) *impl.RepositoryFactory {
 	return d.factory
 }
 
 // Close 取消所有正在进行的异步下载任务，用于服务优雅关闭
-func (d *DownloadService) Close() {
+func (d *DownloadService) Close(ctx context.Context) {
 	d.cancel()
 }
 
 // CreateOfflineDownload 创建离线下载任务
-func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) CreateOfflineDownload(ctx context.Context, req *request.CreateOfflineDownloadRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 1. 验证用户是否存在并获取用户信息
@@ -165,8 +165,8 @@ func (d *DownloadService) CreateOfflineDownload(req *request.CreateOfflineDownlo
 }
 
 // GetTaskList 获取下载任务列表
-func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) GetTaskList(ctx context.Context, req *request.DownloadTaskListRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	offset := (req.Page - 1) * req.PageSize
@@ -299,8 +299,8 @@ func (d *DownloadService) GetTaskList(req *request.DownloadTaskListRequest, user
 }
 
 // PauseTask 暂停下载任务
-func (d *DownloadService) PauseTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) PauseTask(ctx context.Context, req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证任务是否属于该用户
@@ -335,8 +335,8 @@ func (d *DownloadService) PauseTask(req *request.TaskOperationRequest, userID st
 }
 
 // ResumeTask 恢复下载任务
-func (d *DownloadService) ResumeTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) ResumeTask(ctx context.Context, req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证任务是否属于该用户
@@ -371,8 +371,8 @@ func (d *DownloadService) ResumeTask(req *request.TaskOperationRequest, userID s
 }
 
 // CancelTask 取消下载任务
-func (d *DownloadService) CancelTask(req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) CancelTask(ctx context.Context, req *request.TaskOperationRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证任务是否属于该用户
@@ -407,8 +407,8 @@ func (d *DownloadService) CancelTask(req *request.TaskOperationRequest, userID s
 }
 
 // DeleteTask 删除下载任务
-func (d *DownloadService) DeleteTask(req *request.DeleteTaskRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) DeleteTask(ctx context.Context, req *request.DeleteTaskRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证任务是否属于该用户
@@ -529,8 +529,8 @@ func (d *DownloadService) getTypeText(taskType int) string {
 }
 
 // CreateLocalFileDownload 创建网盘文件下载任务
-func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) CreateLocalFileDownload(ctx context.Context, req *request.CreateLocalFileDownloadRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 1. 验证用户是否存在
@@ -544,7 +544,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 	userFile, err := d.factory.UserFiles().GetByUfID(ctx, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取用户文件信息失败", "error", err, "fileID", req.FileID)
-		return nil, err
+		return nil, fmt.Errorf("获取用户文件信息失败: %w", err)
 	}
 	if !userFile.IsPublic && userFile.UserID != userID {
 		logger.LOG.Warn("用户尝试下载非公开文件", "userID", userID, "fileID", req.FileID)
@@ -642,7 +642,7 @@ func (d *DownloadService) CreateLocalFileDownload(req *request.CreateLocalFileDo
 }
 
 // ParseTorrent 解析种子/磁力链
-func (d *DownloadService) ParseTorrent(req *request.ParseTorrentRequest) (*models.JsonResponse, error) {
+func (d *DownloadService) ParseTorrent(ctx context.Context, req *request.ParseTorrentRequest) (*models.JsonResponse, error) {
 	// 调用解析功能（超时120秒）
 	result, err := download.ParseTorrent(req.Content, 120)
 	if err != nil {
@@ -679,8 +679,8 @@ func (d *DownloadService) ParseTorrent(req *request.ParseTorrentRequest) (*model
 }
 
 // StartTorrentDownload 开始种子/磁力链下载
-func (d *DownloadService) StartTorrentDownload(req *request.StartTorrentDownloadRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (d *DownloadService) StartTorrentDownload(ctx context.Context, req *request.StartTorrentDownloadRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 1. 验证用户是否存在并获取用户信息

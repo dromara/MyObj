@@ -72,7 +72,7 @@ func (u *UserHandler) Login(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	login, err := u.service.Login(req.Username, req.Password, req.Challenge)
+	login, err := u.service.Login(c.Request.Context(), req.Username, req.Password, req.Challenge)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
@@ -107,7 +107,7 @@ func (u *UserHandler) Register(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	register, err := u.service.Register(req)
+	register, err := u.service.Register(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -124,7 +124,7 @@ func (u *UserHandler) Register(c *gin.Context) {
 // @Failure 400 {object} models.JsonResponse "获取失败"
 // @Router /user/challenge [get]
 func (u *UserHandler) Challenge(c *gin.Context) {
-	challenge, err := u.service.Challenge()
+	challenge, err := u.service.Challenge(c.Request.Context())
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -141,7 +141,7 @@ func (u *UserHandler) Challenge(c *gin.Context) {
 // @Failure 400 {object} models.JsonResponse "获取失败"
 // @Router /user/sysInfo [get]
 func (u *UserHandler) SysInit(c *gin.Context) {
-	init, err := u.service.SysInit()
+	init, err := u.service.SysInit(c.Request.Context())
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -180,7 +180,7 @@ func (u *UserHandler) UpdateUser(c *gin.Context) {
 		req.ID = c.GetString("userID")
 	}
 	// 传递 req.ID 作为 currentUserID，对于 updateUserElse 路由跳过服务层的"只能修改自己"校验
-	update, err := u.service.UpdateUser(req, req.ID)
+	update, err := u.service.UpdateUser(c.Request.Context(), req, req.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
@@ -210,7 +210,7 @@ func (u *UserHandler) UpdatePassword(c *gin.Context) {
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.UpdatePassword(req, c.GetString("userID"))
+	update, err := u.service.UpdatePassword(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
@@ -240,7 +240,7 @@ func (u *UserHandler) SetFilePassword(c *gin.Context) {
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.SetFilePassword(req, c.GetString("userID"))
+	update, err := u.service.SetFilePassword(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
@@ -270,7 +270,7 @@ func (u *UserHandler) UserUpdateFilePassword(c *gin.Context) {
 		return
 	}
 	req.ID = c.GetString("userID")
-	update, err := u.service.UpdateFilePassword(req, c.GetString("userID"))
+	update, err := u.service.UpdateFilePassword(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(400, models.NewJsonResponse(400, "用户不存在", nil))
@@ -299,7 +299,7 @@ func (u *UserHandler) GenerateApiKey(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	result, err := u.service.GenerateApiKey(req, c.GetString("userID"))
+	result, err := u.service.GenerateApiKey(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -317,7 +317,7 @@ func (u *UserHandler) GenerateApiKey(c *gin.Context) {
 // @Failure 400 {object} models.JsonResponse "获取失败"
 // @Router /user/apiKey/list [get]
 func (u *UserHandler) ListApiKeys(c *gin.Context) {
-	result, err := u.service.ListApiKeys(c.GetString("userID"))
+	result, err := u.service.ListApiKeys(c.Request.Context(), c.GetString("userID"))
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -344,7 +344,7 @@ func (u *UserHandler) DeleteApiKey(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	result, err := u.service.DeleteApiKey(req, c.GetString("userID"))
+	result, err := u.service.DeleteApiKey(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -363,7 +363,7 @@ func (u *UserHandler) DeleteApiKey(c *gin.Context) {
 // @Router /user/info [get]
 func (u *UserHandler) GetUserInfo(c *gin.Context) {
 	userID := c.GetString("userID")
-	result, err := u.service.GetUserInfo(userID)
+	result, err := u.service.GetUserInfo(c.Request.Context(), userID)
 	if err != nil {
 		logger.LOG.Error("获取用户信息失败", "userID", userID, "err", err)
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))

@@ -35,7 +35,7 @@ func NewDownloadHandler(service *service.DownloadService, cacheLocal cache.Cache
 }
 
 func (h *DownloadHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository())
+	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository(context.Background()))
 
 	downloadGroup := c.Group("/download")
 	{
@@ -78,7 +78,7 @@ func (h *DownloadHandler) CreateOfflineDownload(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.CreateOfflineDownload(req, userID)
+	result, err := h.service.CreateOfflineDownload(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
 		return
@@ -99,7 +99,7 @@ func (h *DownloadHandler) GetTaskList(c *gin.Context) {
 	// 不再需要 -1 哨兵值
 
 	userID := c.GetString("userID")
-	result, err := h.service.GetTaskList(req, userID)
+	result, err := h.service.GetTaskList(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "查询失败", err.Error()))
 		return
@@ -117,7 +117,7 @@ func (h *DownloadHandler) PauseTask(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.PauseTask(req, userID)
+	result, err := h.service.PauseTask(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "暂停失败", err.Error()))
 		return
@@ -135,7 +135,7 @@ func (h *DownloadHandler) ResumeTask(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.ResumeTask(req, userID)
+	result, err := h.service.ResumeTask(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "恢复失败", err.Error()))
 		return
@@ -153,7 +153,7 @@ func (h *DownloadHandler) CancelTask(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.CancelTask(req, userID)
+	result, err := h.service.CancelTask(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "取消失败", err.Error()))
 		return
@@ -171,7 +171,7 @@ func (h *DownloadHandler) DeleteTask(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.DeleteTask(req, userID)
+	result, err := h.service.DeleteTask(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "删除失败", err.Error()))
 		return
@@ -200,7 +200,7 @@ func (h *DownloadHandler) CreateLocalFileDownload(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.CreateLocalFileDownload(req, userID)
+	result, err := h.service.CreateLocalFileDownload(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "创建失败", err.Error()))
 		return
@@ -227,7 +227,7 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 	userID := c.GetString("userID")
 
 	// 1. 查询任务
-	task, err := h.service.GetRepository().DownloadTask().GetByID(c.Request.Context(), taskID)
+	task, err := h.service.GetRepository(c.Request.Context()).DownloadTask().GetByID(c.Request.Context(), taskID)
 	if err != nil || task == nil {
 		c.JSON(200, models.NewJsonResponse(400, "任务不存在", nil))
 		return
@@ -285,7 +285,7 @@ func (h *DownloadHandler) DownloadLocalFile(c *gin.Context) {
 				taskMu.Lock()
 				task.State = 3 // 3=完成
 				task.FinishTime = custom_type.Now()
-				if err := h.service.GetRepository().DownloadTask().Update(context.Background(), task); err != nil {
+				if err := h.service.GetRepository(context.Background()).DownloadTask().Update(context.Background(), task); err != nil {
 					logger.LOG.Error("更新下载任务状态失败", "taskID", taskID, "error", err)
 				}
 				taskMu.Unlock()
@@ -416,10 +416,10 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 
 	if userID != "" {
 		// 已登录用户：使用 userID + ufID 查询
-		userFile, err = h.service.GetRepository().UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
+		userFile, err = h.service.GetRepository(ctx).UserFiles().GetByUserIDAndUfID(ctx, userID, fileID)
 	} else {
 		// 未登录用户：仅使用 ufID 查询（用于公开文件）
-		userFile, err = h.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
+		userFile, err = h.service.GetRepository(ctx).UserFiles().GetByUfID(ctx, fileID)
 	}
 
 	if err != nil {
@@ -443,7 +443,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 	}
 
 	// 3. 查询文件信息
-	fileInfo, err := h.service.GetRepository().FileInfo().GetByID(ctx, userFile.FileID)
+	fileInfo, err := h.service.GetRepository(ctx).FileInfo().GetByID(ctx, userFile.FileID)
 	if err != nil {
 		logger.LOG.Error("查询文件信息失败", "error", err, "fileID", userFile.FileID)
 		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
@@ -462,7 +462,7 @@ func (h *DownloadHandler) PreviewFile(c *gin.Context) {
 		userFile.FileID,
 		userID,
 		tempDir,
-		h.service.GetRepository(),
+		h.service.GetRepository(ctx),
 		opts,
 	)
 	if err != nil {
@@ -533,7 +533,7 @@ func (h *DownloadHandler) ParseTorrent(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ParseTorrent(req)
+	result, err := h.service.ParseTorrent(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "解析失败", err.Error()))
 		return
@@ -562,7 +562,7 @@ func (h *DownloadHandler) StartTorrentDownload(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.StartTorrentDownload(req, userID)
+	result, err := h.service.StartTorrentDownload(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "创建任务失败", err.Error()))
 		return

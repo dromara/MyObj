@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
@@ -24,7 +25,7 @@ func NewRecycledHandler(service *service.RecycledService, cacheLocal cache.Cache
 }
 
 func (h *RecycledHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository())
+	verify := middleware.NewAuthMiddlewareFromFactory(h.cache, h.service.GetRepository(context.Background()))
 
 	recycled := c.Group("/recycled")
 	recycled.Use(verify.Verify())
@@ -62,7 +63,7 @@ func (h *RecycledHandler) GetRecycledList(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.GetRecycledList(req, userID)
+	result, err := h.service.GetRecycledList(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "获取回收站列表失败", err.Error()))
 		return
@@ -90,7 +91,7 @@ func (h *RecycledHandler) RestoreFile(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.RestoreFile(req, userID)
+	result, err := h.service.RestoreFile(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "还原文件失败", err.Error()))
 		return
@@ -118,7 +119,7 @@ func (h *RecycledHandler) DeletePermanently(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	result, err := h.service.DeletePermanently(req, userID)
+	result, err := h.service.DeletePermanently(c.Request.Context(), req, userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "永久删除失败", err.Error()))
 		return
@@ -138,7 +139,7 @@ func (h *RecycledHandler) DeletePermanently(c *gin.Context) {
 // @Router /recycled/empty [post]
 func (h *RecycledHandler) EmptyRecycled(c *gin.Context) {
 	userID := c.GetString("userID")
-	result, err := h.service.EmptyRecycled(userID)
+	result, err := h.service.EmptyRecycled(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(500, "清空回收站失败", err.Error()))
 		return

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"myobj/src/core/domain/request"
 	"myobj/src/core/service"
 	"myobj/src/internal/api/middleware"
@@ -27,7 +28,7 @@ func NewSharesHandler(service *service.SharesService, cacheLocal cache.Cache) *S
 	}
 }
 func (s *SharesHandler) GetRepository() *impl.RepositoryFactory {
-	return s.service.GetRepository()
+	return s.service.GetRepository(context.Background())
 }
 
 // getSharePassword 从请求中获取分享密码（优先 POST body，向后兼容 URL query）
@@ -49,7 +50,7 @@ func getSharePassword(c *gin.Context) string {
 }
 
 func (s *SharesHandler) Router(c *gin.RouterGroup) {
-	verify := middleware.NewAuthMiddlewareFromFactory(s.cache, s.service.GetRepository())
+	verify := middleware.NewAuthMiddlewareFromFactory(s.cache, s.service.GetRepository(context.Background()))
 	share := c.Group("/share")
 	share.Use(middleware.ShareRateLimit()) // 分享公开接口限流中间件，防止暴力破解
 	{
@@ -79,7 +80,7 @@ func (s *SharesHandler) CreateShare(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
 	}
-	createShare, err := s.service.CreateShare(req, c.GetString("userID"))
+	createShare, err := s.service.CreateShare(c.Request.Context(), req, c.GetString("userID"))
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -97,7 +98,7 @@ func (s *SharesHandler) GetShareInfo(c *gin.Context) {
 		return
 	}
 
-	shareInfo, err := s.service.GetShareInfo(token, password)
+	shareInfo, err := s.service.GetShareInfo(c.Request.Context(), token, password)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -117,7 +118,7 @@ func (s *SharesHandler) DownloadShare(c *gin.Context) {
 	}
 
 	// 调用服务下载分享文件
-	share := s.service.DownloadShare(token, password)
+	share := s.service.DownloadShare(c.Request.Context(), token, password)
 	if share.Err != "" {
 		c.JSON(400, models.NewJsonResponse(400, share.Err, nil))
 		return
@@ -162,7 +163,7 @@ func (s *SharesHandler) DownloadShare(c *gin.Context) {
 // GetShareList 获取分享列表
 func (s *SharesHandler) GetShareList(c *gin.Context) {
 	userID := c.GetString("userID")
-	shareList, err := s.service.GetShareList(userID)
+	shareList, err := s.service.GetShareList(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -178,7 +179,7 @@ func (s *SharesHandler) DeleteShare(c *gin.Context) {
 		return
 	}
 	userID := c.GetString("userID")
-	deleteShare, err := s.service.DeleteShare(req.ID, userID)
+	deleteShare, err := s.service.DeleteShare(c.Request.Context(), req.ID, userID)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -194,7 +195,7 @@ func (s *SharesHandler) UpdateSharePassword(c *gin.Context) {
 		return
 	}
 	userID := c.GetString("userID")
-	updatePassword, err := s.service.UpdateSharePassword(req.ID, req.Password, userID)
+	updatePassword, err := s.service.UpdateSharePassword(c.Request.Context(), req.ID, req.Password, userID)
 	if err != nil {
 		c.JSON(400, models.NewJsonResponse(400, err.Error(), nil))
 		return

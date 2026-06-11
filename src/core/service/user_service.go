@@ -35,8 +35,8 @@ func (u *UserService) GetRepository() *impl.RepositoryFactory {
 }
 
 // Login 用户登录
-func (u *UserService) Login(username, password, challenge string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) Login(ctx context.Context, username, password, challenge string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	get, err := u.cacheLocal.Get(challenge)
 	if err != nil || get == nil {
@@ -53,7 +53,7 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 	decrypt, err := util.Decrypt(challengeId, password)
 	if err != nil {
 		logger.LOG.Error("密码挑战验证失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("密码挑战验证失败: %w", err)
 	}
 	psw := string(decrypt)
 
@@ -67,7 +67,7 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 			return nil, fmt.Errorf("用户不存在")
 		}
 		logger.LOG.Error("查询用户失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if user.State == 1 {
 		return nil, fmt.Errorf("用户已被禁用")
@@ -79,7 +79,7 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 	powers, err := u.factory.Power().GetByGroupID(ctx, user.GroupID)
 	if err != nil {
 		logger.LOG.Error("查询用户权限失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("查询用户权限失败: %w", err)
 	}
 	user.Password = ""
 	user.FilePassword = ""
@@ -92,7 +92,7 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 	jwt, err := auth.GenerateJWT(user.ID, uid, res)
 	if err != nil {
 		logger.LOG.Error("生成JWT失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("生成JWT失败: %w", err)
 	}
 
 	// 清除该用户的旧 session，使之前的 token 失效
@@ -124,8 +124,8 @@ func (u *UserService) Login(username, password, challenge string) (*models.JsonR
 }
 
 // Register 用户注册
-func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) Register(ctx context.Context, req *request.UserRegisterRequest) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 检查系统是否允许注册（第一个用户注册除外，用于系统初始化）
@@ -167,7 +167,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	if err != nil {
 		logger.LOG.Error("密码挑战验证失败", "error", err)
 		_ = u.cacheLocal.Delete(req.Challenge)
-		return nil, err
+		return nil, fmt.Errorf("密码挑战验证失败: %w", err)
 	}
 	psw := string(decrypt)
 	// 验证用户名和密码
@@ -179,7 +179,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户失败", "error", err)
 		_ = u.cacheLocal.Delete(req.Challenge)
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if user != nil {
 		_ = u.cacheLocal.Delete(req.Challenge)
@@ -189,13 +189,13 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 	if err != nil {
 		logger.LOG.Error("生成UUID失败", "error", err)
 		_ = u.cacheLocal.Delete(req.Challenge)
-		return nil, err
+		return nil, fmt.Errorf("生成UUID失败: %w", err)
 	}
 	password, err := util.GeneratePassword(psw)
 	if err != nil {
 		logger.LOG.Error("生成密码失败", "error", err)
 		_ = u.cacheLocal.Delete(req.Challenge)
-		return nil, err
+		return nil, fmt.Errorf("生成密码失败: %w", err)
 	}
 	// 检查是否是首次使用（第一个用户注册）
 	// userCount 已在上面查询过，直接使用
@@ -210,7 +210,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		group, err := u.factory.Group().GetDefaultGroup(ctx)
 		if err != nil {
 			logger.LOG.Error("查询默认分组失败", "error", err)
-			return nil, err
+			return nil, fmt.Errorf("查询默认分组失败: %w", err)
 		}
 		groupID = group.ID
 		// 安全检查：如果默认组是管理员组（ID=1），不允许注册（防止所有注册用户都成为管理员）
@@ -246,7 +246,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 			}
 		} else {
 			logger.LOG.Error("查询组信息失败", "error", err)
-			return nil, err
+			return nil, fmt.Errorf("查询组信息失败: %w", err)
 		}
 	}
 
@@ -285,7 +285,7 @@ func (u *UserService) Register(req *request.UserRegisterRequest) (*models.JsonRe
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("创建用户失败: %w", err)
 	}
 	// 删除已使用的挑战
 	_ = u.cacheLocal.Delete(req.Challenge)
@@ -421,17 +421,17 @@ func (u *UserService) initDefaultPowersForAdminGroup(ctx context.Context) error 
 }
 
 // Challenge 密码挑战
-func (u *UserService) Challenge() (*models.JsonResponse, error) {
+func (u *UserService) Challenge(ctx context.Context) (*models.JsonResponse, error) {
 	pair, err := util.GenerateKeyPair()
 	if err != nil {
 		logger.LOG.Error("生成密钥对失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("生成密钥对失败: %w", err)
 	}
 	uid := uuid.NewString()
 	err = u.cacheLocal.Set(uid, pair.PrivateKey, 60)
 	if err != nil {
 		logger.LOG.Error("缓存密钥对失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("缓存密钥对失败: %w", err)
 	}
 	m := map[string]string{
 		"publicKey": pair.PublicKey,
@@ -441,13 +441,13 @@ func (u *UserService) Challenge() (*models.JsonResponse, error) {
 }
 
 // SysInit 查询系统是否初次使用和注册配置
-func (u *UserService) SysInit() (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) SysInit(ctx context.Context) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	count, err := u.factory.User().Count(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.LOG.Error("查询用户数量失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("查询用户数量失败: %w", err)
 	}
 	isFirstUse := count == 0
 
@@ -475,16 +475,16 @@ func (u *UserService) SysInit() (*models.JsonResponse, error) {
 }
 
 // UpdateUser 修改用户信息
-func (u *UserService) UpdateUser(req *request.UserUpdateRequest, currentUserID string) (*models.JsonResponse, error) {
+func (u *UserService) UpdateUser(ctx context.Context, req *request.UserUpdateRequest, currentUserID string) (*models.JsonResponse, error) {
 	// 权限验证：只有用户本人可以修改自己的信息
 	if req.ID != currentUserID {
 		return nil, fmt.Errorf("无权修改其他用户的信息")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if req.Username != "" {
 		user.UserName = req.Username
@@ -499,13 +499,13 @@ func (u *UserService) UpdateUser(req *request.UserUpdateRequest, currentUserID s
 		user.Phone = req.Phone
 	}
 	if err := u.factory.User().Update(ctx, user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 	return models.NewJsonResponse(200, "ok", nil), nil
 }
 
 // UpdatePassword 修改用户密码
-func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+func (u *UserService) UpdatePassword(ctx context.Context, req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
 	// 权限验证：只有用户本人可以修改密码
 	if req.ID != currentUserID {
 		return nil, fmt.Errorf("无权修改其他用户的密码")
@@ -541,22 +541,22 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest, cur
 	}
 	newPsw := string(decryptNew)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if !util.CheckPassword(user.Password, oldPsw) {
 		return nil, fmt.Errorf("密码错误")
 	}
 	password, err := util.GeneratePassword(newPsw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("生成密码失败: %w", err)
 	}
 	user.Password = password
 	if err := u.factory.User().Update(ctx, user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 
 	// 删除已使用的挑战
@@ -581,7 +581,7 @@ func (u *UserService) UpdatePassword(req *request.UserUpdatePasswordRequest, cur
 }
 
 // SetFilePassword 设置文件密码
-func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+func (u *UserService) SetFilePassword(ctx context.Context, req *request.UserSetFilePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
 	// 权限验证：只有用户本人可以设置文件密码
 	if req.ID != currentUserID {
 		return nil, fmt.Errorf("无权修改其他用户的文件密码")
@@ -609,21 +609,21 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest, c
 	}
 	psw := string(decrypt)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if psw == "" {
 		return nil, fmt.Errorf("密码不能为空")
 	}
 	user.FilePassword, err = util.GeneratePassword(psw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("生成密码失败: %w", err)
 	}
 	if err := u.factory.User().Update(ctx, user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 
 	// 删除已使用的挑战
@@ -633,7 +633,7 @@ func (u *UserService) SetFilePassword(req *request.UserSetFilePasswordRequest, c
 }
 
 // UpdateFilePassword 修改文件密码
-func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
+func (u *UserService) UpdateFilePassword(ctx context.Context, req *request.UserUpdatePasswordRequest, currentUserID string) (*models.JsonResponse, error) {
 	// 权限验证：只有用户本人可以修改文件密码
 	if req.ID != currentUserID {
 		return nil, fmt.Errorf("无权修改其他用户的文件密码")
@@ -669,22 +669,22 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest,
 	}
 	newPsw := string(decryptNew)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	user, err := u.factory.User().GetByID(ctx, req.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
 	if !util.CheckPassword(user.FilePassword, oldPsw) {
 		return nil, fmt.Errorf("密码错误")
 	}
 	password, err := util.GeneratePassword(newPsw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("生成密码失败: %w", err)
 	}
 	user.FilePassword = password
 	if err := u.factory.User().Update(ctx, user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 
 	// 删除已使用的挑战
@@ -694,8 +694,8 @@ func (u *UserService) UpdateFilePassword(req *request.UserUpdatePasswordRequest,
 }
 
 // GenerateApiKey 生成API Key
-func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) GenerateApiKey(ctx context.Context, req *request.GenerateApiKeyRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 生成唯一的 API Key（使用 UUID）
@@ -758,8 +758,8 @@ func (u *UserService) GenerateApiKey(req *request.GenerateApiKeyRequest, userID 
 }
 
 // ListApiKeys 获取用户的API Key列表
-func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) ListApiKeys(ctx context.Context, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 查询用户的API Key列表
@@ -807,8 +807,8 @@ func (u *UserService) ListApiKeys(userID string) (*models.JsonResponse, error) {
 }
 
 // DeleteApiKey 删除API Key
-func (u *UserService) DeleteApiKey(req *request.DeleteApiKeyRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) DeleteApiKey(ctx context.Context, req *request.DeleteApiKeyRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证API Key是否存在且属于该用户
@@ -845,12 +845,12 @@ func maskApiKey(key string) string {
 	return key[:8] + "****" + key[len(key)-4:]
 }
 
-func (u *UserService) GetUserInfo(userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (u *UserService) GetUserInfo(ctx context.Context, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	id, err := u.factory.User().GetByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("查询用户信息失败: %w", err)
 	}
 	return models.NewJsonResponse(200, "ok", response.UserInfoResponse{
 		ID:        id.ID,

@@ -31,13 +31,13 @@ func NewRecycledService(factory *impl.RepositoryFactory, cacheLocal cache.Cache)
 	}
 }
 
-func (r *RecycledService) GetRepository() *impl.RepositoryFactory {
+func (r *RecycledService) GetRepository(ctx context.Context) *impl.RepositoryFactory {
 	return r.factory
 }
 
 // GetRecycledList 获取回收站列表
-func (r *RecycledService) GetRecycledList(req *request.RecycledListRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (r *RecycledService) GetRecycledList(ctx context.Context, req *request.RecycledListRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	offset := (req.Page - 1) * req.PageSize
@@ -133,8 +133,8 @@ func (r *RecycledService) GetRecycledList(req *request.RecycledListRequest, user
 }
 
 // RestoreFile 还原文件
-func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (r *RecycledService) RestoreFile(ctx context.Context, req *request.RestoreFileRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证回收站记录是否存在且属于该用户
@@ -253,8 +253,8 @@ func (r *RecycledService) RestoreFile(req *request.RestoreFileRequest, userID st
 }
 
 // DeletePermanently 永久删除文件
-func (r *RecycledService) DeletePermanently(req *request.DeleteRecycledRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (r *RecycledService) DeletePermanently(ctx context.Context, req *request.DeleteRecycledRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 验证回收站记录
@@ -283,8 +283,8 @@ func (r *RecycledService) DeletePermanently(req *request.DeleteRecycledRequest, 
 }
 
 // EmptyRecycled 清空回收站
-func (r *RecycledService) EmptyRecycled(userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (r *RecycledService) EmptyRecycled(ctx context.Context, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	const batchSize = 1000
@@ -335,8 +335,8 @@ func (r *RecycledService) EmptyRecycled(userID string) (*models.JsonResponse, er
 }
 
 // MoveToRecycled 将文件移动到回收站
-func (r *RecycledService) MoveToRecycled(fileID, userID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (r *RecycledService) MoveToRecycled(ctx context.Context, fileID, userID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// 创建回收站记录

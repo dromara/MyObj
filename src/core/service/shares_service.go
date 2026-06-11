@@ -31,13 +31,13 @@ func NewSharesService(factory *impl.RepositoryFactory, cacheLocal cache.Cache) *
 		cacheLocal: cacheLocal,
 	}
 }
-func (s *SharesService) GetRepository() *impl.RepositoryFactory {
+func (s *SharesService) GetRepository(ctx context.Context) *impl.RepositoryFactory {
 	return s.factory
 }
 
 // CreateShare 创建分享
-func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) CreateShare(ctx context.Context, req *request.CreateShareRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	uid := fmt.Sprintf("%s-%v", uuid.New().String(), util.TimeUtil{}.GetTimestamp())
@@ -48,7 +48,7 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 		password, err := util.GeneratePassword(req.Password)
 		if err != nil {
 			logger.LOG.Error("生成密码失败", "error", err)
-			return nil, err
+			return nil, fmt.Errorf("生成密码失败: %w", err)
 		}
 		passwordHash = password
 	}
@@ -56,7 +56,7 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 	userFile, err := s.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("获取文件失败: %w", err)
 	}
 	data := &models.Share{
 		UserID:        userID,
@@ -70,20 +70,20 @@ func (s *SharesService) CreateShare(req *request.CreateShareRequest, userID stri
 	err = s.factory.Share().Create(ctx, data)
 	if err != nil {
 		logger.LOG.Error("创建分享失败", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("创建分享失败: %w", err)
 	}
 	return models.NewJsonResponse(200, "ok", fmt.Sprintf("/api/share/download/%s", uid)), nil
 }
 
 // GetShareInfo 获取分享信息（不触发下载）
 // password: 分享密码（如果有密码则必需）
-func (s *SharesService) GetShareInfo(token string, password string) (*response.ShareInfoResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) GetShareInfo(ctx context.Context, token string, password string) (*response.ShareInfoResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	byToken, err := s.factory.Share().GetByToken(ctx, token)
 	if err != nil {
 		logger.LOG.Error("获取分享失败", "error", err)
-		return nil, fmt.Errorf("获取分享失败")
+		return nil, fmt.Errorf("获取分享失败: %w", err)
 	}
 	if byToken == nil {
 		return nil, fmt.Errorf("分享不存在")
@@ -113,14 +113,14 @@ func (s *SharesService) GetShareInfo(token string, password string) (*response.S
 	userFile, err := s.factory.UserFiles().GetByUserIDAndFileID(ctx, byToken.UserID, byToken.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件失败", "error", err)
-		return nil, fmt.Errorf("获取文件失败")
+		return nil, fmt.Errorf("获取文件失败: %w", err)
 	}
 
 	// 获取文件详细信息
 	fileInfo, err := s.factory.FileInfo().GetByID(ctx, byToken.FileID)
 	if err != nil {
 		logger.LOG.Error("获取文件信息失败", "error", err)
-		return nil, fmt.Errorf("获取文件信息失败")
+		return nil, fmt.Errorf("获取文件信息失败: %w", err)
 	}
 
 	return &response.ShareInfoResponse{
@@ -136,8 +136,8 @@ func (s *SharesService) GetShareInfo(token string, password string) (*response.S
 }
 
 // DownloadShare 下载分享文件
-func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloadResponse {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) DownloadShare(ctx context.Context, token, psw string) *response.SharesDownloadResponse {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	sdr := &response.SharesDownloadResponse{}
 	byToken, err := s.factory.Share().GetByToken(ctx, token)
@@ -205,13 +205,13 @@ func (s *SharesService) DownloadShare(token, psw string) *response.SharesDownloa
 }
 
 // GetShareList 获取用户的分享列表
-func (s *SharesService) GetShareList(userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) GetShareList(ctx context.Context, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	shares, err := s.factory.Share().List(ctx, userID, 0, 1000)
 	if err != nil {
 		logger.LOG.Error("获取分享列表失败", "error", err)
-		return nil, fmt.Errorf("获取分享列表失败")
+		return nil, fmt.Errorf("获取分享列表失败: %w", err)
 	}
 
 	// 收集所有 fileID，批量查询 UserFiles，避免 N+1 查询
@@ -264,14 +264,14 @@ func (s *SharesService) GetShareList(userID string) (*models.JsonResponse, error
 }
 
 // DeleteShare 删除分享
-func (s *SharesService) DeleteShare(shareID int, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) DeleteShare(ctx context.Context, shareID int, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	// 验证分享是否属于该用户
 	share, err := s.factory.Share().GetByID(ctx, shareID)
 	if err != nil {
 		logger.LOG.Error("获取分享失败", "error", err)
-		return nil, fmt.Errorf("分享不存在")
+		return nil, fmt.Errorf("分享不存在: %w", err)
 	}
 	if share.UserID != userID {
 		return nil, fmt.Errorf("无权限删除该分享")
@@ -279,20 +279,20 @@ func (s *SharesService) DeleteShare(shareID int, userID string) (*models.JsonRes
 	err = s.factory.Share().Delete(ctx, shareID)
 	if err != nil {
 		logger.LOG.Error("删除分享失败", "error", err)
-		return nil, fmt.Errorf("删除分享失败")
+		return nil, fmt.Errorf("删除分享失败: %w", err)
 	}
 	return models.NewJsonResponse(200, "ok", nil), nil
 }
 
 // UpdateSharePassword 修改分享密码
-func (s *SharesService) UpdateSharePassword(shareID int, password string, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (s *SharesService) UpdateSharePassword(ctx context.Context, shareID int, password string, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	// 验证分享是否属于该用户
 	share, err := s.factory.Share().GetByID(ctx, shareID)
 	if err != nil {
 		logger.LOG.Error("获取分享失败", "error", err)
-		return nil, fmt.Errorf("分享不存在")
+		return nil, fmt.Errorf("分享不存在: %w", err)
 	}
 	if share.UserID != userID {
 		return nil, fmt.Errorf("无权限修改该分享")
@@ -304,7 +304,7 @@ func (s *SharesService) UpdateSharePassword(shareID int, password string, userID
 		hash, err := util.GeneratePassword(password)
 		if err != nil {
 			logger.LOG.Error("生成密码失败", "error", err)
-			return nil, fmt.Errorf("生成密码失败")
+			return nil, fmt.Errorf("生成密码失败: %w", err)
 		}
 		passwordHash = hash
 	}
@@ -314,7 +314,7 @@ func (s *SharesService) UpdateSharePassword(shareID int, password string, userID
 	err = s.factory.Share().Update(ctx, share)
 	if err != nil {
 		logger.LOG.Error("更新分享密码失败", "error", err)
-		return nil, fmt.Errorf("更新密码失败")
+		return nil, fmt.Errorf("更新密码失败: %w", err)
 	}
 
 	return models.NewJsonResponse(200, "ok", nil), nil

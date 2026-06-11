@@ -77,7 +77,7 @@ func (a *AdminHandler) UserList(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUserList(req)
+	res, err := a.service.AdminUserList(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -92,7 +92,7 @@ func (a *AdminHandler) CreateUser(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminCreateUser(req)
+	res, err := a.service.AdminCreateUser(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -107,7 +107,7 @@ func (a *AdminHandler) UpdateUser(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUpdateUser(req)
+	res, err := a.service.AdminUpdateUser(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -122,7 +122,7 @@ func (a *AdminHandler) DeleteUser(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminDeleteUser(req)
+	res, err := a.service.AdminDeleteUser(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -137,7 +137,7 @@ func (a *AdminHandler) ToggleUserState(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminToggleUserState(req)
+	res, err := a.service.AdminToggleUserState(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -149,7 +149,7 @@ func (a *AdminHandler) ToggleUserState(c *gin.Context) {
 
 // GroupList 获取组列表
 func (a *AdminHandler) GroupList(c *gin.Context) {
-	res, err := a.service.AdminGroupList()
+	res, err := a.service.AdminGroupList(c.Request.Context())
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -164,7 +164,7 @@ func (a *AdminHandler) CreateGroup(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminCreateGroup(req)
+	res, err := a.service.AdminCreateGroup(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -179,7 +179,7 @@ func (a *AdminHandler) UpdateGroup(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUpdateGroup(req)
+	res, err := a.service.AdminUpdateGroup(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -194,7 +194,7 @@ func (a *AdminHandler) DeleteGroup(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminDeleteGroup(req)
+	res, err := a.service.AdminDeleteGroup(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -211,7 +211,7 @@ func (a *AdminHandler) PowerList(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminPowerList(req)
+	res, err := a.service.AdminPowerList(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -226,7 +226,7 @@ func (a *AdminHandler) AssignPower(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminAssignPower(req)
+	res, err := a.service.AdminAssignPower(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -241,7 +241,7 @@ func (a *AdminHandler) GetGroupPowers(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminGetGroupPowers(req)
+	res, err := a.service.AdminGetGroupPowers(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -256,7 +256,7 @@ func (a *AdminHandler) CreatePower(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminCreatePower(req)
+	res, err := a.service.AdminCreatePower(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -271,7 +271,7 @@ func (a *AdminHandler) UpdatePower(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUpdatePower(req)
+	res, err := a.service.AdminUpdatePower(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -286,7 +286,7 @@ func (a *AdminHandler) DeletePower(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminDeletePower(req)
+	res, err := a.service.AdminDeletePower(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -301,7 +301,7 @@ func (a *AdminHandler) BatchDeletePower(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminBatchDeletePower(req)
+	res, err := a.service.AdminBatchDeletePower(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -313,7 +313,7 @@ func (a *AdminHandler) BatchDeletePower(c *gin.Context) {
 
 // DiskList 获取磁盘列表
 func (a *AdminHandler) DiskList(c *gin.Context) {
-	res, err := a.service.AdminDiskList()
+	res, err := a.service.AdminDiskList(c.Request.Context())
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -328,7 +328,7 @@ func (a *AdminHandler) CreateDisk(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminCreateDisk(req)
+	res, err := a.service.AdminCreateDisk(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -343,7 +343,7 @@ func (a *AdminHandler) UpdateDisk(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUpdateDisk(req)
+	res, err := a.service.AdminUpdateDisk(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -358,7 +358,7 @@ func (a *AdminHandler) DeleteDisk(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminDeleteDisk(req)
+	res, err := a.service.AdminDeleteDisk(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -381,7 +381,7 @@ func (a *AdminHandler) GetDisk(c *gin.Context) {
 
 // GetSystemConfig 获取系统配置
 func (a *AdminHandler) GetSystemConfig(c *gin.Context) {
-	res, err := a.service.AdminGetSystemConfig()
+	res, err := a.service.AdminGetSystemConfig(c.Request.Context())
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return
@@ -396,7 +396,7 @@ func (a *AdminHandler) UpdateSystemConfig(c *gin.Context) {
 		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
 		return
 	}
-	res, err := a.service.AdminUpdateSystemConfig(req)
+	res, err := a.service.AdminUpdateSystemConfig(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
 		return

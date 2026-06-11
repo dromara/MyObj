@@ -1,4 +1,4 @@
-﻿package service
+package service
 
 import (
 	"context"
@@ -85,8 +85,8 @@ type ExtractTask struct {
 	mu                 sync.Mutex
 }
 
-func (f *FileService) CreateExtractTask(req *request.ExtractFileRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (f *FileService) CreateExtractTask(ctx context.Context, req *request.ExtractFileRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
@@ -444,7 +444,7 @@ func (f *FileService) generateUniqueName(ctx context.Context, userID, virtualPat
 	return fmt.Sprintf("%s_%s%s", nameWithoutExt, uuid.New().String()[:8], ext)
 }
 
-func (f *FileService) GetExtractProgress(taskID, userID string) (*models.JsonResponse, error) {
+func (f *FileService) GetExtractProgress(ctx context.Context, taskID, userID string) (*models.JsonResponse, error) {
 	value, ok := extractTasks.Load(taskID)
 	if !ok {
 		return nil, fmt.Errorf("extract task not found")
@@ -505,8 +505,8 @@ func archiveTypeStr(t extract.ArchiveType) string {
 }
 
 // CheckExtractConflict 检测解压冲突
-func (f *FileService) CheckExtractConflict(req *request.ExtractCheckRequest, userID string) (*models.JsonResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (f *FileService) CheckExtractConflict(ctx context.Context, req *request.ExtractCheckRequest, userID string) (*models.JsonResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	userFile, err := f.factory.UserFiles().GetByUserIDAndUfID(ctx, userID, req.FileID)
