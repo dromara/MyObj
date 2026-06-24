@@ -116,16 +116,24 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 
 	// 3.2 异步生成缩略图（如果需要）
 	var needThumbnail bool
-	if config.CONFIG.File.Thumbnail && util.IsImageByMime(mimeType) {
-		needThumbnail = true
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// 临时缩略图路径
-			tempThumbnail := mergedFilePath + ".thumbnail.jpg"
-			err := preview.GenerateImageThumbnail(mergedFilePath, tempThumbnail, 300)
-			resultChan <- asyncResult{thumbnailPath: tempThumbnail, err: err}
-		}()
+	if config.CONFIG.File.Thumbnail {
+		isImage := util.IsImageByMime(mimeType)
+		isVideo := preview.IsVideoByMime(mimeType)
+		if isImage || isVideo {
+			needThumbnail = true
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tempThumbnail := mergedFilePath + ".thumbnail.jpg"
+				var err error
+				if isVideo {
+					err = preview.GenerateVideoThumbnail(mergedFilePath, tempThumbnail, "", 300)
+				} else {
+					err = preview.GenerateImageThumbnail(mergedFilePath, tempThumbnail, 300)
+				}
+				resultChan <- asyncResult{thumbnailPath: tempThumbnail, err: err}
+			}()
+		}
 	}
 
 	// 等待异步任务完成
@@ -271,6 +279,7 @@ func ProcessUploadedFile(data *FileUploadData, repoFactory *impl.RepositoryFacto
 		RandomName:      virtualFileName,
 		Size:            actualFileSize, // 使用实际计算的文件大小
 		Mime:            mimeType,
+		Category:        util.ClassifyByExt(data.FileName),
 		ThumbnailImg:    thumbnailPath,
 		Path:            mainFilePath,
 		FileHash:        fullHash,
@@ -756,4 +765,72 @@ func EnsureVirtualPath(ctx context.Context, userID, fullPath string, repoFactory
 // getVirtualPathID 获取虚拟路径的ID（如果路径不存在则创建）
 func getVirtualPathID(ctx context.Context, userID, fullPath string, repoFactory *impl.RepositoryFactory) (string, error) {
 	return EnsureVirtualPath(ctx, userID, fullPath, repoFactory)
+}
+
+// classifyFile 根据文件名和MIME类型自动分类
+func classifyFile(fileName, mime string) string {
+	ext := strings.ToLower(filepath.Ext(fileName))
+
+	// 扩展名分类规则
+	extCategories := map[string]string{
+		".doc": "document", ".docx": "document", ".pdf": "document", ".xls": "document",
+		".xlsx": "document", ".ppt": "document", ".pptx": "document", ".txt": "document",
+		".md": "document", ".rtf": "document", ".csv": "document", ".odt": "document",
+		".ods": "document", ".odp": "document",
+		".jpg": "image", ".jpeg": "image", ".png": "image", ".gif": "image",
+		".bmp": "image", ".webp": "image", ".svg": "image", ".ico": "image",
+		".tiff": "image", ".tif": "image", ".psd": "image", ".raw": "image",
+		".mp4": "video", ".avi": "video", ".mkv": "video", ".mov": "video",
+		".wmv": "video", ".flv": "video", ".webm": "video", ".m4v": "video",
+		".mpg": "video", ".mpeg": "video", ".3gp": "video", ".ts": "video",
+		".mp3": "audio", ".wav": "audio", ".flac": "audio", ".aac": "audio",
+		".ogg": "audio", ".wma": "audio", ".m4a": "audio", ".opus": "audio",
+		".amr": "audio", ".mid": "audio", ".midi": "audio",
+		".zip": "archive", ".rar": "archive", ".7z": "archive", ".tar": "archive",
+		".gz": "archive", ".bz2": "archive", ".xz": "archive", ".zst": "archive",
+		".tgz": "archive", ".tbz2": "archive", ".cab": "archive", ".iso": "archive",
+		".go": "code", ".js": "code", ".py": "code",
+		".java": "code", ".c": "code", ".cpp": "code", ".h": "code",
+		".hpp": "code", ".html": "code", ".css": "code", ".scss": "code",
+		".less": "code", ".json": "code", ".xml": "code", ".yaml": "code",
+		".yml": "code", ".toml": "code", ".sh": "code", ".bat": "code",
+		".ps1": "code", ".sql": "code", ".rb": "code", ".php": "code",
+		".rs": "code", ".swift": "code", ".kt": "code", ".vue": "code",
+		".jsx": "code", ".tsx": "code",
+	}
+
+	if ext != "" {
+		if cat, ok := extCategories[ext]; ok {
+			return cat
+		}
+	}
+
+	// MIME类型分类
+	if mime != "" {
+		mime = strings.ToLower(mime)
+		if strings.HasPrefix(mime, "image/") {
+			return "image"
+		}
+		if strings.HasPrefix(mime, "video/") {
+			return "video"
+		}
+		if strings.HasPrefix(mime, "audio/") {
+			return "audio"
+		}
+		if strings.HasPrefix(mime, "text/") {
+			return "document"
+		}
+		if strings.Contains(mime, "pdf") || strings.Contains(mime, "word") ||
+			strings.Contains(mime, "excel") || strings.Contains(mime, "spreadsheet") ||
+			strings.Contains(mime, "powerpoint") || strings.Contains(mime, "presentation") {
+			return "document"
+		}
+		if strings.Contains(mime, "zip") || strings.Contains(mime, "rar") ||
+			strings.Contains(mime, "tar") || strings.Contains(mime, "gzip") ||
+			strings.Contains(mime, "7z") || strings.Contains(mime, "compress") {
+			return "archive"
+		}
+	}
+
+	return "other"
 }

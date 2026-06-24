@@ -295,24 +295,33 @@ func (s *S3ObjectService) PutObject(ctx context.Context, input *PutObjectInput) 
 		// 移动成功后，取消临时目录的清理（文件已不在临时目录）
 		tempDir = ""
 
-		// 生成缩略图（如果是图片且配置启用）
+		// 生成缩略图（如果是图片或视频且配置启用）
 		var thumbnailPath string
-		if config.CONFIG.File.Thumbnail && util.IsImageByMime(input.ContentType) {
-			thumbnailFileName := fmt.Sprintf("%s_%s.jpg", blake3Hash, filepath.Base(input.ObjectKey))
-			thumbnailPath = filepath.Join(bestDisk.DataPath, "files", thumbnailFileName)
-			
-			if err := preview.GenerateImageThumbnail(finalPath, thumbnailPath, 300); err != nil {
-				logger.LOG.Warn("Generate thumbnail failed",
-					"file", finalPath,
-					"error", err,
-				)
-				// 缩略图生成失败不影响主流程
-				thumbnailPath = ""
-			} else {
-				logger.LOG.Debug("Thumbnail generated successfully",
-					"file", finalPath,
-					"thumbnail", thumbnailPath,
-				)
+		if config.CONFIG.File.Thumbnail {
+			isImage := util.IsImageByMime(input.ContentType)
+			isVideo := preview.IsVideoByMime(input.ContentType)
+			if isImage || isVideo {
+				thumbnailFileName := fmt.Sprintf("%s_%s.jpg", blake3Hash, filepath.Base(input.ObjectKey))
+				thumbnailPath = filepath.Join(bestDisk.DataPath, "files", thumbnailFileName)
+
+				var thumbErr error
+				if isVideo {
+					thumbErr = preview.GenerateVideoThumbnail(finalPath, thumbnailPath, "", 300)
+				} else {
+					thumbErr = preview.GenerateImageThumbnail(finalPath, thumbnailPath, 300)
+				}
+				if thumbErr != nil {
+					logger.LOG.Warn("Generate thumbnail failed",
+						"file", finalPath,
+						"error", thumbErr,
+					)
+					thumbnailPath = ""
+				} else {
+					logger.LOG.Debug("Thumbnail generated successfully",
+						"file", finalPath,
+						"thumbnail", thumbnailPath,
+					)
+				}
 			}
 		}
 

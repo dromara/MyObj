@@ -20,10 +20,10 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@myobj/shared": "workspace:*",
-    "@myobj/http": "workspace:*",
     "@myobj/api": "workspace:*",
     "@myobj/hooks": "workspace:*",
+    "@myobj/http": "workspace:*",
+    "@myobj/shared": "workspace:*",
     "@myobj/ui": "workspace:*",
     "axios": "^1.16.1",
     "driver.js": "^1.4.0",

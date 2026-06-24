@@ -223,10 +223,22 @@
                   type="textarea"
                   :rows="3"
                   @input="handleInputTextChange"
+                  @paste="handleInputTextChange"
                 />
                 <div class="input-tip">
                   <el-icon><InfoFilled /></el-icon>
                   <span>{{ t('offline.downloadTip') }}</span>
+                </div>
+                <div class="supported-clouds">
+                  <span class="supported-clouds-label">支持的网盘：</span>
+                  <el-tag
+                    v-for="(name, key) in cloudProviderNames"
+                    :key="key"
+                    size="small"
+                    type="info"
+                    effect="plain"
+                    class="cloud-tag"
+                  >{{ name }}</el-tag>
                 </div>
               </el-form-item>
             </el-tab-pane>
@@ -266,6 +278,73 @@
             <span v-if="detectedInputType === 'url'">{{ t('offline.detectedAsUrl') }}</span>
             <span v-else-if="detectedInputType === 'magnet'">{{ t('offline.detectedAsMagnet') }}</span>
             <span v-else-if="detectedInputType === 'torrent'">{{ t('offline.detectedAsTorrent') }}</span>
+            <span v-else-if="detectedInputType === 'cloud'">
+              检测到 <b>{{ cloudProviderNames[cloudProvider] || cloudProvider }}</b> 分享链接
+            </span>
+          </div>
+        </div>
+
+        <!-- 云盘分享链接模式：解析按钮 + 文件列表 -->
+        <div v-if="detectedInputType === 'cloud'" class="cloud-share-section" style="margin-top: 16px">
+          <!-- Cookie输入提示（夸克/UC/115） -->
+          <div v-if="needCookie && !cloudShareResult" style="margin-bottom: 12px">
+            <el-alert type="warning" :closable="false" style="margin-bottom: 12px">
+              <template #title>
+                {{ cloudProviderNames[cloudProvider] }} 需要登录Cookie才能解析
+              </template>
+            </el-alert>
+            <el-input
+              v-model="cloudCookie"
+              type="textarea"
+              :rows="4"
+              placeholder="请在浏览器中登录对应网盘，然后从开发者工具(F12)中复制Cookie粘贴到这里"
+            />
+          </div>
+          <el-button
+            v-if="!cloudShareResult"
+            type="primary"
+            :loading="cloudParsing"
+            @click="handleParseCloudShare"
+            style="width: 100%"
+          >
+            {{ needCookie ? '验证Cookie并解析' : '解析分享链接' }}
+          </el-button>
+
+          <!-- 解析结果 -->
+          <div v-if="cloudShareResult" class="cloud-result">
+            <div class="cloud-result-header">
+              <h4>{{ cloudShareResult.share_title || '分享文件' }}</h4>
+              <div class="cloud-meta">
+                <el-tag>{{ cloudShareResult.file_count }} 个文件</el-tag>
+                <el-tag>{{ formatSize(cloudShareResult.total_size) }}</el-tag>
+              </div>
+            </div>
+            <el-divider />
+            <div class="cloud-file-list" style="max-height: 300px; overflow-y: auto">
+              <el-checkbox-group v-model="cloudSelectedFiles">
+                <div
+                  v-for="file in cloudShareResult.files"
+                  :key="file.file_id"
+                  class="cloud-file-item"
+                  style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--el-border-color-lighter)"
+                >
+                  <el-checkbox :value="file.file_id" />
+                  <el-icon :size="16">
+                    <component :is="file.is_dir ? 'Folder' : 'Document'" />
+                  </el-icon>
+                  <span style="flex: 1; font-size: 13px">{{ file.name }}</span>
+                  <span v-if="!file.is_dir" style="font-size: 12px; color: var(--el-text-color-secondary)">
+                    {{ formatSize(file.size) }}
+                  </span>
+                </div>
+              </el-checkbox-group>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px">
+              <el-button type="primary" @click="handleCloudTransfer">
+                {{ cloudSelectedFiles.length > 0 ? `转存选中文件 (${cloudSelectedFiles.length})` : '转存全部文件' }}
+              </el-button>
+              <el-button @click="cloudShareResult = null; cloudSelectedFiles = []">重新解析</el-button>
+            </div>
           </div>
         </div>
 
@@ -576,8 +655,17 @@
   const selectedFileType = ref<'all' | 'video' | 'audio' | 'image' | 'doc' | 'archive' | 'other'>('all')
 
   // 检测到的输入类型
-  const detectedInputType = ref<'url' | 'magnet' | 'torrent' | null>(null)
+  const detectedInputType = ref<'url' | 'magnet' | 'torrent' | 'cloud' | null>(null)
 
+  // 云盘分享相关状态
+  const cloudProvider = ref<string>('')
+  const cloudParsing = ref(false)
+  const cloudShareResult = ref<any>(null)
+  const cloudSelectedFiles = ref<string[]>([])
+  const needCookie = ref(false)
+  const cloudCookie = ref('')
+
+  const cloudCookieProviders = ['quark', 'uc', '115']
   // 统一的表单验证规则
   const downloadRules: FormRules = {
     inputText: [
@@ -615,7 +703,7 @@
   }
 
   // 输入类型识别函数
-  const detectInputType = (input: string | File | null): 'url' | 'magnet' | 'torrent' | null => {
+  const detectInputType = (input: string | File | null): 'url' | 'magnet' | 'torrent' | 'cloud' | null => {
     if (!input) return null
 
     if (input instanceof File) {
@@ -626,6 +714,25 @@
     if (text.startsWith('magnet:')) {
       return 'magnet'
     }
+
+    // 检测云盘分享链接
+    const cloudDomains = [
+      'aliyundrive.com', 'alipan.com',
+      'pan.baidu.com', 'yun.baidu.com',
+      'pan.xunlei.com', 'xunlei.com',
+      'pan.quark.cn', 'quark.cn',
+      '115.com', '115cdn.com',
+      'cloud.189.cn', 'tianyi.com',
+      'drive.uc.cn', 'pan.uc.cn',
+      'mypikpak.com', 'pikpak.com',
+      'caiyun.139.com', 'caiyun.com',
+      'pan.wo.cn', 'wopan.cn'
+    ]
+    const lowerText = text.toLowerCase()
+    if (cloudDomains.some(d => lowerText.includes(d))) {
+      return 'cloud'
+    }
+
     if (text.startsWith('http://') || text.startsWith('https://')) {
       return 'url'
     }
@@ -633,14 +740,125 @@
     return null
   }
 
+  // 检测云盘类型
+  const detectCloudProvider = (url: string): string => {
+    const lowerUrl = url.toLowerCase()
+    if (lowerUrl.includes('aliyundrive.com') || lowerUrl.includes('alipan.com')) return 'aliyun'
+    if (lowerUrl.includes('pan.baidu.com') || lowerUrl.includes('yun.baidu.com')) return 'baidu'
+    if (lowerUrl.includes('pan.xunlei.com') || lowerUrl.includes('xunlei.com')) return 'xunlei'
+    if (lowerUrl.includes('pan.quark.cn') || lowerUrl.includes('quark.cn')) return 'quark'
+    if (lowerUrl.includes('115.com') || lowerUrl.includes('115cdn.com')) return '115'
+    if (lowerUrl.includes('cloud.189.cn') || lowerUrl.includes('tianyi.com')) return 'tianyi'
+    if (lowerUrl.includes('drive.uc.cn') || lowerUrl.includes('pan.uc.cn')) return 'uc'
+    if (lowerUrl.includes('mypikpak.com') || lowerUrl.includes('pikpak.com')) return 'pikpak'
+    if (lowerUrl.includes('caiyun.139.com') || lowerUrl.includes('caiyun.com')) return 'caiyun'
+    if (lowerUrl.includes('pan.wo.cn') || lowerUrl.includes('wopan.cn')) return 'wopan'
+    return ''
+  }
+
+  const cloudProviderNames: Record<string, string> = {
+    aliyun: '阿里云盘', baidu: '百度网盘', xunlei: '迅雷网盘', quark: '夸克网盘',
+    '115': '115网盘', tianyi: '天翼云盘', uc: 'UC网盘', pikpak: 'PikPak',
+    caiyun: '和彩云', wopan: '联通云盘'
+  }
+
   // 监听输入变化，自动识别类型
   const handleInputTextChange = () => {
     if (inputType.value === 'text' && downloadForm.inputText) {
       detectedInputType.value = detectInputType(downloadForm.inputText)
+      if (detectedInputType.value === 'cloud') {
+        cloudProvider.value = detectCloudProvider(downloadForm.inputText)
+        needCookie.value = cloudCookieProviders.includes(cloudProvider.value)
+        cloudShareResult.value = null
+        cloudSelectedFiles.value = []
+        cloudCookie.value = ''
+      }
     } else if (inputType.value === 'file') {
       detectedInputType.value = torrentFileContent.value ? 'torrent' : null
     } else {
       detectedInputType.value = null
+    }
+  }
+
+  // 需要预配置认证的 provider（OAuth / 账密登录）
+  const PERSISTENT_AUTH_PROVIDERS: Record<string, string> = {
+    aliyun: '阿里云盘', baidu: '百度网盘', xunlei: '迅雷网盘', pikpak: 'PikPak', tianyi: '天翼云盘'
+  }
+
+  // 解析云盘分享链接
+  const handleParseCloudShare = async () => {
+    if (!downloadForm.inputText?.trim()) return
+
+    // 检测 provider（如果未检测到）
+    if (!cloudProvider.value) {
+      cloudProvider.value = detectCloudProvider(downloadForm.inputText.trim())
+    }
+
+    // 检查需要预配置的 provider 是否已连接
+    if (PERSISTENT_AUTH_PROVIDERS[cloudProvider.value]) {
+      try {
+        const { getCloudAccountStatus } = await import('@myobj/api/cloud-account')
+        const res = await getCloudAccountStatus()
+        const status = (res.data || res)[cloudProvider.value]
+        if (!status?.connected) {
+          const name = PERSISTENT_AUTH_PROVIDERS[cloudProvider.value]
+          try {
+            await ElMessageBox.confirm(
+              `检测到链接来自「${name}」，您尚未配置该云盘。是否前往设置页面配置？`,
+              '云盘未配置',
+              { confirmButtonText: '前往配置', cancelButtonText: '取消', type: 'warning' }
+            )
+            router.push('/settings?tab=cloudAccounts')
+          } catch { /* 用户取消 */ }
+          return
+        }
+      } catch { /* 检查失败继续尝试解析 */ }
+    }
+
+    // 如果需要Cookie但未输入
+    if (needCookie.value && !cloudCookie.value.trim()) {
+      ElMessage.warning('请输入Cookie')
+      return
+    }
+    cloudParsing.value = true
+    try {
+      // 如果需要Cookie，先保存
+      if (needCookie.value && cloudCookie.value.trim()) {
+        const { saveQuarkCookie, saveUcCookie, save115Cookie } = await import('@myobj/api/cloud-account')
+        if (cloudProvider.value === 'quark') await saveQuarkCookie(cloudCookie.value.trim())
+        else if (cloudProvider.value === 'uc') await saveUcCookie(cloudCookie.value.trim())
+        else if (cloudProvider.value === '115') await save115Cookie(cloudCookie.value.trim())
+      }
+      const { parseShareLink } = await import('@myobj/api/cloud')
+      const result = await parseShareLink({
+        provider: cloudProvider.value,
+        share_url: downloadForm.inputText.trim()
+      })
+      cloudShareResult.value = result.data || result
+    } catch (err: any) {
+      ElMessage.error(err.message || '解析失败')
+    } finally {
+      cloudParsing.value = false
+    }
+  }
+
+  // 保存云盘分享文件到本地
+  const handleCloudTransfer = async () => {
+    if (!cloudShareResult.value) return
+    try {
+      const { saveShareFiles } = await import('@myobj/api/cloud')
+      const hasSelectedFiles = cloudSelectedFiles.value.length > 0
+      await saveShareFiles({
+        provider: cloudProvider.value,
+        share_id: cloudShareResult.value.share_id,
+        save_type: hasSelectedFiles ? 'multiple' : 'all',
+        file_ids: hasSelectedFiles ? cloudSelectedFiles.value : undefined
+      })
+      ElMessage.success('转存任务已创建')
+      showDownloadDialog.value = false
+      refreshTaskList()
+    } catch (err: any) {
+      ElMessage.error(err.message || '转存失败')
     }
   }
 
@@ -949,6 +1167,11 @@
     isIndeterminate.value = false
     selectedFileType.value = 'all'
     detectedInputType.value = null
+    cloudProvider.value = ''
+    cloudShareResult.value = null
+    cloudSelectedFiles.value = []
+    needCookie.value = false
+    cloudCookie.value = ''
     if (torrentUploadRef.value) {
       torrentUploadRef.value.clearFiles()
     }
@@ -1645,6 +1868,24 @@
   .input-tip .el-icon {
     font-size: 14px;
     color: var(--el-color-info);
+  }
+
+  .supported-clouds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .supported-clouds-label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+  }
+
+  .cloud-tag {
+    cursor: default;
   }
 
   .detected-type-tip {

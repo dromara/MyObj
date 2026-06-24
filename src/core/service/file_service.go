@@ -77,18 +77,24 @@ func init() {
 
 // FileService 文件服务
 type FileService struct {
-	factory    *impl.RepositoryFactory
-	cacheLocal cache.Cache
+	factory        *impl.RepositoryFactory
+	cacheLocal     cache.Cache
+	categoryService *FileCategoryService
 }
 
 func NewFileService(factory *impl.RepositoryFactory, cacheLocal cache.Cache) *FileService {
 	return &FileService{
-		factory:    factory,
-		cacheLocal: cacheLocal,
+		factory:        factory,
+		cacheLocal:     cacheLocal,
+		categoryService: NewFileCategoryService(factory, cacheLocal),
 	}
 }
 func (f *FileService) GetRepository() *impl.RepositoryFactory {
 	return f.factory
+}
+
+func (f *FileService) NewThumbnailService() *ThumbnailService {
+	return NewThumbnailService(f.factory)
 }
 
 // handleInstantUpload 处理秒传逻辑，使用数据库事务保护 UserFiles 创建，处理并发竞态
@@ -513,7 +519,14 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 	}
 	// 文件表中virtual_path字段存的是路径ID（字符串格式）
 	virtualPathIDStr := fmt.Sprintf("%d", currentPathID)
-	fileCount, err := f.factory.FileInfo().CountByVirtualPath(ctx, userID, virtualPathIDStr)
+
+	// 根据是否指定了分类来统计文件数量
+	var fileCount int64
+	if req.Category != "" {
+		fileCount, err = f.factory.FileInfo().CountByVirtualPathAndCategory(ctx, userID, virtualPathIDStr, req.Category)
+	} else {
+		fileCount, err = f.factory.FileInfo().CountByVirtualPath(ctx, userID, virtualPathIDStr)
+	}
 	if err != nil {
 		logger.LOG.Error("统计文件数量失败", "error", err, "userID", userID, "virtualPath", virtualPathIDStr)
 		return nil, err
@@ -548,6 +561,10 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 				logger.LOG.Error("查询文件列表失败", "error", err, "userID", userID, "virtualPath", virtualPathIDStr)
 				return nil, err
 			}
+			// 如果指定了分类，需要过滤掉不在该分类下的文件
+			if req.Category != "" {
+				userFiles = f.filterUserFilesByCategory(ctx, userFiles, req.Category)
+			}
 		}
 	} else {
 		// 当前页只包含文件（直接从user_files表查询，避免file_id重复问题）
@@ -556,6 +573,10 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 		if err != nil {
 			logger.LOG.Error("查询文件列表失败", "error", err, "userID", userID, "virtualPath", virtualPathIDStr)
 			return nil, err
+		}
+		// 如果指定了分类，需要过滤掉不在该分类下的文件
+		if req.Category != "" {
+			userFiles = f.filterUserFilesByCategory(ctx, userFiles, req.Category)
 		}
 	}
 
@@ -611,6 +632,7 @@ func (f *FileService) GetFileList(req *request.FileListRequest, userID string) (
 				FileName:     uf.FileName,
 				FileSize:     fileInfo.Size,
 				MimeType:     fileInfo.Mime,
+				Category:     fileInfo.Category,
 				IsEnc:        fileInfo.IsEnc,
 				HasThumbnail: fileInfo.ThumbnailImg != "",
 				Public:       uf.IsPublic,
@@ -668,6 +690,34 @@ func (f *FileService) buildBreadcrumbs(ctx context.Context, currentPath *models.
 	}
 
 	return breadcrumbs, nil
+}
+
+// filterUserFilesByCategory 根据分类过滤用户文件列表
+func (f *FileService) filterUserFilesByCategory(ctx context.Context, userFiles []*models.UserFiles, category string) []*models.UserFiles {
+	if len(userFiles) == 0 {
+		return userFiles
+	}
+
+	// 批量获取文件信息
+	fileIDs := make([]string, 0, len(userFiles))
+	for _, uf := range userFiles {
+		fileIDs = append(fileIDs, uf.FileID)
+	}
+	fileInfoMap, err := f.factory.FileInfo().BatchGetByIDs(ctx, fileIDs)
+	if err != nil {
+		logger.LOG.Error("批量查询文件信息失败（分类过滤）", "error", err)
+		return userFiles
+	}
+
+	filtered := make([]*models.UserFiles, 0, len(userFiles))
+	for _, uf := range userFiles {
+		if fileInfo, ok := fileInfoMap[uf.FileID]; ok {
+			if fileInfo.Category == category {
+				filtered = append(filtered, uf)
+			}
+		}
+	}
+	return filtered
 }
 
 // MakeDir 创建目录

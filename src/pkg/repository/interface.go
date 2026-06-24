@@ -40,6 +40,19 @@ type FileInfoRepository interface {
 	ListByVirtualPath(ctx context.Context, userID, virtualPath string, offset, limit int) ([]*models.FileInfo, error)
 	// CountByVirtualPath 统计指定虚拟路径下的文件数量
 	CountByVirtualPath(ctx context.Context, userID, virtualPath string) (int64, error)
+	// ListByVirtualPathAndCategory 查询指定虚拟路径下指定分类的文件
+	ListByVirtualPathAndCategory(ctx context.Context, userID, virtualPath, category string, offset, limit int) ([]*models.FileInfo, error)
+	// CountByVirtualPathAndCategory 统计指定虚拟路径下指定分类的文件数量
+	CountByVirtualPathAndCategory(ctx context.Context, userID, virtualPath, category string) (int64, error)
+	// CountByCategoryForUser 统计用户各分类的文件数量和大小
+	CountByCategoryForUser(ctx context.Context, userID string) ([]*CategoryStatsItem, error)
+}
+
+// CategoryStatsItem 分类统计结果
+type CategoryStatsItem struct {
+	Category  string
+	Count     int64
+	TotalSize int64
 }
 
 // GroupRepository 组仓储接口

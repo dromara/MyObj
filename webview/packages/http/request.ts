@@ -55,8 +55,15 @@ service.interceptors.response.use(
       const data = error.response.data
 
       if (status === 401) {
-        cache.local.remove('token')
-        window.location.href = '/login'
+        // 不跳转登录页的白名单路径
+        const noRedirectPaths = ['/cloud/', '/api/cloud/']
+        const requestUrl = error.config?.url || ''
+        const shouldRedirect = !noRedirectPaths.some(p => requestUrl.includes(p))
+        
+        if (shouldRedirect) {
+          cache.local.remove('token')
+          window.location.href = '/login'
+        }
         return Promise.reject(new Error(data?.message || '登录已过期，请重新登录'))
       }
       if (status === 403) {

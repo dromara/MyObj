@@ -100,8 +100,8 @@
         }
 
         // 加密密码
-        const encryptedOldPassword = rsaEncrypt(challengeRes.data.publicKey, passwordForm.oldPassword)
-        const encryptedNewPassword = rsaEncrypt(challengeRes.data.publicKey, passwordForm.newPassword)
+        const encryptedOldPassword = await rsaEncrypt(challengeRes.data.publicKey, passwordForm.oldPassword)
+        const encryptedNewPassword = await rsaEncrypt(challengeRes.data.publicKey, passwordForm.newPassword)
 
         const result = await updatePassword({
           old_passwd: encryptedOldPassword,

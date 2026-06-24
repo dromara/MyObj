@@ -9,6 +9,7 @@ import (
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/cache"
 	"myobj/src/pkg/logger"
+	"myobj/src/pkg/models"
 	"myobj/src/pkg/webdav"
 	"os"
 	"os/signal"
@@ -150,6 +151,14 @@ func initDatabase() (err error) {
 
 	database.InitDataBase()
 	logger.LOG.Info("[成功] 数据库连接已建立")
+
+	// 迁移云盘任务数据表
+	logger.LOG.Info("[初始化] 正在迁移云盘任务数据表...")
+	if err := database.GetDB().AutoMigrate(&models.CloudTask{}, &models.CloudTaskFile{}); err != nil {
+		logger.LOG.Error("云盘任务数据表迁移失败", "error", err)
+	} else {
+		logger.LOG.Info("[成功] 云盘任务数据表迁移完成")
+	}
 
 	// 迁移S3数据表（如果启用S3服务）
 	if config.CONFIG.S3.Enable {

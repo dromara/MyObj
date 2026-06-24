@@ -2,6 +2,7 @@ export default {
   route: {
     files: '我的文件',
     shares: '我的分享',
+    cloud: '云盘导入',
     offline: '离线下载',
     tasks: '任务中心',
     trash: '回收站',
@@ -75,6 +76,7 @@ export default {
   menu: {
     files: '我的文件',
     shares: '我的分享',
+    cloud: '云盘导入',
     tasks: '传输列表',
     offline: '离线下载',
     trash: '回收站',

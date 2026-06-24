@@ -76,7 +76,8 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 	{
 		// 用户相关路由
 		handlers.NewUserHandler(factory.UserService(), cache).Router(api)
-		handlers.NewFileHandler(factory.FileService(), cache).Router(api)
+		handlers.NewFileHandler(factory.FileService(), factory.FileCategoryService(), factory.ThumbnailService(), cache).Router(api)
+		handlers.NewFileCategoryHandler(factory.FileCategoryService(), cache).Router(api)
 		handlers.NewSharesHandler(factory.ShareService(), cache).Router(api)
 		handlers.NewDownloadHandler(factory.DownloadService(), cache).Router(api)
 		handlers.NewRecycledHandler(factory.RecycledService(), cache).Router(api)
@@ -84,7 +85,26 @@ func initRouter(factory *service.ServerFactory, cache cache.Cache) *gin.Engine {
 		handlers.NewVideoHandler(factory.FileService(), cache).Router(api)
 		// 管理路由
 		handlers.NewAdminHandler(factory.AdminService(), cache).Router(api)
-		// TODO: 这里可以注册更多的路由处理器
+		// 云盘路由
+		handlers.NewCloudHandler(factory.CloudService(), cache).Router(api)
+		// 云盘转存路由
+		handlers.NewCloudTransferHandler(factory.CloudTransferService(), cache).Router(api)
+		// 云盘账号管理路由
+		handlers.NewCloudAccountHandler(factory.CloudAccountService(), cache).Router(api)
+		// 阿里云盘OAuth路由
+		handlers.NewAliyunOAuthHandler(cache, factory.CloudAccountService()).Router(api)
+		// 115网盘登录路由
+		handlers.NewP115LoginHandler().Router(api)
+		// PikPak OAuth路由
+		handlers.NewPikPakOAuthHandler(factory.CloudAccountService()).Router(api)
+		// 百度网盘OAuth路由
+		handlers.NewCloudOAuthHandler(factory.CloudAccountService()).Router(api)
+		// 迅雷网盘OAuth路由
+		handlers.NewXunleiOAuthHandler(factory.CloudAccountService()).Router(api)
+		// 夸克网盘Cookie路由
+		handlers.NewQuarkCookieHandler(factory.CloudAccountService()).Router(api)
+		// UC网盘Cookie路由
+		handlers.NewUCCookieHandler(factory.CloudAccountService()).Router(api)
 	}
 
 	// 注册S3路由（如果启用且共用端口） - 必须在 NoRoute 之前注册

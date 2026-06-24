@@ -2,6 +2,7 @@ export default {
   route: {
     files: 'Files',
     shares: 'Shares',
+    cloud: 'Cloud Import',
     offline: 'Offline Download',
     tasks: 'Task Center',
     trash: 'Trash',
@@ -74,6 +75,7 @@ export default {
   menu: {
     files: 'Files',
     shares: 'Shares',
+    cloud: 'Cloud Import',
     tasks: 'Tasks',
     offline: 'Offline Download',
     trash: 'Trash',

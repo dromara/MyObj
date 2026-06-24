@@ -16,14 +16,18 @@ import (
 )
 
 type FileHandler struct {
-	service *service.FileService
-	cache   cache.Cache
+	service          *service.FileService
+	categoryService  *service.FileCategoryService
+	thumbnailService *service.ThumbnailService
+	cache            cache.Cache
 }
 
-func NewFileHandler(service *service.FileService, cacheLocal cache.Cache) *FileHandler {
+func NewFileHandler(service *service.FileService, categoryService *service.FileCategoryService, thumbnailService *service.ThumbnailService, cacheLocal cache.Cache) *FileHandler {
 	return &FileHandler{
-		service: service,
-		cache:   cacheLocal,
+		service:          service,
+		categoryService:  categoryService,
+		thumbnailService: thumbnailService,
+		cache:            cacheLocal,
 	}
 }
 
@@ -63,6 +67,8 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.GET("/list", middleware.PowerVerify("file:preview"), f.GetFileList)
 		// 获取缩略图
 		fileGroup.GET("/thumbnail/:fileId", middleware.PowerVerify("file:preview"), f.GetThumbnail)
+		// 手动生成缩略图
+		fileGroup.POST("/thumbnail/generate/:fileId", middleware.PowerVerify("file:preview"), f.GenerateThumbnail)
 		// 搜索当前用户文件
 		fileGroup.GET("/search/user", middleware.PowerVerify("file:preview"), f.SearchUserFiles)
 		// 搜索公开文件
@@ -91,6 +97,9 @@ func (f *FileHandler) Router(c *gin.RouterGroup) {
 		fileGroup.POST("/extract/create", middleware.PowerVerify("file:download"), f.CreateExtract)
 		fileGroup.GET("/extract/progress", middleware.PowerVerify("file:download"), f.GetExtractProgress)
 		fileGroup.POST("/extract/check", middleware.PowerVerify("file:download"), f.CheckExtractConflict)
+		// 文件分类（由 FileCategoryHandler 处理）
+		// fileGroup.GET("/categories", middleware.PowerVerify("file:preview"), f.GetCategoryStats)
+		// fileGroup.GET("/categories/info", f.GetCategoryInfo)
 	}
 
 	logger.LOG.Info("[路由] 文件路由注册完成✔️")
@@ -255,6 +264,38 @@ func (f *FileHandler) GetThumbnail(c *gin.Context) {
 	}
 	// 发送缩略图响应
 	f.sendThumbnailResponse(c, fileInfo.ThumbnailImg)
+}
+
+// GenerateThumbnail 生成文件缩略图
+func (f *FileHandler) GenerateThumbnail(c *gin.Context) {
+	fileID := c.Param("fileId")
+	if fileID == "" {
+		c.JSON(200, models.NewJsonResponse(400, "文件ID不能为空", nil))
+		return
+	}
+
+	userID := c.GetString("userID")
+	ctx := c.Request.Context()
+
+	userFile, err := f.service.GetRepository().UserFiles().GetByUfID(ctx, fileID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(404, "文件不存在", nil))
+		return
+	}
+	if userFile.UserID != userID {
+		c.JSON(200, models.NewJsonResponse(403, "文件不存在", nil))
+		return
+	}
+
+	thumbnailPath, err := f.thumbnailService.GetThumbnail(ctx, userFile.FileID)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, "生成缩略图失败", err.Error()))
+		return
+	}
+
+	c.JSON(200, models.NewJsonResponse(200, "缩略图生成成功", gin.H{
+		"thumbnail": thumbnailPath,
+	}))
 }
 
 // MakeDir 创建目录
@@ -762,4 +803,38 @@ func (f *FileHandler) GetExtractProgress(c *gin.Context) {
 		return
 	}
 	c.JSON(200, result)
+}
+
+// GetCategoryStats godoc
+// @Summary 获取文件分类统计
+// @Description 获取当前用户的文件分类统计信息（各分类的文件数量和总大小）
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.JsonResponse{data=response.CategoryStatsResponse} "分类统计"
+// @Failure 500 {object} models.JsonResponse "获取失败"
+// @Router /file/categories [get]
+func (f *FileHandler) GetCategoryStats(c *gin.Context) {
+	userID := c.GetString("userID")
+	result, err := f.categoryService.GetUserCategoryStats(c.Request.Context(), userID)
+	if err != nil {
+		logger.LOG.Error("获取分类统计失败", "error", err)
+		c.JSON(200, models.NewJsonResponse(500, "获取分类统计失败", err.Error()))
+		return
+	}
+	c.JSON(200, models.NewJsonResponse(200, "获取成功", result))
+}
+
+// GetCategoryInfo godoc
+// @Summary 获取所有文件分类信息
+// @Description 获取所有可用的文件分类及其对应的扩展名列表
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.JsonResponse{data=[]object} "分类信息"
+// @Router /file/categories/info [get]
+func (f *FileHandler) GetCategoryInfo(c *gin.Context) {
+	result := f.categoryService.GetAllCategoriesWithInfo()
+	c.JSON(200, models.NewJsonResponse(200, "获取成功", result))
 }

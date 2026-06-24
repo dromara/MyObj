@@ -23,6 +23,10 @@
         <el-tab-pane :label="t('settings.apiKey.title')" name="apiKey">
           <ApiKey />
         </el-tab-pane>
+
+        <el-tab-pane label="云盘账号" name="cloudAccounts">
+          <CloudAccounts />
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -33,6 +37,7 @@
   import Password from './components/Password.vue'
   import Appearance from './components/Appearance.vue'
   import ApiKey from './components/ApiKey.vue'
+  import CloudAccounts from './components/CloudAccounts.vue'
   import { useI18n } from '@/composables'
   import { useRoute } from 'vue-router'
 
@@ -43,7 +48,7 @@
   // 支持通过查询参数设置激活的 tab
   watch(() => route.query.tab, (tab) => {
     if (tab && typeof tab === 'string') {
-      const validTabs = ['userInfo', 'password', 'appearance', 'apiKey']
+      const validTabs = ['userInfo', 'password', 'appearance', 'apiKey', 'cloudAccounts']
       if (validTabs.includes(tab)) {
         activeTab.value = tab
       }

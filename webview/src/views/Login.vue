@@ -170,7 +170,7 @@
             proxy?.$modal.msgError(t('login.connectFailed'))
             return
           }
-          const encryptedPassword = rsaEncrypt(challengeRes.data.publicKey, loginForm.password)
+          const encryptedPassword = await rsaEncrypt(challengeRes.data.publicKey, loginForm.password)
           const res = await login({
             username: loginForm.username,
             password: encryptedPassword,
@@ -199,7 +199,7 @@
         try {
           const challengeRes = await getChallenge()
           if (!challengeRes.data?.publicKey || !challengeRes.data.id) return
-          const encryptedPassword = rsaEncrypt(challengeRes.data.publicKey, registerForm.password)
+          const encryptedPassword = await rsaEncrypt(challengeRes.data.publicKey, registerForm.password)
           await register({
             username: registerForm.username,
             password: encryptedPassword,

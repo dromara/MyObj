@@ -10,6 +10,7 @@ type FileInfo struct {
 	RandomName      string               `gorm:"type:VARCHAR;not null" json:"random_name"`                               // 文件存储名（随机生成）
 	Size            int64                `gorm:"type:BIGINT;not null" json:"size"`                                       // 文件大小
 	Mime            string               `gorm:"type:VARCHAR;not null;index:file_info_index_0" json:"mime"`              // 文件MIME类型
+	Category        string               `gorm:"type:VARCHAR;default:'other';index:file_info_category_index" json:"category"` // 文件分类
 	ThumbnailImg    string               `gorm:"type:TEXT" json:"thumbnail_img"`                                         // 缩略图路径
 	Path            string               `gorm:"type:TEXT" json:"path"`                                                  // 文件实际存储路径
 	FileHash        string               `gorm:"type:TEXT;not null;index:file_info_file_hash_index" json:"file_hash"`    // 文件哈希值（全量hash）

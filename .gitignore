@@ -7,3 +7,6 @@
 /obj_data/
 config.toml
 *.exe
+.gobuildcache
+/website/
+/src/logs/

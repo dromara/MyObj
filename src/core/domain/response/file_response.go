@@ -42,6 +42,7 @@ type FileItem struct {
 	FileName     string               `json:"file_name"`
 	FileSize     int64                `json:"file_size"`
 	MimeType     string               `json:"mime_type"`
+	Category     string               `json:"category"`      // 文件分类
 	IsEnc        bool                 `json:"is_enc"`
 	HasThumbnail bool                 `json:"has_thumbnail"` // 是否有缩略图
 	Public       bool                 `json:"public"`        // 是否公开
@@ -168,6 +169,26 @@ type PublicFileListResponse struct {
 	Page int `json:"page"`
 	// 每页数量
 	PageSize int `json:"page_size"`
+}
+
+// CategoryStat 分类统计项
+type CategoryStat struct {
+	// 分类名称
+	Category string `json:"category"`
+	// 文件数量
+	Count int64 `json:"count"`
+	// 总大小（字节）
+	TotalSize int64 `json:"total_size"`
+}
+
+// CategoryStatsResponse 分类统计响应
+type CategoryStatsResponse struct {
+	// 分类统计列表
+	Categories []CategoryStat `json:"categories"`
+	// 文件总数
+	TotalCount int64 `json:"total_count"`
+	// 总大小（字节）
+	TotalSize int64 `json:"total_size"`
 }
 
 // UploadTaskItem 上传任务列表项（不包含敏感信息）

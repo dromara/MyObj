@@ -30,6 +30,8 @@ type FileListRequest struct {
 	VirtualPath string `form:"virtualPath"`
 	// 文件类型
 	Type string `form:"type"`
+	// 文件分类（document/image/video/audio/archive/code/other）
+	Category string `form:"category"`
 	// 排序字段（name, size, time）
 	SortBy string `form:"sortBy"`
 	// 页码（从1开始）

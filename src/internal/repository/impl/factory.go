@@ -27,6 +27,10 @@ type RepositoryFactory struct {
 	uploadChunkRepo  repository.UploadChunkRepository
 	uploadTaskRepo   repository.UploadTaskRepository
 
+	// 云盘任务仓储
+	cloudTaskRepo     *CloudTaskRepository
+	cloudTaskFileRepo *CloudTaskFileRepository
+
 	// S3相关仓储
 	s3BucketRepo         repository.S3BucketRepository
 	s3ObjectMetadataRepo repository.S3ObjectMetadataRepository
@@ -63,6 +67,10 @@ func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 		uploadChunkRepo:  NewUploadChunkRepository(db),
 		uploadTaskRepo:   NewUploadTaskRepository(db),
 
+		// 云盘任务仓储
+		cloudTaskRepo:     NewCloudTaskRepository(db),
+		cloudTaskFileRepo: NewCloudTaskFileRepository(db),
+
 		s3BucketRepo:          NewS3BucketRepository(db),
 		s3ObjectMetadataRepo:  NewS3ObjectMetadataRepository(db),
 		s3MultipartRepo:       NewS3MultipartRepository(db),
@@ -73,6 +81,16 @@ func NewRepositoryFactory(db *gorm.DB) *RepositoryFactory {
 		s3EncryptionKeyRepo:   NewS3EncryptionKeyRepository(db),
 		s3ObjectEncryptionRepo: NewS3ObjectEncryptionRepository(db),
 	}
+}
+
+// CloudTask 获取云盘任务仓储
+func (f *RepositoryFactory) CloudTask() *CloudTaskRepository {
+	return f.cloudTaskRepo
+}
+
+// CloudTaskFile 获取云盘任务文件仓储
+func (f *RepositoryFactory) CloudTaskFile() *CloudTaskFileRepository {
+	return f.cloudTaskFileRepo
 }
 
 // User 获取用户仓储
