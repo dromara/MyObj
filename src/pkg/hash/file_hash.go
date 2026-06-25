@@ -20,6 +20,7 @@ const (
 	MinFileSize          = 500 * 1024 * 1024      // 500MB 内存映射最小阈值
 	MaxFileSize          = 2 * 1024 * 1024 * 1024 // 2GB 内存映射最大阈值
 	Blake3MaxMemoryRatio = 0.4                    // Blake3最大内存使用比例
+	StreamingThreshold   = 100 * 1024 * 1024      // 100MB以上强制使用流式处理
 )
 
 // FastBlake3Hasher 高性能Blake3哈希计算器
@@ -121,7 +122,15 @@ func (h *FastBlake3Hasher) ComputeFileHash(filePath string) (string, time.Durati
 	var hashResult string
 
 	// 决定使用内存映射还是流式处理
-	if h.useMemoryMap &&
+	// 100MB以上强制使用流式处理，避免大文件吃满内存
+	if fileSize > StreamingThreshold {
+		if h.verbose {
+			if logger.LOG != nil {
+				logger.LOG.Debug("文件超过100MB，强制使用流式处理模式计算哈希")
+			}
+		}
+		hashResult, err = h.hashStreaming(filePath, fileSize)
+	} else if h.useMemoryMap &&
 		fileSize >= h.minSize &&
 		fileSize <= h.maxSize &&
 		fileSize <= memoryThreshold {

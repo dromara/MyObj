@@ -115,7 +115,7 @@ func main() {
 func initConfig() error {
 	log.Println("[初始化] 正在加载配置文件...")
 	if err := config.InitConfig(); err != nil {
-		logger.LOG.Error("配置初始化失败", "error", err)
+		log.Printf("[错误] 配置初始化失败: %v", err)
 		return err
 	}
 	log.Println("[成功] 配置文件加载完成")
@@ -152,20 +152,41 @@ func initDatabase() (err error) {
 	database.InitDataBase()
 	logger.LOG.Info("[成功] 数据库连接已建立")
 
-	// 迁移云盘任务数据表
-	logger.LOG.Info("[初始化] 正在迁移云盘任务数据表...")
-	if err := database.GetDB().AutoMigrate(&models.CloudTask{}, &models.CloudTaskFile{}); err != nil {
-		logger.LOG.Error("云盘任务数据表迁移失败", "error", err)
-	} else {
-		logger.LOG.Info("[成功] 云盘任务数据表迁移完成")
+	// 迁移数据表
+	logger.LOG.Info("[初始化] 正在迁移数据表...")
+	tables := []interface{}{
+		&models.UserInfo{},
+		&models.Group{},
+		&models.Power{},
+		&models.GroupPower{},
+		&models.FileInfo{},
+		&models.UserFiles{},
+		&models.FileChunk{},
+		&models.UploadChunk{},
+		&models.UploadTask{},
+		&models.DownloadTask{},
+		&models.Share{},
+		&models.Recycled{},
+		&models.Disk{},
+		&models.CloudTask{},
+		&models.CloudTaskFile{},
+		&models.CloudAccount{},
+		&models.ApiKey{},
+		&models.SysConfig{},
+		&models.VirtualPath{},
 	}
+	for _, table := range tables {
+		if migrateErr := database.GetDB().AutoMigrate(table); migrateErr != nil {
+			logger.LOG.Error("数据表迁移失败", "table", fmt.Sprintf("%T", table), "error", migrateErr)
+		}
+	}
+	logger.LOG.Info("[成功] 数据表迁移完成")
 
 	// 迁移S3数据表（如果启用S3服务）
 	if config.CONFIG.S3.Enable {
 		logger.LOG.Info("[初始化] 正在迁移S3数据表...")
-		if err := database.MigrateS3Tables(database.GetDB()); err != nil {
-			logger.LOG.Error("S3数据表迁移失败", "error", err)
-			// 不阻塞启动，S3功能可能暂时不可用
+		if migrateErr := database.MigrateS3Tables(database.GetDB()); migrateErr != nil {
+			logger.LOG.Error("S3数据表迁移失败", "error", migrateErr)
 		} else {
 			logger.LOG.Info("[成功] S3数据表迁移完成")
 		}

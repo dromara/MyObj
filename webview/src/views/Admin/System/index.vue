@@ -49,14 +49,70 @@
         </el-descriptions-item>
       </el-descriptions>
     </el-card>
+
+    <el-card shadow="never" class="update-card">
+      <template #header>
+        <div class="card-header">
+          <el-icon><Upload /></el-icon>
+          <span>{{ t('admin.system.update') || '系统更新' }}</span>
+        </div>
+      </template>
+
+      <div class="update-content">
+        <div class="update-info">
+          <span>{{ t('admin.system.currentVersion') || '当前版本' }}: <el-tag size="small">{{ systemInfo.version || 'unknown' }}</el-tag></span>
+        </div>
+        <el-button type="primary" :loading="checkingUpdate" @click="handleCheckUpdate">
+          {{ t('admin.system.checkUpdate') || '检测更新' }}
+        </el-button>
+      </div>
+
+      <div v-if="updateInfo" class="update-result">
+        <el-alert
+          v-if="!updateInfo.has_update"
+          :title="t('admin.system.isLatest') || '已是最新版本'"
+          type="success"
+          show-icon
+          :closable="false"
+        />
+        <div v-else class="update-available">
+          <el-alert
+            :title="`${t('admin.system.newVersionAvailable') || '发现新版本'}: v${updateInfo.latest_version}`"
+            type="warning"
+            show-icon
+            :closable="false"
+          >
+            <template #default>
+              <div class="update-detail">
+                <div v-if="updateInfo.file_size" class="update-size">
+                  {{ t('admin.system.fileSize') || '文件大小' }}: {{ formatSize(updateInfo.file_size) }}
+                </div>
+                <div v-if="updateInfo.release_note" class="update-note">
+                  <strong>{{ t('admin.system.releaseNote') || '更新日志' }}:</strong>
+                  <pre class="release-note-content">{{ updateInfo.release_note }}</pre>
+                </div>
+              </div>
+            </template>
+          </el-alert>
+          <el-button
+            type="danger"
+            :loading="upgrading"
+            @click="handleUpgrade"
+            style="margin-top: 12px"
+          >
+            {{ t('admin.system.startUpgrade') || '立即升级' }}
+          </el-button>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
   import type { ComponentInternalInstance } from 'vue'
   import { adminApi } from '@myobj/api'
-  import type { SystemConfig } from '@myobj/shared'
-  const { getSystemConfig, updateSystemConfig } = adminApi
+  import type { SystemConfig, UpdateInfo } from '@myobj/shared'
+  const { getSystemConfig, updateSystemConfig, checkUpdate, performUpgrade } = adminApi
   import { useI18n } from '@/composables'
 
   const { proxy } = getCurrentInstance() as ComponentInternalInstance
@@ -64,6 +120,10 @@
 
   const loading = ref(false)
   const saving = ref(false)
+  const checkingUpdate = ref(false)
+  const upgrading = ref(false)
+  const updateInfo = ref<UpdateInfo | null>(null)
+
   const configData = reactive<SystemConfig>({
     allow_register: true,
     webdav_enabled: true,
@@ -83,6 +143,15 @@
     total_files: 0,
     uptime: ''
   })
+
+  // 格式化文件大小
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
 
   // 加载配置
   const loadConfig = async () => {
@@ -132,6 +201,54 @@
     }
   }
 
+  // 检查更新
+  const handleCheckUpdate = async () => {
+    checkingUpdate.value = true
+    updateInfo.value = null
+    try {
+      const res = await checkUpdate()
+      if (res.code === 200 && res.data) {
+        updateInfo.value = res.data
+      } else {
+        proxy?.$modal.msgError(res.message || '检查更新失败')
+      }
+    } catch (error: any) {
+      proxy?.$modal.msgError(error.message || '检查更新失败')
+      proxy?.$log?.error(error)
+    } finally {
+      checkingUpdate.value = false
+    }
+  }
+
+  // 执行升级
+  const handleUpgrade = async () => {
+    if (!updateInfo.value?.download_url) return
+
+    try {
+      await proxy?.$modal.confirm(
+        `确定要升级到 v${updateInfo.value.latest_version} 吗？升级过程中服务将短暂中断。`,
+        '确认升级',
+        { confirmButtonText: '立即升级', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+
+    upgrading.value = true
+    try {
+      const res = await performUpgrade(updateInfo.value.download_url)
+      if (res.code === 200) {
+        proxy?.$modal.msgSuccess('升级任务已启动，服务即将重启，请稍候...')
+      } else {
+        proxy?.$modal.msgError(res.message || '升级失败')
+      }
+    } catch (error: any) {
+      proxy?.$modal.msgError(error.message || '升级失败')
+    } finally {
+      upgrading.value = false
+    }
+  }
+
   onMounted(() => {
     loadConfig()
   })
@@ -145,7 +262,8 @@
   }
 
   .config-card,
-  .info-card {
+  .info-card,
+  .update-card {
     flex-shrink: 0;
   }
 
@@ -161,6 +279,45 @@
     color: var(--el-text-color-secondary);
     margin-top: 8px;
     margin-left: 0;
+  }
+
+  .update-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .update-info {
+    font-size: 14px;
+    color: var(--el-text-color-regular);
+  }
+
+  .update-result {
+    margin-top: 16px;
+  }
+
+  .update-detail {
+    margin-top: 8px;
+  }
+
+  .update-size {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    margin-bottom: 8px;
+  }
+
+  .release-note-content {
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--el-fill-color-light);
+    padding: 8px;
+    border-radius: 4px;
+    margin: 4px 0 0 0;
   }
 
   /* Switch 样式优化 */
@@ -186,7 +343,8 @@
   /* 移动端适配 */
   @media (max-width: 768px) {
     .config-card,
-    .info-card {
+    .info-card,
+    .update-card {
       margin-bottom: 16px;
     }
 
@@ -207,6 +365,11 @@
     .info-card :deep(.el-descriptions__label) {
       width: 100px !important;
       font-size: 12px;
+    }
+
+    .update-content {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 
@@ -236,13 +399,15 @@
   }
 
   html.dark .config-card,
-  html.dark .info-card {
+  html.dark .info-card,
+  html.dark .update-card {
     background: var(--card-bg);
     border-color: var(--el-border-color);
   }
 
   html.dark .config-card :deep(.el-card__header),
-  html.dark .info-card :deep(.el-card__header) {
+  html.dark .info-card :deep(.el-card__header),
+  html.dark .update-card :deep(.el-card__header) {
     background: var(--card-bg);
     border-bottom-color: var(--el-border-color);
   }

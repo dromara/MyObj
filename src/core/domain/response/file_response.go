@@ -42,7 +42,7 @@ type FileItem struct {
 	FileName     string               `json:"file_name"`
 	FileSize     int64                `json:"file_size"`
 	MimeType     string               `json:"mime_type"`
-	Category     string               `json:"category"`      // 文件分类
+	Category     string               `json:"category"` // 文件分类
 	IsEnc        bool                 `json:"is_enc"`
 	HasThumbnail bool                 `json:"has_thumbnail"` // 是否有缩略图
 	Public       bool                 `json:"public"`        // 是否公开
@@ -117,6 +117,7 @@ type UploadProgressResponse struct {
 	Progress   float64  `json:"progress"`    // 进度百分比 (0-100)
 	Md5        []string `json:"md5"`         // 已上传分片的MD5列表
 	IsComplete bool     `json:"is_complete"` // 是否已完成
+	Status     string   `json:"status"`      // 任务状态: uploading/merging/completed/failed
 }
 
 // VideoPlayTokenResponse 视频播放 Token 响应

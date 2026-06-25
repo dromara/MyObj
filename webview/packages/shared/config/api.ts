@@ -149,7 +149,9 @@ export const API_ENDPOINTS = {
     },
     SYSTEM: {
       CONFIG: '/admin/system/config',
-      UPDATE_CONFIG: '/admin/system/update-config'
+      UPDATE_CONFIG: '/admin/system/update-config',
+      CHECK_UPDATE: '/admin/system/check-update',
+      UPGRADE: '/admin/system/upgrade'
     }
   },
 

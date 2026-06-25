@@ -172,3 +172,28 @@ export const getSystemConfig = () => {
 export const updateSystemConfig = (data: UpdateSystemConfigRequest) => {
   return post<ApiResponse<SystemConfig>>(API_ENDPOINTS.ADMIN.SYSTEM.UPDATE_CONFIG, data)
 }
+
+// ========== 系统升级 API ==========
+
+export interface UpdateInfo {
+  has_update: boolean
+  current_version: string
+  latest_version: string
+  release_note: string
+  download_url: string
+  file_size: number
+}
+
+/**
+ * 检查更新
+ */
+export const checkUpdate = () => {
+  return get<ApiResponse<UpdateInfo>>(API_ENDPOINTS.ADMIN.SYSTEM.CHECK_UPDATE)
+}
+
+/**
+ * 执行升级
+ */
+export const performUpgrade = (downloadUrl: string) => {
+  return post<ApiResponse>(API_ENDPOINTS.ADMIN.SYSTEM.UPGRADE, { download_url: downloadUrl })
+}

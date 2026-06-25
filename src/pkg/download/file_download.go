@@ -226,7 +226,7 @@ func mergeChunkedFile(ctx context.Context, fileInfo *models.FileInfo, outputPath
 	return nil
 }
 
-// copyFile 复制文件
+// copyFile 复制文件（使用 1MB 缓冲区）
 func copyFile(src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
@@ -240,7 +240,8 @@ func copyFile(src, dst string) error {
 	}
 	defer dstFile.Close()
 
-	_, err = io.Copy(dstFile, srcFile)
+	buf := make([]byte, 1024*1024)
+	_, err = io.CopyBuffer(dstFile, srcFile, buf)
 	return err
 }
 

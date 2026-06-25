@@ -3,9 +3,9 @@ package models
 // FileChunk 文件分片信息
 type FileChunk struct {
 	// 分片ID
-	ID string `gorm:"type:VARCHAR;not null;primaryKey;unique" json:"id"`
+	ID string `gorm:"type:VARCHAR(255);not null;primaryKey;unique" json:"id"`
 	// 文件ID
-	FileID string `gorm:"type:VARCHAR;not null" json:"file_id"`
+	FileID string `gorm:"type:VARCHAR(255);not null" json:"file_id"`
 	// 分片文件路径
 	ChunkPath string `gorm:"type:TEXT;not null" json:"chunk_path"`
 	// 分片文件大小

@@ -2,7 +2,6 @@
  * 文件下载 Composable
  * 统一处理文件下载逻辑，支持加密文件
  */
-import axios from 'axios'
 import { downloadApi } from '@myobj/api'
 const { createLocalFileDownload, getDownloadTaskList, getLocalFileDownloadUrl } = downloadApi
 import { cache } from '@myobj/shared'
@@ -98,43 +97,20 @@ export function useFileDownload(options?: {
                   options.onTaskReady()
                 }
 
-                // 开始下载文件
+                // 使用 <a> 标签触发浏览器原生下载，大文件不会加载到内存
                 const downloadUrl = getLocalFileDownloadUrl(taskId)
 
                 proxy?.$log.debug('开始下载文件:', downloadUrl)
 
-                try {
-                  const token = cache.local.get('token')
-                  const response = await axios.get(downloadUrl, {
-                    responseType: 'blob',
-                    timeout: 0,
-                    headers: {
-                      Authorization: token ? `Bearer ${token}` : ''
-                    },
-                    withCredentials: true
-                  })
+                const link = document.createElement('a')
+                link.href = downloadUrl
+                link.download = task.file_name || 'download'
+                link.style.display = 'none'
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
 
-                  const blob = new Blob([response.data])
-                  const blobUrl = window.URL.createObjectURL(blob)
-                  const link = document.createElement('a')
-                  link.href = blobUrl
-                  link.download = task.file_name || 'download'
-                  link.style.display = 'none'
-                  document.body.appendChild(link)
-                  link.click()
-                  document.body.removeChild(link)
-                  window.URL.revokeObjectURL(blobUrl)
-
-                  proxy?.$modal.msgSuccess(t('tasks.downloadStarted') || '下载已开始')
-                } catch (error: any) {
-                  proxy?.$log.error('下载文件失败:', error)
-                  proxy?.$modal.msgError(
-                    (t('tasks.downloadFailed') || '下载失败') +
-                      ': ' +
-                      (error.message || t('common.unknownError') || '未知错误')
-                  )
-                }
-
+                proxy?.$modal.msgSuccess(t('tasks.downloadStarted') || '下载已开始')
                 downloadingFile.value = false
                 return
               } else if (task.state === 4) {

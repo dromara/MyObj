@@ -898,7 +898,7 @@ func (a *AdminService) AdminGetSystemConfig(ctx context.Context) (*models.JsonRe
 	config := response.AdminSystemConfigResponse{
 		AllowRegister: allowRegister != nil && allowRegister.Value == "true",
 		WebdavEnabled: webdavEnabled != nil && webdavEnabled.Value == "true",
-		Version:       "1.1.0", // TODO: 从配置或构建信息获取
+		Version:       NewUpgradeService().GetCurrentVersion(),
 		TotalUsers:    totalUsers,
 		TotalFiles:    totalFiles,
 		Uptime:        custom_type.GetSystemRuntime().String(),
@@ -985,4 +985,34 @@ func (a *AdminService) AdminUpdateSystemConfig(ctx context.Context, req *request
 	}
 
 	return a.AdminGetSystemConfig(ctx)
+}
+
+// ========== 系统升级 ==========
+
+// CheckUpdate 检查更新
+func (a *AdminService) CheckUpdate(ctx context.Context) (*models.JsonResponse, error) {
+	upgradeSvc := NewUpgradeService()
+	info, err := upgradeSvc.CheckUpdate()
+	if err != nil {
+		logger.LOG.Error("检查更新失败", "error", err)
+		return nil, fmt.Errorf("检查更新失败: %w", err)
+	}
+	return models.NewJsonResponse(200, "检查成功", info), nil
+}
+
+// PerformUpgrade 执行升级
+func (a *AdminService) PerformUpgrade(ctx context.Context, downloadURL string) (*models.JsonResponse, error) {
+	upgradeSvc := NewUpgradeService()
+
+	// 异步执行升级，先返回响应
+	go func() {
+		logger.LOG.Info("开始执行系统升级", "url", downloadURL)
+		if err := upgradeSvc.PerformUpgrade(downloadURL); err != nil {
+			logger.LOG.Error("系统升级失败", "error", err)
+			return
+		}
+		logger.LOG.Info("系统升级脚本已启动，服务即将重启")
+	}()
+
+	return models.NewJsonResponse(200, "升级任务已启动，服务即将重启", nil), nil
 }

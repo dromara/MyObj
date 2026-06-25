@@ -63,6 +63,10 @@ func (a *AdminHandler) Router(c *gin.RouterGroup) {
 		// 系统配置
 		admin.GET("/system/config", a.GetSystemConfig)
 		admin.POST("/system/update-config", a.UpdateSystemConfig)
+
+		// 系统升级
+		admin.GET("/system/check-update", a.CheckUpdate)
+		admin.POST("/system/upgrade", a.PerformUpgrade)
 	}
 
 	logger.LOG.Info("[路由] 管理路由注册完成✔️")
@@ -399,6 +403,35 @@ func (a *AdminHandler) UpdateSystemConfig(c *gin.Context) {
 	res, err := a.service.AdminUpdateSystemConfig(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(200, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(200, res)
+}
+
+// ========== 系统升级 ==========
+
+// CheckUpdate 检查更新
+func (a *AdminHandler) CheckUpdate(c *gin.Context) {
+	res, err := a.service.CheckUpdate(c.Request.Context())
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, err.Error(), nil))
+		return
+	}
+	c.JSON(200, res)
+}
+
+// PerformUpgrade 执行升级
+func (a *AdminHandler) PerformUpgrade(c *gin.Context) {
+	var req struct {
+		DownloadURL string `json:"download_url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.DownloadURL == "" {
+		c.JSON(400, models.NewJsonResponse(400, "参数错误", nil))
+		return
+	}
+	res, err := a.service.PerformUpgrade(c.Request.Context(), req.DownloadURL)
+	if err != nil {
+		c.JSON(200, models.NewJsonResponse(500, err.Error(), nil))
 		return
 	}
 	c.JSON(200, res)

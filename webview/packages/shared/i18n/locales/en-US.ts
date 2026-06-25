@@ -955,7 +955,15 @@ export default {
       configSaveSuccess: 'Configuration saved successfully',
       saveFailed: 'Save failed',
       loadConfigFailed: 'Failed to load configuration',
-      featureDeveloping: 'System configuration feature is under development'
+      featureDeveloping: 'System configuration feature is under development',
+      update: 'System Update',
+      currentVersion: 'Current Version',
+      checkUpdate: 'Check for Updates',
+      isLatest: 'Already up to date',
+      newVersionAvailable: 'New version available',
+      fileSize: 'File Size',
+      releaseNote: 'Release Notes',
+      startUpgrade: 'Upgrade Now'
     }
   },
   preview: {

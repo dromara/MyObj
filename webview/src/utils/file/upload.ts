@@ -736,12 +736,12 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
       }
       
       // 轮询上传任务状态，等待后端处理完成
-      const maxPollAttempts = 60 // 最多轮询60次（30秒）
       let pollAttempts = 0
       let processingComplete = false
+      const maxMergePollAttempts = 300 // 合并阶段最多轮询300次（5分钟）
       
-      while (pollAttempts < maxPollAttempts && !processingComplete) {
-        await new Promise(resolve => setTimeout(resolve, 500)) // 等待500ms
+      while (pollAttempts < maxMergePollAttempts && !processingComplete) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 每秒轮询一次
         
         // 查询上传任务状态
         try {
@@ -750,8 +750,8 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
           if (progressResponse.code === 200 && progressResponse.data) {
             const taskData = progressResponse.data as any
             
-            // 检查是否处理完成
-            if (taskData.is_complete === true) {
+            // 检查是否处理完成（后端标记 is_complete=true 且 status=completed）
+            if (taskData.is_complete === true && taskData.status === 'completed') {
               processingComplete = true
               
               // 检查是否有file_id，如果没有说明后端处理失败
@@ -775,10 +775,18 @@ export const uploadSingleFile = async (params: UploadParams): Promise<ApiRespons
               }
               throw new Error(errorMsg)
             }
+
+            // 如果是 merging 状态，更新进度提示
+            if (taskData.status === 'merging') {
+              onProgress?.(99, file.name) // 显示99%表示处理中
+            }
           }
         } catch (error: any) {
           // 如果查询失败，记录错误但继续等待
-          logger.warn(`查询上传任务状态失败 (${pollAttempts + 1}/${maxPollAttempts}):`, error)
+          if (error.message?.includes('文件处理失败') || error.message?.includes('文件处理超时')) {
+            throw error // 业务错误直接抛出
+          }
+          logger.warn(`查询上传任务状态失败 (${pollAttempts + 1}/${maxMergePollAttempts}):`, error)
         }
         
         pollAttempts++

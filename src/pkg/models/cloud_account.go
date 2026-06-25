@@ -6,15 +6,15 @@ import (
 
 // CloudAccount 云盘账号
 type CloudAccount struct {
-	ID           int                  `gorm:"type:INTEGER;primaryKey;autoIncrement" json:"id"`
-	UserID       string               `gorm:"type:VARCHAR;not null;index" json:"user_id"`
-	Provider     string               `gorm:"type:VARCHAR;not null" json:"provider"`
-	AccountName  string               `gorm:"type:VARCHAR" json:"account_name"`
-	AccessToken  string               `gorm:"type:TEXT" json:"-"`
-	RefreshToken string               `gorm:"type:TEXT" json:"-"`
-	Cookie       string               `gorm:"type:TEXT" json:"-"`
+	ID           int                   `gorm:"type:INTEGER;primaryKey;autoIncrement" json:"id"`
+	UserID       string                `gorm:"type:VARCHAR(255);not null;index" json:"user_id"`
+	Provider     string                `gorm:"type:VARCHAR(255);not null" json:"provider"`
+	AccountName  string                `gorm:"type:VARCHAR(255)" json:"account_name"`
+	AccessToken  string                `gorm:"type:TEXT" json:"-"`
+	RefreshToken string                `gorm:"type:TEXT" json:"-"`
+	Cookie       string                `gorm:"type:TEXT" json:"-"`
 	ExpiresAt    *custom_type.JsonTime `gorm:"type:DATETIME" json:"expires_at"`
-	Status       int                  `gorm:"type:INTEGER;default:1" json:"status"` // 1=有效 0=过期 -1=失效
+	Status       int                   `gorm:"type:INTEGER;default:1" json:"status"` // 1=有效 0=过期 -1=失效
 	CreatedAt    custom_type.JsonTime  `gorm:"type:DATETIME" json:"created_at"`
 	UpdatedAt    custom_type.JsonTime  `gorm:"type:DATETIME" json:"updated_at"`
 }

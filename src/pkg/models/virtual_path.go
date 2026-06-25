@@ -7,7 +7,7 @@ import (
 // VirtualPath 虚拟路径
 type VirtualPath struct {
 	ID          int                  `gorm:"type:INTEGER;not null;primaryKey;unique" json:"id"`  // 主键ID，唯一标识
-	UserID      string               `gorm:"type:VARCHAR;not null" json:"user_id"`               // 用户ID，关联用户表
+	UserID      string               `gorm:"type:VARCHAR(255);not null" json:"user_id"`          // 用户ID，关联用户表
 	Path        string               `gorm:"type:TEXT;not null" json:"path"`                     // 虚拟路径
 	IsFile      bool                 `gorm:"type:BOOLEAN;default:false;not null" json:"is_file"` // 是否为文件，默认false
 	IsDir       bool                 `gorm:"type:BOOLEAN;default:true;not null" json:"is_dir"`   // 是否为目录，默认true

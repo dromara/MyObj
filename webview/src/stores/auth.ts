@@ -44,6 +44,8 @@ export const useAuthStore = defineStore(StoreId.Auth, () => {
     token.value = newToken
     try {
       cache.local.set('token', newToken)
+      // 同时设置 cookie，供浏览器原生下载（<a>标签）认证使用
+      document.cookie = `Authorization=${newToken}; path=/; max-age=86400`
     } catch (error) {
       logger.error('保存 token 到缓存失败:', error)
     }
@@ -56,6 +58,8 @@ export const useAuthStore = defineStore(StoreId.Auth, () => {
     token.value = null
     try {
       cache.local.remove('token')
+      // 清除认证 cookie
+      document.cookie = 'Authorization=; path=/; max-age=0'
     } catch (error) {
       logger.error('清除 token 失败:', error)
     }

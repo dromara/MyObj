@@ -395,6 +395,9 @@ func mergeChunks(data *FileUploadData) (string, error) {
 	}
 	defer mergedFile.Close()
 
+	// 使用 1MB 缓冲区流式合并，避免大文件内存暴涨
+	buf := make([]byte, 1024*1024)
+
 	// 按索引顺序合并分片
 	for i := 0; i < data.ChunkCount; i++ {
 		chunkPath := util.ChunkPath(tempDir, i)
@@ -403,7 +406,7 @@ func mergeChunks(data *FileUploadData) (string, error) {
 			return "", fmt.Errorf("打开分片文件失败 [%d]: %w", i, err)
 		}
 
-		if _, err := io.Copy(mergedFile, chunkFile); err != nil {
+		if _, err := io.CopyBuffer(mergedFile, chunkFile, buf); err != nil {
 			chunkFile.Close()
 			return "", fmt.Errorf("合并分片失败 [%d]: %w", i, err)
 		}
@@ -428,7 +431,6 @@ func detectMimeType(filePath string) (string, error) {
 	}
 	return mime.String(), nil
 }
-
 
 // selectBestDisk 选择剩余空间最大的磁盘
 func selectBestDisk(ctx context.Context, repoFactory *impl.RepositoryFactory, fileSize int64) (*models.Disk, error) {
@@ -547,7 +549,7 @@ func splitAndStoreFile(filePath, storageDir, virtualFileName, fileID string, chu
 	return chunks, mainPath, nil
 }
 
-// copyFile 复制文件
+// copyFile 复制文件（使用 1MB 缓冲区，避免大文件内存暴涨）
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -561,7 +563,8 @@ func copyFile(src, dst string) error {
 	}
 	defer destFile.Close()
 
-	if _, err := io.Copy(destFile, sourceFile); err != nil {
+	buf := make([]byte, 1024*1024)
+	if _, err := io.CopyBuffer(destFile, sourceFile, buf); err != nil {
 		return err
 	}
 

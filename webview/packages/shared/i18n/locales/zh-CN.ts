@@ -944,7 +944,15 @@ export default {
       configSaveSuccess: '配置保存成功',
       saveFailed: '保存失败',
       loadConfigFailed: '加载配置失败',
-      featureDeveloping: '系统配置功能开发中'
+      featureDeveloping: '系统配置功能开发中',
+      update: '系统更新',
+      currentVersion: '当前版本',
+      checkUpdate: '检测更新',
+      isLatest: '已是最新版本',
+      newVersionAvailable: '发现新版本',
+      fileSize: '文件大小',
+      releaseNote: '更新日志',
+      startUpgrade: '立即升级'
     }
   },
   preview: {
