@@ -1261,7 +1261,10 @@ export default {
       title: 'Enter File Password',
       label: 'File Password',
       placeholder: 'Please enter file password'
-    }
+    },
+    cinema: {
+      randomPlay: 'Random Play'
+    },
   },
   editor: {
     title: 'Edit Online',

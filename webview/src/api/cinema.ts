@@ -82,3 +82,6 @@ export const getRelatedCinemaVideos = (rootId: number, fileId: string, page = 1,
     page,
     page_size: pageSize
   })
+
+export const getRandomCinemaVideo = (rootId: number) =>
+  get<ApiResponse<CinemaVideoDetailData>>(`/cinema/${rootId}/videos/random`)

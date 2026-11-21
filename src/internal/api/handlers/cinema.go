@@ -31,6 +31,7 @@ func (h *CinemaHandler) Router(group *gin.RouterGroup) {
 	cinema.GET("/:root_id/folders/:folder_id/videos", h.FolderVideos)
 	cinema.GET("/:root_id/videos/:uf_id", h.VideoDetail)
 	cinema.GET("/:root_id/videos/:uf_id/related", h.Related)
+	cinema.GET("/:root_id/videos/random", h.RandomVideo)
 }
 
 func positivePathInt(c *gin.Context, name string) (int, bool) {
@@ -107,6 +108,20 @@ func (h *CinemaHandler) Related(c *gin.Context) {
 		return
 	}
 	result, err := h.service.Related(c.Request.Context(), c.GetString("userID"), rootID, c.Param("uf_id"), queryInt(c, "page"), queryInt(c, "page_size"))
+	if err != nil {
+		c.JSON(http.StatusOK, models.NewJsonResponse(400, err.Error(), nil))
+		return
+	}
+	c.JSON(http.StatusOK, models.NewJsonResponse(200, "查询成功", result))
+}
+
+func (h *CinemaHandler) RandomVideo(c *gin.Context) {
+	rootID, ok := positivePathInt(c, "root_id")
+	if !ok {
+		c.JSON(http.StatusOK, models.NewJsonResponse(400, "影视文件夹ID无效", nil))
+		return
+	}
+	result, err := h.service.RandomVideo(c.Request.Context(), c.GetString("userID"), rootID)
 	if err != nil {
 		c.JSON(http.StatusOK, models.NewJsonResponse(400, err.Error(), nil))
 		return

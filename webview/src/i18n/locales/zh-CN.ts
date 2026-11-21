@@ -1245,7 +1245,10 @@ export default {
       title: '输入文件密码',
       label: '文件密码',
       placeholder: '请输入文件密码'
-    }
+    },
+    cinema: {
+      randomPlay: '随机播放'
+    },
   },
   editor: {
     title: '在线编辑',

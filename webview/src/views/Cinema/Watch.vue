@@ -14,6 +14,17 @@
             ><el-icon><Lock /></el-icon> 加密视频</span
           >
         </button>
+        <button
+          v-if="!videoUrl"
+          type="button"
+          class="cinema-poster__random"
+          :disabled="randomLoading"
+          @click="playRandom"
+          :title="$t('cinema.randomPlay')"
+        >
+          <el-icon v-if="!randomLoading" :size="24"><Refresh /></el-icon>
+          <el-icon v-else :size="20"><Loading class="is-loading" /></el-icon>
+        </button>
       </div>
       <div class="cinema-watch__meta">
         <span>{{ video.directory.path }}</span>
@@ -53,8 +64,8 @@
   } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { ElMessageBox } from 'element-plus'
-  import { Loading, Lock, VideoPlay } from '@element-plus/icons-vue'
-  import { getCinemaVideo, getRelatedCinemaVideos, type CinemaVideo } from '@/api/cinema'
+  import { Loading, Lock, VideoPlay, Refresh } from '@element-plus/icons-vue'
+  import { getCinemaVideo, getRelatedCinemaVideos, getRandomCinemaVideo, type CinemaVideo } from '@/api/cinema'
   import { getThumbnail } from '@/api/file'
   import type { FileTagsData } from '@/api/tag'
   import { createVideoPlayPrecheck, getVideoStreamUrl } from '@/api/video'
@@ -81,6 +92,7 @@
   let observer: IntersectionObserver | undefined
   let detailRequest = 0
   let relatedGeneration = 0
+const randomLoading = ref(false)
 
   const clearRelated = () => {
     ++relatedGeneration
@@ -205,6 +217,25 @@
   const handlePlayerError = (message: string) => {
     proxy?.$modal.msgError(message)
     videoUrl.value = ''
+  }
+
+  const playRandom = async () => {
+    if (randomLoading.value || !video.value) {
+      return
+    }
+    randomLoading.value = true
+    try {
+      const response = await getRandomCinemaVideo(rootId.value)
+      if (response.code !== 200 || !response.data) {
+        throw new Error(response.message || '获取随机视频失败')
+      }
+      const randomVideo = response.data.video
+      void router.push(`/cinema/${rootId.value}/watch/${randomVideo.file_id}`)
+    } catch (error) {
+      proxy?.$modal.msgError(error instanceof Error ? error.message : '随机播放失败')
+    } finally {
+      randomLoading.value = false
+    }
   }
 
   const loadRelated = async () => {
@@ -373,6 +404,31 @@
     border-radius: 999px;
     font-size: 12px;
     background: rgba(0, 0, 0, 0.7);
+  }
+  .cinema-poster__random {
+    position: absolute;
+    z-index: 1;
+    left: 16px;
+    bottom: 16px;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 0;
+    color: white;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+  .cinema-poster__random:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.05);
+  }
+  .cinema-poster__random:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .cinema-watch__meta {
     order: 3;

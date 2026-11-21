@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"myobj/src/core/domain/response"
 	"myobj/src/internal/repository/impl"
 	"myobj/src/pkg/custom_type"
@@ -401,4 +402,29 @@ func (s *CinemaService) ValidateVideo(ctx context.Context, userID string, rootID
 		return fmt.Errorf("视频校验失败: %w", err)
 	}
 	return nil
+}
+
+func (s *CinemaService) RandomVideo(ctx context.Context, userID string, rootID int) (*response.CinemaVideoDetailResponse, error) {
+	tree, err := s.loadTree(ctx, userID, rootID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all video file IDs for random selection
+	var fileIDs []string
+	if err := s.playableVideoQuery(ctx, userID, tree.ids).
+		Select("uf.uf_id").Scan(&fileIDs).Error; err != nil {
+		return nil, err
+	}
+
+	if len(fileIDs) == 0 {
+		return nil, errors.New("影视库中没有可播放视频")
+	}
+
+	// Select random file ID
+	randomIndex := rand.Intn(len(fileIDs))
+	randomFileID := fileIDs[randomIndex]
+
+	// Get full video detail
+	return s.VideoDetail(ctx, userID, rootID, randomFileID)
 }
